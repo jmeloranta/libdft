@@ -1,0 +1,10 @@
+threads = 48
+grid = 1024 1024
+gstep = 0.2
+timestep = 10
+iter = 5000
+itermode = 1
+dump = 10
+model = 0
+rho0 = 0.0218360
+restart = 0

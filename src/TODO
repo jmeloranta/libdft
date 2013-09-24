@@ -1,0 +1,4 @@
+- 2D KC term gives wrong result for large bubbles
+- DR in 2D seems to give NaN
+- backflow and vortex give NaNs
+- fgrep TODO *.[ch]
