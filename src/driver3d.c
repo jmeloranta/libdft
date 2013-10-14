@@ -29,7 +29,7 @@ dft_ot_functional *dft_driver_otf = 0;
 int dft_driver_init_wavefunction = 1;
 
 static long driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
-static long driver_norm_type = 0, driver_nhe = 0, center_release = 0;
+static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc = 0;
 static long driver_rels = 0;
 static double driver_frad = 0.0;
 static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0;
@@ -199,18 +199,18 @@ EXPORT void dft_driver_initialize() {
     }
     grid_timer_start(&timer);
     grid_threads_init(driver_threads);
-    workspace1 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
-    workspace2 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
-    workspace3 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
-    workspace4 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
-    workspace5 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
-    workspace6 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
-    workspace7 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
+    workspace1 = dft_driver_alloc_rgrid();
+    workspace2 = dft_driver_alloc_rgrid();
+    workspace3 = dft_driver_alloc_rgrid();
+    workspace4 = dft_driver_alloc_rgrid();
+    workspace5 = dft_driver_alloc_rgrid();
+    workspace6 = dft_driver_alloc_rgrid();
+    workspace7 = dft_driver_alloc_rgrid();
     if(driver_dft_model & DFT_OT_BACKFLOW) {
-      workspace8 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
-      workspace9 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
+      workspace8 = dft_driver_alloc_rgrid();
+      workspace9 = dft_driver_alloc_rgrid();
     }
-    density = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
+    density = dft_driver_alloc_rgrid();
     dft_driver_otf = dft_ot3d_alloc(driver_dft_model, driver_nx, driver_ny, driver_nz, driver_step, MIN_SUBSTEPS, MAX_SUBSTEPS);
     if(driver_rho0 == 0.0) driver_rho0 = dft_driver_otf->rho0;
     else dft_driver_otf->rho0 = driver_rho0;
@@ -272,7 +272,7 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
 }
 
 /*
- * Set up boundaries.
+ * Set up absorbing boundaries.
  *
  * type    = boundary type: 0 = regular, 1 = absorbing (long).
  * absb    = width of absorbing boundary (double; bohr).
@@ -288,6 +288,21 @@ EXPORT void dft_driver_setup_boundaries(long boundary_type, double absb) {
 
   driver_boundary_type = boundary_type;
   driver_abs = absb;
+}
+
+/*
+ * Impose normal or vortex compatible boundaries.
+ *
+ * bc = Boundary type:
+ *           Normal (0), Vortex along X (1), Vortex along Y (2), Vortex along Z (3) (int).
+ *
+ */
+
+EXPORT void dft_driver_setup_boundary_condition(int bc) {
+
+  check_mode();
+
+  driver_bc = bc;
 }
 
 /*
@@ -396,23 +411,23 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
     break;
   case DFT_DRIVER_KINETIC_CN_DBC:
     if(!cworkspace)
-      cworkspace = cgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, CGRID3D_PERIODIC_BOUNDARY, 0);
+      cworkspace = dft_driver_alloc_cgrid();
     grid3d_wf_propagate_kinetic_cn_dbc(gwf, htime, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC:
     if(!cworkspace)
-      cworkspace = cgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, CGRID3D_PERIODIC_BOUNDARY, 0);
+      cworkspace = dft_driver_alloc_cgrid();
     grid3d_wf_propagate_kinetic_cn_nbc(gwf, htime, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_PBC:
     if(!cworkspace)
-      cworkspace = cgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, CGRID3D_PERIODIC_BOUNDARY, 0);
+      cworkspace = dft_driver_alloc_cgrid();
     grid3d_wf_propagate_kinetic_cn_pbc(gwf, htime, cworkspace);
     break;
 #if 0
   case DFT_DRIVER_KINETIC_CN_APBC:
     if(!cworkspace)
-      cworkspace = cgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, CGRID3D_PERIODIC_BOUNDARY, 0);
+      cworkspace = dft_driver_alloc_cgrid();
     grid3d_wf_propagate_kinetic_cn_apbc(gwf, htime, cworkspace);
     break;
 #endif
@@ -578,13 +593,33 @@ EXPORT void dft_driver_convolution_eval(rgrid3d *out, rgrid3d *pot, rgrid3d *den
 
 EXPORT cgrid3d *dft_driver_alloc_cgrid() {
 
-  check_mode();
+  double complex (*grid_type)(const cgrid3d *, long, long, long);
 
+  check_mode();
   if(driver_nx == 0) {
     fprintf(stderr, "libdft: dft_driver routines must be initialized first.\n");
     exit(1);
   }
-  return cgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, CGRID3D_PERIODIC_BOUNDARY, 0);
+
+  switch(driver_bc) {
+  case DFT_DRIVER_BC_NORMAL: 
+    grid_type = CGRID3D_PERIODIC_BOUNDARY;
+    break;
+  case DFT_DRIVER_BC_X:
+    grid_type = CGRID3D_VORTEX_X_BOUNDARY;
+    break;
+  case DFT_DRIVER_BC_Y:
+    grid_type = CGRID3D_VORTEX_Y_BOUNDARY;
+    break;
+  case DFT_DRIVER_BC_Z:
+    grid_type = CGRID3D_VORTEX_Z_BOUNDARY;
+    break;
+  default:
+    fprintf(stderr, "libdft: Illegal boundary type.\n");
+    exit(1);
+  }
+
+  return cgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, grid_type, 0);
 }
 
 /*
@@ -596,13 +631,30 @@ EXPORT cgrid3d *dft_driver_alloc_cgrid() {
 
 EXPORT rgrid3d *dft_driver_alloc_rgrid() {
 
+  double (*grid_type)(const rgrid3d *, long, long, long);
+
   check_mode();
 
   if(driver_nx == 0) {
     fprintf(stderr, "libdft: dft_driver routines must be initialized first.\n");
     exit(1);
   }
-  return rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
+
+  switch(driver_bc) {
+  case DFT_DRIVER_BC_NORMAL: 
+    grid_type = RGRID3D_PERIODIC_BOUNDARY;
+    break;
+  case DFT_DRIVER_BC_X:
+  case DFT_DRIVER_BC_Y:
+  case DFT_DRIVER_BC_Z:
+    grid_type = RGRID3D_VORTEX_BOUNDARY;
+    break;
+  default:
+    fprintf(stderr, "libdft: Illegal boundary type.\n");
+    exit(1);
+  }
+
+  return rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, grid_type, 0);
 }
 
 /*
@@ -617,14 +669,34 @@ EXPORT rgrid3d *dft_driver_alloc_rgrid() {
 EXPORT wf3d *dft_driver_alloc_wavefunction(double mass) {
 
   wf3d *tmp;
-
+  int grid_type;
+  
   check_mode();
 
   if(driver_nx == 0) {
     fprintf(stderr, "libdft: dft_driver routines must be initialized first.\n");
     exit(1);
   }
-  tmp = grid3d_wf_alloc(driver_nx, driver_ny, driver_nz, driver_step, mass, WF3D_PERIODIC_BOUNDARY, WF3D_2ND_ORDER_PROPAGATOR);
+
+  switch(driver_bc) {
+  case DFT_DRIVER_BC_NORMAL: 
+    grid_type = WF3D_PERIODIC_BOUNDARY;
+    break;
+  case DFT_DRIVER_BC_X:
+    grid_type = WF3D_VORTEX_X_BOUNDARY;
+    break;
+  case DFT_DRIVER_BC_Y:
+    grid_type = WF3D_VORTEX_Y_BOUNDARY;
+    break;
+  case DFT_DRIVER_BC_Z:
+    grid_type = WF3D_VORTEX_Z_BOUNDARY;
+    break;
+  default:
+    fprintf(stderr, "libdft: Illegal boundary type.\n");
+    exit(1);
+  }
+
+  tmp = grid3d_wf_alloc(driver_nx, driver_ny, driver_nz, driver_step, mass, grid_type, WF3D_2ND_ORDER_PROPAGATOR);
   cgrid3d_constant(tmp->grid, sqrt(driver_rho0));
   return tmp;
 }
@@ -794,7 +866,7 @@ EXPORT void dft_driver_write_phase(wf3d *wf, char *base) {
 
   check_mode();
 
-  phase = rgrid3d_alloc(nx, ny, nz, grid->step, RGRID3D_PERIODIC_BOUNDARY, 0);
+  phase = dft_driver_alloc_rgrid();
   for(i = 0; i < nx; i++)
     for(j = 0; j < ny; j++)
       for(k = 0; k < nz; k++) {
@@ -969,15 +1041,17 @@ EXPORT double dft_driver_energy(wf3d *gwf, rgrid3d *ext_pot) {
   check_mode();
 
   /* we may need more memory for this... */
-  if(!workspace7) workspace7 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
-  if(!workspace8) workspace8 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
-  if(!workspace9) workspace9 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
+
+  check_mode();
+  if(!workspace7) workspace7 = dft_driver_alloc_rgrid();
+  if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
+  if(!workspace9) workspace9 = dft_driver_alloc_rgrid();
   grid3d_wf_density(gwf, density);
   dft_ot3d_energy_density(dft_driver_otf, workspace9, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
   if(ext_pot) rgrid3d_add_scaled_product(workspace9, 1.0, density, ext_pot);
   energy = rgrid3d_integral(workspace9);
   if(!cworkspace)
-    cworkspace = cgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, CGRID3D_PERIODIC_BOUNDARY, 0);
+    cworkspace = dft_driver_alloc_cgrid();
   energy += grid3d_wf_energy(gwf, NULL, cworkspace);
   return energy;
 }
