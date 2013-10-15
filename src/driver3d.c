@@ -92,6 +92,7 @@ inline static void scale_wf(long what, dft_ot_functional *local_otf, wf3d *gwf) 
     cgrid3d_multiply(gwf->grid, norm);
     break;
   case DFT_DRIVER_NORMALIZE_ZEROB:
+#if 0
     i = 0;
     for (j = 0; j < driver_ny; j++)
       for (k = 0; k < driver_nz; k++)
@@ -116,6 +117,7 @@ inline static void scale_wf(long what, dft_ot_functional *local_otf, wf3d *gwf) 
     for (i = 0; i < driver_nx; i++)
       for (j = 0; j < driver_ny; j++)
 	gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k] = 0.0;
+ #endif
     i = driver_nx / driver_nhe;
     j = driver_ny / driver_nhe;
     k = driver_nz / driver_nhe;
