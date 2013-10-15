@@ -84,6 +84,7 @@ static inline double dft_ot_backflow_pot(void *arg, double x, double y, double z
  * ny    = Number of grid points along Y-axis.
  * nz    = Number of grid points along Z-axis.
  * step  = Spatial grid step (same along all axis).
+ * bc    = Boundary condition: DFT_DRIVER_BC_X.
  * min_substeps = minimum substeps for function smoothing over the grid.
  * max_substeps = maximum substeps for function smoothing over the grid.
  *
@@ -91,10 +92,11 @@ static inline double dft_ot_backflow_pot(void *arg, double x, double y, double z
  *
  */
 
-EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, double step, int min_substeps, int max_substeps) {
+EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, double step, int bc, int min_substeps, int max_substeps) {
 
   double radius, inv_width;
   dft_ot_functional *otf;
+  double (*grid_type)(const rgrid3d *, long, long, long);
   
   otf = (dft_ot_functional *) malloc(sizeof(dft_ot_functional));
   otf->model = model;
@@ -103,17 +105,32 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
     return 0;
   }
   
+  switch(bc) {
+  case DFT_DRIVER_BC_NORMAL: 
+    grid_type = RGRID3D_PERIODIC_BOUNDARY;
+    break;
+  case DFT_DRIVER_BC_X:
+  case DFT_DRIVER_BC_Y:
+  case DFT_DRIVER_BC_Z:
+    grid_type = RGRID3D_VORTEX_BOUNDARY;
+    break;
+  default:
+    fprintf(stderr, "libdft: Illegal boundary type.\n");
+    exit(1);
+  }
+
+
   dft_ot_temperature(otf, model);
   /* these grids are not needed for GP */
   if(!(model & DFT_GP) && !(model & DFT_ZERO)) {
-    otf->lennard_jones = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, 0);
-    otf->spherical_avg = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, 0);
+    otf->lennard_jones = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
+    otf->spherical_avg = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
 
     if(model & DFT_OT_KC) {
-      otf->gaussian_tf = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, 0);
-      otf->gaussian_x_tf = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, 0);
-      otf->gaussian_y_tf = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, 0);
-      otf->gaussian_z_tf = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, 0);
+      otf->gaussian_tf = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
+      otf->gaussian_x_tf = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
+      otf->gaussian_y_tf = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
+      otf->gaussian_z_tf = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
       if(!otf->gaussian_x_tf || !otf->gaussian_y_tf || !otf->gaussian_z_tf || !otf->gaussian_tf) {
 	fprintf(stderr, "libdft: Error in dft_ot3d_alloc(): Could not allocate memory for gaussian.\n");
 	return 0;
@@ -121,7 +138,7 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
     } else otf->gaussian_x_tf = otf->gaussian_y_tf = otf->gaussian_z_tf = otf->gaussian_tf = NULL;
   
     if(model & DFT_OT_BACKFLOW) {
-      otf->backflow_pot = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, 0);
+      otf->backflow_pot = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
       if(!otf->backflow_pot) {
 	fprintf(stderr, "libdft: Error in dft_ot3d_alloc(): Could not allocate memory for backflow_pot.\n");
 	return 0;

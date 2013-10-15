@@ -213,7 +213,7 @@ EXPORT void dft_driver_initialize() {
       workspace9 = dft_driver_alloc_rgrid();
     }
     density = dft_driver_alloc_rgrid();
-    dft_driver_otf = dft_ot3d_alloc(driver_dft_model, driver_nx, driver_ny, driver_nz, driver_step, MIN_SUBSTEPS, MAX_SUBSTEPS);
+    dft_driver_otf = dft_ot3d_alloc(driver_dft_model, driver_nx, driver_ny, driver_nz, driver_step, driver_bc, MIN_SUBSTEPS, MAX_SUBSTEPS);
     if(driver_rho0 == 0.0) driver_rho0 = dft_driver_otf->rho0;
     else dft_driver_otf->rho0 = driver_rho0;
     fprintf(stderr, "libdft: rho0 = %le Angs^-3.\n", driver_rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));

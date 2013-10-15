@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
   dft_driver_setup_grid(128, 128, 128, 1.0 /* Bohr */, 16 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
   //dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
-  dft_driver_setup_model(DFT_GP, DFT_DRIVER_IMAG_TIME, DENSITY);
+  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, DENSITY);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   /* Normalization condition */
@@ -55,13 +55,13 @@ int main(int argc, char **argv) {
 
   iter = 1;  // do not initialize order parameter to constant
   cgrid3d_constant(gwf->grid, sqrt(DENSITY));
-  dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
+  // dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
   cgrid3d_copy(gwfp->grid, gwf->grid);
 
   /* Run 200 iterations using imaginary time (50 fs time step) */
   for (; iter < 20000; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 5.0 /* fs */, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 5.0 /* fs */, iter);
     if(!(iter % 10)) {
       char buf[512];
       sprintf(buf, "output-%ld", iter);

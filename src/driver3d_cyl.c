@@ -185,7 +185,7 @@ EXPORT void dft_driver_initialize_cyl() {
     // Cartesian potential
     cart_potential = cgrid3d_alloc(2*driver_nr, 2*driver_nr, driver_nz, driver_step, CGRID3D_PERIODIC_BOUNDARY, 0);  
     // all OT 3D stuff is in Cartesian
-    dft_driver_otf_cyl = dft_ot3d_alloc(driver_dft_model, 2*driver_nr, 2*driver_nr, driver_nz, driver_step, MIN_SUBSTEPS, MAX_SUBSTEPS);
+    dft_driver_otf_cyl = dft_ot3d_alloc(driver_dft_model, 2*driver_nr, 2*driver_nr, driver_nz, driver_step, DFT_DRIVER_BC_NORMAL, MIN_SUBSTEPS, MAX_SUBSTEPS);
     if(driver_rho0 == 0.0) driver_rho0 = dft_driver_otf_cyl->rho0;
     else dft_driver_otf_cyl->rho0 = driver_rho0;
     fprintf(stderr, "libdft: rho0 = %le Angs^-3.\n", driver_rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
