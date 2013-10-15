@@ -1868,8 +1868,6 @@ static double complex vortex_x_n1(void *na, double x, double y, double z) {
   double d = sqrt(y * y + z * z), phi;
 
   if(d < R_M) return 0.0;
-  //debug
-  //if (d > 3.0) return 1.0;
   return (y + I * z) / d;
 }
 
@@ -1892,7 +1890,7 @@ static double complex vortex_z_n1(void *na, double x, double y, double z) {
 static double complex vortex_x_n2(void *na, double x, double y, double z) {
 
   double y2 = y * y, z2 = z * z;
-  double d = sqrt(y2 + z2);
+  double d = sqrt(x * x + y * y);
   
   if(d < R_M) return 0.0;
   return ((y2 - z2) + I * 2 * y * z) / (y2 + z2);
@@ -1901,7 +1899,7 @@ static double complex vortex_x_n2(void *na, double x, double y, double z) {
 static double complex vortex_y_n2(void *na, double x, double y, double z) {
 
   double x2 = x * x, z2 = z * z;
-  double d = sqrt(x2 + z2);
+  double d = sqrt(x * x + y * y);
   
   if(d < R_M) return 0.0;  
   return ((x2 - z2) + I * 2 * x * z) / (x2 + z2);
@@ -1910,7 +1908,7 @@ static double complex vortex_y_n2(void *na, double x, double y, double z) {
 static double complex vortex_z_n2(void *na, double x, double y, double z) {
 
   double x2 = x * x, y2 = y * y;
-  double d = sqrt(x2 + y2);
+  double d = sqrt(x * x + y * y);
   
   if(d < R_M) return 0.0;  
   return ((x2 - y2) + I * 2 * x * y) / (x2 + y2);
@@ -1929,7 +1927,7 @@ EXPORT void dft_driver_vortex_initial(wf3d *gwf, int n, int axis) {
   check_mode();
 
   if(!cworkspace)
-    cworkspace = cgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, CGRID3D_PERIODIC_BOUNDARY, 0);
+    cworkspace = dft_driver_alloc_cgrid();
   
   if(axis == DFT_DRIVER_VORTEX_X) {
     switch(n) {
