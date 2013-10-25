@@ -56,6 +56,7 @@ int main(int argc, char **argv) {
   iter = 1;  // do not initialize order parameter to constant
   cgrid3d_constant(gwf->grid, sqrt(DENSITY));
   dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
+  cgrid3d_multiply(gwf->grid, (1 + I)/sqrt(2.0));
   cgrid3d_copy(gwfp->grid, gwf->grid);
 
   /* Run 200 iterations using imaginary time (50 fs time step) */

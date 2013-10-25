@@ -746,7 +746,7 @@ EXPORT void dft_driver_write_grid_2d(cgrid2d *grid, char *base) {
 
 EXPORT double dft_driver_energy_2d(wf2d *gwf, rgrid2d *ext_pot) {
 
-  double energy, tmp;
+  double energy;
 
   check_mode();
 

@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   /* TODO: Right now, only powers of 2 grids work??!!! */
-  dft_driver_setup_grid(256, 256, 256, 0.3 /* Bohr */, 16 /* threads */);
+  dft_driver_setup_grid(128, 64, 123, 1.2 /* Bohr */, 16 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
   //dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
@@ -60,19 +60,19 @@ int main(int argc, char **argv) {
   dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "he2-He.dat-spline", "he2-He.dat-spline", "he2-He.dat-spline", ext_pot);
 
   /* Run 200 iterations using imaginary time (50 fs time step) */
-  for (; iter < 20000; iter++) {
+  for (; iter < 20; iter++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
-    if(!(iter % 100)) {
+    if(!(iter % 5)) {
       char buf[512];
       sprintf(buf, "output-%ld", iter);
       grid3d_wf_density(gwf, density);
       dft_driver_write_density(density, buf);
-      //energy = dft_driver_energy(gwf, ext_pot);
-      //natoms = dft_driver_natoms(gwf);
-      //printf("Total energy is %le K\n", energy * GRID_AUTOK);
-      //printf("Number of He atoms is %le.\n", natoms);
-      //printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
+      energy = dft_driver_energy(gwf, ext_pot);
+      natoms = dft_driver_natoms(gwf);
+      printf("Total energy is %le K\n", energy * GRID_AUTOK);
+      printf("Number of He atoms is %le.\n", natoms);
+      printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
     }
   }
   /* At this point gwf contains the converged wavefunction */

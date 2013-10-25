@@ -239,10 +239,10 @@ EXPORT void dft_driver_setup_grid(long nx, long ny, long nz, double step, long t
   check_mode();
 
   // TODO: fixme
-  if((nx % 2) || (ny % 2) || (nz % 2)) {
-    fprintf(stderr, "libdft: Currently works only with array sizes of multiples of two.\n");
-    exit(1);
-  }
+  //  if((nx % 2) || (ny % 2) || (nz % 2)) {
+  //    fprintf(stderr, "libdft: Currently works only with array sizes of multiples of two.\n");
+  //    exit(1);
+  //  }
 
   driver_nx = nx;
   driver_ny = ny;
@@ -1865,7 +1865,7 @@ EXPORT void dft_driver_read_2d_to_3d(rgrid3d *grid, char *filename) {
 
 static double complex vortex_x_n1(void *na, double x, double y, double z) {
 
-  double d = sqrt(y * y + z * z), phi;
+  double d = sqrt(y * y + z * z);
 
   if(d < R_M) return 0.0;
   return (y + I * z) / d;

@@ -32,7 +32,7 @@ static long driver_nz = 0, driver_nr = 0, driver_nphi = 0, driver_threads = 0, d
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0;
 static long driver_rels = 0;
 static double driver_frad = 0.0;
-static double driver_step = 0.0, driver_step_phi = 0.0, driver_abs = 0.0, driver_rho0 = 0.0;
+static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0;
 static rgrid3d *cart_density = 0, *cyl_density = 0;
 static rgrid3d *workspace1 = 0;
 static rgrid3d *workspace2 = 0;
@@ -76,7 +76,7 @@ static double region_func(void *gr, double z, double r, double phi) {
 static inline void scale_wf_cyl(long what, dft_ot_functional *local_otf, wf3d *gwf) {
 
   long i, j, k, driver_nrphi = driver_nr * driver_nphi;
-  double z, r, phi;
+  double z, r;
   double complex norm;
 
   if(what) { /* impurity */
@@ -115,7 +115,6 @@ static inline void scale_wf_cyl(long what, dft_ot_functional *local_otf, wf3d *g
 	for (j = 0; j < driver_nr; j++) {
 	  r = j * driver_step;
 	  for (k = 0; k < driver_nphi; k++) {
-	    phi = k * driver_step_phi;
 	    if(fabs(r) < driver_frad && cabs(gwf->grid->value[i * driver_nrphi + j * driver_nphi + k]) < sq)
 	      gwf->grid->value[i * driver_nrphi + j * driver_nphi + k] = sq;
 	  }

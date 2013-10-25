@@ -490,7 +490,7 @@ static void dft_ot3d_add_nonlocal_correlation_potential_z(dft_ot_functional *otf
 }
 
 /* local function */
-EXPORT static void dft_ot3d_add_ancilotto(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *workspace1) {
+static void dft_ot3d_add_ancilotto(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *workspace1) {
 
   dft_common_idealgas_params(otf->temp, otf->mass, otf->c4);
   rgrid3d_operate_one(workspace1, rho, dft_common_idealgas_op);
@@ -498,7 +498,7 @@ EXPORT static void dft_ot3d_add_ancilotto(dft_ot_functional *otf, cgrid3d *poten
 }
 
 /* local function */
-EXPORT static void dft_ot3d_add_barranco(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *workspace1) {
+static void dft_ot3d_add_barranco(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *workspace1) {
 
   XXX_beta = otf->beta;
   XXX_rhom = otf->rhom;
