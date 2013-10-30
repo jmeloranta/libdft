@@ -126,6 +126,8 @@ static inline void scale_wf(long what, wf2d *gwf) {
     grid2d_wf_normalize_cyl(gwf); /* normalize to given # of He */
     cgrid2d_multiply(gwf->grid, sqrt((double) driver_nhe));
     break;
+  case DFT_DRIVER_DONT_NORMALIZE:
+    break;
   default:
     fprintf(stderr, "libdft: Unknown normalization method.\n");
     exit(1);

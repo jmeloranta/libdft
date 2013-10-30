@@ -174,6 +174,8 @@ inline static void scale_wf(long what, dft_ot_functional *local_otf, wf3d *gwf) 
     grid3d_wf_normalize(gwf);
     cgrid3d_multiply(gwf->grid, sqrt((double) driver_nhe));
     break;
+  case DFT_DRIVER_DONT_NORMALIZE:
+    break;
   default:
     fprintf(stderr, "libdft: Unknown normalization method.\n");
     exit(1);

@@ -1,6 +1,6 @@
 include ../make.conf
 
-OBJS = ot2d.o ot3d.o common.o driver2d.o driver3d.o driver3d_cyl.o classical.o
+OBJS = ot2d.o ot3d.o common.o driver2d.o driver3d.o driver3d_cyl.o classical.o bulk.o
 
 libdft.a: prototypes $(OBJS)
 	$(AR) cr libdft.a $(OBJS)
@@ -33,6 +33,9 @@ ot3d.o: ot3d.c ot.h dft.h
 
 classical.o: classical.c dft.h
 	$(CC) -I. $(CFLAGS) -c classical.c
+
+bulk.o: bulk.c ot.h
+	$(CC) -I. $(CFLAGS) -c bulk.c
 
 clean:
 	-rm *.o libdft.a proto.h *~
