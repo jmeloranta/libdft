@@ -19,8 +19,8 @@
  *
  */
 
-#define MIN_SUBSTEPS 2
-#define MAX_SUBSTEPS 16
+#define MIN_SUBSTEPS 4
+#define MAX_SUBSTEPS 128
 
 /* End of tunable parameters */
 
@@ -746,7 +746,7 @@ EXPORT void dft_driver_gaussian_wavefunction(wf3d *dst, double cx, double cy, do
  * Read in density from a binary file (.grd).
  *
  * grid = place to store the read density (rgrid3d *).
- * file = filename for the file (char *). Note: the .grd extension must be given.
+ * file = filename for the file (char *). Note: the .grd extension must NOT be given.
  *
  * No return value.
  *
