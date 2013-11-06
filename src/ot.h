@@ -90,6 +90,7 @@
 #define DFT_DRIVER_BC_X      1
 #define DFT_DRIVER_BC_Y      2
 #define DFT_DRIVER_BC_Z      3
+#define DFT_DRIVER_BC_NEUMANN 4
 
 #define DFT_DRIVER_KINETIC_FFT           0
 #define DFT_DRIVER_KINETIC_CN_DBC        1

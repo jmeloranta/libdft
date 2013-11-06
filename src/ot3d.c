@@ -114,6 +114,9 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
   case DFT_DRIVER_BC_Z:
     grid_type = RGRID3D_VORTEX_BOUNDARY;
     break;
+  case DFT_DRIVER_BC_NEUMANN:
+    grid_type = RGRID3D_VORTEX_BOUNDARY;
+    break;
   default:
     fprintf(stderr, "libdft: Illegal boundary type.\n");
     exit(1);

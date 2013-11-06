@@ -618,6 +618,9 @@ EXPORT cgrid3d *dft_driver_alloc_cgrid() {
   case DFT_DRIVER_BC_Z:
     grid_type = CGRID3D_VORTEX_Z_BOUNDARY;
     break;
+  case DFT_DRIVER_BC_NEUMANN:
+    grid_type = CGRID3D_NEUMANN_BOUNDARY ;
+    break;
   default:
     fprintf(stderr, "libdft: Illegal boundary type.\n");
     exit(1);
@@ -652,6 +655,9 @@ EXPORT rgrid3d *dft_driver_alloc_rgrid() {
   case DFT_DRIVER_BC_Y:
   case DFT_DRIVER_BC_Z:
     grid_type = RGRID3D_VORTEX_BOUNDARY;
+    break;
+  case DFT_DRIVER_BC_NEUMANN:
+    grid_type = RGRID3D_NEUMANN_BOUNDARY ;
     break;
   default:
     fprintf(stderr, "libdft: Illegal boundary type.\n");
@@ -694,6 +700,9 @@ EXPORT wf3d *dft_driver_alloc_wavefunction(double mass) {
     break;
   case DFT_DRIVER_BC_Z:
     grid_type = WF3D_VORTEX_Z_BOUNDARY;
+    break;
+  case DFT_DRIVER_BC_NEUMANN:
+    grid_type = WF3D_NEUMANN_BOUNDARY;
     break;
   default:
     fprintf(stderr, "libdft: Illegal boundary type.\n");
