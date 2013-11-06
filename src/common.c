@@ -146,6 +146,21 @@ EXPORT inline double dft_common_spherical_avg(void *arg, double x, double y, dou
   return 0.0;
 }
 
+
+/*
+ * Spherical average function IN MOMENTUM SPACE to be used with grid map() routines (3D).
+ * The sphere radius is passed in arg.
+ *
+ */
+
+EXPORT inline double dft_common_spherical_avg_k(void *arg, double k) {
+
+  double hk = *((double *) arg) * k;
+  if(hk < 1.e-5)
+	return 1.0 - 0.1*hk*hk; /* second order Taylor expansion */
+  return 3.0 * (sin(hk) - hk * cos(hk) ) / (hk*hk*hk) ;
+}
+
 /*
  * Spherical average function to be used with grid map() routines (2D).
  * The sphere radius is passed in arg.
