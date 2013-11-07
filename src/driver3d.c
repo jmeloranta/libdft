@@ -1070,6 +1070,45 @@ EXPORT double dft_driver_energy(wf3d *gwf, rgrid3d *ext_pot) {
 }
 
 /*
+ * Calculate the energy in a certain region (box).
+ *
+ * gwf     = wavefunction for the system (wf3d *; input).
+ * ext_pot = external potential grid (rgrid3d *; input).
+ * xl   = lower limit for x (double).
+ * xu   = upper limit for x (double).
+ * yl   = lower limit for y (double).
+ * yu   = upper limit for y (double).
+ * zl   = lower limit for z (double).
+ * zu   = upper limit for z (double).
+ *
+ * Return value = energy for the box (in a.u.).
+ *
+ * Note: the backflow is not included in the energy density calculation.
+ *
+ */
+EXPORT double dft_driver_energy_region(wf3d *gwf, rgrid3d *ext_pot, double xl, double xu, double yl, double yu, double zl, double zu) {
+
+  double energy;
+
+  check_mode();
+
+  /* we may need more memory for this... */
+
+  check_mode();
+  if(!workspace7) workspace7 = dft_driver_alloc_rgrid();
+  if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
+  if(!workspace9) workspace9 = dft_driver_alloc_rgrid();
+  grid3d_wf_density(gwf, density);
+  dft_ot3d_energy_density(dft_driver_otf, workspace9, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
+  if(ext_pot) rgrid3d_add_scaled_product(workspace9, 1.0, density, ext_pot);
+  energy = rgrid3d_integral_region(workspace9, xl, xu, yl, yu, zl, zu);
+  if(!cworkspace)
+    cworkspace = dft_driver_alloc_cgrid();
+  energy += grid3d_wf_energy(gwf, NULL, cworkspace);
+  return energy;
+}
+
+/*
  * Return number of helium atoms represented by a given wavefuntion.
  *
  * gwf = wavefunction (wf3d *; input).
