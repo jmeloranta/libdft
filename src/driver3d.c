@@ -634,6 +634,9 @@ EXPORT cgrid3d *dft_driver_alloc_cgrid() {
  *
  * Returns a pointer to the allocated grid.
  *
+ * Note: either if the condition is Neumann b.c. or vortex b.c. for the
+ * wavefunction, the real grids such as density always have Neumann b.c.
+ *
  */
 
 EXPORT rgrid3d *dft_driver_alloc_rgrid() {
@@ -654,8 +657,6 @@ EXPORT rgrid3d *dft_driver_alloc_rgrid() {
   case DFT_DRIVER_BC_X:
   case DFT_DRIVER_BC_Y:
   case DFT_DRIVER_BC_Z:
-    grid_type = RGRID3D_VORTEX_BOUNDARY;
-    break;
   case DFT_DRIVER_BC_NEUMANN:
     grid_type = RGRID3D_NEUMANN_BOUNDARY ;
     break;
