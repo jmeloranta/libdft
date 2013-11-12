@@ -153,9 +153,9 @@ EXPORT inline double dft_common_spherical_avg(void *arg, double x, double y, dou
  *
  */
 
-EXPORT inline double dft_common_spherical_avg_k(void *arg, double k) {
+EXPORT inline double dft_common_spherical_avg_k(void *arg, double kx, double ky, double kz) {
 
-  double hk = *((double *) arg) * k;
+  double hk = *((double *) arg) * sqrt(kx*kx + ky*ky + kz*kz) ;
   if(hk < 1.e-5)
 	return 1.0 - 0.1*hk*hk; /* second order Taylor expansion */
   return 3.0 * (sin(hk) - hk * cos(hk) ) / (hk*hk*hk) ;
