@@ -155,19 +155,32 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
         rgrid3d_adaptive_map_nonperiodic(otf->lennard_jones, dft_common_lennard_jones_smooth, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     } else {
       fprintf(stderr, "libdft: LJ according to SD.\n");
-      if( otf->lennard_jones->value_outside == RGRID3D_PERIODIC_BOUNDARY )
+      if( otf->lennard_jones->value_outside == RGRID3D_PERIODIC_BOUNDARY ){
         rgrid3d_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
-      else
+        /* Scaling of LJ so that the integral is exactly b */
+        rgrid3d_multiply( otf->lennard_jones , otf->b / rgrid3d_integral(otf->lennard_jones) ) ;
+        rgrid3d_fft(otf->lennard_jones);
+      }else{
         rgrid3d_adaptive_map_nonperiodic(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+        rgrid3d_fft(otf->lennard_jones);
+        /* Scaling of LJ so that the integral is exactly b */
+        rgrid3d_multiply( otf->lennard_jones , otf->b / otf->lennard_jones->value[0] ) ;
+      }
     }
 
-    rgrid3d_fft(otf->lennard_jones);
     radius = otf->lj_params.h;
-    if( otf->spherical_avg->value_outside == RGRID3D_PERIODIC_BOUNDARY )
+    if( otf->spherical_avg->value_outside == RGRID3D_PERIODIC_BOUNDARY ){
       rgrid3d_adaptive_map(otf->spherical_avg, dft_common_spherical_avg, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
-   else
+      /* Scaling of sph. avg. so that the integral is exactly 1 */
+      rgrid3d_multiply( otf->spherical_avg , 1.0 / rgrid3d_integral(otf->spherical_avg) ) ;
+      rgrid3d_fft(otf->spherical_avg);
+    }else{
       rgrid3d_adaptive_map_nonperiodic(otf->spherical_avg, dft_common_spherical_avg, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
-    rgrid3d_fft(otf->spherical_avg);
+      rgrid3d_fft(otf->spherical_avg);
+      /* Scaling of sph. avg. so that the integral is exactly 1 */
+      rgrid3d_multiply( otf->spherical_avg , 1.0 / otf->spherical_avg->value[0] ) ;
+    }
+
     
     if(model & DFT_OT_KC) {
       inv_width = 1.0 / otf->l_g;
