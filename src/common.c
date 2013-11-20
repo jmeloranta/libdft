@@ -191,6 +191,21 @@ EXPORT inline double dft_common_gaussian(void *arg, double x, double y, double z
 }
 
 /*
+ * Complex Gaussian function to be used with cgrid map() functions (3D).
+ * The gaussian is centered at (0,0,0) and width is given in arg.
+ *
+ */ 
+
+EXPORT inline double complex dft_common_cgaussian(void *arg, double x, double y, double z) {
+
+  double inv_width = *((double *) arg);
+  double norm = 0.5 * M_2_SQRTPI * inv_width;
+
+  norm = norm * norm * norm;
+  return (double complex) norm * exp(-(x * x + y * y + z * z) * inv_width * inv_width);
+}
+
+/*
  * Gaussian function to be used with grid map() functions (2D.
  * The gaussian is centered at (0,0,0) and width is given in arg.
  *
