@@ -524,6 +524,27 @@ EXPORT void dft_common_potential_map(int average, char *filex, char *filey, char
   rgrid3d_map(potential, dft_common_extpot, (void *) &set);
 }
 
+/*Nonperiodic version of dft_common_potential_map 
+ * (only diff is that calls map_nonperiodic)
+ */
+
+EXPORT void dft_common_potential_map_nonperiodic(int average, char *filex, char *filey, char *filez, rgrid3d *potential) {
+
+  dft_extpot x, y, z;
+  dft_extpot_set set;
+  
+  set.x = &x;
+  set.y = &y;
+  set.z = &z;
+  set.average = average;
+
+  fprintf(stderr, "libdft: Mapping potential file with x = %s, y = %s, z = %s. Average = %d\n", filex, filey, filez, average);
+  dft_common_read_pot(filex, &x);
+  dft_common_read_pot(filey, &y);
+  dft_common_read_pot(filez, &z);
+  rgrid3d_map_nonperiodic(potential, dft_common_extpot, (void *) &set);
+}
+
 /*
  * Mapping function for a potential in cylindrical (2D) coordinates.
  *
