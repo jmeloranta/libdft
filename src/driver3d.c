@@ -941,6 +941,77 @@ EXPORT void dft_driver_write_phase(wf3d *wf, char *base) {
   rgrid3d_free(phase);
 }
 
+
+
+/*
+ * Write two-dimensional slices of a grid
+ * .xy ASCII file cut along z=0.
+ * .yz ASCII file cut along x=0.
+ * .zx ASCII file cut along y=0.
+ *
+ * grid = density grid (rgrid3d *).
+ * base = Basename for the output file (char *).
+ *
+ * No return value.
+ *
+ */
+
+EXPORT void dft_driver_write_2d_density(rgrid3d *grid, char *base) {
+  FILE *fp;
+  char file[2048];
+  long i, j, k;
+  long i0 = grid->nx/2 , j0 = grid->ny/2 , k0 = grid->nz/2 ;
+  double x, y, z;
+
+/*----- X Y -----*/
+  sprintf(file, "%s.xy", base);
+  if(!(fp = fopen(file, "w"))) {
+    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
+    exit(1);
+  }
+  for(i = 0; i < grid->nx; i++) {
+    x = (i - i0) * grid->step;
+    for(j = 0; j < grid->ny; j++) {
+	y = (j - j0) * grid->step;
+        fprintf(fp, "%le\t%le\t%le\n", x, y, rgrid3d_value_at_index(grid, i, j, k0));	
+    } fprintf(fp,"\n") ;
+  }
+  fclose(fp);
+
+/*----- Y Z -----*/
+  sprintf(file, "%s.yz", base);
+  if(!(fp = fopen(file, "w"))) {
+    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
+    exit(1);
+  }
+  for(j = 0; j < grid->ny; j++) {
+    y = (j - j0) * grid->step;
+    for(k = 0; k < grid->nz; k++) {
+	z = (k - k0) * grid->step;
+        fprintf(fp, "%le\t%le\t%le\n", y, z, rgrid3d_value_at_index(grid, i0, j, k));	
+    } fprintf(fp,"\n") ;
+  }
+  fclose(fp);
+
+/*----- Z X -----*/
+  sprintf(file, "%s.zx", base);
+  if(!(fp = fopen(file, "w"))) {
+    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
+    exit(1);
+  }
+  for(k = 0; k < grid->nz; k++) {
+    z = (k - k0) * grid->step;
+    for(i = 0; i < grid->nx; i++) {
+	x = (i - i0) * grid->step;
+        fprintf(fp, "%le\t%le\t%le\n", z, x, rgrid3d_value_at_index(grid, i, j0, k));	
+    } fprintf(fp,"\n") ; 
+  }
+  fclose(fp);
+
+  fprintf(stderr, "libdft: 2D slices of density written to %s.\n", file);
+}
+
+
 /*
  * Read in a grid from a binary file (.grd).
  *
