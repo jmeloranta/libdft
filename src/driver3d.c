@@ -1120,10 +1120,22 @@ EXPORT void dft_driver_write_grid(cgrid3d *grid, char *base) {
  */
 
 EXPORT double dft_driver_energy(wf3d *gwf, rgrid3d *ext_pot) {
+  return dft_driver_potential_energy(gwf, ext_pot) + dft_driver_kinetic_energy(gwf) ;
+}
 
-  double energy;
+/*
+ * Calculate the potential energy of the system.
+ *
+ * gwf     = wavefunction for the system (wf3d *; input).
+ * ext_pot = external potential grid (rgrid3d *; input).
+ *
+ * Return value = potential energy for the system (in a.u.).
+ *
+ * Note: the backflow is not included in the energy density calculation.
+ *
+ */
 
-  check_mode();
+EXPORT double dft_driver_potential_energy(wf3d *gwf, rgrid3d *ext_pot) {
 
   /* we may need more memory for this... */
 
@@ -1134,11 +1146,29 @@ EXPORT double dft_driver_energy(wf3d *gwf, rgrid3d *ext_pot) {
   grid3d_wf_density(gwf, density);
   dft_ot3d_energy_density(dft_driver_otf, workspace9, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
   if(ext_pot) rgrid3d_add_scaled_product(workspace9, 1.0, density, ext_pot);
-  energy = rgrid3d_integral(workspace9);
+  
+  return rgrid3d_integral(workspace9);
+
+}
+
+/*
+ * Calculate the kinetic energy of the system.
+ *
+ * gwf     = wavefunction for the system (wf3d *; input).
+ *
+ * Return value = kinetic energy for the system (in a.u.).
+ *
+ */
+
+EXPORT double dft_driver_kinetic_energy(wf3d *gwf) {
+  
+  check_mode();
+
   if(!cworkspace)
     cworkspace = dft_driver_alloc_cgrid();
-  energy += grid3d_wf_energy(gwf, NULL, cworkspace);
-  return energy;
+
+  return grid3d_wf_energy(gwf, NULL, cworkspace);
+
 }
 
 /*
