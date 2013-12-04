@@ -431,7 +431,6 @@ EXPORT void dft_common_read_pot(char *file, dft_extpot *pot) {
 EXPORT double dft_common_extpot(void *arg, double x, double y, double z) {
    
   double r = sqrt(x * x + y * y + z * z), px, py, pz, tmp;
-  double theta, phi, sin_theta, cos_theta, sin_phi, cos_phi;
   long i;
   dft_extpot_set *set = (dft_extpot_set *) arg;
   double *pot_x = set->x->points, *pot_y = set->y->points, *pot_z = set->z->points;
@@ -486,17 +485,9 @@ EXPORT double dft_common_extpot(void *arg, double x, double y, double z) {
     return (px + py + pz) / 3.0;
   }
 
-  theta = acos(z / (r + 1E-3));
-  phi = atan(y / (x + 1E-3));
-  sin_theta = sin(theta);
-  sin_theta *= sin_theta;
-  cos_theta = cos(theta);
-  cos_theta *= cos_theta;
-  sin_phi = sin(phi);
-  sin_phi *= sin_phi;
-  cos_phi = cos(phi);
-  cos_phi *= cos_phi;
-  return px * sin_theta * cos_phi + py * sin_theta * sin_phi + pz * cos_theta;
+  if(r==0.)
+	  return (px + py + pz) / 3.0 ;
+  return ( px * x * x + py * y * y + pz * z * z ) / ( r * r ) ;
 }
 
 EXPORT double dft_common_extpot_cyl(void *arg, double r, double phi, double z) {
