@@ -13,6 +13,7 @@ install:
 	-$(RANLIB) $(ROOT)/lib/libdft.a
 	-mkdir $(ROOT)/include/dft
 	cp dft.h ot.h proto.h $(ROOT)/include/dft
+	cp ../make.conf $(ROOT)/include/dft
 
 driver2d.o: driver2d.c ot.h
 	$(CC) -I. $(CFLAGS) -c driver2d.c

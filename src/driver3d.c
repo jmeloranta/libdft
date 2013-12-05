@@ -2189,3 +2189,82 @@ EXPORT void dft_driver_vortex(rgrid3d *potential, int direction) {
     exit(1);
   }
 }
+
+/*
+ * Produced interpolated 3-D potential energy surface
+ * from n 1-D cuts along phi = 0, 2pi/n, ..., 2pi/(n-1) directions.
+ * Requires cylindrical symmetry for the overall potential (i.e., linear molecule).
+ * All potentials must have the same range, steps, number of points.
+ *
+ * n     = Number of potentials along n different angles (int).
+ * files = Array of strings for file names containing the potentials (char **).
+ * ni    = Number of intermediate angular points used in interpolation (int)
+ *         (if zero, will be set to 10 * n, which works well).
+ * out   = 3-D grid containing the angular interpolated potential grid. 
+ * 
+ */
+
+EXPORT void dft_common_pot_interpolate(int n, char **files, int ni, rgrid3d *out) {
+
+  double x, y, z, r, phi, step = out->step, pot_begin, pot_step;
+  long nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nr, nphi, pot_length;
+  rgrid3d *cyl_small, *cyl_large;
+  dft_extpot pot;
+
+  if (!ni) ni = 10 * n;
+  if (ni < 0 || n < 0) {
+    fprintf(stderr, "libdft: ni or n negative (dft_common_pot_interpolate()).\n");
+    exit(1);
+  }
+
+  /* snoop for the potential parameters */
+  dft_common_read_pot(files[0], &pot);
+  pot_begin = pot.begin;
+  pot_step = pot.step;
+  pot_length = pot.length;
+  nr = pot.length + pot_begin / pot_step;   /* enough space for the potential + the empty core, which is set to constant */
+  nphi = n;
+
+  cyl_small = rgrid3d_alloc(nr, nphi, 1, pot.step, RGRID3D_PERIODIC_BOUNDARY, NULL);
+  cyl_large = rgrid3d_alloc(nr, ni, 1, pot.step, RGRID3D_PERIODIC_BOUNDARY, NULL);
+  
+  /* For each direction */
+  for (j = 0; j < n; j++) {
+    dft_common_read_pot(files[j], &pot);
+    if (pot.begin != pot_begin || pot.step != pot_step || pot.length != pot_length) {
+      fprintf(stderr, "libdft: Inconsistent potentials in dft_common_pot_interpolate().\n");
+      exit(1);
+    }
+    /* map the current direction on the grid */
+    for (i = k = 0; i < nr; i++) {
+      r = pot_step * i;
+      if (r < pot_begin)
+	cyl_small->value[i * nphi + j] = pot.points[0];
+      else
+	cyl_small->value[i * nphi + j] = pot.points[k++];
+    }
+  }
+
+  rgrid3d_extrapolate_cyl(cyl_large, cyl_small); /* Interpolate to a finer cylindrical grid */
+
+  /* map cyl_large to cart */
+  for (i = 0; i < nx; i++) {
+    double x2;
+    x = (i - nx/2.0) * step;
+    x2 = x * x;
+    for (j = 0; j < ny; j++) {
+      double y2;
+      y = (j - ny/2.0) * step;
+      y2 = y * y;
+      for (k = 0; k < nz; k++) {
+	z = (k - nz/2.0) * step;
+	r = sqrt(x2 + y2 + z * z);
+	phi = M_PI - atan2(x2 + y2, -z);
+	out->value[i * ny * nz + j * nz + k] = rgrid3d_value_cyl(cyl_large, r, phi, 0.0);
+      }
+    }
+  }
+
+  rgrid3d_free(cyl_small);
+  rgrid3d_free(cyl_large);
+}
