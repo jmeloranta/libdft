@@ -31,6 +31,9 @@ typedef struct extpot_set {
   dft_extpot *y;
   dft_extpot *z;
   int average;
+  /* orientation of the potential */
+  double theta0;
+  double phi0;
 } dft_extpot_set;
 
 typedef struct extpot_set_2d {

@@ -438,6 +438,8 @@ EXPORT double dft_common_extpot(void *arg, double x, double y, double z) {
   double sx = set->x->step, sy = set->y->step, sz = set->z->step;
   long lx = set->x->length, ly = set->y->length, lz = set->z->length;
   int aver = set->average;
+  double theta0 = set->theta0, theta, cos_theta, sin_theta ;
+  double phi0 = set->phi0, phi, cos_phi, sin_phi ;
 
   /* x */
   i = (long) ((r - bx) / sx);
@@ -485,10 +487,25 @@ EXPORT double dft_common_extpot(void *arg, double x, double y, double z) {
     return (px + py + pz) / 3.0;
   }
 
-  if(r==0.)
-	  return (px + py + pz) / 3.0 ;
-  return ( px * x * x + py * y * y + pz * z * z ) / ( r * r ) ;
+  theta = acos(z / (r + 1E-3)) - theta0;
+  phi = atan(y / (x + 1E-3)) - phi0 ;
+  sin_theta = sin(theta);
+  sin_theta *= sin_theta;
+  cos_theta = cos(theta);
+  cos_theta *= cos_theta;
+  sin_phi = sin(phi);
+  sin_phi *= sin_phi;
+  cos_phi = cos(phi);
+  cos_phi *= cos_phi;
+  return px * sin_theta * cos_phi + py * sin_theta * sin_phi + pz * cos_theta;
+  
+  /* simpler way if no titling of the potential is needed */
+  //if(r==0.)
+  //	  return (px + py + pz) / 3.0 ;
+  //return ( px * x * x + py * y * y + pz * z * z ) / ( r * r ) ;
 }
+
+
 
 EXPORT double dft_common_extpot_cyl(void *arg, double r, double phi, double z) {
 
@@ -512,8 +529,8 @@ EXPORT double dft_common_extpot_cyl(void *arg, double r, double phi, double z) {
  * No return value.
  *
  */
-
-EXPORT void dft_common_potential_map(int average, char *filex, char *filey, char *filez, rgrid3d *potential) {
+	
+EXPORT void dft_common_potential_map_tilt(int average, char *filex, char *filey, char *filez, rgrid3d *potential, double theta0, double phi0) {
 
   dft_extpot x, y, z;
   dft_extpot_set set;
@@ -522,6 +539,8 @@ EXPORT void dft_common_potential_map(int average, char *filex, char *filey, char
   set.y = &y;
   set.z = &z;
   set.average = average;
+  set.theta0 = theta0 ;
+  set.phi0 = phi0 ;
 
   fprintf(stderr, "libdft: Mapping potential file with x = %s, y = %s, z = %s. Average = %d\n", filex, filey, filez, average);
   dft_common_read_pot(filex, &x);
@@ -530,6 +549,10 @@ EXPORT void dft_common_potential_map(int average, char *filex, char *filey, char
   rgrid3d_map(potential, dft_common_extpot, (void *) &set);
 }
 
+/* Special case with theta0=phi0=0 for backwards compatibility */
+EXPORT void dft_common_potential_map(int average, char *filex, char *filey, char *filez, rgrid3d *potential) {
+	dft_common_potential_map_tilt(average, filex, filey, filez, potential, 0.0, 0.0);
+}
 /*Nonperiodic version of dft_common_potential_map 
  * (only diff is that calls map_nonperiodic)
  */
