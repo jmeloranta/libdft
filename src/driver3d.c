@@ -298,7 +298,7 @@ EXPORT void dft_driver_setup_boundaries(long boundary_type, double absb) {
  * Impose normal or vortex compatible boundaries.
  *
  * bc = Boundary type:
- *           Normal (0), Vortex along X (1), Vortex along Y (2), Vortex along Z (3) (int).
+ *           Normal (0), Vortex along X (1), Vortex along Y (2), Vortex along Z (3), Neumann (4) (int).
  *
  */
 
