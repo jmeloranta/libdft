@@ -754,7 +754,7 @@ EXPORT void dft_common_pot_interpolate(int n, char **files, int ni, rgrid3d *out
       for (k = 0; k < nz; k++) {
 	z = (k - nz/2.0) * step;
 	r = sqrt(x2 + y2 + z * z);
-	phi = M_PI - atan2(x2 + y2, -z);
+	phi = M_PI - atan2(sqrt(x2 + y2), -z);
 	out->value[i * ny * nz + j * nz + k] = rgrid3d_value_cyl(cyl_large, r, phi, 0.0);
       }
     }
