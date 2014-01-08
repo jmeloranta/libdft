@@ -763,3 +763,78 @@ EXPORT void dft_common_pot_interpolate(int n, char **files, int ni, rgrid3d *out
   rgrid3d_free(cyl_small);
   rgrid3d_free(cyl_large);
 }
+
+
+
+/*
+ * Spherically averaged 1-D potential energy surface
+ * from n 1-D cuts along phi = 0, pi/n, ..., pi directions.
+ * 
+ * NOTE this is different than in dft_common_pot_interpolate where you must
+ * give potentials for the whole 2pi.
+ *
+ * Requires cylindrical symmetry for the overall potential (i.e., linear molecule).
+ * All potentials must have the same range, steps, number of points.
+ *
+ * n     = Number of potentials along n different angles (int).
+ * files = Array of strings for file names containing the potentials (char **).
+ * ni    = Number of intermediate angular points used in interpolation (int)
+ *         (if zero, will be set to 10 * n, which works well).
+ * out   = 3-D grid containing the angular interpolated potential grid. 
+ * 
+ */
+EXPORT void dft_common_pot_average(int n, char **files, int ni, rgrid3d *out) {
+  
+  double x, y, z, r, step = out->step, pot_begin, pot_step;
+  long nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nr, pot_length;
+  dft_extpot pot;
+  dft_extpot pot_ave;
+  double angular_weight ;
+  
+  /* snoop for the potential parameters */
+  dft_common_read_pot(files[0], &pot_ave);
+  pot_begin  = pot_ave.begin  ;
+  pot_step   = pot_ave.step   ;
+  pot_length = pot_ave.length ;
+  for(k=0; k < pot_length; k++)
+	  pot_ave.points[k] = 0. ;
+  nr = pot_length + pot_begin / pot_step;   /* enough space for the potential + the empty core, which is set to constant */
+
+  /* Construct the 1D potential averaging for all directions */
+  for (j = 0; j < n; j++) {
+    dft_common_read_pot(files[j], &pot);
+    if (pot.begin != pot_begin || pot.step != pot_step || pot.length != pot_length) {
+      fprintf(stderr, "libdft: Inconsistent potentials in dft_common_pot_interpolate().\n");
+      exit(1);
+    }
+    if(j == 0 || j == n-1)
+      angular_weight = .25 - ( 1. + (n-1) * (n-1) * cos(M_PI/(n-1)) )/( 4.*n*(n-2) ) ;
+    else
+      angular_weight = ( (n-1) * (n-1) * sin(M_PI/(n-1)) * sin(M_PI*j/(n-1)) ) / ( 2. * n * (n-2) );
+
+    for(k = 0 ; k < pot.length ; k++)
+	      pot_ave.points[k] += angular_weight * pot.points[k];
+  }
+
+  /* Map the 1D pot to cartesian grid */
+  for (i = 0; i < nx; i++) {
+    x = (i - nx/2.0) * step;
+    for (j = 0; j < ny; j++) {
+      y = (j - ny/2.0) * step;
+      for (k = 0; k < nz; k++) {
+	z = (k - nz/2.0) * step;
+	r = sqrt( x * x + y * y + z * z);
+        if (r < pot_begin)
+		out->value[i * ny * nz + j * nz + k] = pot_ave.points[0] ;
+	else{
+		nr = (long) ( (r-pot_begin)/pot_step ) ;
+		out->value[i * ny * nz + j * nz + k] = pot_ave.points[nr] ;
+		//r = r - nr ;
+		//out->value[i * ny * nz + j * nz + k] = (1.-r)*pot_ave.points[nr] + r*pot_ave.points[nr+1] ;
+	}
+      }
+    }
+  }
+
+
+}
