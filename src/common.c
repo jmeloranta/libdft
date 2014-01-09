@@ -695,20 +695,19 @@ EXPORT void dft_common_potential_map_cyl(int average, char *filex, char *filey, 
  * files = Array of strings for file names containing the potentials (char **).
  * ni    = Number of intermediate angular points used in interpolation (int)
  *         (if zero, will be set to 10 * n, which works well).
- * cyl_large = 3-D cylindrical grid containing the angular interpolated potential grid. 
+ * return a 3-D cylindrical grid containing the angular interpolated potential grid. 
  * 
  */
 
-EXPORT rgrid3d* dft_common_pot_interpolate_cyl(int n, char **files, int ni) {
+EXPORT rgrid3d* dft_common_pot_interpolate_cyl(int n, char **files) {
 
   double r, pot_begin, pot_step;
   long i, j , k;
   long nr, nphi, pot_length;
-  rgrid3d *cyl_small, *cyl_large;
+  rgrid3d *cyl;
   dft_extpot pot;
 
-  if (!ni) ni = 10 * n;
-  if (ni < 0 || n < 0) {
+  if (n < 0) {
     fprintf(stderr, "libdft: ni or n negative (dft_common_pot_interpolate()).\n");
     exit(1);
   }
@@ -721,8 +720,7 @@ EXPORT rgrid3d* dft_common_pot_interpolate_cyl(int n, char **files, int ni) {
   nr = pot.length + pot_begin / pot_step;   /* enough space for the potential + the empty core, which is set to constant */
   nphi = n;
 
-  cyl_small = rgrid3d_alloc(nr, nphi, 1, pot.step, RGRID3D_PERIODIC_BOUNDARY, NULL);
-  cyl_large = rgrid3d_alloc(nr, ni, 1, pot.step, RGRID3D_PERIODIC_BOUNDARY, NULL);
+  cyl = rgrid3d_alloc(nr, nphi, 1, pot.step, RGRID3D_PERIODIC_BOUNDARY, NULL);
   
   /* For each direction */
   for (j = 0; j < n; j++) {
@@ -735,16 +733,13 @@ EXPORT rgrid3d* dft_common_pot_interpolate_cyl(int n, char **files, int ni) {
     for (i = k = 0; i < nr; i++) {
       r = pot_step * i;
       if (r < pot_begin)
-	cyl_small->value[i * nphi + j] = pot.points[0];
+	cyl->value[i * nphi + j] = pot.points[0];
       else
-	cyl_small->value[i * nphi + j] = pot.points[k++];
+	cyl->value[i * nphi + j] = pot.points[k++];
     }
   }
 
-  rgrid3d_extrapolate_cyl(cyl_large, cyl_small); /* Interpolate to a finer cylindrical grid */
-
-  rgrid3d_free(cyl_small);
-  return cyl_large ;
+  return cyl ;
 }
 
 /*
@@ -754,13 +749,13 @@ EXPORT rgrid3d* dft_common_pot_interpolate_cyl(int n, char **files, int ni) {
  * 
  */
 
-EXPORT void dft_common_pot_interpolate(int n, char **files, int ni, rgrid3d *out) {
+EXPORT void dft_common_pot_interpolate(int n, char **files, rgrid3d *out) {
 
   double x, y, z, r, phi, step = out->step;
   long nx = out->nx, ny = out->ny, nz = out->nz, i, j, k;
-  rgrid3d *cyl_large;
+  rgrid3d *cyl;
 
-  cyl_large = dft_common_pot_interpolate_cyl(n, files, ni) ;
+  cyl = dft_common_pot_interpolate_cyl(n, files) ;
   /* map cyl_large to cart */
   for (i = 0; i < nx; i++) {
     double x2;
@@ -774,11 +769,11 @@ EXPORT void dft_common_pot_interpolate(int n, char **files, int ni, rgrid3d *out
 	z = (k - nz/2.0) * step;
 	r = sqrt(x2 + y2 + z * z);
 	phi = M_PI - atan2(sqrt(x2 + y2), -z);
-	out->value[i * ny * nz + j * nz + k] = rgrid3d_value_cyl(cyl_large, r, phi, 0.0);
+	out->value[i * ny * nz + j * nz + k] = rgrid3d_value_cyl(cyl, r, phi, 0.0);
       }
     }
   }
-  rgrid3d_free(cyl_large);
+  rgrid3d_free(cyl);
 }
 
 /*
@@ -795,7 +790,7 @@ EXPORT void dft_common_pot_angularderiv(int n, char **files, rgrid3d *out) {
   long nx = out->nx, ny = out->ny, nz = out->nz, step = out->step, i, j, k;
   rgrid3d *cyl_pot, *cyl_k;
 
-  cyl_pot = dft_common_pot_interpolate_cyl(n, files, n) ;
+  cyl_pot = dft_common_pot_interpolate_cyl(n, files) ;
   step2 = 2 * 2 * M_PI * M_PI / ( cyl_pot->nx * cyl_pot->nx ) ;
 
   cyl_k = rgrid3d_alloc( cyl_pot->nx , cyl_pot->ny , cyl_pot->nz , cyl_pot->step , RGRID3D_PERIODIC_BOUNDARY, NULL); 
