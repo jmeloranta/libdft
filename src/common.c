@@ -786,26 +786,29 @@ EXPORT void dft_common_pot_interpolate(int n, char **files, rgrid3d *out) {
  *
  */
 EXPORT void dft_common_pot_angularderiv(int n, char **files, rgrid3d *out) {
-  double x, y, z, r, phi, step2 ;
-  long nx = out->nx, ny = out->ny, nz = out->nz, step = out->step, i, j, k;
+  double x, y, z, r, phi, step_cyl, step = out->step;
+  long nx = out->nx, ny = out->ny, nz = out->nz, i, j, k;
+  long nphi , nr ;
   rgrid3d *cyl_pot, *cyl_k;
 
-  cyl_pot = dft_common_pot_interpolate_cyl(n, files) ;
-  step2 = 2 * 2 * M_PI * M_PI / ( cyl_pot->nx * cyl_pot->nx ) ;
 
-  cyl_k = rgrid3d_alloc( cyl_pot->nx , cyl_pot->ny , cyl_pot->nz , cyl_pot->step , RGRID3D_PERIODIC_BOUNDARY, NULL); 
+  cyl_pot = dft_common_pot_interpolate_cyl(n, files) ;
+  nr = cyl_pot->nx ;
+  nphi = cyl_pot->ny ;
+  step_cyl = cyl_pot->step ;
+
+  cyl_k = rgrid3d_alloc( nr , nphi , 1 , step_cyl , RGRID3D_PERIODIC_BOUNDARY, NULL); 
+
   /* second derivative respect to theta */
-  for (i = 0; i < cyl_pot->nx; i++) {
-    for (j = 0; j < cyl_pot->ny; j++) {
-      for (k = 0; k < cyl_pot->nz; k++) {
-	      cyl_k->value[i * cyl_pot->ny * cyl_pot->nz + j * cyl_pot->nz + k] = step2 * (
-			      rgrid3d_value_at_index(cyl_pot, i-1, j , k)
-			  -2.*rgrid3d_value_at_index(cyl_pot, i  , j , k)
-			  +   rgrid3d_value_at_index(cyl_pot, i+1, j , k)  ) ;
-      }
+  double Inv_step2 = nphi * nphi / ( 2. * 2. * M_PI * M_PI );
+  for (i = 0; i < nr ; i++) {
+    for (j = 0; j < nphi ; j++) {
+	      cyl_k->value[i * nphi + j ] = Inv_step2 * (
+			      rgrid3d_value_at_index(cyl_pot, i, j-1, 0)
+			  -2.*rgrid3d_value_at_index(cyl_pot, i, j  , 0)
+			  +   rgrid3d_value_at_index(cyl_pot, i, j+1, 0)  ) ;
     }
   }
-
 
   /* map cyl_k to cart */
   for (i = 0; i < nx; i++) {
@@ -824,8 +827,9 @@ EXPORT void dft_common_pot_angularderiv(int n, char **files, rgrid3d *out) {
       }
     }
   }
+
   rgrid3d_free(cyl_pot);
-  rgrid3d_free(cyl_k);
+//  rgrid3d_free(cyl_k);
 }
 
 /*
