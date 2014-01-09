@@ -695,14 +695,15 @@ EXPORT void dft_common_potential_map_cyl(int average, char *filex, char *filey, 
  * files = Array of strings for file names containing the potentials (char **).
  * ni    = Number of intermediate angular points used in interpolation (int)
  *         (if zero, will be set to 10 * n, which works well).
- * out   = 3-D grid containing the angular interpolated potential grid. 
+ * cyl_large = 3-D cylindrical grid containing the angular interpolated potential grid. 
  * 
  */
 
-EXPORT void dft_common_pot_interpolate(int n, char **files, int ni, rgrid3d *out) {
+EXPORT rgrid3d* dft_common_pot_interpolate_cyl(int n, char **files, int ni) {
 
-  double x, y, z, r, phi, step = out->step, pot_begin, pot_step;
-  long nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nr, nphi, pot_length;
+  double r, pot_begin, pot_step;
+  long i, j , k;
+  long nr, nphi, pot_length;
   rgrid3d *cyl_small, *cyl_large;
   dft_extpot pot;
 
@@ -742,6 +743,24 @@ EXPORT void dft_common_pot_interpolate(int n, char **files, int ni, rgrid3d *out
 
   rgrid3d_extrapolate_cyl(cyl_large, cyl_small); /* Interpolate to a finer cylindrical grid */
 
+  rgrid3d_free(cyl_small);
+  return cyl_large ;
+}
+
+/*
+ * Calls dft_common_pot_interpolate_cyl and then maps the cylindrical grid
+ * to a cartesian grid.
+ * out   = 3-D grid containing the angular interpolated potential grid. 
+ * 
+ */
+
+EXPORT void dft_common_pot_interpolate(int n, char **files, int ni, rgrid3d *out) {
+
+  double x, y, z, r, phi, step = out->step;
+  long nx = out->nx, ny = out->ny, nz = out->nz, i, j, k;
+  rgrid3d *cyl_large;
+
+  cyl_large = dft_common_pot_interpolate_cyl(n, files, ni) ;
   /* map cyl_large to cart */
   for (i = 0; i < nx; i++) {
     double x2;
@@ -759,12 +778,60 @@ EXPORT void dft_common_pot_interpolate(int n, char **files, int ni, rgrid3d *out
       }
     }
   }
-
-  rgrid3d_free(cyl_small);
   rgrid3d_free(cyl_large);
 }
 
+/*
+ * Compute the numerical second derivative with respect to the angle of the potential.
+ * Computed via second-order finite difference formula,
+ *  
+ *  f''(i) = h**2 * ( f(i-1) - 2*f(i) + f(i+1) )
+ *
+ *  in this case h = 2*pi / nx .
+ *
+ */
+EXPORT void dft_common_pot_angularderiv(int n, char **files, rgrid3d *out) {
+  double x, y, z, r, phi, step2 ;
+  long nx = out->nx, ny = out->ny, nz = out->nz, step = out->step, i, j, k;
+  rgrid3d *cyl_pot, *cyl_k;
 
+  cyl_pot = dft_common_pot_interpolate_cyl(n, files, n) ;
+  step2 = 2 * 2 * M_PI * M_PI / ( cyl_pot->nx * cyl_pot->nx ) ;
+
+  cyl_k = rgrid3d_alloc( cyl_pot->nx , cyl_pot->ny , cyl_pot->nz , cyl_pot->step , RGRID3D_PERIODIC_BOUNDARY, NULL); 
+  /* second derivative respect to theta */
+  for (i = 0; i < cyl_pot->nx; i++) {
+    for (j = 0; j < cyl_pot->ny; j++) {
+      for (k = 0; k < cyl_pot->nz; k++) {
+	      cyl_k->value[i * cyl_pot->ny * cyl_pot->nz + j * cyl_pot->nz + k] = step2 * (
+			      rgrid3d_value_at_index(cyl_pot, i-1, j , k)
+			  -2.*rgrid3d_value_at_index(cyl_pot, i  , j , k)
+			  +   rgrid3d_value_at_index(cyl_pot, i+1, j , k)  ) ;
+      }
+    }
+  }
+
+
+  /* map cyl_k to cart */
+  for (i = 0; i < nx; i++) {
+    double x2;
+    x = (i - nx/2.0) * step;
+    x2 = x * x;
+    for (j = 0; j < ny; j++) {
+      double y2;
+      y = (j - ny/2.0) * step;
+      y2 = y * y;
+      for (k = 0; k < nz; k++) {
+	z = (k - nz/2.0) * step;
+	r = sqrt(x2 + y2 + z * z);
+	phi = M_PI - atan2(sqrt(x2 + y2), -z);
+	out->value[i * ny * nz + j * nz + k] = rgrid3d_value_cyl(cyl_k, r, phi, 0.0);
+      }
+    }
+  }
+  rgrid3d_free(cyl_pot);
+  rgrid3d_free(cyl_k);
+}
 
 /*
  * Spherically averaged 1-D potential energy surface
@@ -796,11 +863,12 @@ EXPORT void dft_common_pot_average(int n, char **files, int ni, rgrid3d *out) {
   pot_begin  = pot_ave.begin  ;
   pot_step   = pot_ave.step   ;
   pot_length = pot_ave.length ;
+  /* Erase the values in pot_ave */
   for(k=0; k < pot_length; k++)
 	  pot_ave.points[k] = 0. ;
   nr = pot_length + pot_begin / pot_step;   /* enough space for the potential + the empty core, which is set to constant */
 
-  /* Construct the 1D potential averaging for all directions */
+  /* Construct the 1D potential averaging all directions */
   for (j = 0; j < n; j++) {
     dft_common_read_pot(files[j], &pot);
     if (pot.begin != pot_begin || pot.step != pot_step || pot.length != pot_length) {
@@ -828,9 +896,8 @@ EXPORT void dft_common_pot_average(int n, char **files, int ni, rgrid3d *out) {
 		out->value[i * ny * nz + j * nz + k] = pot_ave.points[0] ;
 	else{
 		nr = (long) ( (r-pot_begin)/pot_step ) ;
-		out->value[i * ny * nz + j * nz + k] = pot_ave.points[nr] ;
-		//r = r - nr ;
-		//out->value[i * ny * nz + j * nz + k] = (1.-r)*pot_ave.points[nr] + r*pot_ave.points[nr+1] ;
+		r = r - nr ;
+		out->value[i * ny * nz + j * nz + k] = (1.-r) * pot_ave.points[nr] + r * pot_ave.points[nr+1] ;
 	}
       }
     }
