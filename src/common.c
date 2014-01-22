@@ -849,7 +849,7 @@ EXPORT void dft_common_pot_angularderiv(int n, char **files, rgrid3d *out) {
  * out   = 3-D grid containing the angular interpolated potential grid. 
  * 
  */
-EXPORT void dft_common_pot_average(int n, char **files, int ni, rgrid3d *out) {
+EXPORT void dft_common_pot_average(int n, char **files, rgrid3d *out) {
   
   double x, y, z, r, step = out->step, pot_begin, pot_step;
   long nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nr, pot_length;
@@ -895,8 +895,7 @@ EXPORT void dft_common_pot_average(int n, char **files, int ni, rgrid3d *out) {
 		out->value[i * ny * nz + j * nz + k] = pot_ave.points[0] ;
 	else{
 		nr = (long) ( (r-pot_begin)/pot_step ) ;
-		r = r - nr ;
-		out->value[i * ny * nz + j * nz + k] = (1.-r) * pot_ave.points[nr] + r * pot_ave.points[nr+1] ;
+		out->value[i * ny * nz + j * nz + k] = pot_ave.points[nr] ;
 	}
       }
     }
