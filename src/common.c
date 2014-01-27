@@ -895,7 +895,10 @@ EXPORT void dft_common_pot_average(int n, char **files, rgrid3d *out) {
 		out->value[i * ny * nz + j * nz + k] = pot_ave.points[0] ;
 	else{
 		nr = (long) ( (r-pot_begin)/pot_step ) ;
-		out->value[i * ny * nz + j * nz + k] = pot_ave.points[nr] ;
+		if(nr < pot_ave.length)
+			out->value[i * ny * nz + j * nz + k] = pot_ave.points[nr] ;
+		else
+			out->value[i * ny * nz + j * nz + k] = 0. ;
 	}
       }
     }
