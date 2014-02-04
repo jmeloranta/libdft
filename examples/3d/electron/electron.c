@@ -16,6 +16,8 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
+#define NST 100   /* NST steps of electron for every step of liquid */
+
 double e_he_ps(void *, double, double, double);
 
 /* Initial guess for bubble radius */
@@ -24,10 +26,12 @@ double e_he_ps(void *, double, double, double);
 #define MIN_SUBSTEPS 2
 #define MAX_SUBSTEPS 16
 
-double complex electron(void *NA, double x, double y, double z) {
+double rho0;
 
-  if(sqrt(x*x + y*y + z*z) < BUBBLE_RADIUS) return 1.0;
-  else return 0.0;
+double complex bubble(void *NA, double x, double y, double z) {
+
+  if(sqrt(x*x + y*y + z*z) < BUBBLE_RADIUS) return 0.0;
+  else return sqrt(rho0);
 }
 
 int main(int argc, char *argv[]) {
@@ -36,7 +40,6 @@ int main(int argc, char *argv[]) {
   long k, l, nx, ny, nz, iterations, threads;
   long itp = 0, dump_nth, model;
   double step, time_step;
-  double rho0;
   char chk[256];
   long restart = 0;
   wf3d *gwf = 0;
@@ -129,8 +132,9 @@ int main(int argc, char *argv[]) {
   egwfp->norm = 1.0; /* one electron */
 
   /* initialize wavefunctions */
-  cgrid3d_map(egwf->grid, electron, (void *) NULL);
+  dft_driver_gaussian_wavefunction(egwf, 0.0, 0.0, 0.0, 14.5);
   grid3d_wf_normalize(egwf);
+  cgrid3d_map(gwf->grid, bubble, (void *) NULL);
 
   if(restart) {
     fprintf(stderr, "Restart calculation\n");
@@ -144,32 +148,37 @@ int main(int argc, char *argv[]) {
     cgrid3d_copy(egwfp->grid, egwf->grid);
   }
   
-  // rgrid3d_adaptive_map(pseudo, e_he_ps, (void *) NULL, MIN_SUBSTEPS, MAX_SUBSTEPS, 0.01 / GRID_AUTOK);
-  rgrid3d_map(pseudo, e_he_ps, (void *) NULL);
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "jortner.dat", "jortner.dat", "jortner.dat", pseudo);
   dft_driver_convolution_prepare(pseudo, NULL);
 
   /* solve */
 
-  for(l = 0; l < iterations; l++) {
+  for(l = 1; l < iterations; l++) {
 
-    if(!(l % dump_nth) || l == iterations-1) {
+    if(!(l % dump_nth) || l == iterations-1 || l == 1) {
       /* Dump helium density */
       grid3d_wf_density(gwf, density);
       sprintf(chk, "helium-%ld", l);
       dft_driver_write_density(density, chk);
+      /* Dump electron density */
       sprintf(chk, "el-%ld", l);
       grid3d_wf_density(egwf, density);
       dft_driver_write_density(density, chk);
+      /* Dump electron wavefunction */
+      sprintf(chk, "el-wf-%ld", l);
+      dft_driver_write_grid(egwf->grid, chk);
+      /* Dump helium wavefunction */
+      sprintf(chk, "helium-wf-%ld", l);
+      dft_driver_write_grid(gwf->grid, chk);
     }
 
     /***** Electron *****/
     grid3d_wf_density(gwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(density, density, pseudo);
-#define NST 100
     for(k = 0; k < NST; k++) {
-      dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, l);
-      dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, l);
+      dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, k);
+      dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, k);
     }
 
     /***** Helium *****/
@@ -178,6 +187,5 @@ int main(int argc, char *argv[]) {
     dft_driver_convolution_eval(density, density, pseudo);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, gwf, gwfp, potential_store, time_step, l);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, gwf, gwfp, potential_store, time_step, l);
-
   }
 }
