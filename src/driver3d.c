@@ -33,6 +33,8 @@ static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc 
 static long driver_rels = 0;
 static double driver_frad = 0.0;
 static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0;
+static double driver_x0 = NAN , driver_y0 = NAN , driver_z0 = NAN ;
+static double driver_kx0 = 0. , driver_ky0 = 0. ,driver_kz0 = 0. ;
 static rgrid3d *density = 0;
 static rgrid3d *workspace1 = 0;
 static rgrid3d *workspace2 = 0;
@@ -250,8 +252,39 @@ EXPORT void dft_driver_setup_grid(long nx, long ny, long nz, double step, long t
   driver_ny = ny;
   driver_nz = nz;
   driver_step = step;
+  // Set the origin to its default value if it is not defined
+  if(driver_x0 != driver_x0)
+	  driver_x0 = 0.5 * nx ;
+  if(driver_y0 != driver_y0)
+	  driver_y0 = 0.5 * ny ;
+  if(driver_z0 != driver_z0)
+	  driver_z0 = 0.5 * nz ;
   fprintf(stderr, "libdft: Grid size = (%ld,%ld,%ld) with step = %le.\n", nx, ny, nz, step);
   driver_threads = threads;
+}
+
+/*
+ * Set up the origin of coordinates for the grids.
+ * Can be overwritten for a particular grid calling (r/c)grid3d_set_origin
+ *
+ */
+EXPORT void dft_driver_setup_origin(double x0, double y0, double z0){
+	driver_x0 = x0 ;
+	driver_y0 = y0 ;
+	driver_z0 = z0 ;
+	fprintf(stderr, "libdft: Origin of coordinates set at (%le,%le,%le)\n", x0, y0, z0 );
+}
+
+/*
+ * Set up the momentum of the frame of reference, i.e. a background velocity for the grids.
+ * Can be overwritten for a particular grid calling (r/c)grid3d_set_momentum
+ *
+ */
+EXPORT void dft_driver_setup_momentum(double kx0, double ky0, double kz0){
+	driver_kx0 = kx0 ;
+	driver_ky0 = ky0 ;
+	driver_kz0 = kz0 ;
+	fprintf(stderr, "libdft: Frame of reference momentum = (%le,%le,%le)\n", kx0, ky0, kz0 );
 }
 
 /*
@@ -598,6 +631,7 @@ EXPORT void dft_driver_convolution_eval(rgrid3d *out, rgrid3d *pot, rgrid3d *den
 EXPORT cgrid3d *dft_driver_alloc_cgrid() {
 
   double complex (*grid_type)(const cgrid3d *, long, long, long);
+  cgrid3d *tmp ;
 
   check_mode();
   if(driver_nx == 0) {
@@ -626,7 +660,10 @@ EXPORT cgrid3d *dft_driver_alloc_cgrid() {
     exit(1);
   }
 
-  return cgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, grid_type, 0);
+  tmp = cgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, grid_type, 0);
+  cgrid3d_set_origin(tmp, driver_x0, driver_y0, driver_z0) ;
+  cgrid3d_set_momentum(tmp, driver_kx0, driver_ky0, driver_kz0) ;
+  return tmp ;
 }
 
 /*
@@ -642,6 +679,7 @@ EXPORT cgrid3d *dft_driver_alloc_cgrid() {
 EXPORT rgrid3d *dft_driver_alloc_rgrid() {
 
   double (*grid_type)(const rgrid3d *, long, long, long);
+  rgrid3d *tmp ;
 
   check_mode();
 
@@ -665,7 +703,10 @@ EXPORT rgrid3d *dft_driver_alloc_rgrid() {
     exit(1);
   }
 
-  return rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, grid_type, 0);
+  tmp = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, grid_type, 0);
+  rgrid3d_set_origin(tmp, driver_x0, driver_y0, driver_z0) ;
+  rgrid3d_set_momentum(tmp, driver_kx0, driver_ky0, driver_kz0) ;
+  return tmp ;
 }
 
 /*
@@ -711,6 +752,8 @@ EXPORT wf3d *dft_driver_alloc_wavefunction(double mass) {
   }
 
   tmp = grid3d_wf_alloc(driver_nx, driver_ny, driver_nz, driver_step, mass, grid_type, WF3D_2ND_ORDER_PROPAGATOR);
+  cgrid3d_set_origin(tmp->grid, driver_x0, driver_y0, driver_z0) ;
+  cgrid3d_set_momentum(tmp->grid, driver_kx0, driver_ky0, driver_kz0) ;
   cgrid3d_constant(tmp->grid, sqrt(driver_rho0));
   return tmp;
 }
