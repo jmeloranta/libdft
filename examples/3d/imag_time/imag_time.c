@@ -25,9 +25,8 @@ int main(int argc, char **argv) {
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   /* TODO: Right now, only powers of 2 grids work??!!! */
-  dft_driver_setup_grid(128, 64, 123, 1.2 /* Bohr */, 16 /* threads */);
+  dft_driver_setup_grid(128, 128, 128, 0.5 /* Bohr */, 16 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  //dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
@@ -46,24 +45,14 @@ int main(int argc, char **argv) {
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
 
-  // debug
-#if 0
-  dft_driver_read_2d_to_3d(ext_pot, "initial");
-  grid3d_real_to_complex_re(gwf->grid, ext_pot);
-  cgrid3d_power(gwf->grid, gwf->grid, 0.5);
-  iter = 1;
-#else
-  iter = 0;
-#endif
-
   /* Read external potential from file */
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "he2-He.dat-spline", "he2-He.dat-spline", "he2-He.dat-spline", ext_pot);
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "he2-He.dat-spline", "he2-He.dat-spline", "he2-He.dat-spline", ext_pot);
 
-  /* Run 200 iterations using imaginary time (50 fs time step) */
-  for (; iter < 20; iter++) {
+  /* Run 200 iterations using imaginary time (10 fs time step) */
+  for (iter = 0; iter < 2000; iter++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
-    if(!(iter % 5)) {
+    if(!(iter % 100)) {
       char buf[512];
       sprintf(buf, "output-%ld", iter);
       grid3d_wf_density(gwf, density);
@@ -76,6 +65,6 @@ int main(int argc, char **argv) {
     }
   }
   /* At this point gwf contains the converged wavefunction */
-  //grid3d_wf_density(gwf, density);
-  //dft_driver_write_density(density, "output");
+  grid3d_wf_density(gwf, density);
+  dft_driver_write_density(density, "output");
 }

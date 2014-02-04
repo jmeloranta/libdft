@@ -75,7 +75,7 @@ static double region_func(void *gr, double z, double r) {
   return d / 2.0;
 }
 
-// TODO: DOES THIS WORK FOR DROPLETS???
+// TODO: Out of date: merge from 3D.
 
 static inline void scale_wf(long what, wf2d *gwf) {
 
@@ -350,11 +350,11 @@ EXPORT inline void dft_driver_propagate_predict_2d(long what, rgrid2d *ext_pot, 
   cgrid2d_copy(gwf->grid, gwfp->grid);
 
   /* predict */
+  cgrid2d_zero(potential);  // new
   if(!what) {
     grid2d_wf_density(gwfp, density);
-    cgrid2d_zero(potential);
     dft_ot2d_potential(dft_driver_otf_2d, potential, gwfp, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
-  } else cgrid2d_zero(potential);
+  }
   /* absorbing boundary */
   if(!driver_iter_mode && driver_boundary_type == 1 && !what) {
     fprintf(stderr, "libdft: Predict - absorbing boundary for helium.\n");

@@ -18,13 +18,8 @@
 
 #define NST 100   /* NST steps of electron for every step of liquid */
 
-double e_he_ps(void *, double, double, double);
-
 /* Initial guess for bubble radius */
 #define BUBBLE_RADIUS 25.0
-
-#define MIN_SUBSTEPS 2
-#define MAX_SUBSTEPS 16
 
 double rho0;
 
