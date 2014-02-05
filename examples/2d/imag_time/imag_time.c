@@ -56,11 +56,11 @@ int main(int argc, char **argv) {
       sprintf(buf, "output-%ld", iter);
       grid2d_wf_density(gwf, density);
       dft_driver_write_density_2d(density, buf);
-      energy = dft_driver_energy_2d(gwf, ext_pot);
-      natoms = dft_driver_natoms_2d(gwf);
-      printf("Total energy is %le K\n", energy * GRID_AUTOK);
-      printf("Number of He atoms is %le.\n", natoms);
-      printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
+      //      energy = dft_driver_energy_2d(gwf, ext_pot);
+      //     natoms = dft_driver_natoms_2d(gwf);
+      //printf("Total energy is %le K\n", energy * GRID_AUTOK);
+      //printf("Number of He atoms is %le.\n", natoms);
+      //printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
     }
   }
   /* At this point gwf contains the converged wavefunction */

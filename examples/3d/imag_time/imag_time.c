@@ -52,16 +52,16 @@ int main(int argc, char **argv) {
   for (iter = 0; iter < 2000; iter++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
-    if(!(iter % 100)) {
+    if(!(iter % 10)) {
       char buf[512];
       sprintf(buf, "output-%ld", iter);
       grid3d_wf_density(gwf, density);
       dft_driver_write_density(density, buf);
-      energy = dft_driver_energy(gwf, ext_pot);
-      natoms = dft_driver_natoms(gwf);
-      printf("Total energy is %le K\n", energy * GRID_AUTOK);
-      printf("Number of He atoms is %le.\n", natoms);
-      printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
+      //energy = dft_driver_energy(gwf, ext_pot);
+      //natoms = dft_driver_natoms(gwf);
+      //printf("Total energy is %le K\n", energy * GRID_AUTOK);
+      //printf("Number of He atoms is %le.\n", natoms);
+      //printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
     }
   }
   /* At this point gwf contains the converged wavefunction */

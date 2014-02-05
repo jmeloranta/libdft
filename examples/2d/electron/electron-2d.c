@@ -166,8 +166,6 @@ int main(int argc, char *argv[]) {
       dft_driver_write_grid_2d(gwf->grid, chk);
     }
 
-    // debug
-#if 0
     /***** Electron *****/
     grid2d_wf_density(gwf, density);
     dft_driver_convolution_prepare_2d(density, NULL);
@@ -176,7 +174,6 @@ int main(int argc, char *argv[]) {
       dft_driver_propagate_predict_2d(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, k);
       dft_driver_propagate_correct_2d(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, k);
     }
-#endif
 
     /***** Helium *****/
     grid2d_wf_density(egwf, density);

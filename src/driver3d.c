@@ -33,7 +33,7 @@ static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc 
 static long driver_rels = 0;
 static double driver_frad = 0.0;
 static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0;
-static double driver_x0 = NAN , driver_y0 = NAN , driver_z0 = NAN ;
+static double driver_x0 = 0.0/0.0 , driver_y0 = 0.0/0.0 , driver_z0 = 0.0/0.0 ; /* 1.0 / 0.0 = NAN - to keep Intel compiler happy */
 static double driver_kx0 = 0. , driver_ky0 = 0. ,driver_kz0 = 0. ;
 static rgrid3d *density = 0;
 static rgrid3d *workspace1 = 0;
