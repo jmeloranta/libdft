@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
   double energy, natoms;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid_2d(128, 128, 0.5 /* Bohr */, 16 /* threads */);
+  dft_driver_setup_grid_2d(1024, 1024, 0.1 /* Bohr */, 16 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model_2d(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
@@ -49,18 +49,18 @@ int main(int argc, char **argv) {
 
   /* Run 200 iterations using imaginary time (50 fs time step) */
   for (iter = 0; iter < 2000; iter++) {
+    char buf[512];
     dft_driver_propagate_predict_2d(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
     dft_driver_propagate_correct_2d(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
     if(!(iter % 10)) {
-      char buf[512];
       sprintf(buf, "output-%ld", iter);
       grid2d_wf_density(gwf, density);
       dft_driver_write_density_2d(density, buf);
-      //      energy = dft_driver_energy_2d(gwf, ext_pot);
-      //     natoms = dft_driver_natoms_2d(gwf);
-      //printf("Total energy is %le K\n", energy * GRID_AUTOK);
-      //printf("Number of He atoms is %le.\n", natoms);
-      //printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
+      energy = dft_driver_energy_2d(gwf, ext_pot);
+      natoms = dft_driver_natoms_2d(gwf);
+      printf("Total energy is %le K\n", energy * GRID_AUTOK);
+      printf("Number of He atoms is %le.\n", natoms);
+      printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
     }
   }
   /* At this point gwf contains the converged wavefunction */

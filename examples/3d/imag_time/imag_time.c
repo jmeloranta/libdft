@@ -24,8 +24,7 @@ int main(int argc, char **argv) {
   double energy, natoms;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  /* TODO: Right now, only powers of 2 grids work??!!! */
-  dft_driver_setup_grid(128, 128, 128, 0.5 /* Bohr */, 16 /* threads */);
+  dft_driver_setup_grid(256, 256, 256, 0.5 /* Bohr */, 16 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
@@ -57,11 +56,11 @@ int main(int argc, char **argv) {
       sprintf(buf, "output-%ld", iter);
       grid3d_wf_density(gwf, density);
       dft_driver_write_density(density, buf);
-      //energy = dft_driver_energy(gwf, ext_pot);
-      //natoms = dft_driver_natoms(gwf);
-      //printf("Total energy is %le K\n", energy * GRID_AUTOK);
-      //printf("Number of He atoms is %le.\n", natoms);
-      //printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
+      energy = dft_driver_energy(gwf, ext_pot);
+      natoms = dft_driver_natoms(gwf);
+      printf("Total energy is %le K\n", energy * GRID_AUTOK);
+      printf("Number of He atoms is %le.\n", natoms);
+      printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
     }
   }
   /* At this point gwf contains the converged wavefunction */

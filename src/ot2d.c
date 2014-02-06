@@ -133,10 +133,14 @@ EXPORT dft_ot_functional_2d *dft_ot2d_alloc(long model, long nz, long nr, double
     } else {
       fprintf(stderr, "libdft: LJ according to SD.\n");
       rgrid2d_adaptive_map_cyl(otf->lennard_jones, dft_common_lennard_jones_2d, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+      /* Scaling of LJ so that the integral is exactly b */
+      rgrid2d_multiply(otf->lennard_jones, otf->b / rgrid2d_integral_cyl(otf->lennard_jones));
     }
     rgrid2d_fft_cylindrical(otf->lennard_jones);
     radius = otf->lj_params.h;
     rgrid2d_adaptive_map_cyl(otf->spherical_avg, dft_common_spherical_avg_2d, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+    /* Scaling of sph. avg. so that the integral is exactly 1 */
+    rgrid2d_multiply(otf->spherical_avg, 1.0 / rgrid2d_integral_cyl(otf->spherical_avg));
     rgrid2d_fft_cylindrical(otf->spherical_avg);
     
     if(model & DFT_OT_KC) {
@@ -265,7 +269,6 @@ static void dft_ot2d_add_local_correlation_potential(dft_ot_functional_2d *otf, 
   rgrid2d_inverse_fft_cylindrical(workspace1);
 
   /* c2 */
-
   rgrid2d_power(workspace2, workspace1, otf->c2_exp);
   rgrid2d_multiply(workspace2, otf->c2 / 2.0);
   rgrid2d_fft_cylindrical_cleanup(workspace2, dft_ot2d_hankel_pad);
@@ -281,7 +284,6 @@ static void dft_ot2d_add_local_correlation_potential(dft_ot_functional_2d *otf, 
   grid2d_add_real_to_complex_re(potential, workspace2);
 
   /* c3 */
-
   rgrid2d_power(workspace2, workspace1, otf->c3_exp);
   rgrid2d_multiply(workspace2, otf->c3 / 3.0);
   rgrid2d_fft_cylindrical_cleanup(workspace2, dft_ot2d_hankel_pad);
