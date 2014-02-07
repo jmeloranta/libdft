@@ -111,7 +111,7 @@ EXPORT double bulk_density_pressurized(dft_ot_functional *otf, double pressure){
 	}
 	fprintf(stderr, "libdft: Error in bulk_density: Newton-Raphson did not converge for the given pressure.\n");
 	abort();
-
+	return NAN ;
 }
 
 /*
