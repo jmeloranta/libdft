@@ -472,7 +472,7 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
     fprintf(stderr, "libdft: Unknown BC for kinetic energy propagation.\n");
     exit(1);
   }
-  if(driver_iter_mode) scale_wf(what, dft_driver_otf, gwfp);
+  if(driver_iter_mode) scale_wf(what, dft_driver_otf, gwf);
   cgrid3d_copy(gwfp->grid, gwf->grid);
 
   /* predict */
