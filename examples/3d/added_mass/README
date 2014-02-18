@@ -1,0 +1,44 @@
+Example to compute the added mass (effective hydrodinamic mass) of an electron bubble.
+
+This is computed as:
+
+m_add / m_He = d^2 E / d v^2 | v=0
+
+or in TeX notation:
+\frac{m_{add}}{m_{He}} = \frac{d^2 E(v_0)}{dv_0^2}
+
+The script "run_all.sh" launches a set of runs to minimize the total quasienergy of the electron bubble
+for different values of the relative velocity between the liquid and the impurity. The values are 
+selected from the "vels" variable. This velocities are given as multiples of the fundamental velocity 
+for the box
+
+v = ( 2 * pi * hbar ) / (mass * num_points * step ) 
+
+corresponding to the largest wavenumber (i.e. smallest velocity) that can fit in the box. However, the
+velocities need not be integers and numbers less than 1 are fine ---and usually needed. 
+
+For the sake of efficiency, these runs start from the converged solution for v=0. The complex
+helium wavefunction is read from the grid file "liquid_final" and the complex electron wavefunction
+from "impurity_final". This can be obtained by running "added_mass" and renaming or linking the last 
+ebubble_liquid-*.grd and ebubble_impurity-*.grd. The liquid_final and impurity_final do not contain 
+the .grd extension to avoid being wiped out by 'make clean'.
+
+Each run will output its own estimation of the added mass by integrating the current density. Once the
+energies are converged, the added mass can be obtained from the energy by running "get_madd.sh". 
+This does not compute the derivative but fits the form
+
+E(k) = e0 - madd * (.5 * mass * v*v )
+
+to the energies. This form is only adequate for small v values, and you can specify a range of kinetic 
+energies (.5*mass*v*v) to fit via "./get_mass.sh range". A plot is shown in the screen to assest how
+good the fit is. If the data doesn't fit very well try reducing the range.
+
+__ Other scripts __
+
+"get_data.sh" (used by get_mass.sh) outputs the 'frame of reference kinetic energy per particle', i.e.
+.5 * mass * v0* v0, vs the total energy for all the velocities computed.
+
+"total_e.sh res" outputs the evolution of the total energy from the data found in file "res".
+The total energy is E = helium kinetic + helium potential + impurity kinetic. The impurity potential
+is not included to avoid double counting the pair potential contribution.
+

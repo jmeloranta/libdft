@@ -491,7 +491,7 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
     fprintf(stderr, "libdft: Unknown BC for kinetic energy propagation.\n");
     exit(1);
   }
-  if(driver_iter_mode) scale_wf(what, dft_driver_otf, gwfp);
+  if(driver_iter_mode) scale_wf(what, dft_driver_otf, gwf);
   cgrid3d_copy(gwfp->grid, gwf->grid);
 
   /* predict */
@@ -1237,6 +1237,20 @@ EXPORT double dft_driver_kinetic_energy(wf3d *gwf) {
   return grid3d_wf_energy(gwf, NULL, cworkspace);
 
 }
+
+/*
+ * Calculate the energy from the rotation constrain,
+ * ie -<omega*L>.
+ *
+ * gwf     = wavefunction for the system (wf3d *; input).
+ * omega_x = angular frequency in a.u., x-axis (double)
+ * omega_y = angular frequency in a.u., y-axis (double)
+ * omega_z = angular frequency in a.u., z-axis (double)
+ */
+EXPORT double dft_driver_rotation_energy(wf3d *gwf, double omega_x, double omega_y, double omega_z){
+	return -cgrid3d_angular_expectation_value(gwf->grid , omega_x, omega_y, omega_z ) ;
+}
+
 
 /*
  * Calculate the energy in a certain region (box).
