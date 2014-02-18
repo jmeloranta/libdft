@@ -1803,50 +1803,75 @@ EXPORT double dft_driver_KE(wf3d *wf) {
  *
  */
 
-static double map_x(void *gr, double x, double y, double z) {
+static double mult_mx(void *xx, double x, double y, double z) {
 
-  return x;
+  rgrid3d *grid = (rgrid3d *) xx;
+
+  return -rgrid3d_value(grid, x, y, z) * x;
 }
 
-static double map_y(void *gr, double x, double y, double z) {
+static double mult_my(void *xx, double x, double y, double z) {
 
-  return y;
+  rgrid3d *grid = (rgrid3d *) xx;
+
+  return -rgrid3d_value(grid, x, y, z) * y;
 }
 
-static double map_z(void *gr, double x, double y, double z) {
+static double mult_mz(void *xx, double x, double y, double z) {
 
-  return z;
+  rgrid3d *grid = (rgrid3d *) xx;
+
+  return -rgrid3d_value(grid, x, y, z) * z;
+}
+
+static double mult_x(void *xx, double x, double y, double z) {
+
+  rgrid3d *grid = (rgrid3d *) xx;
+
+  return rgrid3d_value(grid, x, y, z) * x;
+}
+
+static double mult_y(void *xx, double x, double y, double z) {
+
+  rgrid3d *grid = (rgrid3d *) xx;
+
+  return rgrid3d_value(grid, x, y, z) * y;
+}
+
+static double mult_z(void *xx, double x, double y, double z) {
+
+  rgrid3d *grid = (rgrid3d *) xx;
+
+  return rgrid3d_value(grid, x, y, z) * z;
 }
 
 EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
 
+  rgrid3d *px = workspace4, *py = workspace5, *pz = workspace6;
+
   check_mode();
 
-  /* TODO: this needs to be rewritten - also does it even work? */
-  if(!workspace7) workspace7 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
-  if(!workspace8) workspace8 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
-  if(!workspace9) workspace9 = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
-  rgrid3d_map(workspace7, map_x, NULL);
-  rgrid3d_map(workspace8, map_y, NULL);
-  rgrid3d_map(workspace9, map_z, NULL);
-  dft_driver_veloc_field(wf, workspace4, workspace5, workspace6);
-  grid3d_wf_density(wf, workspace2);
-  rgrid3d_multiply(workspace2, wf->mass);
+  if(!workspace7) workspace7 = dft_driver_alloc_rgrid();
+  if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
+  grid3d_wf_probability_flux(wf, px, py, pz);
+
   // Lx
-  rgrid3d_product(workspace3, workspace8 /* y */, workspace6 /* vz */);
-  rgrid3d_add_scaled_product(workspace3, -1.0, workspace9 /* z */, workspace5 /* vy */);
-  rgrid3d_product(workspace3, workspace3, workspace2);
-  *lx = rgrid3d_integral(workspace3);
+  rgrid3d_map(workspace7, mult_mz, py);      // -z*p_y
+  rgrid3d_map(workspace8, mult_y, pz);       // y*p_z
+  rgrid3d_sum(workspace7, workspace7, workspace8);
+  *lz = rgrid3d_integral(workspace7) * wf->mass;
+
   // Ly
-  rgrid3d_product(workspace3, workspace7 /* x */, workspace6 /* vz */);
-  rgrid3d_add_scaled_product(workspace3, -1.0, workspace9 /* z */, workspace4 /* vx */);
-  rgrid3d_product(workspace3, workspace3, workspace2);
-  *ly = rgrid3d_integral(workspace3);
+  rgrid3d_map(workspace7, mult_mx, pz);      // -x*p_z
+  rgrid3d_map(workspace8, mult_z, px);       // z*p_x
+  rgrid3d_sum(workspace7, workspace7, workspace8);
+  *lz = rgrid3d_integral(workspace7) * wf->mass;
+
   // Lz
-  rgrid3d_product(workspace3, workspace7 /* x */, workspace5 /* vy */);
-  rgrid3d_add_scaled_product(workspace3, -1.0, workspace8 /* y */, workspace4 /* vx */);
-  rgrid3d_product(workspace3, workspace3, workspace2);
-  *lz = rgrid3d_integral(workspace3);
+  rgrid3d_map(workspace7, mult_my, px);      // -y*p_x
+  rgrid3d_map(workspace8, mult_x, py);       // x*p_y
+  rgrid3d_sum(workspace7, workspace7, workspace8);
+  *lz = rgrid3d_integral(workspace7) * wf->mass;
 }
 
 /*
