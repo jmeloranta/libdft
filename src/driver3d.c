@@ -1078,6 +1078,113 @@ EXPORT void dft_driver_write_2d_density(rgrid3d *grid, char *base) {
   fprintf(stderr, "libdft: 2D slices of density written to %s.\n", file);
 }
 
+/*
+ * Write two-dimensional vector slices of a vector grid (three grids)
+ * .xy ASCII file cut along z=0.
+ * .yz ASCII file cut along x=0.
+ * .zx ASCII file cut along y=0.
+ *
+ * px = x-component of vector grid (rgrid3d *).
+ * py = y-component of vector grid (rgrid3d *).
+ * pz = z-component of vector grid (rgrid3d *).
+ *
+ * base = Basename for the output file (char *).
+ *
+ * No return value.
+ *
+ */
+EXPORT void dft_driver_write_vectorfield(rgrid3d *px, rgrid3d *py, rgrid3d *pz, char *base){
+    	FILE *fp;
+    	char file[2048];
+    	long i, j, k;
+    	double x, y, z;
+
+	check_mode();
+
+/*------ X Y ------*/	
+	sprintf(file, "%s.xy", base);
+	if(!(fp = fopen(file, "w"))) {
+		fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
+		exit(1);
+  	}
+	k = px->z0 ;
+  	for(i = 0; i < px->nx; i++) {
+    		x = (i - px->x0) * px->step;
+    		for(j = 0; j < px->ny; j++) {
+			y = (j - px->y0) * px->step;
+        		fprintf(fp, "%le\t%le\t%le\t%le\n", x, y, rgrid3d_value_at_index(px, i, j, k), rgrid3d_value_at_index(py, i, j, k));	
+    		} fprintf(fp,"\n") ;
+  	}
+	fclose(fp);
+/*------ Y Z ------*/	
+	sprintf(file, "%s.yz", base);
+	if(!(fp = fopen(file, "w"))) {
+		fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
+		exit(1);
+  	}
+	i = px->x0 ;
+  	for(j = 0; j < px->ny; j++) {
+    		y = (j - px->y0) * px->step;
+    		for(k = 0; k < px->nz; k++) {
+			z = (k - px->z0) * px->step;
+        		fprintf(fp, "%le\t%le\t%le\t%le\n", y, z, rgrid3d_value_at_index(py, i, j, k), rgrid3d_value_at_index(pz, i, j, k));	
+    		} fprintf(fp,"\n") ;
+  	}
+	fclose(fp);
+/*------ Z X ------*/	
+	sprintf(file, "%s.zx", base);
+	if(!(fp = fopen(file, "w"))) {
+		fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
+		exit(1);
+  	}
+	j = px->y0 ;
+  	for(k = 0; k < px->nz; k++) {
+    		z = (k - px->z0) * px->step;
+    		for(i = 0; i < px->nx; i++) {
+			x = (i - px->x0) * px->step;
+        		fprintf(fp, "%le\t%le\t%le\t%le\n", z, x, rgrid3d_value_at_index(pz, i, j, k), rgrid3d_value_at_index(px, i, j, k));	
+    		} fprintf(fp,"\n") ;
+  	}
+	fclose(fp);
+}
+
+
+/*
+ * Write two-dimensional vector slices of a probability current 
+ * .xy ASCII file cut along z=0.
+ * .yz ASCII file cut along x=0.
+ * .zx ASCII file cut along y=0.
+ *
+ * wf = wavefunction (wf3d, input)
+ * base = Basename for the output file (char *).
+ *
+ * No return value.
+ *
+ * Uses workspace 1-3
+ */
+EXPORT void dft_driver_write_current(wf3d *wf, char *base){
+	grid3d_wf_probability_flux(wf, workspace1, workspace2, workspace3);
+	dft_driver_write_vectorfield( workspace1, workspace2, workspace3, base);
+}
+
+/*
+ * Write two-dimensional vector slices of velocity 
+ * .xy ASCII file cut along z=0.
+ * .yz ASCII file cut along x=0.
+ * .zx ASCII file cut along y=0.
+ *
+ * wf = wavefunction (wf3d, input)
+ * base = Basename for the output file (char *).
+ *
+ * No return value.
+ *
+ * Uses workspace 1-3
+ */
+EXPORT void dft_driver_write_velocity(wf3d *wf, char *base){
+	dft_driver_veloc_field(wf, workspace1, workspace2, workspace3);
+	dft_driver_write_vectorfield( workspace1, workspace2, workspace3, base);
+}
+
 
 /*
  * Read in a grid from a binary file (.grd).
