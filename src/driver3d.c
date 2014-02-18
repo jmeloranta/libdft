@@ -1859,13 +1859,13 @@ EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
   rgrid3d_map(workspace7, mult_mz, py);      // -z*p_y
   rgrid3d_map(workspace8, mult_y, pz);       // y*p_z
   rgrid3d_sum(workspace7, workspace7, workspace8);
-  *lz = rgrid3d_integral(workspace7) * wf->mass;
+  *lx = rgrid3d_integral(workspace7) * wf->mass;
 
   // Ly
   rgrid3d_map(workspace7, mult_mx, pz);      // -x*p_z
   rgrid3d_map(workspace8, mult_z, px);       // z*p_x
   rgrid3d_sum(workspace7, workspace7, workspace8);
-  *lz = rgrid3d_integral(workspace7) * wf->mass;
+  *ly = rgrid3d_integral(workspace7) * wf->mass;
 
   // Lz
   rgrid3d_map(workspace7, mult_my, px);      // -y*p_x
