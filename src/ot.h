@@ -97,6 +97,8 @@
 #define DFT_DRIVER_KINETIC_CN_NBC        2
 #define DFT_DRIVER_KINETIC_CN_PBC        3
 #define DFT_DRIVER_KINETIC_CN_APBC       4
+#define DFT_DRIVER_KINETIC_CN_NBC_ROT    5
+
 /*
  * Structures.
  *

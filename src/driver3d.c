@@ -31,7 +31,7 @@ int dft_driver_init_wavefunction = 1;
 static long driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc = 0;
 static long driver_rels = 0;
-static double driver_frad = 0.0;
+static double driver_frad = 0.0, driver_omega = 0.0;
 static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0;
 static double driver_x0 = 0.0/0.0 , driver_y0 = 0.0/0.0 , driver_z0 = 0.0/0.0 ; /* 1.0 / 0.0 = NAN - to keep Intel compiler happy */
 static double driver_kx0 = 0. , driver_ky0 = 0. ,driver_kz0 = 0. ;
@@ -364,7 +364,7 @@ EXPORT void dft_driver_setup_boundaries_damp(double dmp) {
  * nhe  = desired # of He atoms for types 1 & 2 above (long).
  * frad = fixed volume radius (double). Liquid within this radius
  *        willl be fixed to rho0 to converge to droplet or column.
- * rels = iteration after which the fixing condition will be release.
+ * rels = iteration after which the fixing condition will be released.
  *        This should be done for the last few iterations to avoid
  *        artifacts arising from the fixing constraint. Set to zero to disable.
  * 
@@ -378,6 +378,20 @@ EXPORT void dft_driver_setup_normalization(long norm_type, long nhe, double frad
   driver_nhe = nhe;
   driver_rels = rels;
   driver_frad = frad;
+}
+
+/*
+ * Modify the value of the angular velocity omega (rotating liquid).
+ *
+ * omega = angular velocity (double);
+ *
+ */
+
+EXPORT void dft_driver_setup_rotation_omega(double omega) {
+
+  check_mode();
+
+  driver_omega = omega;
 }
 
 /*
@@ -455,6 +469,11 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
     grid3d_wf_propagate_kinetic_cn_nbc(gwf, htime, cworkspace);
+    break;
+  case DFT_DRIVER_KINETIC_CN_NBC_ROT:
+    if(!cworkspace)
+      cworkspace = dft_driver_alloc_cgrid();
+    grid3d_wf_propagate_kinetic_cn_nbc_rot(gwf, htime, driver_omega, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_PBC:
     if(!cworkspace)
@@ -561,6 +580,11 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
     break;
   case DFT_DRIVER_KINETIC_CN_NBC:
     grid3d_wf_propagate_kinetic_cn_nbc(gwf, htime, cworkspace);
+    break;
+  case DFT_DRIVER_KINETIC_CN_NBC_ROT:
+    if(!cworkspace)
+      cworkspace = dft_driver_alloc_cgrid();
+    grid3d_wf_propagate_kinetic_cn_nbc_rot(gwf, htime, driver_omega, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_PBC:
     grid3d_wf_propagate_kinetic_cn_pbc(gwf, htime, cworkspace);
