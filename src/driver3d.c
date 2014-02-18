@@ -1247,8 +1247,10 @@ EXPORT double dft_driver_kinetic_energy(wf3d *gwf) {
  * omega_y = angular frequency in a.u., y-axis (double)
  * omega_z = angular frequency in a.u., z-axis (double)
  */
-EXPORT double dft_driver_rotation_energy(wf3d *gwf, double omega_x, double omega_y, double omega_z){
-	return -cgrid3d_angular_expectation_value(gwf->grid , omega_x, omega_y, omega_z ) ;
+EXPORT double dft_driver_rotation_energy(wf3d *wf, double omega_x, double omega_y, double omega_z){
+	double lx, ly, lz;
+	dft_driver_L( wf, &lx, &ly, &lz) ;
+	return -omega_x * lx - omega_y * ly - omega_z * lz ;
 }
 
 
