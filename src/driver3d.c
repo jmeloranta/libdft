@@ -1215,6 +1215,20 @@ EXPORT double dft_driver_kinetic_energy(wf3d *gwf) {
 }
 
 /*
+ * Calculate the energy from the rotation constrain,
+ * ie -<omega*L>.
+ *
+ * gwf     = wavefunction for the system (wf3d *; input).
+ * omega_x = angular frequency in a.u., x-axis (double)
+ * omega_y = angular frequency in a.u., y-axis (double)
+ * omega_z = angular frequency in a.u., z-axis (double)
+ */
+EXPORT double dft_driver_rotation_energy(wf3d *gwf, double omega_x, double omega_y, double omega_z){
+	return -cgrid3d_angular_expectation_value(gwf->grid , omega_x, omega_y, omega_z ) ;
+}
+
+
+/*
  * Calculate the energy in a certain region (box).
  *
  * gwf     = wavefunction for the system (wf3d *; input).
