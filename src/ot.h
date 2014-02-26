@@ -173,4 +173,7 @@ extern int dft_driver_kinetic;
 /* Helium mass */
 #define DFT_HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
+/* Max allowed liquid velocity (backflow) */
+#define DFT_MAX_VELOC (600.0 / GRID_AUTOMPS)
+
 #endif /* __DFT_OT__ */
