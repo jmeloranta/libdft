@@ -31,7 +31,7 @@ double switch_axis(void *xx, double x, double y, double z) {
 int main(int argc, char **argv) {
 
   cgrid3d *potential_store;
-  rgrid3d *ext_pot, *density;
+  rgrid3d *ext_pot, *density, *px, *py, *pz;
   wf3d *gwf, *gwfp;
   long iter, N;
   double energy, natoms, omega, rp, beff, ieff, lx, ly, lz;
@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(128, 128, 128, 0.5 /* Bohr */, 16 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD + DFT_OT_KC + DFT_OT_BACKFLOW, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   /* Normalization condition */
@@ -65,6 +65,9 @@ int main(int argc, char **argv) {
   ext_pot = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
   density = dft_driver_alloc_rgrid();
+  px = dft_driver_alloc_rgrid();
+  py = dft_driver_alloc_rgrid();
+  pz = dft_driver_alloc_rgrid();
 
   /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
@@ -119,13 +122,15 @@ int main(int argc, char **argv) {
       printf("Total energy is %le K\n", energy * GRID_AUTOK);
       printf("Number of He atoms is %le.\n", natoms);
       printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
-      //      grid3d_wf_probability_flux(gwf, px, py, pz);
-      //sprintf(buf, "flux_x-%ld", iter);
-      //dft_driver_write_density(px, buf);
-      //sprintf(buf, "flux_y-%ld", iter);
-      //dft_driver_write_density(py, buf);
-      //sprintf(buf, "flux_z-%ld", iter);
-      //dft_driver_write_density(pz, buf);
+#if 0
+      grid3d_wf_probability_flux(gwf, px, py, pz);
+      sprintf(buf, "flux_x-%ld", iter);
+      dft_driver_write_density(px, buf);
+      sprintf(buf, "flux_y-%ld", iter);
+      dft_driver_write_density(py, buf);
+      sprintf(buf, "flux_z-%ld", iter);
+      dft_driver_write_density(pz, buf);
+#endif
     }
   }
   /* At this point gwf contains the converged wavefunction */

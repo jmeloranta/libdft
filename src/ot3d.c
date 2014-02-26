@@ -154,40 +154,45 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
       else
         rgrid3d_adaptive_map_nonperiodic(otf->lennard_jones, dft_common_lennard_jones_smooth, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     } else {
-      fprintf(stderr, "libdft: LJ according to SD.\n");
       if( otf->lennard_jones->value_outside == RGRID3D_PERIODIC_BOUNDARY ){
+	fprintf(stderr, "libdft: LJ according to SD (periodic).\n");
         rgrid3d_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
         /* Scaling of LJ so that the integral is exactly b */
         rgrid3d_multiply( otf->lennard_jones , otf->b / rgrid3d_integral(otf->lennard_jones) ) ;
         rgrid3d_fft(otf->lennard_jones);
-      }else{
+      } else {
+	fprintf(stderr, "libdft: LJ according to SD (nonperiodic).\n");
         rgrid3d_adaptive_map_nonperiodic(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
         rgrid3d_fft(otf->lennard_jones);
         /* Scaling of LJ so that the integral is exactly b */
-        rgrid3d_multiply( otf->lennard_jones , otf->b / ( step * step * step * otf->lennard_jones->value[0] ) ) ;
+        rgrid3d_multiply(otf->lennard_jones , otf->b / ( step * step * step * otf->lennard_jones->value[0]));
       }
     }
 
     radius = otf->lj_params.h;
     if( otf->spherical_avg->value_outside == RGRID3D_PERIODIC_BOUNDARY ){
+      fprintf(stderr, "libdft: Spherical average (periodic).\n");
       rgrid3d_adaptive_map(otf->spherical_avg, dft_common_spherical_avg, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       /* Scaling of sph. avg. so that the integral is exactly 1 */
-      rgrid3d_multiply( otf->spherical_avg , 1.0 / rgrid3d_integral(otf->spherical_avg) ) ;
+      rgrid3d_multiply(otf->spherical_avg, 1.0 / rgrid3d_integral(otf->spherical_avg));
       rgrid3d_fft(otf->spherical_avg);
-    }else{
+    } else {
+      fprintf(stderr, "libdft: Spherical average (nonperiodic).\n");
       rgrid3d_adaptive_map_nonperiodic(otf->spherical_avg, dft_common_spherical_avg, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid3d_fft(otf->spherical_avg);
       /* Scaling of sph. avg. so that the integral is exactly 1 */
-      rgrid3d_multiply( otf->spherical_avg , 1.0/ ( step * step * step * otf->spherical_avg->value[0] ) ) ;
+      rgrid3d_multiply(otf->spherical_avg, 1.0 / (step * step * step * otf->spherical_avg->value[0]));
     }
-
     
     if(model & DFT_OT_KC) {
       inv_width = 1.0 / otf->l_g;
-      if( otf->gaussian_tf->value_outside == RGRID3D_PERIODIC_BOUNDARY )
+      if(otf->gaussian_tf->value_outside == RGRID3D_PERIODIC_BOUNDARY) {
+	fprintf(stderr, "libdft: Kinetic correlation (periodic).\n");	
         rgrid3d_adaptive_map(otf->gaussian_tf, dft_common_gaussian, &inv_width, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
-      else  
+      } else {  
+	fprintf(stderr, "libdft: Kinetic correlation (periodic).\n");	
         rgrid3d_adaptive_map_nonperiodic(otf->gaussian_tf, dft_common_gaussian, &inv_width, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+      }
       rgrid3d_fd_gradient_x(otf->gaussian_tf, otf->gaussian_x_tf);
       rgrid3d_fd_gradient_y(otf->gaussian_tf, otf->gaussian_y_tf);
       rgrid3d_fd_gradient_z(otf->gaussian_tf, otf->gaussian_z_tf);
@@ -196,12 +201,15 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
       rgrid3d_fft(otf->gaussian_z_tf);
       rgrid3d_fft(otf->gaussian_tf);
     }
-  
+    
     if(model & DFT_OT_BACKFLOW) {
-      if( otf->backflow_pot->value_outside == RGRID3D_PERIODIC_BOUNDARY )
+      if(otf->backflow_pot->value_outside == RGRID3D_PERIODIC_BOUNDARY) {
+	fprintf(stderr, "libdft: Backflow (periodic).\n");	
         rgrid3d_adaptive_map(otf->backflow_pot, dft_ot_backflow_pot, &(otf->bf_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
-      else
+      } else {
+	fprintf(stderr, "libdft: Backflow (nonperiodic).\n");	
         rgrid3d_adaptive_map_nonperiodic(otf->backflow_pot, dft_ot_backflow_pot, &(otf->bf_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+      }
       rgrid3d_fft(otf->backflow_pot);
     }
   }
