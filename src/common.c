@@ -539,8 +539,8 @@ EXPORT void dft_common_potential_map_tilt(int average, char *filex, char *filey,
   set.y = &y;
   set.z = &z;
   set.average = average;
-  set.theta0 = theta0 ;
-  set.phi0 = phi0 ;
+  set.theta0 = theta0;
+  set.phi0 = phi0;
 
   fprintf(stderr, "libdft: Mapping potential file with x = %s, y = %s, z = %s. Average = %d\n", filex, filey, filez, average);
   dft_common_read_pot(filex, &x);
@@ -684,22 +684,13 @@ EXPORT void dft_common_potential_map_cyl(int average, char *filex, char *filey, 
   rgrid3d_map_cyl(potential, dft_common_extpot_cyl, (void *) &set);
 }
 
-
 /*
- * Produced interpolated 3-D potential energy surface
- * from n 1-D cuts along phi = 0, 2pi/n, ..., 2pi/(n-1) directions.
- * Requires cylindrical symmetry for the overall potential (i.e., linear molecule).
- * All potentials must have the same range, steps, number of points.
  *
- * n     = Number of potentials along n different angles (int).
- * files = Array of strings for file names containing the potentials (char **).
- * ni    = Number of intermediate angular points used in interpolation (int)
- *         (if zero, will be set to 10 * n, which works well).
- * return a 3-D cylindrical grid containing the angular interpolated potential grid. 
- * 
+ * This is an auxiliary routine and should not be called by users (hence not exported).
+ *
  */
 
-EXPORT rgrid3d* dft_common_pot_interpolate_cyl(int n, char **files) {
+static rgrid3d *dft_common_pot_interpolate_read(int n, char **files) {
 
   double r, pot_begin, pot_step;
   long i, j , k;
@@ -739,37 +730,43 @@ EXPORT rgrid3d* dft_common_pot_interpolate_cyl(int n, char **files) {
     }
   }
 
-  return cyl ;
+  return cyl;
 }
 
 /*
- * Calls dft_common_pot_interpolate_cyl and then maps the cylindrical grid
- * to a cartesian grid.
- * out   = 3-D grid containing the angular interpolated potential grid. 
- * 
+ * Produce interpolated 3-D potential energy surface
+ * from n 1-D cuts along phi = 0, 2pi/n, ..., 2pi/(n-1) directions.
+ * Requires cylindrical symmetry for the overall potential (i.e., linear molecule).
+ * All potentials must have the same range, steps, number of points.
+ *
+ * n     = Number of potentials along n different angles (int).
+ * files = Array of strings for file names containing the potentials (char **).
+ * out   = 3-D cartesian grid containing the angular interpolated potential data. 
+ *         (must be allocated before calling)
+ *
  */
 
 EXPORT void dft_common_pot_interpolate(int n, char **files, rgrid3d *out) {
 
-  double x, y, z, r, phi, step = out->step;
-  long nx = out->nx, ny = out->ny, nz = out->nz, i, j, k;
+  double x, y, z, r, phi, step = out->step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
+  long nx = out->nx, ny = out->ny, nz = out->nz, nynz = ny * nz, i, j, k;
   rgrid3d *cyl;
 
-  cyl = dft_common_pot_interpolate_cyl(n, files) ;
+  cyl = dft_common_pot_interpolate_read(n, files);    /* allocates cyl */
   /* map cyl_large to cart */
   for (i = 0; i < nx; i++) {
     double x2;
-    x = (i - nx/2.0) * step;
+    x = (i - x0) * step;
     x2 = x * x;
     for (j = 0; j < ny; j++) {
       double y2;
-      y = (j - ny/2.0) * step;
+      y = (j - y0) * step;
       y2 = y * y;
       for (k = 0; k < nz; k++) {
-	z = (k - nz/2.0) * step;
+	z = (k - z0) * step;
 	r = sqrt(x2 + y2 + z * z);
 	phi = M_PI - atan2(sqrt(x2 + y2), -z);
-	out->value[i * ny * nz + j * nz + k] = rgrid3d_value_cyl(cyl, r, phi, 0.0);
+	out->value[i * nynz + j * nz + k] = rgrid3d_value_cyl(cyl, r, phi, 0.0);
       }
     }
   }
@@ -786,50 +783,50 @@ EXPORT void dft_common_pot_interpolate(int n, char **files, rgrid3d *out) {
  *
  */
 EXPORT void dft_common_pot_angularderiv(int n, char **files, rgrid3d *out) {
-  double x, y, z, r, phi, step_cyl, step = out->step;
-  long nx = out->nx, ny = out->ny, nz = out->nz, i, j, k;
+
+  double x, y, z, r, phi, step_cyl, step = out->step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
+  long nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nynz = ny * nz;
   long nphi , nr ;
   rgrid3d *cyl_pot, *cyl_k;
 
+  cyl_pot = dft_common_pot_interpolate_read(n, files);    /* cyl_pot allocated */
+  nr = cyl_pot->nx;
+  nphi = cyl_pot->ny;
+  step_cyl = cyl_pot->step;
 
-  cyl_pot = dft_common_pot_interpolate_cyl(n, files) ;
-  nr = cyl_pot->nx ;
-  nphi = cyl_pot->ny ;
-  step_cyl = cyl_pot->step ;
-
-  cyl_k = rgrid3d_alloc( nr , nphi , 1 , step_cyl , RGRID3D_PERIODIC_BOUNDARY, NULL); 
+  cyl_k = rgrid3d_alloc(nr, nphi, 1, step_cyl, RGRID3D_PERIODIC_BOUNDARY, NULL); 
 
   /* second derivative respect to theta */
-  double Inv_step2 = nphi * nphi / ( 2. * 2. * M_PI * M_PI );
-  for (i = 0; i < nr ; i++) {
+  double inv_step2 = nphi * nphi / (2. * 2. * M_PI * M_PI);
+  for (i = 0; i < nr; i++) {
     for (j = 0; j < nphi ; j++) {
-	      cyl_k->value[i * nphi + j ] = Inv_step2 * (
-			      rgrid3d_value_at_index(cyl_pot, i, j-1, 0)
-			  -2.*rgrid3d_value_at_index(cyl_pot, i, j  , 0)
-			  +   rgrid3d_value_at_index(cyl_pot, i, j+1, 0)  ) ;
+	      cyl_k->value[i * nphi + j ] = inv_step2 * (
+			         rgrid3d_value_at_index(cyl_pot, i, j-1, 0)
+			  -2.0 * rgrid3d_value_at_index(cyl_pot, i, j  , 0)
+			  +      rgrid3d_value_at_index(cyl_pot, i, j+1, 0));
     }
   }
 
   /* map cyl_k to cart */
   for (i = 0; i < nx; i++) {
     double x2;
-    x = (i - nx/2.0) * step;
+    x = (i - x0) * step;
     x2 = x * x;
     for (j = 0; j < ny; j++) {
       double y2;
-      y = (j - ny/2.0) * step;
+      y = (j - y0) * step;
       y2 = y * y;
       for (k = 0; k < nz; k++) {
-	z = (k - nz/2.0) * step;
+	z = (k - z0) * step;
 	r = sqrt(x2 + y2 + z * z);
 	phi = M_PI - atan2(sqrt(x2 + y2), -z);
-	out->value[i * ny * nz + j * nz + k] = rgrid3d_value_cyl(cyl_k, r, phi, 0.0);
+	out->value[i * nynz + j * nz + k] = rgrid3d_value_cyl(cyl_k, r, phi, 0.0);
       }
     }
   }
 
   rgrid3d_free(cyl_pot);
-//  rgrid3d_free(cyl_k);
+  rgrid3d_free(cyl_k);
 }
 
 /*
@@ -851,20 +848,20 @@ EXPORT void dft_common_pot_angularderiv(int n, char **files, rgrid3d *out) {
  */
 EXPORT void dft_common_pot_average(int n, char **files, rgrid3d *out) {
   
-  double x, y, z, r, step = out->step, pot_begin, pot_step;
-  long nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nr, pot_length;
+  double x, y, z, r, step = out->step, pot_begin, pot_step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
+  long nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nr, pot_length, nynz = ny * nz;
   dft_extpot pot;
   dft_extpot pot_ave;
   double angular_weight ;
   
   /* snoop for the potential parameters */
   dft_common_read_pot(files[0], &pot_ave);
-  pot_begin  = pot_ave.begin  ;
-  pot_step   = pot_ave.step   ;
-  pot_length = pot_ave.length ;
+  pot_begin  = pot_ave.begin;
+  pot_step   = pot_ave.step;
+  pot_length = pot_ave.length;
   /* Erase the values in pot_ave */
   for(k=0; k < pot_length; k++)
-	  pot_ave.points[k] = 0. ;
+    pot_ave.points[k] = 0.0;
   nr = pot_length + pot_begin / pot_step;   /* enough space for the potential + the empty core, which is set to constant */
 
   /* Construct the 1D potential averaging all directions */
@@ -875,34 +872,32 @@ EXPORT void dft_common_pot_average(int n, char **files, rgrid3d *out) {
       exit(1);
     }
     if(j == 0 || j == n-1)
-      angular_weight = .25 - ( 1. + (n-1) * (n-1) * cos(M_PI/(n-1)) )/( 4.*n*(n-2) ) ;
+      angular_weight = 0.25 - (1.0 + (n-1) * (n-1) * cos(M_PI/(n-1))) / (4.0*n*(n-2));
     else
-      angular_weight = ( (n-1) * (n-1) * sin(M_PI/(n-1)) * sin(M_PI*j/(n-1)) ) / ( 2. * n * (n-2) );
+      angular_weight = ((n-1) * (n-1) * sin(M_PI/(n-1)) * sin(M_PI*j/(n-1))) / ( 2.0 * n * (n-2));
 
-    for(k = 0 ; k < pot.length ; k++)
-	      pot_ave.points[k] += angular_weight * pot.points[k];
+    for(k = 0; k < pot.length; k++)
+      pot_ave.points[k] += angular_weight * pot.points[k];
   }
 
   /* Map the 1D pot to cartesian grid */
   for (i = 0; i < nx; i++) {
-    x = (i - nx/2.0) * step;
+    x = (i - x0) * step;
     for (j = 0; j < ny; j++) {
-      y = (j - ny/2.0) * step;
+      y = (j - y0) * step;
       for (k = 0; k < nz; k++) {
-	z = (k - nz/2.0) * step;
-	r = sqrt( x * x + y * y + z * z);
+	z = (k - z0) * step;
+	r = sqrt(x * x + y * y + z * z);
         if (r < pot_begin)
-		out->value[i * ny * nz + j * nz + k] = pot_ave.points[0] ;
-	else{
-		nr = (long) ( (r-pot_begin)/pot_step ) ;
-		if(nr < pot_ave.length)
-			out->value[i * ny * nz + j * nz + k] = pot_ave.points[nr] ;
-		else
-			out->value[i * ny * nz + j * nz + k] = 0. ;
+	  out->value[i * nynz + j * nz + k] = pot_ave.points[0];
+	else {
+	  nr = (long) ((r - pot_begin) / pot_step);
+	  if(nr < pot_ave.length)
+	    out->value[i * nynz + j * nz + k] = pot_ave.points[nr];
+	  else
+	    out->value[i * nynz + j * nz + k] = 0.0;
 	}
       }
     }
   }
-
-
 }
