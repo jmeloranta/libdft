@@ -709,7 +709,7 @@ static rgrid3d *dft_common_pot_interpolate_read(int n, char **files) {
   pot_step = pot.step;
   pot_length = pot.length;
   nr = pot.length + pot_begin / pot_step;   /* enough space for the potential + the empty core, which is set to constant */
-  nphi = n;
+  nphi = n; /* Only [0,Pi] stored - ]Pi,2Pi[ by symmetry */
 
   cyl = rgrid3d_alloc(nr, nphi, 1, pot.step, RGRID3D_PERIODIC_BOUNDARY, NULL);
   
@@ -733,9 +733,54 @@ static rgrid3d *dft_common_pot_interpolate_read(int n, char **files) {
   return cyl;
 }
 
+/* Aux routine - not called by users. */
+/* Similar to rgrid3d_value_cyl but includes higher order polynomial interpolation for phi and z = 0 */
+
+static inline double dft_common_interpolate_value(const rgrid3d *grid, double r, double phi, double *x, double *y) {
+
+  double f0, f1;
+  long i, j, nphi = grid->ny;
+  double step = grid->step, step_phi = M_PI / (double) (nphi-1), err_estim;
+  
+  /* i to index and 0 <= r < 1 */
+  r = r / step;
+  i = (long) r;
+  r = r - i;
+  
+  /*
+   * Polynomial along phi
+   *
+   */
+
+  if(phi > M_PI) phi = 2.0 * M_PI - phi;
+
+  /* Evaluate f(0, phi) */
+  for (j = 0; j < nphi; j++) {
+    x[j] = step_phi * (double) j;
+    y[j] = rgrid3d_value_at_index_cyl(grid, i, j, 0);
+  }
+  f0 = grid_polynomial_interpolate(x, y, nphi, phi, &err_estim);
+
+  /* Evaluate f(1, phi) */
+  for (j = 0; j < nphi; j++) {
+    x[j] = step_phi * (double) j;
+    y[j] = rgrid3d_value_at_index_cyl(grid, i+1, j, 0);
+  }
+  f1 = grid_polynomial_interpolate(x, y, nphi, phi, &err_estim);
+
+  /*
+   * Linear interpolation for r
+   *
+   * f(r,phi) = (1-r) f(0, phi) + r f(1,phi)
+   */ 
+
+  return (1.0 - r) * f0 + r * f1;
+}
+
 /*
  * Produce interpolated 3-D potential energy surface
- * from n 1-D cuts along phi = 0, 2pi/n, ..., 2pi/(n-1) directions.
+ * from n 1-D cuts along phi = 0, pi/n, ..., pi directions.
+ * (symmetric for ]Pi,2Pi[)
  * Requires cylindrical symmetry for the overall potential (i.e., linear molecule).
  * All potentials must have the same range, steps, number of points.
  *
@@ -750,7 +795,13 @@ EXPORT void dft_common_pot_interpolate(int n, char **files, rgrid3d *out) {
 
   double x, y, z, r, phi, step = out->step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
   long nx = out->nx, ny = out->ny, nz = out->nz, nynz = ny * nz, i, j, k;
+  double *tmp1, *tmp2;
   rgrid3d *cyl;
+
+  if(!(tmp1 = (double *) malloc(sizeof(double) * n)) || !(tmp2 = (double *) malloc(sizeof(double) * n))) {
+    fprintf(stderr, "libgrid: Out of memory in dft_common_interpolate().\n");
+    exit(1);
+  }
 
   cyl = dft_common_pot_interpolate_read(n, files);    /* allocates cyl */
   /* map cyl_large to cart */
@@ -766,11 +817,13 @@ EXPORT void dft_common_pot_interpolate(int n, char **files, rgrid3d *out) {
 	z = (k - z0) * step;
 	r = sqrt(x2 + y2 + z * z);
 	phi = M_PI - atan2(sqrt(x2 + y2), -z);
-	out->value[i * nynz + j * nz + k] = rgrid3d_value_cyl(cyl, r, phi, 0.0);
+	out->value[i * nynz + j * nz + k] = dft_common_interpolate_value(cyl, r, phi, tmp1, tmp2);
       }
     }
   }
   rgrid3d_free(cyl);
+  free(tmp1);
+  free(tmp2);
 }
 
 /*

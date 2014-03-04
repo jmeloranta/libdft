@@ -1,0 +1,2 @@
+#!/bin/tcsh -f
+./map he3+-he-spline-0deg.dat he3+-he-spline-22.5deg.dat he3+-he-spline-45deg.dat he3+-he-spline-67.5deg.dat he3+-he-spline-90deg.dat he3+-he-spline-67.5deg.dat he3+-he-spline-45deg.dat he3+-he-spline-22.5deg.dat he3+-he-spline-0deg.dat
