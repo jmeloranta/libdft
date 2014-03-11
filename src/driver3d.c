@@ -1957,11 +1957,13 @@ static double mult_z(void *xx, double x, double y, double z) {
 EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
 
   rgrid3d *px = workspace4, *py = workspace5, *pz = workspace6;
-
   check_mode();
 
   if(!workspace7) workspace7 = dft_driver_alloc_rgrid();
   if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
+  rgrid3d_set_origin(workspace7, wf->grid->x0, wf->grid->y0, wf->grid->z0 ) ;
+  rgrid3d_set_origin(workspace8, wf->grid->x0, wf->grid->y0, wf->grid->z0 ) ;
+
   grid3d_wf_probability_flux(wf, px, py, pz);
 
   // Lx
