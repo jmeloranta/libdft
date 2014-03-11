@@ -1357,7 +1357,7 @@ EXPORT double dft_driver_kinetic_energy(wf3d *gwf) {
 EXPORT double dft_driver_rotation_energy(wf3d *wf, double omega_x, double omega_y, double omega_z){
 	double lx, ly, lz;
 	dft_driver_L( wf, &lx, &ly, &lz) ;
-	return -omega_x * lx - omega_y * ly - omega_z * lz ;
+	return - (omega_x * lx) - (omega_y * ly) - (omega_z * lz) ;
 }
 
 
