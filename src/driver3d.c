@@ -1,9 +1,10 @@
 /*
  * Simple driver routines to propagate the liquid (3D).
  *
- * TOOD: Add comments to show which internal workspaces are used by 
+ * TODO: Add comments to show which internal workspaces are used by 
  * each function.
  *
+ * TODO: DFT_DRIVER_BC_NEUMANN generates problems with DFT_DRIVER_KINETIC_CN_NBC_ROT .
  */
 
 #include <stdlib.h>
