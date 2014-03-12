@@ -1,9 +1,10 @@
 /*
  * Simple driver routines to propagate the liquid (3D).
  *
- * TOOD: Add comments to show which internal workspaces are used by 
+ * TODO: Add comments to show which internal workspaces are used by 
  * each function.
  *
+ * TODO: DFT_DRIVER_BC_NEUMANN generates problems with DFT_DRIVER_KINETIC_CN_NBC_ROT .
  */
 
 #include <stdlib.h>
@@ -1027,7 +1028,7 @@ EXPORT void dft_driver_write_2d_density(rgrid3d *grid, char *base) {
   FILE *fp;
   char file[2048];
   long i, j, k;
-  long i0 = grid->nx/2 , j0 = grid->ny/2 , k0 = grid->nz/2 ;
+  double x0 = grid->x0 , y0 = grid->y0 , z0 = grid->z0 ;
   double x, y, z;
 
 /*----- X Y -----*/
@@ -1037,10 +1038,10 @@ EXPORT void dft_driver_write_2d_density(rgrid3d *grid, char *base) {
     exit(1);
   }
   for(i = 0; i < grid->nx; i++) {
-    x = (i - i0) * grid->step;
+    x = (i - x0) * grid->step;
     for(j = 0; j < grid->ny; j++) {
-	y = (j - j0) * grid->step;
-        fprintf(fp, "%le\t%le\t%le\n", x, y, rgrid3d_value_at_index(grid, i, j, k0));	
+	y = (j - y0) * grid->step;
+        fprintf(fp, "%le\t%le\t%le\n", x, y, rgrid3d_value_at_index(grid, i, j, grid->nz/2));	
     } fprintf(fp,"\n") ;
   }
   fclose(fp);
@@ -1052,10 +1053,10 @@ EXPORT void dft_driver_write_2d_density(rgrid3d *grid, char *base) {
     exit(1);
   }
   for(j = 0; j < grid->ny; j++) {
-    y = (j - j0) * grid->step;
+    y = (j - y0) * grid->step;
     for(k = 0; k < grid->nz; k++) {
-	z = (k - k0) * grid->step;
-        fprintf(fp, "%le\t%le\t%le\n", y, z, rgrid3d_value_at_index(grid, i0, j, k));	
+	z = (k - z0) * grid->step;
+        fprintf(fp, "%le\t%le\t%le\n", y, z, rgrid3d_value_at_index(grid, grid->nx/2, j, k));	
     } fprintf(fp,"\n") ;
   }
   fclose(fp);
@@ -1067,10 +1068,10 @@ EXPORT void dft_driver_write_2d_density(rgrid3d *grid, char *base) {
     exit(1);
   }
   for(k = 0; k < grid->nz; k++) {
-    z = (k - k0) * grid->step;
+    z = (k - z0) * grid->step;
     for(i = 0; i < grid->nx; i++) {
-	x = (i - i0) * grid->step;
-        fprintf(fp, "%le\t%le\t%le\n", z, x, rgrid3d_value_at_index(grid, i, j0, k));	
+	x = (i - x0) * grid->step;
+        fprintf(fp, "%le\t%le\t%le\n", z, x, rgrid3d_value_at_index(grid, i, grid->ny/2, k));	
     } fprintf(fp,"\n") ; 
   }
   fclose(fp);
