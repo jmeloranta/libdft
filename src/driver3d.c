@@ -1957,12 +1957,19 @@ static double mult_z(void *xx, double x, double y, double z) {
 EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
 
   rgrid3d *px = workspace4, *py = workspace5, *pz = workspace6;
+  double x0, y0, z0;
+  
   check_mode();
 
   if(!workspace7) workspace7 = dft_driver_alloc_rgrid();
   if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
-  rgrid3d_set_origin(workspace7, wf->grid->x0, wf->grid->y0, wf->grid->z0 ) ;
-  rgrid3d_set_origin(workspace8, wf->grid->x0, wf->grid->y0, wf->grid->z0 ) ;
+  x0 = workspace7->x0;
+  y0 = workspace7->y0;
+  z0 = workspace7->z0;
+
+  // new grid center
+  rgrid3d_set_origin(workspace7, wf->grid->x0, wf->grid->y0, wf->grid->z0);
+  rgrid3d_set_origin(workspace8, wf->grid->x0, wf->grid->y0, wf->grid->z0);
 
   grid3d_wf_probability_flux(wf, px, py, pz);
 
@@ -1983,6 +1990,10 @@ EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
   rgrid3d_map(workspace8, mult_x, py);       // x*p_y
   rgrid3d_sum(workspace7, workspace7, workspace8);
   *lz = rgrid3d_integral(workspace7) * wf->mass;
+
+  // Just to be safe, switch back
+  rgrid3d_set_origin(workspace7, x0, y0, z0);
+  rgrid3d_set_origin(workspace8, x0, y0, z0);  
 }
 
 /*

@@ -13,13 +13,30 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-/* #define DYNAMIC_OMEGA /**/
-
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
-#define HBAR_SI 1.0545727E-34
-#define C (2.99792458e8)
-#define I_CONV (1.66054E-27 * 10E-10 * 10E-10)  
-#define I_FREE (11.39 * I_CONV)   // these were in amu Angs^2
+#define HBAR 1.0        /* au */
+#define C_SI 2.187691E6 /* au */
+
+#define TIME_STEP 10.0  /* fs */
+#define MAXITER 10000
+
+#define OCS 1 /* OCS molecule */
+
+#ifdef OCS
+/* #define I_FREE (83.1 * I_CONV)   // Free molecule moment of inertia in amu Angs^2 */
+#define ID "OCS molecule"
+#define NN 3
+/* Molecule along x axis */
+/*                                     O                       C                    S       */
+static double masses[NN] = {15.9994 / GRID_AUTOAMU, 12.01115 / GRID_AUTOAMU, 32.064 / GRID_AUTOAMU};
+//static double x[NN] = {-2.18420, 0.0, 2.96015}; /* Bohr */
+static double x[NN] = {-3.1824324, -9.982324e-01, 1.9619176}; /* Bohr */
+static double y[NN] = {0.0, 0.0, 0.0};
+static double z[NN] = {0.0, 0.0, 0.0};
+#define POTENTIAL "ocs_pairpot_128_0.5"
+#define SWITCH_AXIS 1                  /* Potential was along z - switch to x */
+#define OMEGA 1E-9
+#endif
 
 double switch_axis(void *xx, double x, double y, double z) {
 
@@ -28,23 +45,39 @@ double switch_axis(void *xx, double x, double y, double z) {
   return rgrid3d_value(grid, z, y, x);  // swap x and z -> molecule along x axis
 }
 
+double func_r(void *xx, double val, double x, double y, double z) {
+
+  unsigned int what = (unsigned int) xx;
+
+  switch(what) {
+  case 0:
+    return x;
+  case 1:
+    return y;
+  case 2:
+    return z;
+  default:
+    fprintf(stderr, "Illegal value for xx.\n");
+    exit(1);
+  }
+  return 0.0;
+}
+
 int main(int argc, char **argv) {
 
-  cgrid3d *potential_store;
+  cgrid3d *potential_store, *workspace;
   rgrid3d *ext_pot, *density, *px, *py, *pz;
   wf3d *gwf, *gwfp;
-  long iter, N;
-  double energy, natoms, omega, rp, beff, ieff, lx, ly, lz;
+  long iter, N, i;
+  double energy, natoms, omega, rp, beff, i_add, lx, ly, lz, i_free, b_free, mass, cmx, cmy, cmz;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(128, 128, 128, 0.5 /* Bohr */, 4 /* threads */);
+  dft_driver_setup_grid(64, 64, 64, 1.0 /* Bohr */, 4 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD + DFT_OT_BACKFLOW, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   /* Normalization condition */
-  //  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 0, 0.0, 0);
-  // dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   if(argc != 2) {
     fprintf(stderr, "Usage: imag_time N\n");
     exit(1);
@@ -55,6 +88,8 @@ int main(int argc, char **argv) {
   else
     dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_DROPLET, N, 0.0, 1); // 1 = release center immediately
 
+  printf("ID: %s\n", ID);
+
   /* Set up rotating liquid */
   dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC_ROT;
 
@@ -64,6 +99,7 @@ int main(int argc, char **argv) {
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
+  workspace = dft_driver_alloc_cgrid(); /* temporary storage */
   density = dft_driver_alloc_rgrid();
   px = dft_driver_alloc_rgrid();
   py = dft_driver_alloc_rgrid();
@@ -75,56 +111,60 @@ int main(int argc, char **argv) {
 
   /* Read external potential from file */
   density->value_outside = RGRID3D_DIRICHLET_BOUNDARY;  // for extrapolation to work
-  //  dft_driver_read_density(px, "ocs_pairpot_256_0.25");      // molecule along z
-  // dft_driver_read_density(density, "ocs_pairpot_128_0.5");      // molecule along z
-  dft_driver_read_density(density, "hcn_pairpot_128_0.5");      // molecule along z
-  density->value_outside = RGRID3D_PERIODIC_BOUNDARY;   // done, back to original
-  rgrid3d_map(ext_pot, switch_axis, density);           // reorient from z to x
-#if 0
-  {
-    double x, y, z;
-    x = -1.0;
-    z = 0.0;
-    for (y = -15; y <= 15.0; y += 0.1) 
-      printf("%le %le\n", y, rgrid3d_value(ext_pot, x, y, z));
-    exit(0);
-  }
+  dft_driver_read_density(density, POTENTIAL);
+#ifdef SWITCH_AXIS
+  rgrid3d_map(ext_pot, switch_axis, density);
+#else
+  dft_driver_read_density(ext_pot, POTENTIAL);
 #endif
+  density->value_outside = RGRID3D_PERIODIC_BOUNDARY;   // done, back to original
   rgrid3d_add(ext_pot, 7.2 / GRID_AUTOK);
 
-  /* Initial omega */
-  beff =  HBAR_SI / (4.0 * M_PI * C * I_FREE);
-  rp = 1.0 / (2.0 * beff * 2.99793E10); /* rotational period in seconds */
-  rp /= 2.4188843265E-17;  /* s -> au */
-  omega = 2.0 * M_PI / rp;
-  printf("Initial omega = %le\n", omega);
+  omega = OMEGA;
+  printf("Omega = %le\n", omega);
+  dft_driver_setup_rotation_omega(omega);
 
-  /* Run 10000 iterations using imaginary time (10 fs time step) */
-  for (iter = 0; iter < 100000; iter++) {
+  for (iter = 0; iter < MAXITER; iter++) {
     
-    // Effective mass
-    dft_driver_L(gwf, &lx, &ly, &lz);
-    ieff = lz / omega;  // Ieff
-    ieff *= GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG; // To u Angs^2
-    printf("I_eff = %le AMU Angs^2.\n", ieff);
-    beff =  HBAR_SI / (4.0 * M_PI * C * (I_FREE + ieff * I_CONV));
-    printf("B_eff = %le cm-1.\n", beff);
-#ifndef DYNAMIC_OMEGA
-    // Fixed B
-    beff =  HBAR_SI / (4.0 * M_PI * C * I_FREE);   // approx bulk value
-    // end fixed B
-#endif
-    rp = 1.0 / (2.0 * beff * 2.99793E10); /* rotational period in seconds */
-    rp /= 2.4188843265E-17;  /* s -> au */
-    omega = 2.0 * M_PI / rp;
-    // DEBUG
-    omega = 1e-09;
-    // END DEBUG
-    printf("Omega = %le\n", omega);
-    dft_driver_setup_rotation_omega(omega);
+    // Center of mass of the rotating system
+    mass = cmx = cmy = cmz = 0.0;
+    for (i = 0; i < NN; i++) {
+      cmx += x[i] * masses[i];
+      cmy += y[i] * masses[i];
+      cmz += z[i] * masses[i];
+      mass += masses[i];
+    }
+    cmx /= mass; cmy /= mass; cmz /= mass;
+    grid3d_wf_momentum_y(gwf, potential_store, workspace);
+    cmx += cgrid3d_grid_expectation_value(gwf->grid, potential_store) / (2.0 * omega * mass);
+    grid3d_wf_momentum_x(gwf, potential_store, workspace);
+    cmy -= cgrid3d_grid_expectation_value(gwf->grid, potential_store) / (2.0 * omega * mass);
+    printf("Center of mass: %le %le %le\n", cmx, cmy, cmz);
 
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
+    /* Free molecule moment of inertia */
+    i_free = 0.0;
+    for (i = 0; i < NN; i++) {
+      double x2, y2, z2;
+      x2 = x[i] - cmx; x2 *= x2;
+      y2 = y[i] - cmy; y2 *= y2;
+      z2 = z[i] - cmz; z2 *= z2;
+      i_free += masses[i] * (x2 + y2 + z2);
+    }
+    b_free = HBAR * HBAR / (2.0 * i_free);
+    printf("I_free = %le AMU Angs^2\n", i_free * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
+    printf("B_free = %le cm-1.\n", GRID_AUTOCM1 * b_free);
+
+    /* Liquid moment of inertia */
+    cgrid3d_set_origin(gwf->grid, cmx, cmy, cmz);
+    dft_driver_L(gwf, &lx, &ly, &lz);
+    cgrid3d_set_origin(gwf->grid, 0.0, 0.0, 0.0);
+    i_add = lz / omega;
+    printf("I_eff = %le AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
+    beff =  HBAR * HBAR / (2.0 * (i_free + i_add));
+    printf("B_eff = %le cm-1.\n", beff * GRID_AUTOCM1);
+
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
 
     if(!(iter % 100)) {
       char buf[512];
@@ -136,7 +176,7 @@ int main(int argc, char **argv) {
       printf("Total energy is %le K\n", energy * GRID_AUTOK);
       printf("Number of He atoms is %le.\n", natoms);
       printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
-#if 1
+#if 0
       grid3d_wf_probability_flux(gwf, px, py, pz);
       sprintf(buf, "flux_x-%ld", iter);
       dft_driver_write_density(px, buf);
