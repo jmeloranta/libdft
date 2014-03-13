@@ -1967,9 +1967,9 @@ EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
   if(!workspace7) workspace7 = dft_driver_alloc_rgrid();
   if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
 
-  origin_x = wf->grid->x0;
-  origin_y = wf->grid->y0;
-  origin_z = wf->grid->z0;
+  origin_x = (wf->grid->x0 - wf->grid->nx/2 )*wf->grid->step ;
+  origin_y = (wf->grid->y0 - wf->grid->ny/2 )*wf->grid->step ;
+  origin_z = (wf->grid->z0 - wf->grid->nz/2 )*wf->grid->step ;
 
   grid3d_wf_probability_flux(wf, px, py, pz);
 
