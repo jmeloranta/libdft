@@ -152,12 +152,11 @@ int main(int argc, char **argv) {
     }
     b_free = HBAR * HBAR / (2.0 * i_free);
     printf("I_free = %le AMU Angs^2\n", i_free * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
-    printf("B_free = %le cm-1.\n", GRID_AUTOCM1 * b_free);
+    printf("B_free = %le cm-1.\n", b_free * GRID_AUTOCM1);
 
     /* Liquid moment of inertia */
-    cgrid3d_set_origin(gwf->grid, cmx, cmy, cmz);
+    dft_driver_L_origin(cmx, cmy, cmz);
     dft_driver_L(gwf, &lx, &ly, &lz);
-    cgrid3d_set_origin(gwf->grid, 0.0, 0.0, 0.0);
     i_add = lz / omega;
     printf("I_eff = %le AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
     beff =  HBAR * HBAR / (2.0 * (i_free + i_add));

@@ -1913,46 +1913,61 @@ EXPORT double dft_driver_KE(wf3d *wf) {
  *
  */
 
+static double origin_x = 0.0, origin_y = 0.0, origin_z = 0.0;
+
 static double mult_mx(void *xx, double x, double y, double z) {
 
   rgrid3d *grid = (rgrid3d *) xx;
 
-  return -rgrid3d_value(grid, x, y, z) * x;
+  return -rgrid3d_value(grid, x, y, z) * (x - origin_x);
 }
 
 static double mult_my(void *xx, double x, double y, double z) {
 
   rgrid3d *grid = (rgrid3d *) xx;
 
-  return -rgrid3d_value(grid, x, y, z) * y;
+  return -rgrid3d_value(grid, x, y, z) * (y - origin_y);
 }
 
 static double mult_mz(void *xx, double x, double y, double z) {
 
   rgrid3d *grid = (rgrid3d *) xx;
 
-  return -rgrid3d_value(grid, x, y, z) * z;
+  return -rgrid3d_value(grid, x, y, z) * (z - origin_z);
 }
 
 static double mult_x(void *xx, double x, double y, double z) {
 
   rgrid3d *grid = (rgrid3d *) xx;
 
-  return rgrid3d_value(grid, x, y, z) * x;
+  return rgrid3d_value(grid, x, y, z) * (x - origin_x);
 }
 
 static double mult_y(void *xx, double x, double y, double z) {
 
   rgrid3d *grid = (rgrid3d *) xx;
 
-  return rgrid3d_value(grid, x, y, z) * y;
+  return rgrid3d_value(grid, x, y, z) * (y - origin_y);
 }
 
 static double mult_z(void *xx, double x, double y, double z) {
 
   rgrid3d *grid = (rgrid3d *) xx;
 
-  return rgrid3d_value(grid, x, y, z) * z;
+  return rgrid3d_value(grid, x, y, z) * (z - origin_z);
+}
+
+/*
+ * Evaluate the angular momentum about this point.
+ * (default is 0.0, 0.0, 0.0)
+ *
+ */
+
+EXPORT void dft_driver_L_origin(double x, double y, double z) {
+
+  origin_x = x;
+  origin_y = y;
+  origin_z = z;
 }
 
 EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
@@ -1964,13 +1979,6 @@ EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
 
   if(!workspace7) workspace7 = dft_driver_alloc_rgrid();
   if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
-  x0 = workspace7->x0;
-  y0 = workspace7->y0;
-  z0 = workspace7->z0;
-
-  // new grid center
-  rgrid3d_set_origin(workspace7, wf->grid->x0, wf->grid->y0, wf->grid->z0);
-  rgrid3d_set_origin(workspace8, wf->grid->x0, wf->grid->y0, wf->grid->z0);
 
   grid3d_wf_probability_flux(wf, px, py, pz);
 
@@ -1991,10 +1999,6 @@ EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
   rgrid3d_map(workspace8, mult_x, py);       // x*p_y
   rgrid3d_sum(workspace7, workspace7, workspace8);
   *lz = rgrid3d_integral(workspace7) * wf->mass;
-
-  // Just to be safe, switch back
-  rgrid3d_set_origin(workspace7, x0, y0, z0);
-  rgrid3d_set_origin(workspace8, x0, y0, z0);  
 }
 
 /*
