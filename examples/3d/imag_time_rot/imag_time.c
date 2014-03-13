@@ -19,6 +19,10 @@
 
 #define TIME_STEP 10.0  /* fs */
 #define MAXITER 10000
+#define NX 64
+#define NY 64
+#define NZ 64
+#define STEP 1.0
 
 #define OCS 1 /* OCS molecule */
 
@@ -72,7 +76,7 @@ int main(int argc, char **argv) {
   double energy, natoms, omega, rp, beff, i_add, lx, ly, lz, i_free, b_free, mass, cmx, cmy, cmz;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(64, 64, 64, 1.0 /* Bohr */, 4 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 8 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
@@ -127,6 +131,7 @@ int main(int argc, char **argv) {
   for (iter = 0; iter < MAXITER; iter++) {
     
     // Center of mass of the rotating system
+    // 1. The molecule
     mass = cmx = cmy = cmz = 0.0;
     for (i = 0; i < NN; i++) {
       cmx += x[i] * masses[i];
@@ -134,14 +139,17 @@ int main(int argc, char **argv) {
       cmz += z[i] * masses[i];
       mass += masses[i];
     }
-    cmx /= mass; cmy /= mass; cmz /= mass;
+    cmx /= mass; cmy /= mass; cmz /= mass;    
+    // 2. Liquid
     grid3d_wf_momentum_y(gwf, potential_store, workspace);
-    cmx += cgrid3d_grid_expectation_value(gwf->grid, potential_store) / (2.0 * omega * mass);
+    cgrid3d_conjugate_product(potential_store, gwf->grid, potential_store);
+    cmx += cgrid3d_integral(potential_store) / (2.0 * omega * mass);
     grid3d_wf_momentum_x(gwf, potential_store, workspace);
-    cmy -= cgrid3d_grid_expectation_value(gwf->grid, potential_store) / (2.0 * omega * mass);
+    cgrid3d_conjugate_product(potential_store, gwf->grid, potential_store);
+    cmy -= cgrid3d_integral(potential_store) / (2.0 * omega * mass);
     printf("Center of mass: %le %le %le\n", cmx, cmy, cmz);
 
-    /* Free molecule moment of inertia */
+    /* Moment of inertia about the center of mass for the molecule */
     i_free = 0.0;
     for (i = 0; i < NN; i++) {
       double x2, y2, z2;
@@ -151,11 +159,12 @@ int main(int argc, char **argv) {
       i_free += masses[i] * (x2 + y2 + z2);
     }
     b_free = HBAR * HBAR / (2.0 * i_free);
-    printf("I_free = %le AMU Angs^2\n", i_free * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
-    printf("B_free = %le cm-1.\n", b_free * GRID_AUTOCM1);
+    printf("I_molecule = %le AMU Angs^2\n", i_free * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
+    printf("B_molecule = %le cm-1.\n", b_free * GRID_AUTOCM1);
 
     /* Liquid moment of inertia */
-    dft_driver_L_origin(cmx, cmy, cmz);
+    cgrid3d_set_origin(gwf->grid, NX/2.0 + cmx/STEP, NY/2.0 + cmy/STEP, NZ/2.0 + cmz/STEP); // Evaluate L about center of mass (in dft_driver_L() and -wL_z in the Hamiltonian
+    cgrid3d_set_origin(gwfp->grid, NX/2.0 + cmx/STEP, NY/2.0 + cmy/STEP, NZ/2.0 + cmz/STEP);// Grid origin is at (NX/2,NY/2,NZ/2)
     dft_driver_L(gwf, &lx, &ly, &lz);
     i_add = lz / omega;
     printf("I_eff = %le AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
@@ -165,7 +174,7 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
 
-    if(!(iter % 100)) {
+    if(!(iter % 500)) {
       char buf[512];
       sprintf(buf, "output-%ld", iter);
       grid3d_wf_density(gwf, density);

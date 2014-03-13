@@ -1957,19 +1957,6 @@ static double mult_z(void *xx, double x, double y, double z) {
   return rgrid3d_value(grid, x, y, z) * (z - origin_z);
 }
 
-/*
- * Evaluate the angular momentum about this point.
- * (default is 0.0, 0.0, 0.0)
- *
- */
-
-EXPORT void dft_driver_L_origin(double x, double y, double z) {
-
-  origin_x = x;
-  origin_y = y;
-  origin_z = z;
-}
-
 EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
 
   rgrid3d *px = workspace4, *py = workspace5, *pz = workspace6;
@@ -1979,6 +1966,10 @@ EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
 
   if(!workspace7) workspace7 = dft_driver_alloc_rgrid();
   if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
+
+  origin_x = wf->grid->x0;
+  origin_y = wf->grid->y0;
+  origin_z = wf->grid->z0;
 
   grid3d_wf_probability_flux(wf, px, py, pz);
 
