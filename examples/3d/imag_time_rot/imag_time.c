@@ -30,8 +30,11 @@
 /*                                     O                       C                    S       */
 static double masses[NN] = {15.9994 / GRID_AUTOAMU, 12.01115 / GRID_AUTOAMU, 32.064 / GRID_AUTOAMU};
 static double x[NN] = {-3.1824324, -9.982324e-01, 1.9619176}; /* Bohr */
+//static double masses[NN] = {32.064 / GRID_AUTOAMU, 12.01115 / GRID_AUTOAMU, 15.9994 / GRID_AUTOAMU};   /* SCO */
+//static double x[NN] = {-2.96015, 0.0, 2.18420};
 static double y[NN] = {0.0, 0.0, 0.0};
 static double z[NN] = {0.0, 0.0, 0.0};
+// #define POTENTIAL "newocs_pairpot_128_0.5"
 #define POTENTIAL "ocs_pairpot_128_0.5"
 #define SWITCH_AXIS 1                  /* Potential was along z - switch to x */
 #define OMEGA 1E-9
@@ -85,7 +88,7 @@ int main(int argc, char **argv) {
   else
     dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_DROPLET, N, 0.0, 1); // 1 = release center immediately
 
-  printf("ID: %s\n", ID);
+  printf("ID: %s (N = %ld)\n", ID, N);
 
   /* Set up rotating liquid */
   dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC_ROT;
@@ -134,12 +137,10 @@ int main(int argc, char **argv) {
     }
     cmx /= mass; cmy /= mass; cmz /= mass;    
     // 2. Liquid
-    grid3d_wf_momentum_y(gwf, potential_store, workspace);
-    cgrid3d_conjugate_product(potential_store, gwf->grid, potential_store);
-    cmx += cgrid3d_integral(potential_store) / (2.0 * omega * mass);
-    grid3d_wf_momentum_x(gwf, potential_store, workspace);
-    cgrid3d_conjugate_product(potential_store, gwf->grid, potential_store);
-    cmy -= cgrid3d_integral(potential_store) / (2.0 * omega * mass);
+    grid3d_wf_probability_flux_y(gwf, density);
+    cmx += rgrid3d_integral(density) * gwf->mass / (2.0 * omega * mass);
+    grid3d_wf_probability_flux_x(gwf, density);
+    cmy -= rgrid3d_integral(density) * gwf->mass / (2.0 * omega * mass);
     printf("Current center of mass: %le %le %le\n", cmx, cmy, cmz);
 
     /* Moment of inertia about the center of mass for the molecule */
