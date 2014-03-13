@@ -13,10 +13,6 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
-#define HBAR 1.0        /* au */
-#define C_SI 2.187691E6 /* au */
-
 #define TIME_STEP 10.0  /* fs */
 #define MAXITER 10000
 #define NX 64
@@ -24,16 +20,15 @@
 #define NZ 64
 #define STEP 1.0
 
-#define OCS 1 /* OCS molecule */
+/* #define OCS 1 /* OCS molecule */
+#define HCN 1 /* HCN molecule */
 
 #ifdef OCS
-/* #define I_FREE (83.1 * I_CONV)   // Free molecule moment of inertia in amu Angs^2 */
 #define ID "OCS molecule"
 #define NN 3
 /* Molecule along x axis */
 /*                                     O                       C                    S       */
 static double masses[NN] = {15.9994 / GRID_AUTOAMU, 12.01115 / GRID_AUTOAMU, 32.064 / GRID_AUTOAMU};
-//static double x[NN] = {-2.18420, 0.0, 2.96015}; /* Bohr */
 static double x[NN] = {-3.1824324, -9.982324e-01, 1.9619176}; /* Bohr */
 static double y[NN] = {0.0, 0.0, 0.0};
 static double z[NN] = {0.0, 0.0, 0.0};
@@ -42,29 +37,27 @@ static double z[NN] = {0.0, 0.0, 0.0};
 #define OMEGA 1E-9
 #endif
 
+#ifdef HCN
+#define ID "HCN molecule"
+#define NN 3
+/* Molecule along x axis */
+/*                                     H                       C                    N       */
+static double masses[NN] = {1.00794 / GRID_AUTOAMU, 12.0107 / GRID_AUTOAMU, 14.0067 / GRID_AUTOAMU};
+static double x[NN] = {-1.064 / GRID_AUTOANG - 1.057205e+00, 0.0 / GRID_AUTOANG - 1.057205e+00, 1.156 / GRID_AUTOANG - 1.057205e+00}; /* Bohr */
+static double y[NN] = {0.0, 0.0, 0.0};
+static double z[NN] = {0.0, 0.0, 0.0};
+#define POTENTIAL "hcn_pairpot_128_0.5"
+#define OMEGA 1E-9
+#endif
+
+#define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
+#define HBAR 1.0        /* au */
+
 double switch_axis(void *xx, double x, double y, double z) {
 
   rgrid3d *grid = (rgrid3d *) xx;
 
   return rgrid3d_value(grid, z, y, x);  // swap x and z -> molecule along x axis
-}
-
-double func_r(void *xx, double val, double x, double y, double z) {
-
-  unsigned int what = (unsigned int) xx;
-
-  switch(what) {
-  case 0:
-    return x;
-  case 1:
-    return y;
-  case 2:
-    return z;
-  default:
-    fprintf(stderr, "Illegal value for xx.\n");
-    exit(1);
-  }
-  return 0.0;
 }
 
 int main(int argc, char **argv) {
@@ -115,8 +108,8 @@ int main(int argc, char **argv) {
 
   /* Read external potential from file */
   density->value_outside = RGRID3D_DIRICHLET_BOUNDARY;  // for extrapolation to work
-  dft_driver_read_density(density, POTENTIAL);
 #ifdef SWITCH_AXIS
+  dft_driver_read_density(density, POTENTIAL);
   rgrid3d_map(ext_pot, switch_axis, density);
 #else
   dft_driver_read_density(ext_pot, POTENTIAL);
@@ -147,7 +140,7 @@ int main(int argc, char **argv) {
     grid3d_wf_momentum_x(gwf, potential_store, workspace);
     cgrid3d_conjugate_product(potential_store, gwf->grid, potential_store);
     cmy -= cgrid3d_integral(potential_store) / (2.0 * omega * mass);
-    printf("Center of mass: %le %le %le\n", cmx, cmy, cmz);
+    printf("Current center of mass: %le %le %le\n", cmx, cmy, cmz);
 
     /* Moment of inertia about the center of mass for the molecule */
     i_free = 0.0;
@@ -161,10 +154,9 @@ int main(int argc, char **argv) {
     b_free = HBAR * HBAR / (2.0 * i_free);
     printf("I_molecule = %le AMU Angs^2\n", i_free * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
     printf("B_molecule = %le cm-1.\n", b_free * GRID_AUTOCM1);
-
-    /* Liquid moment of inertia */
-    cgrid3d_set_origin(gwf->grid, NX/2.0 + cmx/STEP, NY/2.0 + cmy/STEP, NZ/2.0 + cmz/STEP); // Evaluate L about center of mass (in dft_driver_L() and -wL_z in the Hamiltonian
-    cgrid3d_set_origin(gwfp->grid, NX/2.0 + cmx/STEP, NY/2.0 + cmy/STEP, NZ/2.0 + cmz/STEP);// Grid origin is at (NX/2,NY/2,NZ/2)
+    /* Liquid contribution to the moment of inertia */
+    cgrid3d_set_origin(gwf->grid, NX/2.0 + cmx/STEP, NY/2.0 + cmy/STEP, NZ/2.0 + cmz/STEP); // Evaluate L about center of mass in dft_driver_L() and -wL_z in the Hamiltonian
+    cgrid3d_set_origin(gwfp->grid, NX/2.0 + cmx/STEP, NY/2.0 + cmy/STEP, NZ/2.0 + cmz/STEP);// Grid origin is at (NX/2,NY/2,NZ/2) and shift by cmX / STEP
     dft_driver_L(gwf, &lx, &ly, &lz);
     i_add = lz / omega;
     printf("I_eff = %le AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
@@ -184,7 +176,6 @@ int main(int argc, char **argv) {
       printf("Total energy is %le K\n", energy * GRID_AUTOK);
       printf("Number of He atoms is %le.\n", natoms);
       printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
-#if 0
       grid3d_wf_probability_flux(gwf, px, py, pz);
       sprintf(buf, "flux_x-%ld", iter);
       dft_driver_write_density(px, buf);
@@ -192,10 +183,7 @@ int main(int argc, char **argv) {
       dft_driver_write_density(py, buf);
       sprintf(buf, "flux_z-%ld", iter);
       dft_driver_write_density(pz, buf);
-#endif
     }
   }
-  /* At this point gwf contains the converged wavefunction */
-  grid3d_wf_density(gwf, density);
-  dft_driver_write_density(density, "output");
+  return 0;
 }
