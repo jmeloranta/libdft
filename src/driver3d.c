@@ -255,11 +255,11 @@ EXPORT void dft_driver_setup_grid(long nx, long ny, long nz, double step, long t
   driver_step = step;
   // Set the origin to its default value if it is not defined
   if(driver_x0 != driver_x0)
-	  driver_x0 = 0.5 * nx ;
+	  driver_x0 = 0. ;
   if(driver_y0 != driver_y0)
-	  driver_y0 = 0.5 * ny ;
+	  driver_y0 = 0. ;
   if(driver_z0 != driver_z0)
-	  driver_z0 = 0.5 * nz ;
+	  driver_z0 = 0. ;
   fprintf(stderr, "libdft: Grid size = (%ld,%ld,%ld) with step = %le.\n", nx, ny, nz, step);
   driver_threads = threads;
 }
@@ -1029,6 +1029,7 @@ EXPORT void dft_driver_write_2d_density(rgrid3d *grid, char *base) {
   char file[2048];
   long i, j, k;
   double x0 = grid->x0 , y0 = grid->y0 , z0 = grid->z0 ;
+  long nx = grid->nx , ny = grid->ny , nz = grid->nz , step = grid->step ;
   double x, y, z;
 
 /*----- X Y -----*/
@@ -1037,11 +1038,11 @@ EXPORT void dft_driver_write_2d_density(rgrid3d *grid, char *base) {
     fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
     exit(1);
   }
-  for(i = 0; i < grid->nx; i++) {
-    x = (i - x0) * grid->step;
-    for(j = 0; j < grid->ny; j++) {
-	y = (j - y0) * grid->step;
-        fprintf(fp, "%le\t%le\t%le\n", x, y, rgrid3d_value_at_index(grid, i, j, grid->nz/2));	
+  for(i = 0; i < nx; i++) {
+    x = (i - nx/2) * step - x0;
+    for(j = 0; j < ny; j++) {
+	y = (j - ny/2) * step - y0;
+        fprintf(fp, "%le\t%le\t%le\n", x, y, rgrid3d_value_at_index(grid, i, j, nz/2));	
     } fprintf(fp,"\n") ;
   }
   fclose(fp);
@@ -1052,11 +1053,11 @@ EXPORT void dft_driver_write_2d_density(rgrid3d *grid, char *base) {
     fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
     exit(1);
   }
-  for(j = 0; j < grid->ny; j++) {
-    y = (j - y0) * grid->step;
-    for(k = 0; k < grid->nz; k++) {
-	z = (k - z0) * grid->step;
-        fprintf(fp, "%le\t%le\t%le\n", y, z, rgrid3d_value_at_index(grid, grid->nx/2, j, k));	
+  for(j = 0; j < ny; j++) {
+    y = (j - ny/2) * step - y0;
+    for(k = 0; k < nz; k++) {
+	z = (k - nz/2) * step - z0;
+        fprintf(fp, "%le\t%le\t%le\n", y, z, rgrid3d_value_at_index(grid, nx/2, j, k));	
     } fprintf(fp,"\n") ;
   }
   fclose(fp);
@@ -1067,11 +1068,11 @@ EXPORT void dft_driver_write_2d_density(rgrid3d *grid, char *base) {
     fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
     exit(1);
   }
-  for(k = 0; k < grid->nz; k++) {
-    z = (k - z0) * grid->step;
-    for(i = 0; i < grid->nx; i++) {
-	x = (i - x0) * grid->step;
-        fprintf(fp, "%le\t%le\t%le\n", z, x, rgrid3d_value_at_index(grid, i, grid->ny/2, k));	
+  for(k = 0; k < nz; k++) {
+    z = (k - nz/2) * step - z0;
+    for(i = 0; i < nx; i++) {
+	x = (i - nx/2) * step - z0;
+        fprintf(fp, "%le\t%le\t%le\n", z, x, rgrid3d_value_at_index(grid, i, ny/2, k));	
     } fprintf(fp,"\n") ; 
   }
   fclose(fp);
@@ -1098,55 +1099,58 @@ EXPORT void dft_driver_write_vectorfield(rgrid3d *px, rgrid3d *py, rgrid3d *pz, 
     	FILE *fp;
     	char file[2048];
     	long i, j, k;
+  	double x0 = px->x0 , y0 = px->y0 , z0 = px->z0 ;
+  	long nx = px->nx , ny = px->ny , nz = px->nz , step = px->step ;
     	double x, y, z;
 
 	check_mode();
+/*----- X Y -----*/
+  sprintf(file, "%s.xy", base);
+  if(!(fp = fopen(file, "w"))) {
+    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
+    exit(1);
+  }
+  for(i = 0; i < nx; i++) {
+    x = (i - nx/2) * step - x0;
+    for(j = 0; j < ny; j++) {
+	y = (j - ny/2) * step - y0;
+        fprintf(fp, "%le\t%le\t%le\t%le\n", x, y, rgrid3d_value_at_index(px, i, j, k), rgrid3d_value_at_index(py, i, j, k));	
+    } fprintf(fp,"\n") ;
+  }
+  fclose(fp);
 
-/*------ X Y ------*/	
-	sprintf(file, "%s.xy", base);
-	if(!(fp = fopen(file, "w"))) {
-		fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-		exit(1);
-  	}
-	k = px->z0 ;
-  	for(i = 0; i < px->nx; i++) {
-    		x = (i - px->x0) * px->step;
-    		for(j = 0; j < px->ny; j++) {
-			y = (j - px->y0) * px->step;
-        		fprintf(fp, "%le\t%le\t%le\t%le\n", x, y, rgrid3d_value_at_index(px, i, j, k), rgrid3d_value_at_index(py, i, j, k));	
-    		} fprintf(fp,"\n") ;
-  	}
-	fclose(fp);
-/*------ Y Z ------*/	
-	sprintf(file, "%s.yz", base);
-	if(!(fp = fopen(file, "w"))) {
-		fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-		exit(1);
-  	}
-	i = px->x0 ;
-  	for(j = 0; j < px->ny; j++) {
-    		y = (j - px->y0) * px->step;
-    		for(k = 0; k < px->nz; k++) {
-			z = (k - px->z0) * px->step;
-        		fprintf(fp, "%le\t%le\t%le\t%le\n", y, z, rgrid3d_value_at_index(py, i, j, k), rgrid3d_value_at_index(pz, i, j, k));	
-    		} fprintf(fp,"\n") ;
-  	}
-	fclose(fp);
-/*------ Z X ------*/	
-	sprintf(file, "%s.zx", base);
-	if(!(fp = fopen(file, "w"))) {
-		fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-		exit(1);
-  	}
-	j = px->y0 ;
-  	for(k = 0; k < px->nz; k++) {
-    		z = (k - px->z0) * px->step;
-    		for(i = 0; i < px->nx; i++) {
-			x = (i - px->x0) * px->step;
-        		fprintf(fp, "%le\t%le\t%le\t%le\n", z, x, rgrid3d_value_at_index(pz, i, j, k), rgrid3d_value_at_index(px, i, j, k));	
-    		} fprintf(fp,"\n") ;
-  	}
-	fclose(fp);
+/*----- Y Z -----*/
+  sprintf(file, "%s.yz", base);
+  if(!(fp = fopen(file, "w"))) {
+    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
+    exit(1);
+  }
+  for(j = 0; j < ny; j++) {
+    y = (j - ny/2) * step - y0;
+    for(k = 0; k < nz; k++) {
+	z = (k - nz/2) * step - z0;
+        fprintf(fp, "%le\t%le\t%le\t%le\n", y, z, rgrid3d_value_at_index(py, i, j, k), rgrid3d_value_at_index(pz, i, j, k));	
+    } fprintf(fp,"\n") ;
+  }
+  fclose(fp);
+
+/*----- Z X -----*/
+  sprintf(file, "%s.zx", base);
+  if(!(fp = fopen(file, "w"))) {
+    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
+    exit(1);
+  }
+  for(k = 0; k < nz; k++) {
+    z = (k - nz/2) * step - z0;
+    for(i = 0; i < nx; i++) {
+	x = (i - nx/2) * step - z0;
+        fprintf(fp, "%le\t%le\t%le\t%le\n", z, x, rgrid3d_value_at_index(pz, i, j, k), rgrid3d_value_at_index(px, i, j, k));	
+    } fprintf(fp,"\n") ; 
+  }
+  fclose(fp);
+
+  fprintf(stderr, "libdft: vector 2D slices of density written to %s.\n", file);
+
 }
 
 
@@ -1967,9 +1971,9 @@ EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
   if(!workspace7) workspace7 = dft_driver_alloc_rgrid();
   if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
 
-  origin_x = (wf->grid->x0 - wf->grid->nx/2 )*wf->grid->step ;
-  origin_y = (wf->grid->y0 - wf->grid->ny/2 )*wf->grid->step ;
-  origin_z = (wf->grid->z0 - wf->grid->nz/2 )*wf->grid->step ;
+  origin_x = wf->grid->x0 ;
+  origin_y = wf->grid->y0 ;
+  origin_z = wf->grid->z0 ;
 
   grid3d_wf_probability_flux(wf, px, py, pz);
 

@@ -853,14 +853,14 @@ EXPORT void dft_common_pot_interpolate(int n, char **files, rgrid3d *out) {
   /* map cyl_large to cart */
   for (i = 0; i < nx; i++) {
     double x2;
-    x = (i - x0) * step;
+    x = (i - nx/2) * step - x0;
     x2 = x * x;
     for (j = 0; j < ny; j++) {
       double y2;
-      y = (j - y0) * step;
+      y = (j - ny/2) * step - y0;
       y2 = y * y;
       for (k = 0; k < nz; k++) {
-	z = (k - z0) * step;
+	z = (k - nz/2) * step - z0;
 	r = sqrt(x2 + y2 + z * z);
 	phi = M_PI - atan2(sqrt(x2 + y2), -z);
 	out->value[i * nynz + j * nz + k] = dft_common_interpolate_value(cyl, r, phi, tmp1, tmp2);
@@ -902,14 +902,14 @@ EXPORT void dft_common_pot_spline(int n, char **files, rgrid3d *out) {
   /* map cyl_large to cart */
   for (i = 0; i < nx; i++) {
     double x2;
-    x = (i - x0) * step;
+    x = (i - nx/2) * step - x0;
     x2 = x * x;
     for (j = 0; j < ny; j++) {
       double y2;
-      y = (j - y0) * step;
+      y = (j - ny/2) * step - y0;
       y2 = y * y;
       for (k = 0; k < nz; k++) {
-	z = (k - z0) * step;
+	z = (k - nz/2) * step - z0;
 	r = sqrt(x2 + y2 + z * z);
 	phi = M_PI - atan2(sqrt(x2 + y2), -z);
 	out->value[i * nynz + j * nz + k] = dft_common_spline_value(cyl, r, phi, tmp1, tmp2, tmp3) ;
@@ -931,6 +931,8 @@ EXPORT void dft_common_pot_spline(int n, char **files, rgrid3d *out) {
  *
  *  in this case h = 2*pi / nx .
  *
+ * TODO: There's a better way to do this now that spline is implemented.
+ * spline generates the second derivative as by-product.
  */
 EXPORT void dft_common_pot_angularderiv(int n, char **files, rgrid3d *out) {
 
@@ -960,14 +962,14 @@ EXPORT void dft_common_pot_angularderiv(int n, char **files, rgrid3d *out) {
   /* map cyl_k to cart */
   for (i = 0; i < nx; i++) {
     double x2;
-    x = (i - x0) * step;
+    x = (i - nx/2) * step - x0;
     x2 = x * x;
     for (j = 0; j < ny; j++) {
       double y2;
-      y = (j - y0) * step;
+      y = (j - ny/2) * step - y0;
       y2 = y * y;
       for (k = 0; k < nz; k++) {
-	z = (k - z0) * step;
+	z = (k - nz/2) * step - z0;
 	r = sqrt(x2 + y2 + z * z);
 	phi = M_PI - atan2(sqrt(x2 + y2), -z);
 	out->value[i * nynz + j * nz + k] = rgrid3d_value_cyl(cyl_k, r, phi, 0.0);
@@ -1032,11 +1034,11 @@ EXPORT void dft_common_pot_average(int n, char **files, rgrid3d *out) {
 
   /* Map the 1D pot to cartesian grid */
   for (i = 0; i < nx; i++) {
-    x = (i - x0) * step;
+    x = (i - nx/2) * step - x0;
     for (j = 0; j < ny; j++) {
-      y = (j - y0) * step;
+      y = (j - ny/2) * step - y0;
       for (k = 0; k < nz; k++) {
-	z = (k - z0) * step;
+	z = (k - nz/2) * step - z0;
 	r = sqrt(x * x + y * y + z * z);
         if (r < pot_begin)
 	  out->value[i * nynz + j * nz + k] = pot_ave.points[0];
