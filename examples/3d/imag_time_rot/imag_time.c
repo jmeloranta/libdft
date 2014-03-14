@@ -65,7 +65,7 @@ double switch_axis(void *xx, double x, double y, double z) {
 
 int main(int argc, char **argv) {
 
-  cgrid3d *potential_store, *workspace;
+  cgrid3d *potential_store;
   rgrid3d *ext_pot, *density, *px, *py, *pz;
   wf3d *gwf, *gwfp;
   long iter, N, i;
@@ -99,7 +99,6 @@ int main(int argc, char **argv) {
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
-  workspace = dft_driver_alloc_cgrid(); /* temporary storage */
   density = dft_driver_alloc_rgrid();
   px = dft_driver_alloc_rgrid();
   py = dft_driver_alloc_rgrid();
