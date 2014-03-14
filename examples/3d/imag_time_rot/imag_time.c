@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
     cmx += rgrid3d_integral(density) * gwf->mass / (2.0 * omega * mass);
     grid3d_wf_probability_flux_x(gwf, density);
     cmy -= rgrid3d_integral(density) * gwf->mass / (2.0 * omega * mass);
-    printf("Current center of mass: %le %le %le\n", cmx, cmy, cmz);
+    printf("Current center of inertia: %le %le %le\n", cmx, cmy, cmz);
 
     /* Moment of inertia about the center of mass for the molecule */
     i_free = 0.0;
@@ -156,8 +156,8 @@ int main(int argc, char **argv) {
     printf("I_molecule = %le AMU Angs^2\n", i_free * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
     printf("B_molecule = %le cm-1.\n", b_free * GRID_AUTOCM1);
     /* Liquid contribution to the moment of inertia */
-    cgrid3d_set_origin(gwf->grid, NX/2.0 + cmx/STEP, NY/2.0 + cmy/STEP, NZ/2.0 + cmz/STEP); // Evaluate L about center of mass in dft_driver_L() and -wL_z in the Hamiltonian
-    cgrid3d_set_origin(gwfp->grid, NX/2.0 + cmx/STEP, NY/2.0 + cmy/STEP, NZ/2.0 + cmz/STEP);// Grid origin is at (NX/2,NY/2,NZ/2) and shift by cmX / STEP
+    cgrid3d_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in dft_driver_L() and -wL_z in the Hamiltonian
+    cgrid3d_set_origin(gwfp->grid, cmx, cmy, cmz);// the point x=0 is shift by cmX 
     dft_driver_L(gwf, &lx, &ly, &lz);
     i_add = lz / omega;
     printf("I_eff = %le AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
