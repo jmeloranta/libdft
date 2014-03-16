@@ -1029,7 +1029,8 @@ EXPORT void dft_driver_write_2d_density(rgrid3d *grid, char *base) {
   char file[2048];
   long i, j, k;
   double x0 = grid->x0 , y0 = grid->y0 , z0 = grid->z0 ;
-  long nx = grid->nx , ny = grid->ny , nz = grid->nz , step = grid->step ;
+  long nx = grid->nx , ny = grid->ny , nz = grid->nz ;
+  double step = grid->step ;
   double x, y, z;
 
 /*----- X Y -----*/
