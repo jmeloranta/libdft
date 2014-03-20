@@ -1100,8 +1100,8 @@ EXPORT void dft_driver_write_vectorfield(rgrid3d *px, rgrid3d *py, rgrid3d *pz, 
     	FILE *fp;
     	char file[2048];
     	long i, j, k;
-  	double x0 = px->x0 , y0 = px->y0 , z0 = px->z0 ;
-  	long nx = px->nx , ny = px->ny , nz = px->nz , step = px->step ;
+  	double x0 = px->x0 , y0 = px->y0 , z0 = px->z0 , step = px->step ;
+  	long nx = px->nx , ny = px->ny , nz = px->nz ;
     	double x, y, z;
 
 	check_mode();
