@@ -515,7 +515,7 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
     dft_ot3d_potential(dft_driver_otf, potential, gwfp, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
   }
   /* absorbing boundary - imaginary potential */
-  if(driver_boundary_type == 1 && !what) {
+  if(driver_boundary_type == 1 && !what && !driver_iter_mode) {
     fprintf(stderr, "libdft: Predict - absorbing boundary for helium ; imaginary potential.\n");
     grid3d_wf_absorb(potential, density, driver_rho0, region_func, workspace1, (driver_iter_mode==1) ? I:1.0);
   }
@@ -528,7 +528,7 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
   if(driver_iter_mode) scale_wf(what, dft_driver_otf, gwfp);
 
   /* wavefunction damping  */
-  if(driver_boundary_type == 2 && !what) {
+  if(driver_boundary_type == 2 && !what && !driver_iter_mode) {
     fprintf(stderr, "libdft: Predict - absorbing boundary for helium ; wavefunction damping.\n");
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
@@ -578,7 +578,7 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
     dft_ot3d_potential(dft_driver_otf, potential, gwfp, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
   }
   /* absorbing boundary */
-  if(driver_boundary_type == 1 && !what) {
+  if(driver_boundary_type == 1 && !what && !driver_iter_mode) {
     fprintf(stderr, "libdft: Correct - absorbing boundary for helium ; imaginary potential.\n");
     grid3d_wf_absorb(potential, density, driver_rho0, region_func, workspace1, (driver_iter_mode==1) ? I:1.0);
   }  
@@ -623,7 +623,7 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
   if(driver_iter_mode) scale_wf(what, dft_driver_otf, gwf);
   
   /* wavefunction damping  */
-  if(driver_boundary_type == 2 && !what) {
+  if(driver_boundary_type == 2 && !what && !driver_iter_mode) {
     fprintf(stderr, "libdft: Correct - absorbing boundary for helium ; wavefunction damping.\n");
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
