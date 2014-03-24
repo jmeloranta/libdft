@@ -33,7 +33,7 @@ static long driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_threads = 0, dri
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc = 0;
 static long driver_rels = 0;
 static double driver_frad = 0.0, driver_omega = 0.0;
-static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0;
+static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0, driver_halfbox_length = 0.0 ;
 static double driver_x0 = 0.0/0.0 , driver_y0 = 0.0/0.0 , driver_z0 = 0.0/0.0 ; /* 1.0 / 0.0 = NAN - to keep Intel compiler happy */
 static double driver_kx0 = 0. , driver_ky0 = 0. ,driver_kz0 = 0. ;
 static rgrid3d *density = 0;
@@ -76,6 +76,18 @@ static double region_func(void *gr, double x, double y, double z) {
   if(z >= ulz) d += damp * (z - ulz) / driver_abs;
   return d / 3.0;
 }
+
+/*
+ * Spherical region going from 0 to 1 radially, increasing as tanh(r).
+ * It has a value of ~0 (6.e-4) when r = driver_abs, and goes up to 1 
+ * when r = driver_halfbox_length (i.e. the smallest end of the box).
+ *
+ */
+static double complex cregion_func(void *gr, double x, double y, double z) {
+	double r = sqrt(x*x + y*y + z*z) ;
+	return 1. + tanh( 4.0 * (r - driver_halfbox_length)/driver_abs ) ;
+}
+
 
 inline static void scale_wf(long what, dft_ot_functional *local_otf, wf3d *gwf) {
 
@@ -253,6 +265,7 @@ EXPORT void dft_driver_setup_grid(long nx, long ny, long nz, double step, long t
   driver_ny = ny;
   driver_nz = nz;
   driver_step = step;
+  driver_halfbox_length = 0.5 * (nx<ny?(nx<nz?nx:nz):(ny<nz?ny:nz)) * step ;
   // Set the origin to its default value if it is not defined
   if(driver_x0 != driver_x0)
 	  driver_x0 = 0. ;
