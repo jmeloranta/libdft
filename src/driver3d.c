@@ -34,7 +34,7 @@ static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc 
 static long driver_rels = 0;
 static double driver_frad = 0.0, driver_omega = 0.0;
 static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0, driver_halfbox_length = 0.0 ;
-static double driver_x0 = 0.0/0.0 , driver_y0 = 0.0/0.0 , driver_z0 = 0.0/0.0 ; /* 1.0 / 0.0 = NAN - to keep Intel compiler happy */
+static double driver_x0 = 0.0 , driver_y0 = 0.0 , driver_z0 = 0.0 ;
 static double driver_kx0 = 0. , driver_ky0 = 0. ,driver_kz0 = 0. ;
 static rgrid3d *density = 0;
 static rgrid3d *workspace1 = 0;
@@ -267,12 +267,6 @@ EXPORT void dft_driver_setup_grid(long nx, long ny, long nz, double step, long t
   driver_step = step;
   driver_halfbox_length = 0.5 * (nx<ny?(nx<nz?nx:nz):(ny<nz?ny:nz)) * step ;
   // Set the origin to its default value if it is not defined
-  if(driver_x0 != driver_x0)
-	  driver_x0 = 0. ;
-  if(driver_y0 != driver_y0)
-	  driver_y0 = 0. ;
-  if(driver_z0 != driver_z0)
-	  driver_z0 = 0. ;
   fprintf(stderr, "libdft: Grid size = (%ld,%ld,%ld) with step = %le.\n", nx, ny, nz, step);
   driver_threads = threads;
 }
