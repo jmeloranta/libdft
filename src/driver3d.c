@@ -1133,12 +1133,13 @@ EXPORT void dft_driver_write_vectorfield(rgrid3d *px, rgrid3d *py, rgrid3d *pz, 
     	double x, y, z;
 
 	check_mode();
-/*----- X Y -----*/
+/*----- X Y -----*/	
   sprintf(file, "%s.xy", base);
   if(!(fp = fopen(file, "w"))) {
     fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
     exit(1);
   }
+  k = nz / 2 ;
   for(i = 0; i < nx; i++) {
     x = (i - nx/2) * step - x0;
     for(j = 0; j < ny; j++) {
@@ -1154,6 +1155,7 @@ EXPORT void dft_driver_write_vectorfield(rgrid3d *px, rgrid3d *py, rgrid3d *pz, 
     fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
     exit(1);
   }
+  i = nx / 2 ;
   for(j = 0; j < ny; j++) {
     y = (j - ny/2) * step - y0;
     for(k = 0; k < nz; k++) {
@@ -1169,6 +1171,7 @@ EXPORT void dft_driver_write_vectorfield(rgrid3d *px, rgrid3d *py, rgrid3d *pz, 
     fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
     exit(1);
   }
+  j = ny / 2 ;
   for(k = 0; k < nz; k++) {
     z = (k - nz/2) * step - z0;
     for(i = 0; i < nx; i++) {
@@ -1993,7 +1996,6 @@ static double mult_z(void *xx, double x, double y, double z) {
 EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
 
   rgrid3d *px = workspace4, *py = workspace5, *pz = workspace6;
-  double x0, y0, z0;
   
   check_mode();
 
@@ -2027,7 +2029,7 @@ EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
 
 /*
  * Produce radially averaged density from a 3-D grid.
- *
+ 
  * radial = Radial density (rgrid1d *; output).
  * grid   = Source grid (rgrid3d *; input).
  * dtheta = Integration step size along theta in radians (double; input).
