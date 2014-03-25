@@ -205,9 +205,9 @@ inline static void scale_wf(long what, dft_ot_functional *local_otf, wf3d *gwf) 
  *
  */
 
-EXPORT void dft_driver_initialize() {
+static int been_here = 0;
 
-  static int been_here = 0;
+EXPORT void dft_driver_initialize() {
 
   check_mode();
 
