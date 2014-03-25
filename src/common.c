@@ -428,7 +428,7 @@ EXPORT void dft_common_read_pot(char *file, dft_extpot *pot) {
  *
  */
 
-EXPORT double dft_common_extpot(void *arg, double x, double y, double z) {
+double dft_common_extpot(void *arg, double x, double y, double z) {
    
   double r = sqrt(x * x + y * y + z * z), px, py, pz, tmp;
   long i;
@@ -507,7 +507,7 @@ EXPORT double dft_common_extpot(void *arg, double x, double y, double z) {
 
 
 
-EXPORT double dft_common_extpot_cyl(void *arg, double r, double phi, double z) {
+double dft_common_extpot_cyl(void *arg, double r, double phi, double z) {
 
   double x, y;
 

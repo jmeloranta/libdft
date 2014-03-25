@@ -1234,7 +1234,7 @@ EXPORT void dft_driver_read_grid(cgrid3d *grid, char *file) {
   check_mode();
 
   if(!(fp = fopen(file, "r"))) {
-    fprintf(stderr, "libdft: Can't open density grid file %s.\n", file);
+    fprintf(stderr, "libdft: Can't open complex grid file %s.\n", file);
     exit(1);
   }
   cgrid3d_read(grid, fp);
