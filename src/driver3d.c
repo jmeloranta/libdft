@@ -231,8 +231,14 @@ EXPORT void dft_driver_initialize() {
     }
     density = dft_driver_alloc_rgrid();
     dft_driver_otf = dft_ot3d_alloc(driver_dft_model, driver_nx, driver_ny, driver_nz, driver_step, driver_bc, MIN_SUBSTEPS, MAX_SUBSTEPS);
-    if(driver_rho0 == 0.0) driver_rho0 = dft_driver_otf->rho0;
-    else dft_driver_otf->rho0 = driver_rho0;
+    if(driver_rho0 == 0.0){
+	    fprintf(stderr, "libdft: Setting driver_rho0 to %le\n", dft_driver_otf->rho0 ) ;
+	    driver_rho0 = dft_driver_otf->rho0;
+    }
+    else{
+	    fprintf(stderr, "libdft: Overwritting dft_driver_otf->rho0 to %le\n", driver_rho0 ) ;
+	    dft_driver_otf->rho0 = driver_rho0;
+    }
     fprintf(stderr, "libdft: rho0 = %le Angs^-3.\n", driver_rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
     been_here = 1;
     fprintf(stderr, "libdft: %lf wall clock seconds for initialization.\n", grid_timer_wall_clock_time(&timer));
@@ -301,7 +307,8 @@ EXPORT void dft_driver_setup_momentum(double kx0, double ky0, double kz0){
  * dft_model = specify the DFT Hamiltonian to use (see ot.h).
  * iter_mode = iteration mode: 1 = imaginary time, 0 = real time.
  * rho0      = equilibrium density for the liquid (in a.u.; double).
- *             if 0.0, the equilibrium density will be used.
+ *             if 0.0, the equilibrium density will be used
+ *             when dft_driver_initialize is called.
  *
  * No return value.
  *
@@ -313,6 +320,8 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
 
   driver_dft_model = dft_model;
   driver_iter_mode = iter_mode;
+  if(been_here)
+	  fprintf(stderr,"libdft: WARNING -- Overwritting driver_rho0 to %le\n", rho0) ;
   driver_rho0 = rho0;
 }
 
