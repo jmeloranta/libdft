@@ -14,14 +14,14 @@
 #include <dft/ot.h>
 
 #define TIME_STEP 10.0  /* fs */
-#define MAXITER 10000
-#define NX 64
-#define NY 64
-#define NZ 64
-#define STEP 1.0
+#define MAXITER 100000
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 0.5
 
-/* #define OCS 1 /* OCS molecule */
-#define HCN 1 /* HCN molecule */
+#define OCS 1 /* OCS molecule */
+/* #define HCN 1 /* HCN molecule */
 
 #ifdef OCS
 #define ID "OCS molecule"
@@ -37,7 +37,7 @@ static double z[NN] = {0.0, 0.0, 0.0};
 // #define POTENTIAL "newocs_pairpot_128_0.5"
 #define POTENTIAL "ocs_pairpot_128_0.5"
 #define SWITCH_AXIS 1                  /* Potential was along z - switch to x */
-#define OMEGA 1E-9
+#define OMEGA 1.0E-7
 #endif
 
 #ifdef HCN
@@ -69,12 +69,13 @@ int main(int argc, char **argv) {
   rgrid3d *ext_pot, *density, *px, *py, *pz;
   wf3d *gwf, *gwfp;
   long iter, N, i;
-  double energy, natoms, omega, rp, beff, i_add, lx, ly, lz, i_free, b_free, mass, cmx, cmy, cmz;
+  double energy, natoms, omega, beff, i_add, lx, ly, lz, i_free, b_free, mass, cmx, cmy, cmz;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 8 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 24 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
+  //dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_DR, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   /* Normalization condition */
@@ -166,7 +167,7 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
 
-    if(!(iter % 500)) {
+    if(!(iter % 50)) {
       char buf[512];
       sprintf(buf, "output-%ld", iter);
       grid3d_wf_density(gwf, density);
@@ -176,6 +177,7 @@ int main(int argc, char **argv) {
       printf("Total energy is %le K\n", energy * GRID_AUTOK);
       printf("Number of He atoms is %le.\n", natoms);
       printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
+#if 0
       grid3d_wf_probability_flux(gwf, px, py, pz);
       sprintf(buf, "flux_x-%ld", iter);
       dft_driver_write_density(px, buf);
@@ -183,6 +185,7 @@ int main(int argc, char **argv) {
       dft_driver_write_density(py, buf);
       sprintf(buf, "flux_z-%ld", iter);
       dft_driver_write_density(pz, buf);
+#endif
     }
   }
   return 0;
