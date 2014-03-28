@@ -171,10 +171,10 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
     } else {
 	fprintf(stderr, "libdft: LJ according to SD.\n");
         rgrid3d_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
-        rgrid3d_fft(otf->lennard_jones);
-        /* Scaling of LJ so that the integral is exactly b */
-        rgrid3d_multiply(otf->lennard_jones , otf->b / ( step * step * step * otf->lennard_jones->value[0]));
     }
+    rgrid3d_fft(otf->lennard_jones);
+    /* Scaling of LJ so that the integral is exactly b */
+    rgrid3d_multiply(otf->lennard_jones , otf->b / ( step * step * step * otf->lennard_jones->value[0]));
 
     radius = otf->lj_params.h;
     fprintf(stderr, "libdft: Spherical average.\n");
