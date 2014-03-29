@@ -176,7 +176,7 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
       rgrid3d_fft(otf->lennard_jones);
       /* Scaling of LJ so that the integral is exactly b */
       // TODO: Neumann BC may not work!? r2r fft
-      cgrid3d_multiply(otf->lennard_jones->cint, otf->b / ( step * step * step * otf->lennard_jones->value[0]));
+      cgrid3d_multiply(otf->lennard_jones->cint, otf->b / ( step * step * step * otf->lennard_jones->cint->value[0]));
     }
 
     radius = otf->lj_params.h;
@@ -185,7 +185,7 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
     rgrid3d_fft(otf->spherical_avg);
     /* Scaling of sph. avg. so that the integral is exactly 1 */
     // TODO: Neumann BC may not work!? r2r fft
-    cgrid3d_multiply(otf->spherical_avg->cint, 1.0 / (step * step * step * otf->spherical_avg->value[0]));
+    cgrid3d_multiply(otf->spherical_avg->cint, 1.0 / (step * step * step * otf->spherical_avg->cint->value[0]));
 
     if(model & DFT_OT_KC) {
       inv_width = 1.0 / otf->l_g;
