@@ -168,21 +168,25 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
     if(model & DFT_DR) {
       fprintf(stderr, "libdft: LJ according to DR.\n");
       rgrid3d_adaptive_map(otf->lennard_jones, dft_common_lennard_jones_smooth, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+      rgrid3d_fft(otf->lennard_jones);
+      /* TODO: What is the value of b? Once this is known, scale this the same way as OT */
     } else {
-	fprintf(stderr, "libdft: LJ according to SD.\n");
-        rgrid3d_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+      fprintf(stderr, "libdft: LJ according to SD.\n");
+      rgrid3d_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+      rgrid3d_fft(otf->lennard_jones);
+      /* Scaling of LJ so that the integral is exactly b */
+      // TODO: Neumann BC may not work!? r2r fft
+      cgrid3d_multiply(otf->lennard_jones->cint, otf->b / ( step * step * step * otf->lennard_jones->cint->value[0]));
     }
-    rgrid3d_fft(otf->lennard_jones);
-    /* Scaling of LJ so that the integral is exactly b */
-    rgrid3d_multiply(otf->lennard_jones , otf->b / ( step * step * step * otf->lennard_jones->value[0]));
 
     radius = otf->lj_params.h;
     fprintf(stderr, "libdft: Spherical average.\n");
     rgrid3d_adaptive_map(otf->spherical_avg, dft_common_spherical_avg, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     rgrid3d_fft(otf->spherical_avg);
     /* Scaling of sph. avg. so that the integral is exactly 1 */
-    rgrid3d_multiply(otf->spherical_avg, 1.0 / (step * step * step * otf->spherical_avg->value[0]));
-    
+    // TODO: Neumann BC may not work!? r2r fft
+    cgrid3d_multiply(otf->spherical_avg->cint, 1.0 / (step * step * step * otf->spherical_avg->cint->value[0]));
+
     if(model & DFT_OT_KC) {
       inv_width = 1.0 / otf->l_g;
       fprintf(stderr, "libdft: Kinetic correlation.\n");	
@@ -333,7 +337,7 @@ static void dft_ot3d_add_local_correlation_potential(dft_ot_functional *otf, cgr
   rgrid3d_power(workspace2, workspace1, otf->c2_exp);
   rgrid3d_multiply(workspace2, otf->c2 / 2.0);
   grid3d_add_real_to_complex_re(potential, workspace2);
-  
+
   rgrid3d_power(workspace2, workspace1, otf->c2_exp - 1.0);
   rgrid3d_product(workspace2, workspace2, rho);
   rgrid3d_fft(workspace2);
