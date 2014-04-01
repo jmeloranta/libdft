@@ -15,10 +15,10 @@
 
 #define TIME_STEP 10.0  /* fs */
 #define MAXITER 100000
-#define NX 128
-#define NY 128
-#define NZ 128
-#define STEP 0.5
+#define NX 64
+#define NY 64
+#define NZ 64
+#define STEP 1.0
 
 #define OCS 1 /* OCS molecule */
 /* #define HCN 1 /* HCN molecule */
@@ -72,9 +72,9 @@ int main(int argc, char **argv) {
   double energy, natoms, omega, beff, i_add, lx, ly, lz, i_free, b_free, mass, cmx, cmy, cmz;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 24 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 4 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_DR + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
   //dft_driver_setup_model(DFT_DR, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
@@ -167,7 +167,7 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
 
-    if(!(iter % 50)) {
+    if(!(iter % 50) || iter > 1800) {
       char buf[512];
       sprintf(buf, "output-%ld", iter);
       grid3d_wf_density(gwf, density);

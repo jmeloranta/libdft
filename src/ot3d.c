@@ -630,7 +630,7 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
   }
 
   /* Ideal gas contribution (thermal) */
-  if(otf->model >= DFT_OT_T400MK) {
+  if(otf->model >= DFT_OT_T400MK && otf->model < DFT_GP) { /* do not add this for DR */
     dft_common_idealgas_params(otf->temp, otf->mass, otf->c4);
     rgrid3d_operate_one(workspace1, density, dft_common_idealgas_energy_op);
     rgrid3d_sum(energy_density, energy_density, workspace1);
