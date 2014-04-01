@@ -334,11 +334,11 @@ static void dft_ot3d_add_local_correlation_potential(dft_ot_functional *otf, cgr
   rgrid3d_fft_convolute(workspace1, rho_tf, otf->spherical_avg);
   rgrid3d_inverse_fft(workspace1); 
 
-  rgrid3d_power(workspace2, workspace1, otf->c2_exp);
+  rgrid3d_abs_power(workspace2, workspace1, otf->c2_exp);
   rgrid3d_multiply(workspace2, otf->c2 / 2.0);
   grid3d_add_real_to_complex_re(potential, workspace2);
 
-  rgrid3d_power(workspace2, workspace1, otf->c2_exp - 1.0);
+  rgrid3d_abs_power(workspace2, workspace1, otf->c2_exp - 1.0);
   rgrid3d_product(workspace2, workspace2, rho);
   rgrid3d_fft(workspace2);
   rgrid3d_fft_convolute(workspace2, workspace2, otf->spherical_avg);
@@ -351,7 +351,7 @@ static void dft_ot3d_add_local_correlation_potential(dft_ot_functional *otf, cgr
   rgrid3d_multiply(workspace2, otf->c3 / 3.0);
   grid3d_add_real_to_complex_re(potential, workspace2);
   
-  rgrid3d_power(workspace2, workspace1, otf->c3_exp - 1.0);
+  rgrid3d_abs_power(workspace2, workspace1, otf->c3_exp - 1.0);
   rgrid3d_product(workspace2, workspace2, rho);
   rgrid3d_fft(workspace2);
   rgrid3d_fft_convolute(workspace2, workspace2, otf->spherical_avg);
@@ -611,12 +611,12 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
   rgrid3d_inverse_fft(workspace1);
 
   /* C2 */
-  rgrid3d_power(workspace2, workspace1, otf->c2_exp);
+  rgrid3d_abs_power(workspace2, workspace1, otf->c2_exp);
   rgrid3d_product(workspace2, workspace2, density);
   rgrid3d_add_scaled(energy_density, otf->c2 / 2.0, workspace2);
 
   /* C3 */
-  rgrid3d_power(workspace2, workspace1, otf->c3_exp);
+  rgrid3d_abs_power(workspace2, workspace1, otf->c3_exp);
   rgrid3d_product(workspace2, workspace2, density);
   rgrid3d_add_scaled(energy_density, otf->c3 / 3.0, workspace2);
 
