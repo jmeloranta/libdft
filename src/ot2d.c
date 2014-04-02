@@ -269,12 +269,12 @@ static void dft_ot2d_add_local_correlation_potential(dft_ot_functional_2d *otf, 
   rgrid2d_inverse_fft_cylindrical(workspace1);
 
   /* c2 */
-  rgrid2d_power(workspace2, workspace1, otf->c2_exp);
+  rgrid2d_abs_power(workspace2, workspace1, otf->c2_exp);
   rgrid2d_multiply(workspace2, otf->c2 / 2.0);
   rgrid2d_fft_cylindrical_cleanup(workspace2, dft_ot2d_hankel_pad);
   grid2d_add_real_to_complex_re(potential, workspace2);
   
-  rgrid2d_power(workspace2, workspace1, otf->c2_exp - 1.0);
+  rgrid2d_abs_power(workspace2, workspace1, otf->c2_exp - 1.0);
   rgrid2d_product(workspace2, workspace2, rho);
   rgrid2d_fft_cylindrical(workspace2);
   rgrid2d_fft_cylindrical_convolute(workspace2, workspace2, otf->spherical_avg);
@@ -284,12 +284,12 @@ static void dft_ot2d_add_local_correlation_potential(dft_ot_functional_2d *otf, 
   grid2d_add_real_to_complex_re(potential, workspace2);
 
   /* c3 */
-  rgrid2d_power(workspace2, workspace1, otf->c3_exp);
+  rgrid2d_abs_power(workspace2, workspace1, otf->c3_exp);
   rgrid2d_multiply(workspace2, otf->c3 / 3.0);
   rgrid2d_fft_cylindrical_cleanup(workspace2, dft_ot2d_hankel_pad);
   grid2d_add_real_to_complex_re(potential, workspace2);
   
-  rgrid2d_power(workspace2, workspace1, otf->c3_exp - 1.0);
+  rgrid2d_abs_power(workspace2, workspace1, otf->c3_exp - 1.0);
   rgrid2d_product(workspace2, workspace2, rho);
   rgrid2d_fft_cylindrical(workspace2);
   rgrid2d_fft_cylindrical_convolute(workspace2, workspace2, otf->spherical_avg);
@@ -505,12 +505,12 @@ EXPORT void dft_ot2d_energy_density(dft_ot_functional_2d *otf, rgrid2d *energy_d
   rgrid2d_fft_cylindrical_cleanup(workspace1, dft_ot2d_hankel_pad);
 
   /* (C2/2) * \rho * \bar{\rho}^2 */
-  rgrid2d_power(workspace2, workspace1, otf->c2_exp);
+  rgrid2d_abs_power(workspace2, workspace1, otf->c2_exp);
   rgrid2d_product(workspace2, workspace2, density);
   rgrid2d_add_scaled(energy_density, otf->c2 / 2.0, workspace2);
 
   /* (C3/3) * \rho * \bar{\rho}^3 */
-  rgrid2d_power(workspace2, workspace1, otf->c3_exp);
+  rgrid2d_abs_power(workspace2, workspace1, otf->c3_exp);
   rgrid2d_product(workspace2, workspace2, density);
   rgrid2d_add_scaled(energy_density, otf->c3 / 3.0, workspace2);
 

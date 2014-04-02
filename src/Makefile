@@ -28,6 +28,7 @@ common.o: common.c dft.h
 	$(CC) -I. $(CFLAGS) -c common.c
 
 ot2d.o: ot2d.c ot.h dft.h
+	$(CC) -I. $(CFLAGS) -c ot2d.c
 
 ot3d.o: ot3d.c ot.h dft.h
 	$(CC) -I. $(CFLAGS) -c ot3d.c
