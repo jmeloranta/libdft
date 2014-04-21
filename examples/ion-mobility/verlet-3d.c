@@ -126,7 +126,7 @@ double ZI; /* global variables for ion coords */
 #define RADD 0.0
 #endif
 
-double dpot_func(double x, double y, double z) {
+double dpot_func(void *NA, double x, double y, double z) {
 
   double r = sqrt(x * x + y * y + (z - ZI) * (z - ZI)) + RADD;
   double r2 = r * r;
@@ -141,17 +141,16 @@ double dpot_func(double x, double y, double z) {
 }
 
 
-double pot_func2(void *asd, double x, double y, double z) {
+double pot_func(void *asd, double x, double y, double z) {
 
   double r = sqrt(x * x + y * y + (z - ZI) * (z - ZI)) + RADD;
-  double r2, r3, r4, r6, r8, r10, tmp;
+  double r2, r4, r6, r8, r10, tmp;
 
   //  if(r < RMIN) r = RMIN;
   if(r < RMIN) {
     double rt = r;
     r = RMIN;
     r2 = r * r;
-    r3 = r2 * r;
     r4 = r2 * r2;
     r6 = r4 * r2;
     r8 = r6 * r2;
@@ -160,7 +159,6 @@ double pot_func2(void *asd, double x, double y, double z) {
     return 0.5 * (RMIN - rt) / RMIN + tmp;
   }
   r2 = r * r;
-  r3 = r2 * r;
   r4 = r2 * r2;
   r6 = r4 * r2;
   r8 = r6 * r2;
@@ -170,24 +168,18 @@ double pot_func2(void *asd, double x, double y, double z) {
   return tmp;
 }
 
-double pot_func(double x, double y, double z) {
-
-  return pot_func2(NULL, x, y, z);
-}
-
 /* Force evaluation for the classical atom/molecule */
 /* Checked with numerical gradient */
 double force(rgrid3d *density, double z) {
 
   ZI = z;
-  return -rgrid3d_weighted_integral(density, dpot_func) + EFIELDZ;
+  return -rgrid3d_weighted_integral(density, dpot_func, NULL) + EFIELDZ;
 }
 
 double propagate_impurity(double *z, double *vz, double *az, rgrid3d *density) {
 
   double time_step = TIME_STEP / GRID_AUTOFS;
-  double time_step2 = time_step * time_step;
-  double fz, paz, vhalf;
+  double fz, vhalf;
 
   vhalf = *vz + 0.5 * (*az) * time_step;
   *z += vhalf * time_step;

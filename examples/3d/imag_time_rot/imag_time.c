@@ -14,11 +14,11 @@
 #include <dft/ot.h>
 
 #define TIME_STEP 10.0  /* fs */
-#define MAXITER 100000
-#define NX 64
-#define NY 64
-#define NZ 64
-#define STEP 1.0
+#define MAXITER 10000
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 0.5
 
 #define OCS 1 /* OCS molecule */
 /* #define HCN 1 /* HCN molecule */
@@ -37,7 +37,7 @@ static double z[NN] = {0.0, 0.0, 0.0};
 // #define POTENTIAL "newocs_pairpot_128_0.5"
 #define POTENTIAL "ocs_pairpot_128_0.5"
 #define SWITCH_AXIS 1                  /* Potential was along z - switch to x */
-#define OMEGA 1.0E-7
+#define OMEGA 1E-9
 #endif
 
 #ifdef HCN
@@ -63,6 +63,39 @@ double switch_axis(void *xx, double x, double y, double z) {
   return rgrid3d_value(grid, z, y, x);  // swap x and z -> molecule along x axis
 }
 
+#define NPHASE (1.0)
+
+double complex vortex_phase(void *xx, double x, double y, double z) {
+
+  double phi, d;
+
+  d = sqrt(x * x + y * y);
+  phi = M_PI - atan2(y, -x);
+  //return cexp(I * NPHASE * phi) / (d + 1E-6);
+  return cexp(I * NPHASE * phi);
+}
+
+double sqnorm(double complex a) {
+
+  return creal(a) * creal(a) + cimag(a) * cimag(a);
+}
+
+void fix_wf(wf3d *wf, wf3d *tmp) {
+
+  long i, j, k, nx = wf->grid->nx, ny = wf->grid->ny, nz = wf->grid->nz;
+
+  for (i = 0; i < nx; i++) {
+    for (j = 0; j < ny; j++) {
+      for (k = 0; k < nz; k++) {
+	tmp->grid->value[i * ny * nz + j * nz + k] = cgrid3d_value_at_index(wf->grid, i, j, k) * 
+	  sqrt((sqnorm(cgrid3d_value_at_index(wf->grid, i, j, k)) + sqnorm(cgrid3d_value_at_index(wf->grid, i, k, j))) / 2.0)
+	  / (cabs(cgrid3d_value_at_index(wf->grid, i, j, k)) + 1E-6);
+      }
+    }
+  }
+  cgrid3d_copy(wf->grid, tmp->grid);
+}
+
 int main(int argc, char **argv) {
 
   cgrid3d *potential_store;
@@ -72,9 +105,9 @@ int main(int argc, char **argv) {
   double energy, natoms, omega, beff, i_add, lx, ly, lz, i_free, b_free, mass, cmx, cmy, cmz;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 4 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 48 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_DR + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
   //dft_driver_setup_model(DFT_DR, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
@@ -124,7 +157,18 @@ int main(int argc, char **argv) {
   printf("Omega = %le\n", omega);
   dft_driver_setup_rotation_omega(omega);
 
-  for (iter = 0; iter < MAXITER; iter++) {
+#if 0
+  srand48(time(0));
+  for (iter = 0; iter < NX * NY * NZ; iter++)
+    gwf->grid->value[iter] = 2.0 * (drand48() - 1.0) + 2.0 * I * (drand48() - 1.0);
+#else
+  //cgrid3d_constant(gwf->grid, 1.0);
+  //dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
+  //cgrid3d_add(gwf->grid, 0.0);
+  cgrid3d_map(gwf->grid, vortex_phase, NULL);
+#endif
+
+  for (iter = 1; iter < MAXITER; iter++) {
     
     // Center of mass of the rotating system
     // 1. The molecule
@@ -167,11 +211,16 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
 
-    if(!(iter % 50) || iter > 1800) {
+    // Enforce cylindrical symmetry
+    //fix_wf(gwf, gwfp);
+
+    if(!(iter % 1000)) {
       char buf[512];
-      sprintf(buf, "output-%ld", iter);
       grid3d_wf_density(gwf, density);
+#if 0
+      sprintf(buf, "output-%ld", iter);
       dft_driver_write_density(density, buf);
+#endif
       energy = dft_driver_energy(gwf, ext_pot);
       natoms = dft_driver_natoms(gwf);
       printf("Total energy is %le K\n", energy * GRID_AUTOK);

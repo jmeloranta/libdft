@@ -20,28 +20,28 @@
 
 /* #define EXP_P           /* pure exponential repulsion */
 /* #define ZERO_P             /* zero potential */
-/* #define CA_P            /* Ca+ ion */
+#define CA_P            /* Ca+ ion */
 /* #define K_P             /* K+ ion */
 /* #define BE_P            /* Be+ ion */
 /* #define SR_P            /* Sr+ ion */
 /* #define BA_P            /* Ba+ ion */
-#define CL_M            /* Cl- ion */
+/* #define CL_M            /* Cl- ion */
 /* #define F_M             /* F- ion */
 /* #define I_M             /* I- ion */
 /* #define BR_M            /* Br- ion */
 
 #define TIME_PROP 1    /* 0 = real time, 1 = imag time (only liquid) */
 #define TIME_STEP 5.0 /* Time step in fs (5 for real, 10 for imag) */
-#define MAXITER 60000  /* Maximum number of iterations */
+#define MAXITER 10000  /* Maximum number of iterations */
 #define OUTPUT 40      /* output every this iteration */
-#define THREADS  16     /* # of parallel threads to use */
+#define THREADS  48     /* # of parallel threads to use */
 
 /* #define FORCE_SPHERICAL /* Force spherical symmetry */
 /* #define UNCOUPLED   /* Uncouple ion from the liquid */
 
-#define NZ 2048          /* # of grid points along x */
-#define NR 1024           /* # of grid points along x */
-#define STEP 0.2        /* spatial step length (Bohr) */
+#define NZ 1024          /* # of grid points along x */
+#define NR 512           /* # of grid points along x */
+#define STEP 0.6        /* spatial step length (Bohr) */
 #define DENSITY 0.0     /* bulk liquid density (0.0 = default) */
 #define DAMP 0.0    /* absorbing boundary damp coefficient (2.0E-2) */
 #define DAMP_R 20.0      /* damp at this distance from the boundary */
@@ -50,7 +50,7 @@
 //#define EVAL 1.0E-7              /* final efield (3.98E-8) */
 //#define EFIELDZ ((global_time < T0)?((EVAL/T0) * global_time):(EVAL))
 //#define EFIELDZ (1E-7) /* E field along z (3.98E-8) */
-#define EFIELDZ 1.0E-7     /* E field along z (imag time) */
+#define EFIELDZ 0.0E-7     /* E field along z (imag time) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
@@ -115,11 +115,10 @@ int main(int argc, char *argv[]) {
   wf2d *gwf, *gwfp;
   long iter;
   char filename[2048];
-  double iz = IZ, ivz = IVZ, tmp;
+  double iz = IZ, ivz = IVZ;
   double piz, pivz;
   double iaz = 0.0;
   double piaz;
-  double cur_vel = IVZ;
   double fz;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
@@ -190,7 +189,7 @@ int main(int argc, char *argv[]) {
     /* PREDICT */
     grid2d_wf_density(gwf, current_density);
     ZI = iz;
-    rgrid2d_map_cyl(rworkspace, pot_func2, NULL);
+    rgrid2d_map_cyl(rworkspace, pot_func, NULL);
     (void) dft_driver_propagate_predict_2d(DFT_DRIVER_PROPAGATE_HELIUM, rworkspace, gwf, gwfp, cworkspace, TIME_STEP, iter);
     if(!TIME_PROP) {
       ZI = iz;
@@ -200,7 +199,7 @@ int main(int argc, char *argv[]) {
       grid2d_wf_density(gwfp, current_density);
       (void) propagate_impurity(&piz, &pivz, &piaz, current_density);
       ZI = piz;
-      rgrid2d_map_cyl(rworkspace, pot_func2, NULL);
+      rgrid2d_map_cyl(rworkspace, pot_func, NULL);
     }
     /* CORRECT */
     (void) dft_driver_propagate_correct_2d(DFT_DRIVER_PROPAGATE_HELIUM, rworkspace, gwf, gwfp, cworkspace, TIME_STEP, iter);
@@ -213,7 +212,7 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "Added mass = %le (in units of He atoms).\n", IMASS * ((EFIELDZ / fz) - 1.0) / HELIUM_MASS);
       fprintf(stderr, "Added mass_2 = %le (in units of He atoms).\n", ((2.0 * EFIELDZ * (iz - IZ) / (ivz * ivz)) - IMASS) / HELIUM_MASS);
       ZI = iz;
-      fprintf(stderr, "PE = %le K.\n", rgrid2d_weighted_integral_cyl(current_density, pot_func) * GRID_AUTOK);
+      fprintf(stderr, "PE = %le K.\n", rgrid2d_weighted_integral_cyl(current_density, pot_func, NULL) * GRID_AUTOK);
       fprintf(stderr, "f_z = %le, f_z - EFIELDZ = %le\n", fz, fz - EFIELDZ);
       //      fprintf(stderr, "R_b = %le\n", dft_driver_spherical_rb_2d(current_density));
       fprintf(stderr, "Mobility = %le [cm^2/(Vs)]\n", 100.0 * ivz * 2.187691E6 / (EFIELDZ * 5.1422E9));
@@ -238,4 +237,5 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "Max norm = %le.\n", dft_driver_norm_2d(rworkspace));
     }
   }
+  return 0;
 }

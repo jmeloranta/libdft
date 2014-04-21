@@ -13,29 +13,61 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
+#define TIME_STEP 5.0  /* fs */
+#define MAXITER 10000
+#define NX 64
+#define NY 64
+#define NZ 64
+#define STEP 1.0
+
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
-#define DENSITY (0.0218360 * 0.529 * 0.529 * 0.529)
+#define HBAR 1.0        /* au */
+
+/* #define NPHASE (1.0) /**/
+
+double complex vortex_phase(void *xx, double x, double y, double z) {
+
+  double phi, d, dc;
+
+  d = sqrt(x * x + y * y);
+  dc = sqrt(x * x + y * y + z * z);
+#ifdef NPHASE
+  if(d < STEP) return 0.0;
+  phi = M_PI - atan2(y, -x);
+  return cexp(I * NPHASE * phi) / (dc * dc + 1E-6);
+  //return cexp(I * NPHASE * phi);
+#else
+  return 1.0 / (dc * dc + 1E-6);
+#endif
+}
 
 int main(int argc, char **argv) {
 
   cgrid3d *potential_store;
-  rgrid3d *ext_pot, *density;
+  rgrid3d *ext_pot, *density, *px, *py, *pz;
   wf3d *gwf, *gwfp;
-  long iter;
+  long iter, N;
   double energy, natoms;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  /* TODO: Right now, only powers of 2 grids work??!!! */
-  dft_driver_setup_grid(128, 128, 128, 1.0 /* Bohr */, 16 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 48 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  //dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
-  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, DENSITY);
+  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
+  //dft_driver_setup_model(DFT_DR, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   /* Normalization condition */
-  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_ZEROB, 4, 0.0, 0);
-  /* Vortex compatible boundary (along z) */
-  dft_driver_setup_boundary_condition(DFT_DRIVER_BC_Z);
+  if(argc != 2) {
+    fprintf(stderr, "Usage: imag_time N\n");
+    exit(1);
+  }
+  N = atoi(argv[1]);
+  if(N == 0) 
+    dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 1); // 1 = release center immediately
+  else
+    dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_DROPLET, N, 0.0, 1); // 1 = release center immediately
+
+  printf("N = %ld\n", N);
 
   /* Initialize the DFT driver */
   dft_driver_initialize();
@@ -44,38 +76,43 @@ int main(int argc, char **argv) {
   ext_pot = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
   density = dft_driver_alloc_rgrid();
+  px = dft_driver_alloc_rgrid();
+  py = dft_driver_alloc_rgrid();
+  pz = dft_driver_alloc_rgrid();
 
   /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
 
-  /* Read external potential from file */
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "zero.dat", "zero.dat", "zero.dat", ext_pot);
-  rgrid3d_constant(ext_pot, -(-7.173623) / GRID_AUTOK);
+  rgrid3d_zero(ext_pot);
+  //cgrid3d_constant(gwf->grid, 1.0);
+  //dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
+  //cgrid3d_add(gwf->grid, 0.0);
+  cgrid3d_map(gwf->grid, vortex_phase, NULL);
 
-  iter = 1;  // do not initialize order parameter to constant
-  cgrid3d_constant(gwf->grid, sqrt(DENSITY));
-  dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
-  cgrid3d_multiply(gwf->grid, (1 + I)/sqrt(2.0));
-  cgrid3d_copy(gwfp->grid, gwf->grid);
+  for (iter = 1; iter < MAXITER; iter++) {
+    
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
 
-  /* Run 200 iterations using imaginary time (50 fs time step) */
-  for (; iter < 20000; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 5.0 /* fs */, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 5.0 /* fs */, iter);
-    if(!(iter % 10)) {
+    if(!(iter % 100)) {
       char buf[512];
-      sprintf(buf, "output-%ld", iter);
       grid3d_wf_density(gwf, density);
+      sprintf(buf, "output-%ld", iter);
       dft_driver_write_density(density, buf);
-      //energy = dft_driver_energy(gwf, ext_pot);
-      //natoms = dft_driver_natoms(gwf);
-      //printf("Total energy is %le K\n", energy * GRID_AUTOK);
-      //printf("Number of He atoms is %le.\n", natoms);
-      //printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
+      energy = dft_driver_energy(gwf, ext_pot);
+      natoms = dft_driver_natoms(gwf);
+      printf("Total energy is %le K\n", energy * GRID_AUTOK);
+      printf("Number of He atoms is %le.\n", natoms);
+      printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
+      grid3d_wf_probability_flux(gwf, px, py, pz);
+      sprintf(buf, "flux_x-%ld", iter);
+      dft_driver_write_density(px, buf);
+      sprintf(buf, "flux_y-%ld", iter);
+      dft_driver_write_density(py, buf);
+      sprintf(buf, "flux_z-%ld", iter);
+      dft_driver_write_density(pz, buf);
     }
   }
-  /* At this point gwf contains the converged wavefunction */
-  //grid3d_wf_density(gwf, density);
-  //dft_driver_write_density(density, "output");
+  return 0;
 }

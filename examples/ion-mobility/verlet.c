@@ -138,7 +138,7 @@ double ZI; /* global variables for ion coords */
 #define RADD 0.0
 #endif
 
-double dpot_func(double z, double rr) {
+double dpot_func(void *NA, double z, double rr) {
 
   double r = sqrt(rr * rr + (z - ZI) * (z - ZI)) + RADD;
   double r2 = r * r;
@@ -153,17 +153,16 @@ double dpot_func(double z, double rr) {
 }
 
 
-double pot_func2(void *asd, double z, double rr) {
+double pot_func(void *asd, double z, double rr) {
 
   double r = sqrt(rr * rr + (z - ZI) * (z - ZI)) + RADD;
-  double r2, r3, r4, r6, r8, r10, tmp;
+  double r2, r4, r6, r8, r10, tmp;
 
   //  if(r < RMIN) r = RMIN;
   if(r < RMIN) {
     double rt = r;
     r = RMIN;
     r2 = r * r;
-    r3 = r2 * r;
     r4 = r2 * r2;
     r6 = r4 * r2;
     r8 = r6 * r2;
@@ -172,7 +171,6 @@ double pot_func2(void *asd, double z, double rr) {
     return 0.5 * (RMIN - rt) / RMIN + tmp;
   }
   r2 = r * r;
-  r3 = r2 * r;
   r4 = r2 * r2;
   r6 = r4 * r2;
   r8 = r6 * r2;
@@ -180,11 +178,6 @@ double pot_func2(void *asd, double z, double rr) {
   tmp = A0 * exp(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
   //  if(tmp > (250.0 / GRID_AUTOK)) tmp = 250.0 / GRID_AUTOK;
   return tmp;
-}
-
-double pot_func(double z, double rr) {
-
-  return pot_func2(NULL, z, rr);
 }
 
 double test_weighted_integral_cyl(const rgrid2d *grid, double (*weight)(double z, double r)) {
@@ -217,18 +210,13 @@ double test_weighted_integral_cyl(const rgrid2d *grid, double (*weight)(double z
 double force(rgrid2d *density, double z) {
 
   ZI = z;
-#if 0
-  return -rgrid2d_weighted_integral_cyl(density, dpot_func) + EFIELDZ;
-#else
-  return -test_weighted_integral_cyl(density, dpot_func) + EFIELDZ;
-#endif
+  return -rgrid2d_weighted_integral_cyl(density, dpot_func, NULL) + EFIELDZ;
 }
 
 double propagate_impurity(double *z, double *vz, double *az, rgrid2d *density) {
 
   double time_step = TIME_STEP / GRID_AUTOFS;
-  double time_step2 = time_step * time_step;
-  double fz, paz, vhalf;
+  double fz, vhalf;
 
   vhalf = *vz + 0.5 * (*az) * time_step;
   *z += vhalf * time_step;

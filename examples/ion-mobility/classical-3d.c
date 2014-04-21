@@ -20,8 +20,8 @@
 
 /* #define EXP_P           /* pure exponential repulsion */
 /* #define ZERO_P             /* zero potential */
-/* #define CA_P            /* Ca+ ion */
-#define K_P             /* K+ ion */
+#define CA_P            /* Ca+ ion */
+/* #define K_P             /* K+ ion */
 /* #define BE_P            /* Be+ ion */
 /* #define SR_P            /* Sr+ ion */
 /* #define CL_M            /* Cl- ion */
@@ -111,18 +111,17 @@ int main(int argc, char *argv[]) {
   wf3d *gwf, *gwfp;
   long iter;
   char filename[2048];
-  double iz = IZ, ivz = IVZ, tmp;
+  double iz = IZ, ivz = IVZ;
   double piz, pivz;
   double iaz = 0.0;
   double piaz;
-  double cur_vel = IVZ;
   double fz;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
 
   /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD + DFT_OT_KC, TIME_PROP, DENSITY);
+  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, TIME_PROP, DENSITY);
   //dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, TIME_PROP, DENSITY);
 
   /* no absorbing boundaries */
@@ -186,7 +185,7 @@ int main(int argc, char *argv[]) {
     /* PREDICT */
     grid3d_wf_density(gwf, current_density);
     ZI = iz;
-    rgrid3d_map(rworkspace, pot_func2, NULL);
+    rgrid3d_map(rworkspace, pot_func, NULL);
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, rworkspace, gwf, gwfp, cworkspace, TIME_STEP, iter);
     if(!TIME_PROP) {
       ZI = iz;
@@ -196,7 +195,7 @@ int main(int argc, char *argv[]) {
       grid3d_wf_density(gwfp, current_density);
       (void) propagate_impurity(&piz, &pivz, &piaz, current_density);
       ZI = piz;
-      rgrid3d_map(rworkspace, pot_func2, NULL);
+      rgrid3d_map(rworkspace, pot_func, NULL);
     }
     /* CORRECT */
     (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, rworkspace, gwf, gwfp, cworkspace, TIME_STEP, iter);
@@ -209,7 +208,7 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "Added mass = %le (in units of He atoms).\n", IMASS * ((EFIELDZ / fz) - 1.0) / HELIUM_MASS);
       fprintf(stderr, "Added mass_2 = %le (in units of He atoms).\n", ((2.0 * EFIELDZ * (iz - IZ) / (ivz * ivz)) - IMASS) / HELIUM_MASS);
       ZI = iz;
-      fprintf(stderr, "PE = %le K.\n", rgrid3d_weighted_integral(current_density, pot_func) * GRID_AUTOK);
+      fprintf(stderr, "PE = %le K.\n", rgrid3d_weighted_integral(current_density, pot_func, NULL) * GRID_AUTOK);
       fprintf(stderr, "f_z = %le, f_z - EFIELDZ = %le\n", fz, fz - EFIELDZ);
       //      fprintf(stderr, "R_b = %le\n", dft_driver_spherical_rb(current_density));
       fprintf(stderr, "Mobility = %le [cm^2/(Vs)]\n", 100.0 * ivz * 2.187691E6 / (EFIELDZ * 5.1422E9));
@@ -234,4 +233,5 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "Max norm = %le.\n", dft_driver_norm(rworkspace));
     }
   }
+  return 0;
 }
