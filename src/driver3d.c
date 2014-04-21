@@ -1321,6 +1321,32 @@ EXPORT void dft_driver_write_grid(cgrid3d *grid, char *base) {
   fclose(fp);
 }
 
+
+/*
+ * Return the self-consistent potential (no external potential).
+ *
+ * gwf       = wavefunction for the system (wf3d *; input).
+ * potential = potential grid (rgrid3d *; output).
+ *
+ * Note: the backflow is not included in the energy density calculation.
+ *
+ */
+
+EXPORT void dft_driver_potential(wf3d *gwf, rgrid3d *potential) {
+
+  /* we may need more memory for this... */
+  check_mode();
+  if(!workspace7) workspace7 = dft_driver_alloc_rgrid();
+  if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
+  if(!workspace9) workspace9 = dft_driver_alloc_rgrid();
+  if(!cworkspace) cworkspace = dft_driver_alloc_cgrid();
+
+  grid3d_wf_density(gwf, density);
+  cgrid3d_zero(cworkspace) ;
+  dft_ot3d_potential(dft_driver_otf, cworkspace, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
+  grid3d_complex_re_to_real( potential, cworkspace ) ;
+}
+
 /*
  * Calculate the total energy of the system.
  *
