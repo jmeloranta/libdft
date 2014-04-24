@@ -9,4 +9,4 @@ imag_time.o: imag_time.c
 	$(CC) $(CFLAGS) -c imag_time.c
 
 clean:
-	-rm *.o imag_time imag_time.o output* *~
+	-rm *.o imag_time imag_time.o output* flux* *~

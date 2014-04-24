@@ -409,6 +409,8 @@ EXPORT void dft_driver_setup_rotation_omega(double omega) {
   check_mode();
 
   driver_omega = omega;
+  dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC_ROT;
+  fprintf(stderr, "libdft: Using CN for kinetic energy propagation. Set BC to Neumann to also evaluate kinetic energy using CN.\n");
 }
 
 /*
@@ -1360,7 +1362,8 @@ EXPORT void dft_driver_potential(wf3d *gwf, rgrid3d *potential) {
  */
 
 EXPORT double dft_driver_energy(wf3d *gwf, rgrid3d *ext_pot) {
-  return dft_driver_potential_energy(gwf, ext_pot) + dft_driver_kinetic_energy(gwf) ;
+
+  return dft_driver_potential_energy(gwf, ext_pot) + dft_driver_kinetic_energy(gwf);
 }
 
 /*
@@ -1388,7 +1391,6 @@ EXPORT double dft_driver_potential_energy(wf3d *gwf, rgrid3d *ext_pot) {
   if(ext_pot) rgrid3d_add_scaled_product(workspace9, 1.0, density, ext_pot);
   
   return rgrid3d_integral(workspace9);
-
 }
 
 /*
@@ -1407,8 +1409,17 @@ EXPORT double dft_driver_kinetic_energy(wf3d *gwf) {
   if(!cworkspace)
     cworkspace = dft_driver_alloc_cgrid();
 
-  return grid3d_wf_energy(gwf, NULL, cworkspace);
+  /* Since CN_NBC and CN_NBC_ROT do not use FFT for kinetic propagation, evaluate the kinetic energy with finite difference as well */
+  if((dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC_ROT || dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC) && driver_bc == DFT_DRIVER_BC_NEUMANN) {
+    /* FIXME: Right now there is no way to make grid3d_wf_energy() do finite difference energy with Neumann. */
+    double mass = gwf->mass, kx = gwf->grid->kx0 , ky = gwf->grid->ky0 , kz = gwf->grid->kz0;
+    double ekin = -HBAR * HBAR * (kx * kx + ky * ky + kz * kz) / (2.0 * mass);
 
+    if(ekin != 0.0)
+      ekin *= creal(cgrid3d_integral_of_square(gwf->grid)); 
+    return grid3d_wf_energy_cn(gwf, gwf, NULL, cworkspace) + ekin;
+  }
+  return grid3d_wf_energy(gwf, NULL, cworkspace);
 }
 
 /*
@@ -1421,11 +1432,12 @@ EXPORT double dft_driver_kinetic_energy(wf3d *gwf) {
  * omega_z = angular frequency in a.u., z-axis (double)
  */
 EXPORT double dft_driver_rotation_energy(wf3d *wf, double omega_x, double omega_y, double omega_z){
-	double lx, ly, lz;
-	dft_driver_L( wf, &lx, &ly, &lz) ;
-	return - (omega_x * lx) - (omega_y * ly) - (omega_z * lz) ;
-}
 
+  double lx, ly, lz;
+
+  dft_driver_L( wf, &lx, &ly, &lz);
+  return - (omega_x * lx) - (omega_y * ly) - (omega_z * lz);
+}
 
 /*
  * Calculate the energy in a certain region (box).
