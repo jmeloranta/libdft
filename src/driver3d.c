@@ -921,7 +921,7 @@ EXPORT void dft_driver_write_density(rgrid3d *grid, char *base) {
   j = grid->ny / 2;
   k = grid->nz / 2;
   for(i = 0; i < grid->nx; i++) { 
-    x = (i - grid->nx/2.0) * grid->step;
+    x = (i - grid->nx/2) * grid->step - grid->x0;
     fprintf(fp, "%le %le\n", x, rgrid3d_value_at_index(grid, i, j, k));
   }
   fclose(fp);
@@ -934,7 +934,7 @@ EXPORT void dft_driver_write_density(rgrid3d *grid, char *base) {
   i = grid->nx / 2;
   k = grid->nz / 2;
   for(j = 0; j < grid->ny; j++) {
-    y = (j - grid->ny/2.0) * grid->step;
+    y = (j - grid->ny/2) * grid->step - grid->y0;
     fprintf(fp, "%le %le\n", y, rgrid3d_value_at_index(grid, i, j, k));
   }
   fclose(fp);
@@ -947,7 +947,7 @@ EXPORT void dft_driver_write_density(rgrid3d *grid, char *base) {
   i = grid->nx / 2;
   j = grid->ny / 2;
   for(k = 0; k < grid->nz; k++) {
-    z = (k - grid->nz/2.0) * grid->step;
+    z = (k - grid->nz/2) * grid->step - grid->z0;
     fprintf(fp, "%le %le\n", z, rgrid3d_value_at_index(grid, i, j, k));
   }
   fclose(fp);
