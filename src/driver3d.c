@@ -748,13 +748,14 @@ EXPORT rgrid3d *dft_driver_alloc_rgrid() {
 
   switch(driver_bc) {
   case DFT_DRIVER_BC_NORMAL: 
-    grid_type = RGRID3D_PERIODIC_BOUNDARY;
+  case DFT_DRIVER_BC_NEUMANN:
+    grid_type = RGRID3D_PERIODIC_BOUNDARY;    // TODO: Neumann should belong to the case below
     break;
   case DFT_DRIVER_BC_X:
   case DFT_DRIVER_BC_Y:
   case DFT_DRIVER_BC_Z:
-  case DFT_DRIVER_BC_NEUMANN:
-    grid_type = RGRID3D_NEUMANN_BOUNDARY ;
+    /*  case DFT_DRIVER_BC_NEUMANN: */
+    grid_type = RGRID3D_NEUMANN_BOUNDARY;
     break;
   default:
     fprintf(stderr, "libdft: Illegal boundary type.\n");

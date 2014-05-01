@@ -114,17 +114,18 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
    */ 
   switch(bc) {
   case DFT_DRIVER_BC_NORMAL: 
+  case DFT_DRIVER_BC_NEUMANN:   /* TODO: This should belong to the case below */
     grid_type = RGRID3D_PERIODIC_BOUNDARY;
-    x0 = y0 = z0 = 0.0 ;
+    x0 = y0 = z0 = 0.0;
     break;
   case DFT_DRIVER_BC_X:
   case DFT_DRIVER_BC_Y:
   case DFT_DRIVER_BC_Z:
-  case DFT_DRIVER_BC_NEUMANN:
+    /*  case DFT_DRIVER_BC_NEUMANN: */   /* See above */
     grid_type = RGRID3D_NEUMANN_BOUNDARY;
-    x0 = - (nx/2)*step ;
-    y0 = - (ny/2)*step ;
-    z0 = - (nz/2)*step ;
+    x0 = - (nx/2) * step;
+    y0 = - (ny/2) * step;
+    z0 = - (nz/2) * step;
     break;
   default:
     fprintf(stderr, "libdft: Illegal boundary type.\n");
