@@ -123,9 +123,9 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
   case DFT_DRIVER_BC_Z:
     /*  case DFT_DRIVER_BC_NEUMANN: */   /* See above */
     grid_type = RGRID3D_NEUMANN_BOUNDARY;
-    x0 = - (nx/2) * step;
-    y0 = - (ny/2) * step;
-    z0 = - (nz/2) * step;
+    x0 = - (nx/2 + 0.5) * step;
+    y0 = - (ny/2 + 0.5) * step;
+    z0 = - (nz/2 + 0.5) * step;
     break;
   default:
     fprintf(stderr, "libdft: Illegal boundary type.\n");
