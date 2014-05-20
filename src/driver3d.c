@@ -201,7 +201,7 @@ inline static void scale_wf(long what, dft_ot_functional *local_otf, wf3d *gwf) 
  *
  */
 
-void driver3d_write_wisdom(char *file) {
+void dft_driver_write_wisdom(char *file) {
 
   /* Attempt to use wisdom (FFTW) from previous runs */
   if(fftw_import_wisdom_from_filename(file) != 0)
@@ -213,7 +213,7 @@ void driver3d_write_wisdom(char *file) {
  *
  */
 
-void driver3d_read_wisdom(char *file) {
+void dft_driver_read_wisdom(char *file) {
 
   fftw_export_wisdom_to_filename(file);
 }
