@@ -1,6 +1,6 @@
 include ../../../make.conf
 
-all: imag_time
+all: imag_time imag_time_pes imag_time_pes_zp
 
 imag_time: imag_time.o
 	$(CC) $(CFLAGS) -o imag_time imag_time.o $(LDFLAGS)
@@ -8,5 +8,18 @@ imag_time: imag_time.o
 imag_time.o: imag_time.c
 	$(CC) $(CFLAGS) -c imag_time.c
 
+imag_time_pes: imag_time_pes.o
+	$(CC) $(CFLAGS) -o imag_time_pes imag_time_pes.o $(LDFLAGS)
+
+imag_time_pes.o: imag_time_pes.c
+	$(CC) $(CFLAGS) -c imag_time_pes.c
+
+imag_time_pes_zp: imag_time_pes_zp.o
+	$(CC) $(CFLAGS) -o imag_time_pes_zp imag_time_pes_zp.o $(LDFLAGS)
+
+imag_time_pes_zp.o: imag_time_pes_zp.c
+	$(CC) $(CFLAGS) -c imag_time_pes_zp.c
+
+
 clean:
-	-rm *.o imag_time imag_time.o output* flux* *~
+	-rm *.o imag_time imag_time.o imag_time_pes imag_time_pes.o imag_time_pes_zp imag_time_pes_zp.o output* flux* *~

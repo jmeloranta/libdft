@@ -1,6 +1,6 @@
 /*
  * Impurity atom in superfluid helium (no zero-point).
- * Interaction of impurity with vortex line.
+ * Scan the impurity vortex distance.
  *
  * All input in a.u. except the time step, which is fs.
  *
@@ -15,20 +15,20 @@
 #include <dft/ot.h>
 
 #define TIME_STEP 20.0 /* fs */
-#define MAXITER 10000000
-#define NX 128
+#define MAXITER 5000   /* was 5000 */
+#define NX 256
 #define NY 128
 #define NZ 128
-#define STEP 0.5
+#define STEP 1.0
 
-#define HE2STAR 1 /**/
-/* #define HESTAR  1 /**/
+#define IBEGIN 70.0
+#define ISTEP 5.0
+#define IEND 0.0
+
+/* #define HE2STAR 1 /**/
+#define HESTAR  1 /**/
 
 /* #define ONSAGER /**/
-
-/*#define IMPURITY   /* Just the impurity */
-#define VORTEX     /* Just the vortex */
-/* #define BOTH       /* Both on top of each other */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 #define HBAR 1.0        /* au */
@@ -53,15 +53,16 @@ void zero_core(cgrid3d *grid) {
 int main(int argc, char **argv) {
 
   cgrid3d *potential_store;
-  rgrid3d *ext_pot, *density, *px, *py, *pz;
+  rgrid3d *ext_pot, *orig_pot, *density, *px, *py, *pz;
   wf3d *gwf, *gwfp;
+  char buf[512];
   long iter, N;
-  double energy, natoms, mu0, rho0, width;
+  double energy, natoms, mu0, rho0, width, R;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 32 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_BACKFLOW, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   /* Neumann boundaries */
@@ -85,6 +86,7 @@ int main(int argc, char **argv) {
 
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid();
+  orig_pot = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
   density = dft_driver_alloc_rgrid();
   px = dft_driver_alloc_rgrid();
@@ -96,24 +98,13 @@ int main(int argc, char **argv) {
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
 
 #ifdef HE2STAR
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "he2-He.dat-spline", "he2-He.dat-spline", "he2-He.dat-spline", ext_pot);
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "he2-He.dat-spline", "he2-He.dat-spline", "he2-He.dat-spline", orig_pot);
 #endif
 #ifdef HESTAR
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "He-star-He.dat", "He-star-He.dat", "He-star-He.dat", ext_pot);
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "He-star-He.dat", "He-star-He.dat", "He-star-He.dat", orig_pot);
 #endif
-  //  rgrid3d_shift(ext_pot, density, 0.0, 0.0, 0.0);
-#ifdef VORTEX
-  rgrid3d_zero(ext_pot);
-#endif
-
-#ifdef ONSAGER
-#if defined(VORTEX) || defined(BOTH)
-  dft_driver_vortex(ext_pot, DFT_DRIVER_VORTEX_X);
-#endif
-#endif
-
   mu0 = bulk_chempot(dft_driver_otf);
-  rgrid3d_add(ext_pot, -mu0);
+  rgrid3d_add(orig_pot, -mu0);
   rho0 = bulk_density(dft_driver_otf);
 
   if(N != 0) {
@@ -122,51 +113,39 @@ int main(int argc, char **argv) {
   } else cgrid3d_constant(gwf->grid, sqrt(rho0));
 
 #ifndef ONSAGER
-#if defined(VORTEX) || defined(BOTH)
   dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
 #endif
-#endif
 
-  for (iter = 1; iter < MAXITER; iter++) {
-    
-    if(iter == 1 || !(iter % 100)) {
-      char buf[512];
-      grid3d_wf_density(gwf, density);
-      sprintf(buf, "output-%ld", iter);
-      dft_driver_write_density(density, buf);
-      energy = dft_driver_energy(gwf, ext_pot);
-      natoms = dft_driver_natoms(gwf);
-      printf("Total energy is %le K\n", energy * GRID_AUTOK);
-      printf("Number of He atoms is %le.\n", natoms);
-      printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
-#if 0
-      grid3d_wf_probability_flux(gwf, px, py, pz);
-      sprintf(buf, "flux_x-%ld", iter);
-      dft_driver_write_density(px, buf);
-      sprintf(buf, "flux_y-%ld", iter);
-      dft_driver_write_density(py, buf);
-      sprintf(buf, "flux_z-%ld", iter);
-      dft_driver_write_density(pz, buf);
+  for (R = IBEGIN; R >= IEND; R -= ISTEP) {
+    rgrid3d_shift(ext_pot, orig_pot, R, 0.0, 0.0);
+#ifdef ONSAGER
+    dft_driver_vortex(ext_pot, DFT_DRIVER_VORTEX_X);
 #endif
-#if 0
-      { long k;
-	dft_driver_veloc_field(gwf, px, py, pz);
-	grid3d_wf_density(gwf, density);
-	for (k = 0; k < px->nx * px->ny * px->nz; k++)
-	  px->value[k] = px->value[k] * px->value[k] + py->value[k] * py->value[k] + pz->value[k] * pz->value[k];
-	rgrid3d_product(px, px, density);
-	rgrid3d_multiply(px, 0.5);
-	sprintf(buf, "kinetic-%ld", iter);
-	dft_driver_write_density(px, buf);
-      }
-#endif
+    // TODO: Do we need to enforce the vortex solution at each R?
+
+    for (iter = 1; iter < ((R == IBEGIN)?10*MAXITER:MAXITER); iter++) {      
+      dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
+      dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
+      zero_core(gwf->grid);
     }
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
 
-#if defined(VORTEX) || defined(BOTH)
-    zero_core(gwf->grid);
-#endif
+    printf("Results for R = %le\n", R);
+    grid3d_wf_density(gwf, density);
+    sprintf(buf, "output-%lf", R);
+    dft_driver_write_density(density, buf);
+    energy = dft_driver_energy(gwf, ext_pot);
+    natoms = dft_driver_natoms(gwf);
+    printf("Total energy is %le K\n", energy * GRID_AUTOK);
+    printf("Number of He atoms is %le.\n", natoms);
+    printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
+    grid3d_wf_probability_flux(gwf, px, py, pz);
+    sprintf(buf, "flux_x-%lf", R);
+    dft_driver_write_density(px, buf);
+    sprintf(buf, "flux_y-%lf", R);
+    dft_driver_write_density(py, buf);
+    sprintf(buf, "flux_z-%lf", R);
+    dft_driver_write_density(pz, buf);
+    printf("PES %le %le\n", R, energy * GRID_AUTOK);
   }
   return 0;
 }

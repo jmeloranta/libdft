@@ -88,7 +88,6 @@ static double complex cregion_func(void *gr, double x, double y, double z) {
 	return 1. + tanh( 4.0 * (r - driver_halfbox_length)/driver_abs ) ;
 }
 
-
 inline static void scale_wf(long what, dft_ot_functional *local_otf, wf3d *gwf) {
 
   long i, j, k;
@@ -195,6 +194,28 @@ inline static void scale_wf(long what, dft_ot_functional *local_otf, wf3d *gwf) 
     fprintf(stderr, "libdft: Unknown normalization method.\n");
     exit(1);
   }
+}
+
+/*
+ * FFTW Wisdom interface - import wisdom.
+ *
+ */
+
+void driver3d_write_wisdom(char *file) {
+
+  /* Attempt to use wisdom (FFTW) from previous runs */
+  if(fftw_import_wisdom_from_filename(file) != 0)
+    fprintf(stderr, "libdft: Using fftw.wis information.\n");
+}
+
+/*
+ * FFTW Wisdom interface - export wisdom.
+ *
+ */
+
+void driver3d_read_wisdom(char *file) {
+
+  fftw_export_wisdom_to_filename(file);
 }
 
 /*
