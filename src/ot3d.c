@@ -395,7 +395,7 @@ static void dft_ot3d_add_nonlocal_correlation_potential_x(dft_ot_functional *otf
   /* 1st term: c convolute [((d/dx) F) . G] */
   rgrid3d_fft_convolute(workspace3, otf->gaussian_x_tf, workspace2);
   rgrid3d_inverse_fft(workspace3);
-  rgrid3d_product(workspace3, workspace3, workspace4);
+  rgrid3d_product(workspace3, workspace3, rho_st);
   rgrid3d_multiply(workspace3, c);
   grid3d_add_real_to_complex_re(potential, workspace3);  
 
@@ -449,7 +449,7 @@ static void dft_ot3d_add_nonlocal_correlation_potential_y(dft_ot_functional *otf
   /* 1st term: c convolute [((d/dy) F) . G] */
   rgrid3d_fft_convolute(workspace3, otf->gaussian_y_tf, workspace2);
   rgrid3d_inverse_fft(workspace3);
-  rgrid3d_product(workspace3, workspace3, workspace4);
+  rgrid3d_product(workspace3, workspace3, rho_st);
   rgrid3d_multiply(workspace3, c);
   grid3d_add_real_to_complex_re(potential, workspace3);  
 
@@ -504,7 +504,7 @@ static void dft_ot3d_add_nonlocal_correlation_potential_z(dft_ot_functional *otf
   /* 1st term: c convolute [((d/dz) F) . G] */
   rgrid3d_fft_convolute(workspace3, otf->gaussian_z_tf, workspace2);
   rgrid3d_inverse_fft(workspace3);
-  rgrid3d_product(workspace3, workspace3, workspace4);
+  rgrid3d_product(workspace3, workspace3, rho_st);
   rgrid3d_multiply(workspace3, c);
   grid3d_add_real_to_complex_re(potential, workspace3);  
 

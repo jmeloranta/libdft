@@ -19,15 +19,15 @@
 #define NX 128
 #define NY 128
 #define NZ 128
-#define STEP 0.5
+#define STEP 1.0
 
 #define HE2STAR 1 /**/
 /* #define HESTAR  1 /**/
 
 /* #define ONSAGER /**/
 
-/*#define IMPURITY   /* Just the impurity */
-#define VORTEX     /* Just the vortex */
+#define IMPURITY   /* Just the impurity */
+/* #define VORTEX     /* Just the vortex */
 /* #define BOTH       /* Both on top of each other */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 32 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_BACKFLOW, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   /* Neumann boundaries */
@@ -79,6 +79,8 @@ int main(int argc, char **argv) {
     dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_DROPLET, N, 0.0, 1); // 1 = release center immediately
 
   printf("N = %ld\n", N);
+
+  dft_driver_read_wisdom("imag_time.wis");
 
   /* Initialize the DFT driver */
   dft_driver_initialize();
@@ -108,13 +110,18 @@ int main(int argc, char **argv) {
 
 #ifdef ONSAGER
 #if defined(VORTEX) || defined(BOTH)
-  dft_driver_vortex(ext_pot, DFT_DRIVER_VORTEX_X);
+  dft_driver_vortex(ext_pot, DFT_DRIVER_VORTEX_Z);
 #endif
 #endif
 
+#if 1
   mu0 = bulk_chempot(dft_driver_otf);
   rgrid3d_add(ext_pot, -mu0);
   rho0 = bulk_density(dft_driver_otf);
+#else
+  rho0 = 0.00323;  // for GP
+  mu0 = 0.0;
+#endif
 
   if(N != 0) {
     width = 1.0 / 20.0;
@@ -131,6 +138,7 @@ int main(int argc, char **argv) {
     
     if(iter == 1 || !(iter % 100)) {
       char buf[512];
+      if(iter == 20) dft_driver_write_wisdom("imag_time.wis");
       grid3d_wf_density(gwf, density);
       sprintf(buf, "output-%ld", iter);
       dft_driver_write_density(density, buf);
