@@ -201,11 +201,13 @@ inline static void scale_wf(long what, dft_ot_functional *local_otf, wf3d *gwf) 
  *
  */
 
-void dft_driver_write_wisdom(char *file) {
+void dft_driver_read_wisdom(char *file) {
 
   /* Attempt to use wisdom (FFTW) from previous runs */
-  if(fftw_import_wisdom_from_filename(file) != 0)
-    fprintf(stderr, "libdft: Using fftw.wis information.\n");
+  if(fftw_import_wisdom_from_filename(file) == 1)
+    fprintf(stderr, "libdft: Using wisdom stored in %s.\n", file);
+  else
+    fprintf(stderr, "libdft: No existing wisdom file.\n");
 }
 
 /*
@@ -213,7 +215,7 @@ void dft_driver_write_wisdom(char *file) {
  *
  */
 
-void dft_driver_read_wisdom(char *file) {
+void dft_driver_write_wisdom(char *file) {
 
   fftw_export_wisdom_to_filename(file);
 }
@@ -239,6 +241,7 @@ EXPORT void dft_driver_initialize() {
     }
     grid_timer_start(&timer);
     grid_threads_init(driver_threads);
+    dft_driver_read_wisdom("fftw.wis");
     workspace1 = dft_driver_alloc_rgrid();
     workspace2 = dft_driver_alloc_rgrid();
     workspace3 = dft_driver_alloc_rgrid();
@@ -252,13 +255,12 @@ EXPORT void dft_driver_initialize() {
     }
     density = dft_driver_alloc_rgrid();
     dft_driver_otf = dft_ot3d_alloc(driver_dft_model, driver_nx, driver_ny, driver_nz, driver_step, driver_bc, MIN_SUBSTEPS, MAX_SUBSTEPS);
-    if(driver_rho0 == 0.0){
-	    fprintf(stderr, "libdft: Setting driver_rho0 to %le\n", dft_driver_otf->rho0 ) ;
-	    driver_rho0 = dft_driver_otf->rho0;
-    }
-    else{
-	    fprintf(stderr, "libdft: Overwritting dft_driver_otf->rho0 to %le\n", driver_rho0 ) ;
-	    dft_driver_otf->rho0 = driver_rho0;
+    if(driver_rho0 == 0.0) {
+      fprintf(stderr, "libdft: Setting driver_rho0 to %le\n", dft_driver_otf->rho0 );
+      driver_rho0 = dft_driver_otf->rho0;
+    } else {
+      fprintf(stderr, "libdft: Overwritting dft_driver_otf->rho0 to %le\n", driver_rho0 );
+      dft_driver_otf->rho0 = driver_rho0;
     }
     fprintf(stderr, "libdft: rho0 = %le Angs^-3.\n", driver_rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
     been_here = 1;
@@ -459,6 +461,7 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
 
   double complex time, htime;
   static double last_tstep = -1.0;
+  static int been_here = 0;
 
   check_mode();
 
@@ -559,6 +562,11 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
     grid3d_damp_wf(gwfp, driver_rho0, damp, cregion_func, cworkspace, NULL) ; 
+  }
+
+  if(!been_here) {
+    been_here = 1;
+    dft_driver_write_wisdom("fftw.wis"); // we have done many FFTs at this point
   }
 }
 

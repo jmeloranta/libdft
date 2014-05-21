@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 48 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD + DFT_OT_KC, DFT_DRIVER_IMAG_TIME, 0.0);
   //dft_driver_setup_model(DFT_DR, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
@@ -169,10 +169,10 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
 
-    if(!(iter % 1000)) {
+    if(!(iter % 5)) {
       char buf[512];
       grid3d_wf_density(gwf, density);
-#if 0
+#if 1
       sprintf(buf, "output-%ld", iter);
       dft_driver_write_density(density, buf);
 #endif
