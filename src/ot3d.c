@@ -294,31 +294,14 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
     dft_ot3d_add_barranco(otf, potential, density, workspace1);
 
   if(otf->model & DFT_OT_BACKFLOW) {
-    long i;
     /* wf, veloc_x(1), veloc_y(2), veloc_z(3), wrk(4) */
-    grid3d_wf_probability_flux(wf, workspace1, workspace2, workspace3);
-    rgrid3d_division(workspace1, workspace1, density);  /* velocity = flux / rho */
-    rgrid3d_division(workspace2, workspace2, density);
-    rgrid3d_division(workspace3, workspace3, density);
-    /* Cut off large velocities (which are artificial anyway) */
-    for (i = 0; i < workspace1->nx * workspace1->ny * workspace1->nz; i++) {
-      if(workspace1->value[i] > DFT_MAX_VELOC) 
-	workspace1->value[i] = DFT_MAX_VELOC;
-      if(workspace1->value[i] < DFT_MAX_VELOC) 
-	workspace1->value[i] = -DFT_MAX_VELOC;
-    }
-    for (i = 0; i < workspace2->nx * workspace2->ny * workspace2->nz; i++) {
-      if(workspace2->value[i] > DFT_MAX_VELOC) 
-	workspace2->value[i] = DFT_MAX_VELOC;
-      if(workspace2->value[i] < DFT_MAX_VELOC) 
-	workspace2->value[i] = -DFT_MAX_VELOC;
-    }
-    for (i = 0; i < workspace3->nx * workspace3->ny * workspace3->nz; i++) {
-      if(workspace3->value[i] > DFT_MAX_VELOC) 
-	workspace3->value[i] = DFT_MAX_VELOC;
-      if(workspace3->value[i] < DFT_MAX_VELOC) 
-	workspace3->value[i] = -DFT_MAX_VELOC;
-    }
+    grid3d_wf_probability_flux(wf, workspace1, workspace2, workspace3);    /* finite difference */
+    // grid3d_wf_momentum(wf, workspace1, workspace2, workspace3, workspace4);   /* this would imply FFT boundaries */
+    rgrid3d_copy(workspace4, density);
+    rgrid3d_add(workspace4, DFT_BF_EPS);
+    rgrid3d_division(workspace1, workspace1, workspace4);  /* velocity = flux / rho */
+    rgrid3d_division(workspace2, workspace2, workspace4);
+    rgrid3d_division(workspace3, workspace3, workspace4);
     dft_ot3d_backflow_potential(otf, potential, density, workspace1 /* veloc_x */, workspace2 /* veloc_y */, workspace3 /* veloc_z */, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
   }
 

@@ -63,39 +63,6 @@ double switch_axis(void *xx, double x, double y, double z) {
   return rgrid3d_value(grid, z, y, x);  // swap x and z -> molecule along x axis
 }
 
-#define NPHASE (1.0)
-
-double complex vortex_phase(void *xx, double x, double y, double z) {
-
-  double phi, d;
-
-  d = sqrt(x * x + y * y);
-  phi = M_PI - atan2(y, -x);
-  //return cexp(I * NPHASE * phi) / (d + 1E-6);
-  return cexp(I * NPHASE * phi);
-}
-
-double sqnorm(double complex a) {
-
-  return creal(a) * creal(a) + cimag(a) * cimag(a);
-}
-
-void fix_wf(wf3d *wf, wf3d *tmp) {
-
-  long i, j, k, nx = wf->grid->nx, ny = wf->grid->ny, nz = wf->grid->nz;
-
-  for (i = 0; i < nx; i++) {
-    for (j = 0; j < ny; j++) {
-      for (k = 0; k < nz; k++) {
-	tmp->grid->value[i * ny * nz + j * nz + k] = cgrid3d_value_at_index(wf->grid, i, j, k) * 
-	  sqrt((sqnorm(cgrid3d_value_at_index(wf->grid, i, j, k)) + sqnorm(cgrid3d_value_at_index(wf->grid, i, k, j))) / 2.0)
-	  / (cabs(cgrid3d_value_at_index(wf->grid, i, j, k)) + 1E-6);
-      }
-    }
-  }
-  cgrid3d_copy(wf->grid, tmp->grid);
-}
-
 int main(int argc, char **argv) {
 
   cgrid3d *potential_store;
@@ -157,16 +124,7 @@ int main(int argc, char **argv) {
   printf("Omega = %le\n", omega);
   dft_driver_setup_rotation_omega(omega);
 
-#if 0
-  srand48(time(0));
-  for (iter = 0; iter < NX * NY * NZ; iter++)
-    gwf->grid->value[iter] = 2.0 * (drand48() - 1.0) + 2.0 * I * (drand48() - 1.0);
-#else
-  //cgrid3d_constant(gwf->grid, 1.0);
-  //dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
-  //cgrid3d_add(gwf->grid, 0.0);
-  cgrid3d_map(gwf->grid, vortex_phase, NULL);
-#endif
+  cgrid3d_constant(gwf->grid, 1.0);
 
   for (iter = 1; iter < MAXITER; iter++) {
     
@@ -210,9 +168,6 @@ int main(int argc, char **argv) {
 
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
-
-    // Enforce cylindrical symmetry
-    //fix_wf(gwf, gwfp);
 
     if(!(iter % 1000)) {
       char buf[512];

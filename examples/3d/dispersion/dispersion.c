@@ -62,8 +62,8 @@ int main(int argc, char **argv) {
 
   dft_driver_setup_grid(N, N, N, STEP, 48); /* 6 threads */
   //dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
-  //dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_BACKFLOW, DFT_DRIVER_REAL_TIME, 0.0);
+  // dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_BACKFLOW, DFT_DRIVER_REAL_TIME, 0.0);
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 0, 0.0, 0);
   dft_driver_initialize();
