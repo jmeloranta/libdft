@@ -32,9 +32,10 @@
  *
  */
 
-#define DFT_OT_PLAIN   0
-#define DFT_OT_KC      1
-#define DFT_OT_HD      2
+#define DFT_OT_PLAIN    0
+#define DFT_OT_KC       1
+#define DFT_OT_HD       2
+#define DFT_OT_HD2      4
 #define DFT_OT_BACKFLOW 8
 #define DFT_OT_T0MK    16
 #define DFT_OT_T400MK  32
@@ -54,7 +55,6 @@
 #define DFT_GP         524288
 #define DFT_DR         1048576
 #define DFT_ZERO       2097152
-#define DFT_OT_HD2     4194304
 
 /*
  * Driver defines.

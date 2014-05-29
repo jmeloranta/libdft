@@ -20,8 +20,8 @@
 #define NZ 128
 #define STEP 0.5
 
-/* #define OCS 1 /* OCS molecule */
-#define HCN 1 /* HCN molecule */
+#define OCS 1 /* OCS molecule */
+/* #define HCN 1 /* HCN molecule */
 
 #ifdef OCS
 #define ID "OCS molecule"
@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 32 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD + DFT_OT_KC + DFT_OT_BACKFLOW, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD2, DFT_DRIVER_IMAG_TIME, 0.0);
   //dft_driver_setup_model(DFT_DR, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);

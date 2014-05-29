@@ -809,7 +809,7 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, long model) {
 
   fprintf(stderr, "libdft: Model = %ld\n", model);
 
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD)) { /* high density penalty */
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { /* high density penalty */
     otf->beta = (40.0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
     otf->rhom = (0.37 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
     otf->C = 0.1; /* a.u. */
