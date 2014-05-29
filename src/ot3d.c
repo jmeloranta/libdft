@@ -180,8 +180,13 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
       cgrid3d_multiply(otf->lennard_jones->cint, otf->b / ( step * step * step * otf->lennard_jones->cint->value[0]));
     }
 
-    radius = otf->lj_params.h;
-    fprintf(stderr, "libdft: Spherical average.\n");
+    if(otf->model & DFT_OT_HD2) {
+      radius = otf->lj_params.h * 1.065; /* Pr B 72, 214522 (2005) */
+      fprintf(stderr, "libdft: Spherical average (new).\n");
+    } else {
+      radius = otf->lj_params.h;
+      fprintf(stderr, "libdft: Spherical average (original).\n");
+    }
     rgrid3d_adaptive_map(otf->spherical_avg, dft_common_spherical_avg, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     rgrid3d_fft(otf->spherical_avg);
     /* Scaling of sph. avg. so that the integral is exactly 1 */
@@ -803,10 +808,14 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, long model) {
 
   fprintf(stderr, "libdft: Model = %ld\n", model);
 
-  if(otf->model & DFT_OT_HD) { /* high density penalty */
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD)) { /* high density penalty */
     otf->beta = (40.0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
     otf->rhom = (0.37 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
     otf->C = 0.1; /* a.u. */
+  } else {
+    otf->beta = 0.0;
+    otf->rhom = 0.0;
+    otf->C = 0.0;
   }
 
   if(model & DFT_DR) { /* Dupont-Roc */

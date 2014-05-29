@@ -1,6 +1,12 @@
 include ../../../make.conf
 
-all: imag_time imag_time_pes imag_time_pes_zp
+all: imag_time imag_time_pes imag_time_pes_zp he3+
+
+he3+: he3+.o
+	$(CC) $(CFLAGS) -o he3+ he3+.o $(LDFLAGS)
+
+he3+.o: he3+.c
+	$(CC) $(CFLAGS) -c he3+.c
 
 imag_time: imag_time.o
 	$(CC) $(CFLAGS) -o imag_time imag_time.o $(LDFLAGS)

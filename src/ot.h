@@ -54,6 +54,7 @@
 #define DFT_GP         524288
 #define DFT_DR         1048576
 #define DFT_ZERO       2097152
+#define DFT_OT_HD2     4194304
 
 /*
  * Driver defines.
@@ -174,7 +175,7 @@ extern int dft_driver_kinetic;
 /* Helium mass */
 #define DFT_HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
-/* Density cutoff for backflow evaluation */
-#define DFT_BF_EPS 1E-8
+/* Density cutoff for backflow evaluation (rho0 / 100) */
+#define DFT_BF_EPS 3E-5
 
 #endif /* __DFT_OT__ */
