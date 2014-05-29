@@ -58,7 +58,8 @@ static inline double dft_ot_backflow_pot(void *arg, double x, double y, double z
  * 
  * model = which OT functional variant to use:
  *         DFT_OT_KC       Include the non-local kinetic energy correlation.
- *         DFT_OT_HD       Include Barranco's high density correction.
+ *         DFT_OT_HD       Include Barranco's high density correction (original h for sp. ave).
+ *         DFT_OT_HD2       Include Barranco's high density correction (new h for sp. ave).
  *         DFT_OT_BACKFLOW Include the backflow potential (dynamics).
  *         DFT_OT_T0MK     Thermal model 0.0 K (i.e. just new parametrization)
  *         DFT_OT_T400MK   Thermal model 0.4 K
@@ -294,7 +295,7 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
     /* Non-local correlation for kinetic energy */
     dft_ot3d_add_nonlocal_correlation_potential(otf, potential, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6);
 
-  if(otf->model & DFT_OT_HD)
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
     /* Barranco's penalty term */
     dft_ot3d_add_barranco(otf, potential, density, workspace1);
 
@@ -610,7 +611,7 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
   rgrid3d_add_scaled(energy_density, otf->c3 / 3.0, workspace2);
 
   /* Barranco's contribution (high density) */
-  if(otf->model & DFT_OT_HD) {
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
     XXX_beta = otf->beta;
     XXX_rhom = otf->rhom;
     XXX_C = otf->C;

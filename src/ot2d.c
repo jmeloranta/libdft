@@ -57,7 +57,8 @@ static inline double dft_ot_backflow_pot_2d(void *arg, double z, double r) {
  * 
  * model = which OT functional variant to use:
  *         DFT_OT_KC       Include the non-local kinetic energy correlation.
- *         DFT_OT_HD       Include Barranco's high density correction.
+ *         DFT_OT_HD       Include Barranco's high density correction (original h for sp. ave).
+ *         DFT_OT_HD2       Include Barranco's high density correction (new h for sp. ave).
  *         DFT_OT_BACKFLOW Include the backflow potential (dynamics).
  *         DFT_OT_T0MK     Thermal model 0.0 K (i.e. just new parametrization)
  *         DFT_OT_T400MK   Thermal model 0.4 K
@@ -137,7 +138,14 @@ EXPORT dft_ot_functional_2d *dft_ot2d_alloc(long model, long nz, long nr, double
       rgrid2d_multiply(otf->lennard_jones, otf->b / rgrid2d_integral_cyl(otf->lennard_jones));
     }
     rgrid2d_fft_cylindrical(otf->lennard_jones);
-    radius = otf->lj_params.h;
+
+    if(otf->model & DFT_OT_HD2) {
+      radius = otf->lj_params.h * 1.065;
+      fprintf(stderr, "libdft: Spherical average (new).\n");
+    } else {
+      radius = otf->lj_params.h;
+      fprintf(stderr, "libdft: Spherical average (original).\n");
+    }
     rgrid2d_adaptive_map_cyl(otf->spherical_avg, dft_common_spherical_avg_2d, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     /* Scaling of sph. avg. so that the integral is exactly 1 */
     rgrid2d_multiply(otf->spherical_avg, 1.0 / rgrid2d_integral_cyl(otf->spherical_avg));
@@ -145,6 +153,7 @@ EXPORT dft_ot_functional_2d *dft_ot2d_alloc(long model, long nz, long nr, double
     
     if(model & DFT_OT_KC) {
       inv_width = 1.0 / otf->l_g;
+      fprintf(stderr, "libdft: Kinetic correlation.\n");	
       rgrid2d_adaptive_map_cyl(otf->gaussian_tf, dft_common_gaussian_2d, &inv_width, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid2d_fd_gradient_cyl_z(otf->gaussian_tf, otf->gaussian_z_tf);
       rgrid2d_fd_gradient_cyl_r(otf->gaussian_tf, otf->gaussian_r_tf);
@@ -154,6 +163,7 @@ EXPORT dft_ot_functional_2d *dft_ot2d_alloc(long model, long nz, long nr, double
     }
   
     if(model & DFT_OT_BACKFLOW) {
+      fprintf(stderr, "libdft: Backflow.\n");	
       rgrid2d_adaptive_map_cyl(otf->backflow_pot, dft_ot_backflow_pot_2d, &(otf->bf_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid2d_fft_cylindrical(otf->backflow_pot);
     }
@@ -244,7 +254,7 @@ EXPORT void dft_ot2d_potential(dft_ot_functional_2d *otf, cgrid2d *potential, wf
     /* Non-local correlation for kinetic energy */
     dft_ot2d_add_nonlocal_correlation_potential(otf, potential, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6);
 
-  if(otf->model & DFT_OT_HD)
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
     /* Barranco's penalty term */
     dft_ot2d_add_barranco(otf, potential, density, workspace1);
 
@@ -515,7 +525,7 @@ EXPORT void dft_ot2d_energy_density(dft_ot_functional_2d *otf, rgrid2d *energy_d
   rgrid2d_add_scaled(energy_density, otf->c3 / 3.0, workspace2);
 
   /* Barranco's contribution (high density) */
-  if(otf->model & DFT_OT_HD) {
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
     XXX_beta = otf->beta;
     XXX_rhom = otf->rhom;
     XXX_C = otf->C;
@@ -690,10 +700,14 @@ EXPORT inline void dft_ot_temperature_2d(dft_ot_functional_2d *otf, long model) 
 
   fprintf(stderr, "libdft: Model = %ld\n", model);
 
-  if(otf->model & DFT_OT_HD) { /* high density penalty */
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { /* high density penalty */
     otf->beta = (40.0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
     otf->rhom = (0.37 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
     otf->C = 0.1; /* a.u. */
+  } else {
+    otf->beta = 0.0;
+    otf->rhom = 0.0;
+    otf->C = 0.0;
   }
 
   if(model & DFT_DR) { /* Dupont-Roc */
