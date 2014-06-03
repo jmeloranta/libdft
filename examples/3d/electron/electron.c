@@ -16,8 +16,6 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NST 100   /* NST steps of electron for every step of liquid */
-
 /* Initial guess for bubble radius */
 #define BUBBLE_RADIUS 25.0
 
@@ -32,7 +30,7 @@ double complex bubble(void *NA, double x, double y, double z) {
 int main(int argc, char *argv[]) {
 
   FILE *fp;
-  long l, nx, ny, nz, iterations, threads;
+  long l, nx, ny, nz, iterations, threads, NST;
   long itp = 0, dump_nth, model;
   double step, time_step;
   char chk[256];
@@ -86,6 +84,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Invalid iteration mode (0 = real time, 1 = imaginary time).\n");
     exit(1);
   }
+  if(itp == 1) NST = 100; else NST = 1;
 
   if(fscanf(fp, " dump = %ld%*[^\n]", &dump_nth) < 1) {
     fprintf(stderr, "Invalid dump iteration specification.\n");
