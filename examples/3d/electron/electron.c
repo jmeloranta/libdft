@@ -32,7 +32,7 @@ double complex bubble(void *NA, double x, double y, double z) {
 int main(int argc, char *argv[]) {
 
   FILE *fp;
-  long k, l, nx, ny, nz, iterations, threads;
+  long l, nx, ny, nz, iterations, threads;
   long itp = 0, dump_nth, model;
   double step, time_step;
   char chk[256];
@@ -171,10 +171,9 @@ int main(int argc, char *argv[]) {
     grid3d_wf_density(gwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(density, density, pseudo);
-    for(k = 0; k < NST; k++) {
-      dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, k);
-      dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, k);
-    }
+    /* It is OK to run just one step - in imaginary time but not in real time. */
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, l);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, l);
 
     /***** Helium *****/
     grid3d_wf_density(egwf, density);
@@ -183,4 +182,5 @@ int main(int argc, char *argv[]) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, gwf, gwfp, potential_store, time_step, l);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, gwf, gwfp, potential_store, time_step, l);
   }
+  return 0;
 }

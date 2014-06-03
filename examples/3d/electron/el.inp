@@ -1,8 +1,8 @@
 threads = 24
-grid = 128 128 128
-gstep = 1.5
+grid = 64 64 64
+gstep = 2.5
 timestep = 10
-iter = 2000
+iter = 100000
 itermode = 1
 dump = 100
 model = 0

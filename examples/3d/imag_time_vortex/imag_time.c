@@ -16,21 +16,22 @@
 
 #define TIME_STEP 20.0 /* fs */
 #define MAXITER 10000000
-#define NX 128
-#define NY 128
-#define NZ 128
-#define STEP 0.5
+#define NX 256
+#define NY 256
+#define NZ 256
+#define STEP 1.0
 
 /*#define HE2STAR 1 /**/
 /* #define HESTAR  1 /**/
 /* #define AG 1 /**/
-#define CU 1 /**/
+/* #define CU 1 /**/
+#define HE3PLUS 1 /**/
 
 /* #define ONSAGER /**/
 
-#define IMPURITY   /* Just the impurity */
+/* #define IMPURITY   /* Just the impurity */
 /* #define VORTEX     /* Just the vortex */
-/* #define BOTH       /* Both on top of each other */
+#define BOTH       /* Both on top of each other */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 #define HBAR 1.0        /* au */
@@ -61,9 +62,9 @@ int main(int argc, char **argv) {
   double energy, natoms, mu0, rho0, width;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 4 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 16 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   /* Neumann boundaries */
@@ -108,6 +109,9 @@ int main(int argc, char **argv) {
 #endif
 #ifdef CU
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "cuhe-spline.dat", "cuhe-spline.dat", "cuhe-spline.dat", ext_pot);  
+#endif
+#ifdef HE3PLUS
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "he3+-he-sph_ave.dat", "he3+-he-sph_ave.dat", "he3+-he-sph_ave.dat", ext_pot);
 #endif
   //  rgrid3d_shift(ext_pot, density, 0.0, 0.0, 0.0);
 #ifdef VORTEX

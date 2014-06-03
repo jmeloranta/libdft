@@ -8,6 +8,5 @@ electron: electron.o
 electron.o: electron.c 
 	    $(CC) $(CFLAGS) -c electron.c
 clean:
-	-rm *.o *~ electron
-
+	-rm *.o *~ electron el-* helium-*
 

@@ -663,7 +663,7 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
       cworkspace = dft_driver_alloc_cgrid();
     grid3d_damp_wf(gwf, driver_rho0, damp, cregion_func, cworkspace,  NULL) ; 
   }
-  fprintf(stderr, "libdft: Iteration %ld took %lf wall clock seconds.\n", iter, grid_timer_wall_clock_time(&timer));
+  fprintf(stderr, "libdft: Iteration %ld took %lf wall clock seconds (%s).\n", iter, grid_timer_wall_clock_time(&timer), what?"OTHER":"HELIUM");
   fflush(stdout);
 }
 
