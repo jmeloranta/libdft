@@ -16,22 +16,22 @@
 
 #define TIME_STEP 20.0 /* fs */
 #define MAXITER 10000000
-#define NX 256
-#define NY 256
-#define NZ 256
-#define STEP 1.0
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 0.5
 
-/*#define HE2STAR 1 /**/
+#define HE2STAR 1 /**/
 /* #define HESTAR  1 /**/
 /* #define AG 1 /**/
 /* #define CU 1 /**/
-#define HE3PLUS 1 /**/
+/* #define HE3PLUS 1 /**/
 
-/* #define ONSAGER /**/
+#define ONSAGER /**/
 
 /* #define IMPURITY   /* Just the impurity */
-/* #define VORTEX     /* Just the vortex */
-#define BOTH       /* Both on top of each other */
+#define VORTEX     /* Just the vortex */
+/* #define BOTH       /* Both on top of each other */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 #define HBAR 1.0        /* au */
@@ -62,9 +62,9 @@ int main(int argc, char **argv) {
   double energy, natoms, mu0, rho0, width;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 16 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 32 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   /* Neumann boundaries */
@@ -151,6 +151,8 @@ int main(int argc, char **argv) {
       grid3d_wf_density(gwf, density);
       sprintf(buf, "output-%ld", iter);
       dft_driver_write_density(density, buf);
+      sprintf(buf, "output-wf-%ld", iter);
+      dft_driver_write_grid(gwf->grid, buf);
       energy = dft_driver_energy(gwf, ext_pot);
       natoms = dft_driver_natoms(gwf);
       printf("Total energy is %le K\n", energy * GRID_AUTOK);

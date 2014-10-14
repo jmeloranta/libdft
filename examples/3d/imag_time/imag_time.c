@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
   double energy, natoms;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(64, 64, 64, 1.0 /* Bohr */, 16 /* threads */);
+  dft_driver_setup_grid(512, 256, 256, 1.0 /* Bohr */, 32 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
@@ -45,17 +45,19 @@ int main(int argc, char **argv) {
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
 
   /* Read external potential from file */
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "sr-pot.dat", "sr-pot.dat", "sr-pot.dat", ext_pot);
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "he2-He.dat-spline", "he2-He.dat-spline", "he2-He.dat-spline", ext_pot);
 
   /* Run 200 iterations using imaginary time (10 fs time step) */
   for (iter = 0; iter < 2000; iter++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
-    if(!(iter % 10)) {
+    if(!(iter % 100)) {
       char buf[512];
       sprintf(buf, "output-%ld", iter);
       grid3d_wf_density(gwf, density);
       dft_driver_write_density(density, buf);
+      sprintf(buf, "wf-output-%ld", iter);
+      dft_driver_write_grid(gwf->grid, buf);
       energy = dft_driver_energy(gwf, ext_pot);
       natoms = dft_driver_natoms(gwf);
       printf("Total energy is %le K\n", energy * GRID_AUTOK);

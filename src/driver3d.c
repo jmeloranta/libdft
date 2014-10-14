@@ -256,10 +256,10 @@ EXPORT void dft_driver_initialize() {
     density = dft_driver_alloc_rgrid();
     dft_driver_otf = dft_ot3d_alloc(driver_dft_model, driver_nx, driver_ny, driver_nz, driver_step, driver_bc, MIN_SUBSTEPS, MAX_SUBSTEPS);
     if(driver_rho0 == 0.0) {
-      fprintf(stderr, "libdft: Setting driver_rho0 to %le\n", dft_driver_otf->rho0 );
+      fprintf(stderr, "libdft: Setting driver_rho0 to %le\n", dft_driver_otf->rho0);
       driver_rho0 = dft_driver_otf->rho0;
     } else {
-      fprintf(stderr, "libdft: Overwritting dft_driver_otf->rho0 to %le\n", driver_rho0 );
+      fprintf(stderr, "libdft: Overwritting dft_driver_otf->rho0 to %le\n", driver_rho0);
       dft_driver_otf->rho0 = driver_rho0;
     }
     fprintf(stderr, "libdft: rho0 = %le Angs^-3.\n", driver_rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
@@ -615,6 +615,236 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
   if(driver_boundary_type == 1 && !what && !driver_iter_mode) {
     fprintf(stderr, "libdft: Correct - absorbing boundary for helium ; imaginary potential.\n");
     grid3d_wf_absorb(potential, density, driver_rho0, region_func, workspace1, (driver_iter_mode==1) ? I:1.0);
+  }  
+  /* External potential for Helium */
+  /* Im - He contribution (new) */
+  if(ext_pot) grid3d_add_real_to_complex_re(potential, ext_pot);
+  /* average of future and current (new) */
+  cgrid3d_multiply(potential, 0.5);
+  
+  /* potential */
+  grid3d_wf_propagate_potential(gwf, potential, time);
+  if(driver_iter_mode) scale_wf(what, dft_driver_otf, gwf);
+  
+  /* 1/2 x kinetic */
+  switch(dft_driver_kinetic) {
+  case DFT_DRIVER_KINETIC_FFT:
+    grid3d_wf_propagate_kinetic_fft(gwf, htime);
+    break;
+  case DFT_DRIVER_KINETIC_CN_DBC:
+    grid3d_wf_propagate_kinetic_cn_dbc(gwf, htime, cworkspace);
+    break;
+  case DFT_DRIVER_KINETIC_CN_NBC:
+    grid3d_wf_propagate_kinetic_cn_nbc(gwf, htime, cworkspace);
+    break;
+  case DFT_DRIVER_KINETIC_CN_NBC_ROT:
+    if(!cworkspace)
+      cworkspace = dft_driver_alloc_cgrid();
+    grid3d_wf_propagate_kinetic_cn_nbc_rot(gwf, htime, driver_omega, cworkspace);
+    break;
+  case DFT_DRIVER_KINETIC_CN_PBC:
+    grid3d_wf_propagate_kinetic_cn_pbc(gwf, htime, cworkspace);
+    break;
+#if 0
+  case DFT_DRIVER_KINETIC_CN_APBC:
+    grid3d_wf_propagate_kinetic_cn_apbc(gwf, htime, cworkspace);
+    break;
+#endif
+  default:
+    fprintf(stderr, "libdft: Unknown BC for kinetic energy propagation.\n");
+    exit(1);
+  }
+  if(driver_iter_mode) scale_wf(what, dft_driver_otf, gwf);
+  
+  /* wavefunction damping  */
+  if(driver_boundary_type == 2 && !what && !driver_iter_mode) {
+    fprintf(stderr, "libdft: Correct - absorbing boundary for helium ; wavefunction damping.\n");
+    if(!cworkspace)
+      cworkspace = dft_driver_alloc_cgrid();
+    grid3d_damp_wf(gwf, driver_rho0, damp, cregion_func, cworkspace,  NULL) ; 
+  }
+  fprintf(stderr, "libdft: Iteration %ld took %lf wall clock seconds (%s).\n", iter, grid_timer_wall_clock_time(&timer), what?"OTHER":"HELIUM");
+  fflush(stdout);
+}
+
+
+/*
+ * Predict: propagate the given wf in time.
+ *
+ * what      = what is propagated: 0 = L-He, 1 = other.
+ * ext_pot   = present external potential grid (rgrid3d *; input) (NULL = no ext. pot).
+ * gwf       = liquid wavefunction to propagate (wf3d *; input).
+ *             Note that gwf is NOT changed by this routine.
+ * gwfp      = predicted wavefunction (wf3d *; output).
+ * potential = storage space for the potential (cgrid3d *; output).
+ *             Do not overwrite this before calling the correct routine.
+ * dens      = liquid density to be used for evaluating the DFT potential (rgrid3d *).
+ * tstep     = time step in FS (double; input).
+ * iter      = current iteration (long; input).
+ *
+ * If what == 0, the liquid potential is added automatically.
+ *               Also the absorbing boundaries are only active for this.
+ * If what == 1, the propagation is carried out only with ext_pot.
+ *
+ * No return value.
+ *
+ */
+
+EXPORT inline void dft_driver_propagate_predict2(long what, rgrid3d *ext_pot, wf3d *gwf, wf3d *gwfp, cgrid3d *potential, rgrid3d *dens, double tstep, long iter) {
+
+  double complex time, htime;
+  static double last_tstep = -1.0;
+  static int been_here = 0;
+
+  check_mode();
+
+  if(driver_nx == 0) {
+    fprintf(stderr, "libdft: dft_driver not setup.\n");
+    exit(1);
+  }
+
+  if(last_tstep != tstep) {
+    fprintf(stderr, "libdft: New propagation time step = %le fs.\n", tstep);
+    last_tstep = tstep;
+  }
+
+  tstep /= GRID_AUTOFS;
+
+  if(!iter && driver_iter_mode == 1 && what == 0 && dft_driver_init_wavefunction == 1) {
+    fprintf(stderr, "libdft: first imag. time iteration - initializing the wavefunction.\n");
+    grid3d_wf_constant(gwf, sqrt(dft_driver_otf->rho0));
+  }
+
+  if(driver_iter_mode == 0) {
+    time = tstep;
+    htime = tstep / 2.0;
+  } else {
+    time = -I * tstep;
+    htime = -I * tstep / 2.0;
+  }
+
+  /* droplet & column center release */
+  if(driver_rels && iter > driver_rels && driver_norm_type > 0 && what == 0) {
+    if(!center_release) fprintf(stderr, "libdft: center release activated.\n");
+    center_release = 1;
+  } else center_release = 0;
+  
+  grid_timer_start(&timer);
+
+  /* 1/2 x kinetic */
+  switch(dft_driver_kinetic) {
+  case DFT_DRIVER_KINETIC_FFT:
+    grid3d_wf_propagate_kinetic_fft(gwf, htime);
+    break;
+  case DFT_DRIVER_KINETIC_CN_DBC:
+    if(!cworkspace)
+      cworkspace = dft_driver_alloc_cgrid();
+    grid3d_wf_propagate_kinetic_cn_dbc(gwf, htime, cworkspace);
+    break;
+  case DFT_DRIVER_KINETIC_CN_NBC:
+    if(!cworkspace)
+      cworkspace = dft_driver_alloc_cgrid();
+    grid3d_wf_propagate_kinetic_cn_nbc(gwf, htime, cworkspace);
+    break;
+  case DFT_DRIVER_KINETIC_CN_NBC_ROT:
+    if(!cworkspace)
+      cworkspace = dft_driver_alloc_cgrid();
+    grid3d_wf_propagate_kinetic_cn_nbc_rot(gwf, htime, driver_omega, cworkspace);
+    break;
+  case DFT_DRIVER_KINETIC_CN_PBC:
+    if(!cworkspace)
+      cworkspace = dft_driver_alloc_cgrid();
+    grid3d_wf_propagate_kinetic_cn_pbc(gwf, htime, cworkspace);
+    break;
+#if 0
+  case DFT_DRIVER_KINETIC_CN_APBC:
+    if(!cworkspace)
+      cworkspace = dft_driver_alloc_cgrid();
+    grid3d_wf_propagate_kinetic_cn_apbc(gwf, htime, cworkspace);
+    break;
+#endif
+  default:
+    fprintf(stderr, "libdft: Unknown BC for kinetic energy propagation.\n");
+    exit(1);
+  }
+  if(driver_iter_mode) scale_wf(what, dft_driver_otf, gwf);
+  cgrid3d_copy(gwfp->grid, gwf->grid);
+
+  /* predict */
+  cgrid3d_zero(potential);  // new
+  if(!what)
+    dft_ot3d_potential(dft_driver_otf, potential, gwfp, dens, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
+  /* absorbing boundary - imaginary potential */
+  if(driver_boundary_type == 1 && !what && !driver_iter_mode) {
+    fprintf(stderr, "libdft: Predict - absorbing boundary for helium ; imaginary potential.\n");
+    grid3d_wf_absorb(potential, dens, driver_rho0, region_func, workspace1, (driver_iter_mode==1) ? I:1.0);
+  }
+ /* External potential for Helium */
+  /* Im - He contribution */
+  if(ext_pot) grid3d_add_real_to_complex_re(potential, ext_pot);
+
+  /* potential */
+  grid3d_wf_propagate_potential(gwfp, potential, time);
+  if(driver_iter_mode) scale_wf(what, dft_driver_otf, gwfp);
+
+  /* wavefunction damping  */
+  if(driver_boundary_type == 2 && !what && !driver_iter_mode) {
+    fprintf(stderr, "libdft: Predict - absorbing boundary for helium ; wavefunction damping.\n");
+    if(!cworkspace)
+      cworkspace = dft_driver_alloc_cgrid();
+    grid3d_damp_wf(gwfp, driver_rho0, damp, cregion_func, cworkspace, NULL) ; 
+  }
+
+  if(!been_here) {
+    been_here = 1;
+    dft_driver_write_wisdom("fftw.wis"); // we have done many FFTs at this point
+  }
+}
+
+/*
+ * Correct: propagate the given wf in time.
+ *
+ * what      = what is propagated: 0 = L-He, 1 = other.
+ * ext_pot   = present external potential grid (rgrid3d *) (NULL = no ext. pot).
+ * gwf       = liquid wavefunction to propagate (wf3d *).
+ *             Note that gwf is NOT changed by this routine.
+ * gwfp      = predicted wavefunction (wf3d *; output).
+ * potential = storage space for the potential (cgrid3d *; output).
+ * dens      = liquid density to be used for evaluating the DFT potential (rgrid3d *).
+ * tstep     = time step in FS (double).
+ * iter      = current iteration (long).
+ *
+ * If what == 0, the liquid potential is added automatically.
+ * If what == 1, the propagation is carried out only with et_pot.
+ *
+ * No return value.
+ *
+ */
+
+EXPORT inline void dft_driver_propagate_correct2(long what, rgrid3d *ext_pot, wf3d *gwf, wf3d *gwfp, cgrid3d *potential, rgrid3d *dens, double tstep, long iter) {
+
+  double complex time, htime;
+  
+  check_mode();
+
+  tstep /= GRID_AUTOFS;
+  
+  if(driver_iter_mode == 0) {
+    time = tstep;
+    htime = tstep / 2.0;
+  } else {
+    time = -I * tstep;
+    htime = -I * tstep / 2.0;
+  }
+  
+  /* correct */
+  if(!what)
+    // no zeroing - add to the previous potential to get avg (new)
+    dft_ot3d_potential(dft_driver_otf, potential, gwfp, dens, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
+  /* absorbing boundary */
+  if(driver_boundary_type == 1 && !what && !driver_iter_mode) {
+    fprintf(stderr, "libdft: Correct - absorbing boundary for helium ; imaginary potential.\n");
+    grid3d_wf_absorb(potential, dens, driver_rho0, region_func, workspace1, (driver_iter_mode==1) ? I:1.0);
   }  
   /* External potential for Helium */
   /* Im - He contribution (new) */

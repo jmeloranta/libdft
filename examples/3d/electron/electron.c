@@ -17,14 +17,17 @@
 #include <dft/ot.h>
 
 /* Initial guess for bubble radius */
-#define BUBBLE_RADIUS 25.0
+#define BUBBLE_RADIUS 1.0
+
+#define INCLUDE_VORTEX 1 /**/
+/* #define INCLUDE_ELECTRON 1 /**/
 
 double rho0;
 
 double complex bubble(void *NA, double x, double y, double z) {
 
   if(sqrt(x*x + y*y + z*z) < BUBBLE_RADIUS) return 0.0;
-  else return sqrt(rho0);
+  return sqrt(rho0);
 }
 
 int main(int argc, char *argv[]) {
@@ -32,14 +35,14 @@ int main(int argc, char *argv[]) {
   FILE *fp;
   long l, nx, ny, nz, iterations, threads, NST;
   long itp = 0, dump_nth, model;
-  double step, time_step;
+  double step, time_step, mu0;
   char chk[256];
   long restart = 0;
   wf3d *gwf = 0;
   wf3d *gwfp = 0;
   wf3d *egwf = 0;
   wf3d *egwfp = 0;
-  rgrid3d *density = 0;
+  rgrid3d *density = 0, *temp = 0;
   rgrid3d *pseudo = 0;
   cgrid3d *potential_store = 0;
 
@@ -112,11 +115,14 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_grid(nx, ny, nz, step, threads);
   dft_driver_setup_model(model, itp, rho0);
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
-  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 0, 0.0, 0);
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
+  /* Neumann boundaries */
+  dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
   dft_driver_initialize();
 
   density = dft_driver_alloc_rgrid();
   pseudo = dft_driver_alloc_rgrid();
+  temp = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid();
   gwf = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS);
   gwfp = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS);
@@ -141,19 +147,50 @@ int main(int argc, char *argv[]) {
     grid3d_real_to_complex_re(egwf->grid, density);
     cgrid3d_copy(egwfp->grid, egwf->grid);
   }
-  
+
+#ifdef INCLUDE_ELECTRON  
+  printf("Electron included.\n");
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "jortner.dat", "jortner.dat", "jortner.dat", pseudo);
   dft_driver_convolution_prepare(pseudo, NULL);
+#else
+  rgrid3d_zero(pseudo);
+#endif
+
+  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
+  printf("mu0 = %le K.\n", mu0 * GRID_AUTOK);
+
+  /* Include vortex line initial guess along Z */
+#ifdef INCLUDE_VORTEX
+  printf("Vortex included.\n");
+  dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
+#endif
 
   /* solve */
-
   for(l = 1; l < iterations; l++) {
 
     if(!(l % dump_nth) || l == iterations-1 || l == 1) {
+      double energy, natoms;
+      energy = dft_driver_energy(gwf, NULL);
+#ifdef INCLUDE_ELECTRON      
+      energy += dft_driver_kinetic_energy(egwf); /* Liquid E + impurity kinetic E */
+      grid3d_wf_density(gwf, density);
+      dft_driver_convolution_prepare(density, NULL);
+      dft_driver_convolution_eval(temp, density, pseudo);  // px is temp here
+      
+      grid3d_wf_density(egwf, density);
+      rgrid3d_product(density, density, temp);
+      energy += rgrid3d_integral(density);      /* Liquid - impurity interaction energy */
+#endif      
+      natoms = dft_driver_natoms(gwf);
+      printf("Energy with respect to bulk = %le K.\n", (energy - dft_ot_bulk_energy(dft_driver_otf, rho0) * natoms / rho0) * GRID_AUTOK);
+      printf("Number of He atoms = %lf.\n", natoms);
+      printf("mu0 = %le K, energy/natoms = %le K\n", mu0 * GRID_AUTOK,  GRID_AUTOK * energy / natoms);
+
       /* Dump helium density */
       grid3d_wf_density(gwf, density);
       sprintf(chk, "helium-%ld", l);
       dft_driver_write_density(density, chk);
+#ifdef INCLUDE_ELECTRON
       /* Dump electron density */
       sprintf(chk, "el-%ld", l);
       grid3d_wf_density(egwf, density);
@@ -161,11 +198,13 @@ int main(int argc, char *argv[]) {
       /* Dump electron wavefunction */
       sprintf(chk, "el-wf-%ld", l);
       dft_driver_write_grid(egwf->grid, chk);
+#endif
       /* Dump helium wavefunction */
       sprintf(chk, "helium-wf-%ld", l);
       dft_driver_write_grid(gwf->grid, chk);
     }
 
+#ifdef INCLUDE_ELECTRON
     /***** Electron *****/
     grid3d_wf_density(gwf, density);
     dft_driver_convolution_prepare(density, NULL);
@@ -173,11 +212,19 @@ int main(int argc, char *argv[]) {
     /* It is OK to run just one step - in imaginary time but not in real time. */
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, l);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, l);
+#else
+    cgrid3d_zero(egwf->grid);
+#endif
 
     /***** Helium *****/
+#ifdef INCLUDE_ELECTRON
     grid3d_wf_density(egwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(density, density, pseudo);
+#else
+    rgrid3d_zero(density);
+#endif
+    rgrid3d_add(density, -mu0);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, gwf, gwfp, potential_store, time_step, l);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, gwf, gwfp, potential_store, time_step, l);
   }

@@ -10,12 +10,13 @@
  * Energy density in uniform bulk.
  */
 
-EXPORT double bulk_energy(dft_ot_functional *otf, double rho){
-	if(otf->model & DFT_ZERO)
-		return 0. ;
-	if(otf->model & DFT_GP)
-		return 0.5 * rho*rho * otf->mu0 / otf->rho0 ;
-	return otf->b * rho*rho/2. + otf->c2 * rho*rho*rho/2.+ otf->c3 * rho*rho*rho*rho/3. ;
+EXPORT double dft_ot_bulk_energy(dft_ot_functional *otf, double rho) {
+
+  if(otf->model & DFT_ZERO) return 0.0;
+
+  if(otf->model & DFT_GP) return 0.5 * rho*rho * otf->mu0 / otf->rho0;
+
+  return otf->b * rho*rho/2.0 + otf->c2 * rho*rho*rho/2.0 + otf->c3 * rho*rho*rho*rho/3.0;
 }
 
 /* 
@@ -24,14 +25,15 @@ EXPORT double bulk_energy(dft_ot_functional *otf, double rho){
  *
  */
 
-EXPORT double bulk_dEdRho(dft_ot_functional *otf, double rho){
-	if(otf->model & DFT_ZERO)
-		return 0. ;
-	if(otf->model & DFT_GP)
-		return rho * otf->mu0 / otf->rho0 ;
-	return otf->b * rho + otf->c2 * rho*rho*1.5+ otf->c3 * rho*rho*rho*4./3. ;
-	/* if general implementation needed: */
-	//return ( bulk_energy(rho*1.0001) - bulk_energy(rho*0.9999) ) / (0.0002*rho)
+EXPORT double dft_ot_bulk_dEdRho(dft_ot_functional *otf, double rho) {
+
+  if(otf->model & DFT_ZERO) return 0.0;
+
+  if(otf->model & DFT_GP) return rho * otf->mu0 / otf->rho0;
+
+  return otf->b * rho + otf->c2 * rho*rho*1.5 + otf->c3 * rho*rho*rho*4.0/3.0;
+  /* if general implementation needed: */
+  //return ( bulk_energy(rho*1.0001) - bulk_energy(rho*0.9999) ) / (0.0002*rho)
 }
 
 /*
@@ -41,14 +43,14 @@ EXPORT double bulk_dEdRho(dft_ot_functional *otf, double rho){
  * For the OT functional with Pressure = 0, the solution is analytical.
  */
 
-EXPORT double bulk_density(dft_ot_functional *otf){
-	if(otf->model & DFT_ZERO)
-		return 0. ;
-	if(otf->model & DFT_GP)
-		return 0. ;
-	double Bo2A = otf->c2/( 2. * otf->c3) ;
-	double Co2A = otf->b/( 2. * otf->c3) ;
-	return sqrt( Bo2A*Bo2A - Co2A) - Bo2A ;
+EXPORT double dft_ot_bulk_density(dft_ot_functional *otf) {
+
+  double Bo2A = otf->c2/(2.0 * otf->c3);
+  double Co2A = otf->b/(2.0 * otf->c3);
+
+  if(otf->model & DFT_ZERO) return 0.0;
+  if(otf->model & DFT_GP) return 0.0;
+  return sqrt(Bo2A * Bo2A - Co2A) - Bo2A;
 }
 
 /*
@@ -58,17 +60,36 @@ EXPORT double bulk_density(dft_ot_functional *otf){
  * of the box -no need for scaling.
  */
 
-EXPORT double bulk_chempot(dft_ot_functional *otf){
-	return bulk_dEdRho(otf, bulk_density(otf) ) ;
+EXPORT double dft_ot_bulk_chempot(dft_ot_functional *otf) {
+
+  return dft_ot_bulk_dEdRho(otf, dft_ot_bulk_density(otf));
 }
 
+/*
+ * Chemical potential of the uniform bulk. If this quantity
+ * is substracted from the external potential, then the imaginary time
+ * converges to a solution with the equilibrium density in the borders
+ * of the box -no need for scaling.
+ *
+ * The only difference compare to the above is that the 
+ * chemical potential is computed for the bulk density
+ * provided in otf rather than the saturated vapor pressure.
+ *
+ */
+
+EXPORT double dft_ot_bulk_chempot2(dft_ot_functional *otf) {
+
+  return dft_ot_bulk_dEdRho(otf, otf->rho0);
+}
 
 /*
  * Pressure of the uniform bulk at a certain density. To use this
  * as control parameter, the right chemical potential must be computed.
  */
-EXPORT double bulk_pressure(dft_ot_functional *otf, double rho){
-	return rho * bulk_dEdRho(otf, rho) - bulk_energy(otf, rho) ;
+
+EXPORT double dft_ot_bulk_pressure(dft_ot_functional *otf, double rho) {
+
+  return rho * dft_ot_bulk_dEdRho(otf, rho) - dft_ot_bulk_energy(otf, rho);
 }
 
 /* 
@@ -76,8 +97,9 @@ EXPORT double bulk_pressure(dft_ot_functional *otf, double rho){
  * Used only for the Newton-Raphson on bulk_density (for P!=0) 
  */ 
 
-EXPORT double bulk_dPdRho(dft_ot_functional *otf, double rho){
-	return otf->b * rho + otf->c2 * rho*rho*3.0 + otf->c3 * rho*rho*rho*4.0 ;
+EXPORT double dft_ot_bulk_dPdRho(dft_ot_functional *otf, double rho) {
+
+  return otf->b * rho + otf->c2 * rho*rho*3.0 + otf->c3 * rho*rho*rho*4.0;
 }
 
 /*
@@ -86,38 +108,39 @@ EXPORT double bulk_dPdRho(dft_ot_functional *otf, double rho){
  * 	Pressure = dEdRho(rho0)*rho0 - bulk_energy(rho0) 
  */
 
-EXPORT double bulk_density_pressurized(dft_ot_functional *otf, double pressure){
-	if(otf->model & DFT_ZERO)
-		return 0. ;
-	if(otf->model & DFT_GP)
-		return sqrt(2.0 * pressure * otf->rho0 / otf->mu0) ;
+EXPORT double dft_ot_bulk_density_pressurized(dft_ot_functional *otf, double pressure) {
 
-	if(pressure==0.)
-		return bulk_density(otf) ;
-	/* Newton-Rapson to solve for rho:
-	 *  Pressure = bulk_dEdRho * rho - bulk_ener
-	 *
-	 */
-	double rho0 = bulk_density(otf) ;
-	double misP = bulk_pressure(otf, rho0) - pressure ;
-	double tol2 = 1.e-12;
-	int i, maxiter = 1000;
-	for(i=0; i<maxiter; i++){
-		if( misP*misP/(pressure*pressure) < tol2){
-			return rho0 ;
-		}
-		rho0 -= misP/bulk_dPdRho(otf, rho0) ;
-		misP = bulk_pressure(otf, rho0) - pressure ;
-	}
-	fprintf(stderr, "libdft: Error in bulk_density: Newton-Raphson did not converge for the given pressure.\n");
-	abort();
-	return NAN ;
+  double rho0 = dft_ot_bulk_density(otf);
+  double misP = dft_ot_bulk_pressure(otf, rho0) - pressure;
+  double tol2 = 1.e-12;
+  int i, maxiter = 1000;
+
+  if(otf->model & DFT_ZERO) return 0.0;
+
+  if(otf->model & DFT_GP) return sqrt(2.0 * pressure * otf->rho0 / otf->mu0);
+  
+  if(pressure==0.0) return dft_ot_bulk_density(otf) ;
+
+  /*
+   * Newton-Rapson to solve for rho:
+   * Pressure = bulk_dEdRho * rho - bulk_ener
+   *
+   */
+  for(i = 0; i < maxiter; i++) {
+    if(misP*misP / (pressure*pressure) < tol2) return rho0;
+    rho0 -= misP/dft_ot_bulk_dPdRho(otf, rho0);
+    misP = dft_ot_bulk_pressure(otf, rho0) - pressure;
+  }
+  fprintf(stderr, "libdft: Error in bulk_density: Newton-Raphson did not converge for the given pressure.\n");
+  abort();
+  return NAN;
 }
 
 /*
  * Chemical potential for the pressurized uniform bulk.
  */
 
-EXPORT double bulk_chempot_pressurized(dft_ot_functional *otf, double pressure){
-	return bulk_dEdRho(otf, bulk_density_pressurized(otf, pressure) ) ;
+EXPORT double dft_ot_bulk_chempot_pressurized(dft_ot_functional *otf, double pressure) {
+
+  return dft_ot_bulk_dEdRho(otf, dft_ot_bulk_density_pressurized(otf, pressure));
 }
