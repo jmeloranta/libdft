@@ -1483,8 +1483,9 @@ EXPORT void dft_driver_write_current(wf3d *wf, char *base){
  * Uses workspace 1-3
  */
 EXPORT void dft_driver_write_velocity(wf3d *wf, char *base){
-	dft_driver_veloc_field(wf, workspace1, workspace2, workspace3);
-	dft_driver_write_vectorfield( workspace1, workspace2, workspace3, base);
+
+  dft_driver_veloc_field(wf, workspace1, workspace2, workspace3);
+  dft_driver_write_vectorfield( workspace1, workspace2, workspace3, base);
 }
 
 
@@ -1647,7 +1648,7 @@ EXPORT double dft_driver_potential_energy(wf3d *gwf, rgrid3d *ext_pot) {
   if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
   if(!workspace9) workspace9 = dft_driver_alloc_rgrid();
   grid3d_wf_density(gwf, density);
-  dft_ot3d_energy_density(dft_driver_otf, workspace9, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
+  dft_ot3d_energy_density(dft_driver_otf, workspace9, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
   if(ext_pot) rgrid3d_add_scaled_product(workspace9, 1.0, density, ext_pot);
   
   return rgrid3d_integral(workspace9);
@@ -1729,7 +1730,7 @@ EXPORT double dft_driver_energy_region(wf3d *gwf, rgrid3d *ext_pot, double xl, d
   if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
   if(!workspace9) workspace9 = dft_driver_alloc_rgrid();
   grid3d_wf_density(gwf, density);
-  dft_ot3d_energy_density(dft_driver_otf, workspace9, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
+  dft_ot3d_energy_density(dft_driver_otf, workspace9, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
   if(ext_pot) rgrid3d_add_scaled_product(workspace9, 1.0, density, ext_pot);
   energy = rgrid3d_integral_region(workspace9, xl, xu, yl, yu, zl, zu);
   if(!cworkspace)
@@ -2184,6 +2185,8 @@ EXPORT void dft_driver_veloc_field(wf3d *wf, rgrid3d *vx, rgrid3d *vy, rgrid3d *
 
   grid3d_wf_probability_flux(wf, vx, vy, vz);
   grid3d_wf_density(wf, workspace1);
+  // TODO: Should we do this? (numerical stability)
+  //  rgrid3d_add(workspace4, DFT_BF_EPS);
   rgrid3d_division(vx, vx, workspace1);
   rgrid3d_division(vy, vy, workspace1);
   rgrid3d_division(vz, vz, workspace1);

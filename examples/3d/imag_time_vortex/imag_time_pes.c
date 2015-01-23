@@ -103,9 +103,9 @@ int main(int argc, char **argv) {
 #ifdef HESTAR
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "He-star-He.dat", "He-star-He.dat", "He-star-He.dat", orig_pot);
 #endif
-  mu0 = bulk_chempot(dft_driver_otf);
+  mu0 = dft_ot_bulk_chempot(dft_driver_otf);
   rgrid3d_add(orig_pot, -mu0);
-  rho0 = bulk_density(dft_driver_otf);
+  rho0 = dft_ot_bulk_density(dft_driver_otf);
 
   if(N != 0) {
     width = 1.0 / 20.0;

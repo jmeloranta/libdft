@@ -125,9 +125,9 @@ int main(int argc, char **argv) {
 #endif
 
 #if 1
-  mu0 = bulk_chempot(dft_driver_otf);
+  mu0 = dft_ot_bulk_chempot(dft_driver_otf);
   rgrid3d_add(ext_pot, -mu0);
-  rho0 = bulk_density(dft_driver_otf);
+  rho0 = dft_ot_bulk_density(dft_driver_otf);
 #else
   rho0 = 0.00323;  // for GP
   mu0 = 0.0;

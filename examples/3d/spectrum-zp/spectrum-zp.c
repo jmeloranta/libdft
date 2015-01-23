@@ -14,17 +14,33 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 80.0 /* fs */
+#define TS 20.0 /* fs */
+#define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
 
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 1.0
+
+#define IMITER 200
+#define REITER 200
+
+/* #define ANDERSSON /**/
 #define TMAX 4000.0 /* fs */
-#define TSTEP 1.0 /* fs */
+#define ZEROFILL 1024
+
+/* #define INCLUDE_VORTEX_XY /* Perpendicular to vortex*/
+/* #define INCLUDE_VORTEX_Z /* Along vortex */
+
+#define NPROC 32
 
 /* He^* */
 #define IMP_MASS (4.002602 / GRID_AUTOAMU)
 
-#define UPPER_X "potentials/2p-exp.dat"
-#define UPPER_Y "potentials/2p-exp.dat"
-#define UPPER_Z "potentials/2p-exp.dat"
+/* use 2p-exp.dat for spherical average and 2p{x,y,z}-exp.dat for non-spherical */
+#define UPPER_X "potentials/2px-exp.dat"
+#define UPPER_Y "potentials/2py-exp.dat"
+#define UPPER_Z "potentials/2pz-exp.dat"
 
 #define LOWER_X "potentials/2s-exp.dat"
 #define LOWER_Y "potentials/2s-exp.dat"
@@ -35,22 +51,24 @@
 int main(int argc, char **argv) {
 
   cgrid3d *potential_store;
-  rgrid3d *ext_pot, *ext_pot2, *density;
   cgrid1d *spectrum;
+  rgrid3d *ext_pot, *ext_pot2, *density;
   wf3d *gwf, *gwfp;
   wf3d *imwf, *imwfp;
   long iter;
-  double energy, natoms, en;
+  double energy, natoms, en, mu0;
   FILE *fp;
 
-  /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(180, 180, 180, 0.5 /* Bohr */, 16 /* threads */);
+  /* Setup DFT driver parameters */
+  dft_driver_setup_grid(NX, NY, NZ, STEP, NPROC);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_T1600MK, DFT_DRIVER_IMAG_TIME, 0.0260446 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, RHO0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);
   /* Normalization condition */
-  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 0, 3.0, 10);
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
+  /* Neumann boundaries */
+  dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
 
   /* Initialize the DFT driver */
   dft_driver_initialize();
@@ -62,7 +80,7 @@ int main(int argc, char **argv) {
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
 
   /* Read external potential from file */
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, ext_pot);
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z, ext_pot);
   dft_driver_convolution_prepare(NULL, ext_pot);
 
   /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
@@ -73,12 +91,29 @@ int main(int argc, char **argv) {
   dft_driver_gaussian_wavefunction(imwf, 0.0, 0.0, 0.0, 2.0);
   dft_driver_gaussian_wavefunction(imwfp, 0.0, 0.0, 0.0, 2.0);
 
-  /* Run 200 iterations using imaginary time */
-  for (iter = 0; iter < 200; iter++) {
+  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
+  printf("mu0 = %le K.\n", mu0 * GRID_AUTOK);
+
+  /* Right now He* 2p_z is along z */
+#ifdef INCLUDE_VORTEX_Z
+  printf("Vortex included (along).\n");
+  dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
+  iter = 1;
+#elif defined(INCLUDE_VORTEX_XY)
+  printf("Vortex included (perpendicular).\n");
+  dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_X);
+  iter = 1;
+#else
+  iter = 0;
+#endif
+
+  /* Run imaginary time iterations */
+  for (; iter < IMITER; iter++) {
     /* convolute impurity density with ext_pot -> ext_pot2 */
     grid3d_wf_density(imwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
+    rgrid3d_add(ext_pot2, -mu0);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
 
@@ -89,9 +124,12 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
   }
+
   /* At this point gwf contains the converged wavefunction */
-  dft_driver_write_grid(gwf->grid, "output1");
-  dft_driver_write_grid(imwf->grid, "output2");
+  grid3d_wf_density(gwf, density);
+  dft_driver_write_density(density, "initial-helium");
+  grid3d_wf_density(imwf, density);
+  dft_driver_write_density(density, "initial-imp");
 
   energy = dft_driver_energy(gwf, ext_pot);
   natoms = dft_driver_natoms(gwf);
@@ -99,9 +137,33 @@ int main(int argc, char **argv) {
   printf("Number of He atoms is %le.\n", natoms);
   printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
 
+#ifdef ANDERSSON
   grid3d_wf_density(gwf, ext_pot2);
   grid3d_wf_density(imwf, ext_pot);
-  spectrum = dft_driver_spectrum_zp(ext_pot2, ext_pot, TSTEP, TMAX, 0, UPPER_X, UPPER_Y, UPPER_Z, 0, LOWER_X, LOWER_Y, LOWER_Z);
+  spectrum = dft_driver_spectrum_zp(ext_pot2, ext_pot, TS, TMAX, DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z);
+#else
+  /* Propagate only the liquid in real time */
+  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, RHO0);
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, ext_pot);
+  dft_driver_convolution_prepare(NULL, ext_pot);
+  grid3d_wf_density(imwf, density);
+  dft_driver_convolution_prepare(density, NULL);
+  dft_driver_convolution_eval(ext_pot2, ext_pot, density);
+  rgrid3d_add(ext_pot2, -mu0);
+  dft_driver_spectrum_init(gwf, REITER, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z);
+  for (iter = 0; iter < REITER; iter++) {
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_spectrum_collect_zp(gwf, imwf);
+    if(!(iter % 10)) {
+      char buf[512];
+      grid3d_wf_density(gwf, density);
+      sprintf(buf, "realtime-%ld", iter);
+      dft_driver_write_density(density, buf);
+    }
+  }
+  spectrum = dft_driver_spectrum_evaluate(TS, 0.0, 150.0);
+#endif
   if(!(fp = fopen("spectrum.dat", "w"))) {
     fprintf(stderr, "Can't open spectrum.dat for writing.\n");
     exit(1);

@@ -866,7 +866,9 @@ EXPORT double dft_driver_energy_cyl(wf3d *gwf, rgrid3d *ext_pot) {
   if(!workspace9) workspace9 = rgrid3d_alloc(2*driver_nr, 2*driver_nr, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
   grid3d_wf_density(gwf, cyl_density);
   rgrid3d_map_cyl_on_cart(cart_density, cyl_density);
-  dft_ot3d_energy_density(dft_driver_otf_cyl, workspace9, cart_density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
+  /* WARNING: GWF not in cylindrical coords!!!!! (TODO) */
+  fprintf(stderr, "libdft: CART does not work with backflow.\n");
+  dft_ot3d_energy_density(dft_driver_otf_cyl, workspace9, gwf, cart_density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
   if(ext_pot) {
     rgrid3d_map_cyl_on_cart((rgrid3d *) cworkspace, ext_pot);    
     rgrid3d_add_scaled_product(workspace9, 1.0, cart_density, (rgrid3d *) cworkspace);
