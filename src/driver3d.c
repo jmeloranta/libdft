@@ -2170,7 +2170,7 @@ EXPORT cgrid1d *dft_driver_spectrum_evaluate(double tstep, double zero_offset, d
 
 /*
  * Evaluate the liquid velocity field for a given order paremeter,
- * $v = m_{He} \vec{J}/\rho$.
+ * $v = \vec{J}/\rho$.
  *
  * gwf  = Order parameter for which the velocity field is evaluated (input; wf3d *).
  * vx    = Velocity field x component (output; rgrid3d *).

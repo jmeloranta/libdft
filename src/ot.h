@@ -175,7 +175,7 @@ extern int dft_driver_kinetic;
 /* Helium mass */
 #define DFT_HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
-/* Density cutoff for backflow evaluation (rho0 / 100) */
-#define DFT_BF_EPS 3E-5
+/* Density cutoff for backflow evaluation (was rho0 / 100 = 3E-5) */
+#define DFT_BF_EPS 1E-5
 
 #endif /* __DFT_OT__ */

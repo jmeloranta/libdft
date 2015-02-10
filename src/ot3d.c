@@ -304,6 +304,7 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
     grid3d_wf_probability_flux(wf, workspace1, workspace2, workspace3);    /* finite difference */
     // grid3d_wf_momentum(wf, workspace1, workspace2, workspace3, workspace4);   /* this would imply FFT boundaries */
     rgrid3d_copy(workspace4, density);
+    /* Warning: dividing by rho! add epsilon for numerical stability */
     rgrid3d_add(workspace4, DFT_BF_EPS);
     rgrid3d_division(workspace1, workspace1, workspace4);  /* velocity = flux / rho */
     rgrid3d_division(workspace2, workspace2, workspace4);
@@ -755,13 +756,14 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
  *
  */
 
-EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *density, rgrid3d *veloc_x, rgrid3d *veloc_y, rgrid3d *veloc_z, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4, rgrid3d *workspace5, rgrid3d *workspace6) {
+EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potential, rgrid3d *density, rgrid3d *veloc_x, rgrid3d *veloc_y, rgrid3d *veloc_z, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4, rgrid3d *workspace5, rgrid3d *workspace6) {
   
   /* Calculate A (workspace1) [scalar] */
   rgrid3d_copy(workspace1, density);
   rgrid3d_fft(workspace1);
   rgrid3d_fft_convolute(workspace1, workspace1, otf->backflow_pot);
   rgrid3d_inverse_fft(workspace1);
+  printf("Integral over A = %le\n", rgrid3d_integral(workspace1));
 
   /* Calculate C (workspace2) [scalar] */
   rgrid3d_product(workspace2, veloc_x, veloc_x);
@@ -771,22 +773,26 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
   rgrid3d_fft(workspace2);
   rgrid3d_fft_convolute(workspace2, workspace2, otf->backflow_pot);
   rgrid3d_inverse_fft(workspace2);
+  printf("Integral over C = %le\n", rgrid3d_integral(workspace2));
 
   /* Calculate B (workspace3 (x), workspace4 (y), workspace5 (z)) [vector] */
   rgrid3d_product(workspace3, density, veloc_x);
   rgrid3d_fft(workspace3);
   rgrid3d_fft_convolute(workspace3, workspace3, otf->backflow_pot);
   rgrid3d_inverse_fft(workspace3);
+  printf("Integral over B_x = %le\n", rgrid3d_integral(workspace3));
 
   rgrid3d_product(workspace4, density, veloc_y);
   rgrid3d_fft(workspace4);
   rgrid3d_fft_convolute(workspace4, workspace4, otf->backflow_pot);
   rgrid3d_inverse_fft(workspace4);
+  printf("Integral over B_y = %le\n", rgrid3d_integral(workspace4));
 
   rgrid3d_product(workspace5, density, veloc_z);
   rgrid3d_fft(workspace5);
   rgrid3d_fft_convolute(workspace5, workspace5, otf->backflow_pot);
   rgrid3d_inverse_fft(workspace5);
+  printf("Integral over B_z = %le\n", rgrid3d_integral(workspace5));
 
   /* 1. Calculate the real part of the potential */
 
@@ -816,7 +822,9 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
   rgrid3d_product(veloc_z, veloc_z, workspace1);
   rgrid3d_add_scaled(veloc_z, -1.0, workspace5);
 
-  /* 1.1 (1/2) (drho/dx)/rho * (v_xA - B_x) */
+  /* Warning: dividing by rho! add epsilon for numerical stability */
+  rgrid3d_add(density, DFT_BF_EPS);
+  /* 1.1 (1/2) (drho/dx)/rho * (v_xA - B_x) */  
   rgrid3d_fd_gradient_x(density, workspace2);
   rgrid3d_division(workspace2, workspace2, density);
   rgrid3d_add_scaled_product(workspace6, 0.5, workspace2, veloc_x);
@@ -844,6 +852,8 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
   rgrid3d_add_scaled(workspace6, 0.5, workspace2);
 
   grid3d_add_real_to_complex_im(potential, workspace6);
+  /* Take out the epsilon just in case */
+  rgrid3d_add(density, -DFT_BF_EPS);   /* This is a hack but no more workspaces available */
 }
 
 EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, long model) {
