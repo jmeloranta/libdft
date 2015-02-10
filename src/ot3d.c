@@ -763,7 +763,6 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
   rgrid3d_fft(workspace1);
   rgrid3d_fft_convolute(workspace1, workspace1, otf->backflow_pot);
   rgrid3d_inverse_fft(workspace1);
-  printf("Integral over A = %le\n", rgrid3d_integral(workspace1));
 
   /* Calculate C (workspace2) [scalar] */
   rgrid3d_product(workspace2, veloc_x, veloc_x);
@@ -773,26 +772,22 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
   rgrid3d_fft(workspace2);
   rgrid3d_fft_convolute(workspace2, workspace2, otf->backflow_pot);
   rgrid3d_inverse_fft(workspace2);
-  printf("Integral over C = %le\n", rgrid3d_integral(workspace2));
 
   /* Calculate B (workspace3 (x), workspace4 (y), workspace5 (z)) [vector] */
   rgrid3d_product(workspace3, density, veloc_x);
   rgrid3d_fft(workspace3);
   rgrid3d_fft_convolute(workspace3, workspace3, otf->backflow_pot);
   rgrid3d_inverse_fft(workspace3);
-  printf("Integral over B_x = %le\n", rgrid3d_integral(workspace3));
 
   rgrid3d_product(workspace4, density, veloc_y);
   rgrid3d_fft(workspace4);
   rgrid3d_fft_convolute(workspace4, workspace4, otf->backflow_pot);
   rgrid3d_inverse_fft(workspace4);
-  printf("Integral over B_y = %le\n", rgrid3d_integral(workspace4));
 
   rgrid3d_product(workspace5, density, veloc_z);
   rgrid3d_fft(workspace5);
   rgrid3d_fft_convolute(workspace5, workspace5, otf->backflow_pot);
   rgrid3d_inverse_fft(workspace5);
-  printf("Integral over B_z = %le\n", rgrid3d_integral(workspace5));
 
   /* 1. Calculate the real part of the potential */
 
