@@ -291,7 +291,7 @@ EXPORT inline double dft_common_fit_g12(double z) {
   if(fabs(z) > 1.0) fprintf(stderr, "polylog: warning |z| > 1.\n");
   z -= 1.0;
   rv = A[0] / (z + EPS);
-  for (i = 0; i < LENA; i++) {
+  for (i = 0; i < LENA-1; i++) {   /* reduced to LENA - 1 otherwise would overflow the array access */
     rv += A[i+1] * e;
     e *= z;
   }

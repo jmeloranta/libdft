@@ -2752,3 +2752,25 @@ EXPORT void dft_driver_vortex(rgrid3d *potential, int direction) {
     exit(1);
   }
 }
+
+/*
+ * This routine will zero a given wavefunction at points where the given potential exceeds the specified limit.
+ *
+ * gwf       = Wavefunction to be operated on (wf3d *).
+ * potential = Potential that determines the points to be zeroed (rgrid3d *).
+ * ul        = Limit for the potential above which the wf will be zeroed (double).
+ * 
+ * Application: Sometimes there are regions where the potential is very high
+ *              but numerical instability begins to increase the wf amplitude there
+ *              leading to the calculation exploding.
+ *
+ */
+
+EXPORT void dft_driver_clear(wf3d *gwf, rgrid3d *potential, double ul) {
+
+  long i, d = gwf->grid->nx * gwf->grid->ny * gwf->grid->nz;
+
+#pragma omp parallel for firstprivate(d,gwf,potential,ul) private(i) default(none) schedule(runtime)
+  for(i = 0; i < d; i++)
+    if(potential->value[i] > ul) gwf->grid->value[i] = 0.0;
+}

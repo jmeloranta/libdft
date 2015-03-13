@@ -27,7 +27,7 @@
 /* #define CU 1 /**/
 /* #define HE3PLUS 1 /**/
 
-#define ONSAGER /**/
+/* #define ONSAGER /**/
 
 /* #define IMPURITY   /* Just the impurity */
 #define VORTEX     /* Just the vortex */
@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
 
   for (iter = 1; iter < MAXITER; iter++) {
     
-    if(iter == 1 || !(iter % 100)) {
+    if(iter == 1 || !(iter % 200)) {
       char buf[512];
       grid3d_wf_density(gwf, density);
       sprintf(buf, "output-%ld", iter);
@@ -158,7 +158,6 @@ int main(int argc, char **argv) {
       printf("Total energy is %le K\n", energy * GRID_AUTOK);
       printf("Number of He atoms is %le.\n", natoms);
       printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
-#if 0
       grid3d_wf_probability_flux(gwf, px, py, pz);
       sprintf(buf, "flux_x-%ld", iter);
       dft_driver_write_density(px, buf);
@@ -166,7 +165,6 @@ int main(int argc, char **argv) {
       dft_driver_write_density(py, buf);
       sprintf(buf, "flux_z-%ld", iter);
       dft_driver_write_density(pz, buf);
-#endif
 #if 0
       { long k;
 	dft_driver_veloc_field(gwf, px, py, pz);
