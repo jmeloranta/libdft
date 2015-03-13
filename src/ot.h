@@ -160,6 +160,7 @@ typedef struct dft_ot_functional_struct_2d {
 
 /* Global user accessible variables */
 extern dft_ot_functional *dft_driver_otf;
+extern dft_ot_functional_2d *dft_driver_otf_2d;
 extern int dft_driver_init_wavefunction;
 extern long dft_ot2d_hankel_pad;
 extern int dft_driver_kinetic;
