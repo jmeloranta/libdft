@@ -757,7 +757,7 @@ EXPORT double dft_driver_energy_2d(wf2d *gwf, rgrid2d *ext_pot) {
   if(!workspace8) workspace8 = rgrid2d_alloc(driver_nz, driver_nr, driver_step, RGRID2D_NEUMANN_BOUNDARY, 0);
   if(!workspace9) workspace9 = rgrid2d_alloc(driver_nz, driver_nr, driver_step, RGRID2D_NEUMANN_BOUNDARY, 0);
   grid2d_wf_density(gwf, density);
-  dft_ot2d_energy_density(dft_driver_otf_2d, workspace9, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
+  dft_ot2d_energy_density(dft_driver_otf_2d, workspace9, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
   if(ext_pot) rgrid2d_add_scaled_product(workspace9, 1.0, density, ext_pot);
   energy = rgrid2d_integral_cyl(workspace9);
   // TODO: ext_pot needs to be cgrid!!!
