@@ -488,7 +488,7 @@ static void dft_ot2d_add_barranco(dft_ot_functional_2d *otf, cgrid2d *potential,
  *
  */
 
-EXPORT void dft_ot2d_energy_density(dft_ot_functional_2d *otf, rgrid2d *energy_density, const rgrid2d *density, rgrid2d *workspace1, rgrid2d *workspace2, rgrid2d *workspace3, rgrid2d *workspace4, rgrid2d *workspace5, rgrid2d *workspace6, rgrid2d *workspace7, rgrid2d *workspace8) {
+EXPORT void dft_ot2d_energy_density(dft_ot_functional_2d *otf, rgrid2d *energy_density, wf2d *wf, const rgrid2d *density, rgrid2d *workspace1, rgrid2d *workspace2, rgrid2d *workspace3, rgrid2d *workspace4, rgrid2d *workspace5, rgrid2d *workspace6, rgrid2d *workspace7, rgrid2d *workspace8) {
   
   if(otf->model & DFT_GP) {
     fprintf(stderr, "Energy density for DFT_GP not implemented (TODO).\n");
@@ -584,6 +584,55 @@ EXPORT void dft_ot2d_energy_density(dft_ot_functional_2d *otf, rgrid2d *energy_d
     /* 8. multiply by -\hbar^2\alpha_s/(4M_{He}) */    
     rgrid2d_add_scaled(energy_density, -otf->alpha_s / (4.0 * otf->mass), workspace6);
     rgrid2d_add_scaled(energy_density, -2.0 * otf->alpha_s / (4.0 * otf->mass), workspace7);  // both X, Y compinents -> 2x
+  }
+  if(otf->model & DFT_OT_BACKFLOW) {  /* copied from 3D, workspace3 not in use */
+    grid2d_wf_probability_flux(wf, workspace1, workspace2);    /* finite difference */
+    // grid2d_wf_momentum(wf, workspace1, workspace2, workspace4);   /* this would imply FFT boundaries */
+    rgrid2d_copy(workspace4, density);
+    rgrid2d_add(workspace4, DFT_BF_EPS);
+    rgrid2d_division(workspace1, workspace1, workspace4);  /* velocity = flux / rho, v_z */
+    rgrid2d_division(workspace2, workspace2, workspace4);  /* v_r */
+    rgrid2d_product(workspace4, workspace1, workspace1);   /* v_z^2 */
+    rgrid2d_product(workspace5, workspace2, workspace2);   /* v_r^2 */
+    rgrid2d_sum(workspace4, workspace4, workspace5);       /* wrk4 = v_z^2 + v_r^2 */
+    rgrid2d_sum(workspace4, workspace4, workspace5);       /* evaluated in cartesian coords: r appears twice */
+
+    /* Term 1: -(M/4) * rho(r) * v(r)^2 \int U_j(|r - r'|) * rho(r') d3r' */
+    rgrid2d_copy(workspace5, density);
+    rgrid2d_fft_cylindrical(workspace5);     /* This was done before - TODO: save previous rho FFT and reuse here */
+    rgrid2d_fft_cylindrical_convolute(workspace6, otf->backflow_pot, workspace5);
+    rgrid2d_inverse_fft_cylindrical(workspace6);
+    rgrid2d_fft_cylindrical_cleanup(workspace6, dft_ot2d_hankel_pad);
+    rgrid2d_product(workspace6, workspace6, workspace4);
+    rgrid2d_product(workspace6, workspace6, density);
+    rgrid2d_add_scaled(energy_density, -otf->mass / 4.0, workspace6);
+    /* Term 2: +(M/2) * rho(r) v(r) . \int U_j(|r - r'|) * rho(r') v(r') d3r' */
+    /* z contribution */
+    rgrid2d_product(workspace5, density, workspace1);   /* rho(r') * v_z(r') */
+    rgrid2d_fft_cylindrical(workspace5);
+    rgrid2d_fft_cylindrical_convolute(workspace6, otf->backflow_pot, workspace5);
+    rgrid2d_inverse_fft_cylindrical(workspace6);
+    rgrid2d_fft_cylindrical_cleanup(workspace6, dft_ot2d_hankel_pad);
+    rgrid2d_product(workspace6, workspace6, density);
+    rgrid2d_product(workspace6, workspace6, workspace1);
+    rgrid2d_add_scaled(energy_density, otf->mass / 2.0, workspace6);
+    /* r contribution */
+    rgrid2d_product(workspace5, density, workspace2);   /* rho(r') * v_r(r') */
+    rgrid2d_fft_cylindrical(workspace5);
+    rgrid2d_fft_cylindrical_convolute(workspace6, otf->backflow_pot, workspace5);
+    rgrid2d_inverse_fft_cylindrical(workspace6);
+    rgrid2d_fft_cylindrical_cleanup(workspace6, dft_ot2d_hankel_pad);
+    rgrid2d_product(workspace6, workspace6, density);
+    rgrid2d_product(workspace6, workspace6, workspace2);
+    rgrid2d_add_scaled(energy_density, 2.0 * otf->mass / 2.0, workspace6); /* in cartesian: 2 X r contrib */
+    /* Term 3: -(M/4) rho(r) \int U_j(|r - r'|) rho(r') v^2(r') d3r' */
+    rgrid2d_product(workspace5, density, workspace4);
+    rgrid2d_fft_cylindrical(workspace5);
+    rgrid2d_fft_cylindrical_convolute(workspace6, otf->backflow_pot, workspace5);
+    rgrid2d_inverse_fft_cylindrical(workspace6);
+    rgrid2d_fft_cylindrical_cleanup(workspace6, dft_ot2d_hankel_pad);
+    rgrid2d_product(workspace6, workspace6, density);
+    rgrid2d_add_scaled(energy_density, -otf->mass / 4.0, workspace6);
   }
 }
 
@@ -681,20 +730,6 @@ EXPORT void dft_ot2d_backflow_potential(dft_ot_functional_2d *otf, cgrid2d *pote
 
   grid2d_add_real_to_complex_im(potential, workspace5);
 }
-
-/*
- * Evaluate the backflow energy density.
- *
- * NOT IMPLEMENTED YET.
- *
- */
-
-EXPORT void dft_ot2d_backflow_energy_density(dft_ot_functional_2d *otf, rgrid2d *energy_density, const wf2d *wavefunc, rgrid2d *workspace1, rgrid2d *workspace2, rgrid2d *workspace3, rgrid2d *workspace4) {
-
-  fprintf(stderr, "Energy density for Backflow not implemented.\n");
-  abort();
-}
-
 
 EXPORT inline void dft_ot_temperature_2d(dft_ot_functional_2d *otf, long model) {
 
