@@ -261,8 +261,9 @@ EXPORT void dft_ot2d_potential(dft_ot_functional_2d *otf, cgrid2d *potential, wf
   if(otf->model & DFT_OT_BACKFLOW) {
     /* wf, veloc_z(1), veloc_r(2), wrk(3) */
     grid2d_wf_probability_flux(wf, workspace1, workspace2);
-    rgrid2d_division(workspace1, workspace1, density); /* velocity = flux / rho */
-    rgrid2d_division(workspace2, workspace2, density);
+    // grid2d_wf_momentum(wf, workspace1, workspace2, workspace3);   /* this would imply FFT boundaries */
+    rgrid2d_division_eps(workspace1, workspace1, density, DFT_BF_EPS); /* velocity = flux / rho */
+    rgrid2d_division_eps(workspace2, workspace2, density, DFT_BF_EPS);
     dft_ot2d_backflow_potential(otf, potential, density, workspace1 /* veloc_z */, workspace2 /* veloc_r */, workspace3, workspace4, workspace5, workspace6, workspace7);
   }
 
@@ -588,10 +589,8 @@ EXPORT void dft_ot2d_energy_density(dft_ot_functional_2d *otf, rgrid2d *energy_d
   if(otf->model & DFT_OT_BACKFLOW) {  /* copied from 3D, workspace3 not in use */
     grid2d_wf_probability_flux(wf, workspace1, workspace2);    /* finite difference */
     // grid2d_wf_momentum(wf, workspace1, workspace2, workspace4);   /* this would imply FFT boundaries */
-    rgrid2d_copy(workspace4, density);
-    rgrid2d_add(workspace4, DFT_BF_EPS);
-    rgrid2d_division(workspace1, workspace1, workspace4);  /* velocity = flux / rho, v_z */
-    rgrid2d_division(workspace2, workspace2, workspace4);  /* v_r */
+    rgrid2d_division_eps(workspace1, workspace1, density, DFT_BF_EPS);  /* velocity = flux / rho, v_z */
+    rgrid2d_division_eps(workspace2, workspace2, density, DFT_BF_EPS);  /* v_r */
     rgrid2d_product(workspace4, workspace1, workspace1);   /* v_z^2 */
     rgrid2d_product(workspace5, workspace2, workspace2);   /* v_r^2 */
     rgrid2d_sum(workspace4, workspace4, workspace5);       /* wrk4 = v_z^2 + v_r^2 */
@@ -711,12 +710,12 @@ EXPORT void dft_ot2d_backflow_potential(dft_ot_functional_2d *otf, cgrid2d *pote
 
   /* 1.1 (drho/dz)/rho * (v_zA - B_z) */
   rgrid2d_fd_gradient_cyl_z(density, workspace2);
-  rgrid2d_division(workspace2, workspace2, density);
+  rgrid2d_division_eps(workspace2, workspace2, density, DFT_BF_EPS);
   rgrid2d_add_scaled_product(workspace5, 0.5, workspace2, veloc_z);
 
   /* 1.2 (drho/dr)/rho * (v_rA - B_r) */
   rgrid2d_fd_gradient_cyl_r(density, workspace2);
-  rgrid2d_division(workspace2, workspace2, density);
+  rgrid2d_division_eps(workspace2, workspace2, density, DFT_BF_EPS);
   /* dot product: 2 X r */
   rgrid2d_add_scaled_product(workspace5, 0.5, workspace2, veloc_r);
 
