@@ -380,7 +380,7 @@ static void dft_ot2d_add_nonlocal_correlation_potential_z(dft_ot_functional_2d *
   rgrid2d_fft_cylindrical_cleanup(workspace2, dft_ot2d_hankel_pad);
   rgrid2d_product(workspace2, workspace2, workspace3);
   rgrid2d_multiply(workspace2, -c);
-  grid2d_add_real_to_complex_re(potential, workspace4);
+  grid2d_add_real_to_complex_re(potential, workspace2);
 }
 
 /* local function */
