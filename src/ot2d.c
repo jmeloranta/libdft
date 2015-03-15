@@ -547,7 +547,7 @@ EXPORT void dft_ot2d_energy_density(dft_ot_functional_2d *otf, rgrid2d *energy_d
     rgrid2d_copy(workspace2, density);
     rgrid2d_fft_cylindrical(workspace2);
     rgrid2d_fft_cylindrical_convolute(workspace1, workspace2, otf->gaussian_tf);   /* otf->gaussian_tf is already in Fourier space */
-    rgrid2d_inverse_fft(workspace1);
+    rgrid2d_inverse_fft_cylindrical(workspace1);
     rgrid2d_fft_cylindrical_cleanup(workspace1, dft_ot2d_hankel_pad);
 
     /* 2. modify wrk1 from \tilde{\rho} to (1 - \tilde{\rho}/\rho_{0s} */
