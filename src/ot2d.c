@@ -392,7 +392,9 @@ static void dft_ot2d_add_nonlocal_correlation_potential_r(dft_ot_functional_2d *
   /* WARNING: We are cheating here! (d/dr) \rho is not cylindrically symmetric! However, it seems that this is not necessarily a big issue in practice. */
   /* It is interesting that (d/dr) F definitely has to be evaluated such that d/dr is taken AFTER then convolution (F is symmetric), otherwise the convolution */
   /* would fail completely. So apparently it can somehow deal with one anti-symmetric function but two is too much! */
-
+  /* This needs more attention ! */
+  /* The r component is included twice as the dot products are evaluated in catesian coordinates (r = {x,y}) */
+  
   c = otf->alpha_s / (2.0 * otf->mass);
 
   /* workspace1 = (d/dr) rho */
@@ -412,7 +414,7 @@ static void dft_ot2d_add_nonlocal_correlation_potential_r(dft_ot_functional_2d *
   rgrid2d_fft_cylindrical_cleanup(workspace4, dft_ot2d_hankel_pad);
   rgrid2d_fd_gradient_cyl_r(workspace4, workspace3);
   rgrid2d_product(workspace3, workspace3, rho_st);
-  rgrid2d_multiply(workspace3, c);
+  rgrid2d_multiply(workspace3, 2.0 * c);      /* cartesian dot product, 2 X */
   grid2d_add_real_to_complex_re(potential, workspace3);  
 
   /* in use: workspace1 (grad rho), workspace2 (FFT(G)) */
@@ -433,7 +435,7 @@ static void dft_ot2d_add_nonlocal_correlation_potential_r(dft_ot_functional_2d *
   rgrid2d_fft_cylindrical_convolute(workspace4, otf->gaussian_tf, workspace4);
   rgrid2d_inverse_fft_cylindrical(workspace4);
   rgrid2d_fft_cylindrical_cleanup(workspace4, dft_ot2d_hankel_pad);
-  rgrid2d_multiply(workspace4, c);
+  rgrid2d_multiply(workspace4, 2.0 * c);    /* Cartesian dot product, 2 X */
   grid2d_add_real_to_complex_re(potential, workspace4);
 
   /* workspace1 (grad rho), workspace3 (J) */
@@ -446,7 +448,7 @@ static void dft_ot2d_add_nonlocal_correlation_potential_r(dft_ot_functional_2d *
   rgrid2d_fft_cylindrical_cleanup(workspace2, dft_ot2d_hankel_pad);
   rgrid2d_fd_gradient_cyl_r(workspace2, workspace4);
   rgrid2d_product(workspace2, workspace4, workspace3);
-  rgrid2d_multiply(workspace2, -c);
+  rgrid2d_multiply(workspace2, -2.0 * c);    /* Cartesian dot product, 2 X */
   grid2d_add_real_to_complex_re(potential, workspace2);
 }
 
