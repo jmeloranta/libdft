@@ -148,8 +148,8 @@ int main(int argc, char *argv[]) {
 
 #ifdef INCLUDE_ELECTRON  
   printf("Electron included.\n");
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "jortner.dat", "jortner.dat", "jortner.dat", pseudo);
-  dft_driver_convolution_prepare(pseudo, NULL);
+  dft_common_potential_map_2d(DFT_DRIVER_AVERAGE_NONE, "jortner.dat", "jortner.dat", pseudo);
+  dft_driver_convolution_prepare_2d(pseudo, NULL);
 #else
   rgrid3d_zero(pseudo);
 #endif

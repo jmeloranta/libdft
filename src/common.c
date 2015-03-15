@@ -551,7 +551,8 @@ EXPORT void dft_common_potential_map_tilt(int average, char *filex, char *filey,
 
 /* Special case with theta0=phi0=0 for backwards compatibility */
 EXPORT void dft_common_potential_map(int average, char *filex, char *filey, char *filez, rgrid3d *potential) {
-	dft_common_potential_map_tilt(average, filex, filey, filez, potential, 0.0, 0.0);
+
+  dft_common_potential_map_tilt(average, filex, filey, filez, potential, 0.0, 0.0);
 }
 /*
  * Nonperiodic version of dft_common_potential_map 
@@ -561,12 +562,13 @@ EXPORT void dft_common_potential_map(int average, char *filex, char *filey, char
 
 EXPORT void dft_common_potential_map_nonperiodic(int average, char *filex, char *filey, char *filez, rgrid3d *potential) {
 
-	rgrid3d_set_origin(potential, 
-			-(potential->nx/2)*potential->step , 
-			-(potential->ny/2)*potential->step , 
-			-(potential->nz/2)*potential->step );
-	dft_common_potential_map(average, filex, filey, filez, potential) ;
+  rgrid3d_set_origin(potential, 
+		     -(potential->nx/2)*potential->step , 
+		     -(potential->ny/2)*potential->step , 
+		     -(potential->nz/2)*potential->step );
+  dft_common_potential_map(average, filex, filey, filez, potential) ;
 }
+
 /*
  * Mapping function for a potential in cylindrical (2D) coordinates.
  *
