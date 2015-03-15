@@ -24,9 +24,9 @@ int main(int argc, char **argv) {
   double energy, natoms;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid_2d(1024, 1024, 0.1 /* Bohr */, 16 /* threads */);
+  dft_driver_setup_grid_2d(256, 256, 0.5 /* Bohr */, 16 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model_2d(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model_2d(DFT_OT_PLAIN | DFT_OT_KC, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries_2d(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   /* Normalization condition */
@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
     char buf[512];
     dft_driver_propagate_predict_2d(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
     dft_driver_propagate_correct_2d(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 10.0 /* fs */, iter);
-    if(!(iter % 10)) {
+    if(!(iter % 100)) {
       sprintf(buf, "output-%ld", iter);
       grid2d_wf_density(gwf, density);
       dft_driver_write_density_2d(density, buf);

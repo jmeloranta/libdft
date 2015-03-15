@@ -138,7 +138,7 @@ EXPORT dft_ot_functional_2d *dft_ot2d_alloc(long model, long nz, long nr, double
       rgrid2d_multiply(otf->lennard_jones, otf->b / rgrid2d_integral_cyl(otf->lennard_jones));
     }
     rgrid2d_fft_cylindrical(otf->lennard_jones);
-
+    
     if(otf->model & DFT_OT_HD2) {
       radius = otf->lj_params.h * 1.065;
       fprintf(stderr, "libdft: Spherical average (new).\n");
@@ -394,6 +394,8 @@ static void dft_ot2d_add_nonlocal_correlation_potential_r(dft_ot_functional_2d *
   /* would fail completely. So apparently it can somehow deal with one anti-symmetric function but two is too much! */
   /* This needs more attention ! */
   /* The r component is included twice as the dot products are evaluated in catesian coordinates (r = {x,y}) */
+  /* TODO: the above cannot be quite right as a spherically symmetric situation would make z and r different */
+  /* from each other. Hunch: potential: 1 X and energy: 2 X */
   
   c = otf->alpha_s / (2.0 * otf->mass);
 
@@ -414,7 +416,7 @@ static void dft_ot2d_add_nonlocal_correlation_potential_r(dft_ot_functional_2d *
   rgrid2d_fft_cylindrical_cleanup(workspace4, dft_ot2d_hankel_pad);
   rgrid2d_fd_gradient_cyl_r(workspace4, workspace3);
   rgrid2d_product(workspace3, workspace3, rho_st);
-  rgrid2d_multiply(workspace3, 2.0 * c);      /* cartesian dot product, 2 X */
+  rgrid2d_multiply(workspace3, 1.0 * c);      /* cartesian dot product, 2 X */
   grid2d_add_real_to_complex_re(potential, workspace3);  
 
   /* in use: workspace1 (grad rho), workspace2 (FFT(G)) */
@@ -435,7 +437,7 @@ static void dft_ot2d_add_nonlocal_correlation_potential_r(dft_ot_functional_2d *
   rgrid2d_fft_cylindrical_convolute(workspace4, otf->gaussian_tf, workspace4);
   rgrid2d_inverse_fft_cylindrical(workspace4);
   rgrid2d_fft_cylindrical_cleanup(workspace4, dft_ot2d_hankel_pad);
-  rgrid2d_multiply(workspace4, 2.0 * c);    /* Cartesian dot product, 2 X */
+  rgrid2d_multiply(workspace4, 1.0 * c);    /* Cartesian dot product, 2 X */
   grid2d_add_real_to_complex_re(potential, workspace4);
 
   /* workspace1 (grad rho), workspace3 (J) */
@@ -448,7 +450,7 @@ static void dft_ot2d_add_nonlocal_correlation_potential_r(dft_ot_functional_2d *
   rgrid2d_fft_cylindrical_cleanup(workspace2, dft_ot2d_hankel_pad);
   rgrid2d_fd_gradient_cyl_r(workspace2, workspace4);
   rgrid2d_product(workspace2, workspace4, workspace3);
-  rgrid2d_multiply(workspace2, -2.0 * c);    /* Cartesian dot product, 2 X */
+  rgrid2d_multiply(workspace2, -1.0 * c);    /* Cartesian dot product, 2 X */
   grid2d_add_real_to_complex_re(potential, workspace2);
 }
 

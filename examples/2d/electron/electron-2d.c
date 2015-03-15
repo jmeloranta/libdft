@@ -144,21 +144,22 @@ int main(int argc, char *argv[]) {
     rgrid2d_power(density, density, 0.5);
     grid2d_real_to_complex_re(egwf->grid, density);
     cgrid2d_copy(egwfp->grid, egwf->grid);
-  }
+    l = 1;
+  } else l = 0;
 
 #ifdef INCLUDE_ELECTRON  
   printf("Electron included.\n");
   dft_common_potential_map_2d(DFT_DRIVER_AVERAGE_NONE, "jortner.dat", "jortner.dat", pseudo);
   dft_driver_convolution_prepare_2d(pseudo, NULL);
 #else
-  rgrid3d_zero(pseudo);
+  rgrid2d_zero(pseudo);
 #endif
 
   mu0 = dft_ot_bulk_chempot2_2d(dft_driver_otf_2d);
   printf("mu0 = %le K.\n", mu0 * GRID_AUTOK);
 
   /* solve */
-  for(l = 1; l < iterations; l++) {
+  for(; l < iterations; l++) {
 
     if(!(l % dump_nth) || l == iterations-1 || l == 1) {
       double energy, natoms;
@@ -171,7 +172,7 @@ int main(int argc, char *argv[]) {
       
       grid2d_wf_density(egwf, density);
       rgrid2d_product(density, density, temp);
-      energy += rgrid2d_integral(density);      /* Liquid - impurity interaction energy */
+      energy += rgrid2d_integral_cyl(density);      /* Liquid - impurity interaction energy */
 #endif      
       natoms = dft_driver_natoms_2d(gwf);
       printf("Energy with respect to bulk = %le K.\n", (energy - dft_ot_bulk_energy_2d(dft_driver_otf_2d, rho0) * natoms / rho0) * GRID_AUTOK);

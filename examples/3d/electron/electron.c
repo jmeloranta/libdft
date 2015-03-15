@@ -19,8 +19,8 @@
 /* Initial guess for bubble radius */
 #define BUBBLE_RADIUS 1.0
 
-#define INCLUDE_VORTEX 1 /**/
-/* #define INCLUDE_ELECTRON 1 /**/
+/* #define INCLUDE_VORTEX 1 /**/
+#define INCLUDE_ELECTRON 1 /**/
 
 double rho0;
 
@@ -146,7 +146,8 @@ int main(int argc, char *argv[]) {
     rgrid3d_power(density, density, 0.5);
     grid3d_real_to_complex_re(egwf->grid, density);
     cgrid3d_copy(egwfp->grid, egwf->grid);
-  }
+    l = 1;
+  } else l = 0;
 
 #ifdef INCLUDE_ELECTRON  
   printf("Electron included.\n");
@@ -166,7 +167,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* solve */
-  for(l = 1; l < iterations; l++) {
+  for(; l < iterations; l++) {
 
     if(!(l % dump_nth) || l == iterations-1 || l == 1) {
       double energy, natoms;
