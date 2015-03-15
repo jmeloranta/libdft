@@ -748,24 +748,52 @@ EXPORT void dft_driver_write_grid_2d(cgrid2d *grid, char *base) {
 
 EXPORT double dft_driver_energy_2d(wf2d *gwf, rgrid2d *ext_pot) {
 
-  double energy;
+  return dft_driver_potential_energy_2d(gwf, ext_pot) + dft_driver_kinetic_energy_2d(gwf);
+}
+
+/*
+ * Calculate the potential energy of the system.
+ *
+ * gwf     = wavefunction for the system (wf2d *; input).
+ * ext_pot = external potential grid (rgrid2d *; input).
+ *
+ * Return value = potential energy for the system (in a.u.).
+ *
+ * Note: the backflow is not included in the energy density calculation.
+ *
+ */
+
+EXPORT double dft_driver_potential_energy_2d(wf2d *gwf, rgrid2d *ext_pot) {
 
   check_mode();
 
   /* we may need more memory for this... */
-  if(!workspace7) workspace7 = rgrid2d_alloc(driver_nz, driver_nr, driver_step, RGRID2D_NEUMANN_BOUNDARY, 0);
-  if(!workspace8) workspace8 = rgrid2d_alloc(driver_nz, driver_nr, driver_step, RGRID2D_NEUMANN_BOUNDARY, 0);
-  if(!workspace9) workspace9 = rgrid2d_alloc(driver_nz, driver_nr, driver_step, RGRID2D_NEUMANN_BOUNDARY, 0);
+  if(!workspace7) workspace7 = dft_driver_alloc_rgrid_2d();
+  if(!workspace8) workspace8 = dft_driver_alloc_rgrid_2d();
+  if(!workspace9) workspace9 = dft_driver_alloc_rgrid_2d();
   grid2d_wf_density(gwf, density);
   dft_ot2d_energy_density(dft_driver_otf_2d, workspace9, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
   if(ext_pot) rgrid2d_add_scaled_product(workspace9, 1.0, density, ext_pot);
-  energy = rgrid2d_integral_cyl(workspace9);
-  // TODO: ext_pot needs to be cgrid!!!
-  if(!cworkspace) // this is apparently the only place where a complex workspace grid is needed
-    cworkspace = cgrid2d_alloc(driver_nz, driver_nr, driver_step, CGRID2D_NEUMANN_BOUNDARY, 0);
 
-  energy += grid2d_wf_energy_cyl(gwf, NULL, cworkspace);
-  return energy;
+  return rgrid2d_integral_cyl(workspace9);
+}
+
+/*
+ * Calculate the kinetic energy of the system.
+ *
+ * gwf     = wavefunction for the system (wf2d *; input).
+ *
+ * Return value = kinetic energy for the system (in a.u.).
+ *
+ */
+
+EXPORT double dft_driver_kinetic_energy_2d(wf2d *gwf) {
+  
+  check_mode();
+
+  if(!cworkspace) cworkspace = dft_driver_alloc_cgrid_2d();
+
+  return grid2d_wf_energy_cyl(gwf, NULL, cworkspace);
 }
 
 /*

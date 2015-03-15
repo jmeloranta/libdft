@@ -16,32 +16,32 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NST 100   /* NST steps of electron for every step of liquid */
-
 /* Initial guess for bubble radius */
-#define BUBBLE_RADIUS 25.0
+#define BUBBLE_RADIUS 1.0
+
+#define INCLUDE_ELECTRON 1 /**/
 
 double rho0;
 
 double complex bubble(void *NA, double z, double r) {
 
   if(sqrt(z*z + r*r) < BUBBLE_RADIUS) return 0.0;
-  else return sqrt(rho0);
+  return sqrt(rho0);
 }
 
 int main(int argc, char *argv[]) {
 
   FILE *fp;
-  long k, l, nz, nr, iterations, threads;
+  long l, nz, nr, iterations, threads, NST;
   long itp = 0, dump_nth, model;
-  double step, time_step;
+  double step, time_step, mu0;
   char chk[256];
   long restart = 0;
   wf2d *gwf = 0;
   wf2d *gwfp = 0;
   wf2d *egwf = 0;
   wf2d *egwfp = 0;
-  rgrid2d *density = 0;
+  rgrid2d *density = 0, *temp = 0;
   rgrid2d *pseudo = 0;
   cgrid2d *potential_store = 0;
 
@@ -86,6 +86,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Invalid iteration mode (0 = real time, 1 = imaginary time).\n");
     exit(1);
   }
+  if(itp == 1) NST = 100; else NST = 1;
 
   if(fscanf(fp, " dump = %ld%*[^\n]", &dump_nth) < 1) {
     fprintf(stderr, "Invalid dump iteration specification.\n");
@@ -108,16 +109,18 @@ int main(int argc, char *argv[]) {
   printf("restart = %ld.\n", restart);
   fclose(fp);
 
-  /* allocate memory (2 x grid dimension, */
+  /* allocate memory */
   printf("Model = %ld.\n", model);
   dft_driver_setup_grid_2d(nz, nr, step, threads);
   dft_driver_setup_model_2d(model, itp, rho0);
   dft_driver_setup_boundaries_2d(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
-  dft_driver_setup_normalization_2d(DFT_DRIVER_NORMALIZE_BULK, 0, 0.0, 0);
+  dft_driver_setup_normalization_2d(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
+  /* Neumann boundaries */
   dft_driver_initialize_2d();
 
   density = dft_driver_alloc_rgrid_2d();
   pseudo = dft_driver_alloc_rgrid_2d();
+  temp = dft_driver_alloc_rgrid_2d();
   potential_store = dft_driver_alloc_cgrid_2d();
   gwf = dft_driver_alloc_wavefunction_2d(DFT_HELIUM_MASS);
   gwfp = dft_driver_alloc_wavefunction_2d(DFT_HELIUM_MASS);
@@ -128,8 +131,8 @@ int main(int argc, char *argv[]) {
 
   /* initialize wavefunctions */
   dft_driver_gaussian_wavefunction_2d(egwf, 0.0, 0.0, 14.5);
-  grid2d_wf_normalize_cyl(egwf);
-  cgrid2d_map_cyl(gwf->grid, bubble, (void *) NULL);
+  grid2d_wf_normalize(egwf);
+  cgrid2d_map(gwf->grid, bubble, (void *) NULL);
 
   if(restart) {
     fprintf(stderr, "Restart calculation\n");
@@ -142,18 +145,44 @@ int main(int argc, char *argv[]) {
     grid2d_real_to_complex_re(egwf->grid, density);
     cgrid2d_copy(egwfp->grid, egwf->grid);
   }
-  
-  dft_common_potential_map_2d(DFT_DRIVER_AVERAGE_NONE, "jortner.dat", "jortner.dat", pseudo);
-  dft_driver_convolution_prepare_2d(pseudo, NULL);
+
+#ifdef INCLUDE_ELECTRON  
+  printf("Electron included.\n");
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "jortner.dat", "jortner.dat", "jortner.dat", pseudo);
+  dft_driver_convolution_prepare(pseudo, NULL);
+#else
+  rgrid3d_zero(pseudo);
+#endif
+
+  mu0 = dft_ot_bulk_chempot2_2d(dft_driver_otf_2d);
+  printf("mu0 = %le K.\n", mu0 * GRID_AUTOK);
 
   /* solve */
   for(l = 1; l < iterations; l++) {
 
     if(!(l % dump_nth) || l == iterations-1 || l == 1) {
+      double energy, natoms;
+      energy = dft_driver_energy_2d(gwf, NULL);
+#ifdef INCLUDE_ELECTRON      
+      energy += dft_driver_kinetic_energy_2d(egwf); /* Liquid E + impurity kinetic E */
+      grid2d_wf_density(gwf, density);
+      dft_driver_convolution_prepare_2d(density, NULL);
+      dft_driver_convolution_eval_2d(temp, density, pseudo);  // px is temp here
+      
+      grid2d_wf_density(egwf, density);
+      rgrid2d_product(density, density, temp);
+      energy += rgrid2d_integral(density);      /* Liquid - impurity interaction energy */
+#endif      
+      natoms = dft_driver_natoms_2d(gwf);
+      printf("Energy with respect to bulk = %le K.\n", (energy - dft_ot_bulk_energy_2d(dft_driver_otf_2d, rho0) * natoms / rho0) * GRID_AUTOK);
+      printf("Number of He atoms = %lf.\n", natoms);
+      printf("mu0 = %le K, energy/natoms = %le K\n", mu0 * GRID_AUTOK,  GRID_AUTOK * energy / natoms);
+
       /* Dump helium density */
       grid2d_wf_density(gwf, density);
       sprintf(chk, "helium-%ld", l);
       dft_driver_write_density_2d(density, chk);
+#ifdef INCLUDE_ELECTRON
       /* Dump electron density */
       sprintf(chk, "el-%ld", l);
       grid2d_wf_density(egwf, density);
@@ -161,25 +190,35 @@ int main(int argc, char *argv[]) {
       /* Dump electron wavefunction */
       sprintf(chk, "el-wf-%ld", l);
       dft_driver_write_grid_2d(egwf->grid, chk);
+#endif
       /* Dump helium wavefunction */
       sprintf(chk, "helium-wf-%ld", l);
       dft_driver_write_grid_2d(gwf->grid, chk);
     }
 
+#ifdef INCLUDE_ELECTRON
     /***** Electron *****/
     grid2d_wf_density(gwf, density);
     dft_driver_convolution_prepare_2d(density, NULL);
     dft_driver_convolution_eval_2d(density, density, pseudo);
-    for(k = 0; k < NST; k++) {
-      dft_driver_propagate_predict_2d(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, k);
-      dft_driver_propagate_correct_2d(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, k);
-    }
+    /* It is OK to run just one step - in imaginary time but not in real time. */
+    dft_driver_propagate_predict_2d(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, l);
+    dft_driver_propagate_correct_2d(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, l);
+#else
+    cgrid2d_zero(egwf->grid);
+#endif
 
     /***** Helium *****/
+#ifdef INCLUDE_ELECTRON
     grid2d_wf_density(egwf, density);
     dft_driver_convolution_prepare_2d(density, NULL);
     dft_driver_convolution_eval_2d(density, density, pseudo);
+#else
+    rgrid2d_zero(density);
+#endif
+    rgrid2d_add(density, -mu0);
     dft_driver_propagate_predict_2d(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, gwf, gwfp, potential_store, time_step, l);
     dft_driver_propagate_correct_2d(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, gwf, gwfp, potential_store, time_step, l);
   }
+  return 0;
 }

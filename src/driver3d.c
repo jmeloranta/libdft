@@ -1667,8 +1667,7 @@ EXPORT double dft_driver_kinetic_energy(wf3d *gwf) {
   
   check_mode();
 
-  if(!cworkspace)
-    cworkspace = dft_driver_alloc_cgrid();
+  if(!cworkspace) cworkspace = dft_driver_alloc_cgrid();
 
   /* Since CN_NBC and CN_NBC_ROT do not use FFT for kinetic propagation, evaluate the kinetic energy with finite difference as well */
   if((dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC_ROT || dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC) && driver_bc == DFT_DRIVER_BC_NEUMANN) {
