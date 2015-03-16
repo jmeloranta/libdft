@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
   }
   
   iterations = atol(argv[1]);
-  size = (N-1.0) * STEP;
+  size = N * STEP;
   
   wave_params.kz = atof(argv[2]) * 2.0 * M_PI / size;
   wave_params.kr = atof(argv[3]) * 2.0 * M_PI / size;
@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
 
   dft_driver_setup_grid_2d(N, N, STEP, 32); /* 32 threads */
   //dft_driver_setup_model_2d(DFT_OT_PLAIN + DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
-  dft_driver_setup_model_2d(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
+  dft_driver_setup_model_2d(DFT_OT_PLAIN | DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
   dft_driver_setup_boundaries_2d(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   dft_driver_setup_normalization_2d(DFT_DRIVER_NORMALIZE_BULK, 0, 0.0, 0);
   dft_driver_initialize_2d();
