@@ -21,7 +21,7 @@
  */
 
 #define MIN_SUBSTEPS 4
-#define MAX_SUBSTEPS 128
+#define MAX_SUBSTEPS 32
 
 /* End of tunable parameters */
 

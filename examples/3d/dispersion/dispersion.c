@@ -17,7 +17,7 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define N 256
+#define N 128
 #define STEP 0.5 /* Bohr */
 #define TS 40.0 /* fs */
 
@@ -35,11 +35,11 @@ double complex wave(void *arg, double x, double y, double z);
 int main(int argc, char **argv) {
 
   long l, iterations;
-  double step, size;
+  double step, size, mu0;
   grid_timer timer;
   cgrid3d *potential_store;
   wf3d *gwf, *gwfp;
-  rgrid3d *density;
+  rgrid3d *density, *pot;
   sWaveParams wave_params;
   char buf[512];
   
@@ -60,24 +60,27 @@ int main(int argc, char **argv) {
   
   fprintf(stderr, "Momentum (%lf x %lf x %lf) Angs^-1\n", wave_params.kx / GRID_AUTOANG, wave_params.ky / GRID_AUTOANG, wave_params.kz / GRID_AUTOANG);
 
-  dft_driver_setup_grid(N, N, N, STEP, 48); /* 6 threads */
+  dft_driver_setup_grid(N, N, N, STEP, 16); /* 6 threads */
   //dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
   // dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_BACKFLOW, DFT_DRIVER_REAL_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN | DFT_OT_BACKFLOW, DFT_DRIVER_REAL_TIME, 0.0);
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
-  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 0, 0.0, 0);
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   dft_driver_initialize();
   density = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid();
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);
+  pot = dft_driver_alloc_rgrid();
+  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
+  rgrid3d_constant(pot, -mu0);
   
   grid3d_wf_map(gwf, wave, &wave_params);
 
   for(l = 0; l < iterations; l++) {
     grid_timer_start(&timer);
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, gwf, gwfp, potential_store, TS /* fs */, l);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, gwf, gwfp, potential_store, TS /* fs */, l);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
     grid3d_wf_density(gwf, density);
     printf("%lf %.10le\n", l * TS, rgrid3d_value_at_index(density, N/2, N/2, N/2));
     fflush(stdout);

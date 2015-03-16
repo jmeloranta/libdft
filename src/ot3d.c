@@ -168,35 +168,38 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
   
     /* pre-calculate */
     if(model & DFT_DR) {
-      fprintf(stderr, "libdft: LJ according to DR.\n");
+      fprintf(stderr, "libdft: LJ according to DR - ");
       rgrid3d_adaptive_map(otf->lennard_jones, dft_common_lennard_jones_smooth, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid3d_fft(otf->lennard_jones);
       /* TODO: What is the value of b? Once this is known, scale this the same way as OT */
+      fprintf(stderr, "Done.\n");
     } else {
-      fprintf(stderr, "libdft: LJ according to SD.\n");
+      fprintf(stderr, "libdft: LJ according to SD - ");
       rgrid3d_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid3d_fft(otf->lennard_jones);
       /* Scaling of LJ so that the integral is exactly b */
       // TODO: Neumann BC may not work!? r2r fft
       cgrid3d_multiply(otf->lennard_jones->cint, otf->b / ( step * step * step * otf->lennard_jones->cint->value[0]));
+      fprintf(stderr, "Done.\n");
     }
 
     if(otf->model & DFT_OT_HD2) {
       radius = otf->lj_params.h * 1.065; /* Pr B 72, 214522 (2005) */
-      fprintf(stderr, "libdft: Spherical average (new).\n");
+      fprintf(stderr, "libdft: Spherical average (new) - ");
     } else {
       radius = otf->lj_params.h;
-      fprintf(stderr, "libdft: Spherical average (original).\n");
+      fprintf(stderr, "libdft: Spherical average (original) - ");
     }
     rgrid3d_adaptive_map(otf->spherical_avg, dft_common_spherical_avg, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     rgrid3d_fft(otf->spherical_avg);
     /* Scaling of sph. avg. so that the integral is exactly 1 */
     // TODO: Neumann BC may not work!? r2r fft
     cgrid3d_multiply(otf->spherical_avg->cint, 1.0 / (step * step * step * otf->spherical_avg->cint->value[0]));
-
+    fprintf(stderr, "Done.\n");
+    
     if(model & DFT_OT_KC) {
       inv_width = 1.0 / otf->l_g;
-      fprintf(stderr, "libdft: Kinetic correlation.\n");	
+      fprintf(stderr, "libdft: Kinetic correlation - ");	
       rgrid3d_adaptive_map(otf->gaussian_tf, dft_common_gaussian, &inv_width, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid3d_fd_gradient_x(otf->gaussian_tf, otf->gaussian_x_tf);
       rgrid3d_fd_gradient_y(otf->gaussian_tf, otf->gaussian_y_tf);
@@ -205,12 +208,14 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
       rgrid3d_fft(otf->gaussian_y_tf);
       rgrid3d_fft(otf->gaussian_z_tf);
       rgrid3d_fft(otf->gaussian_tf);
+      fprintf(stderr, "Done.\n");
     }
     
     if(model & DFT_OT_BACKFLOW) {
-      fprintf(stderr, "libdft: Backflow.\n");	
+      fprintf(stderr, "libdft: Backflow - ");
       rgrid3d_adaptive_map(otf->backflow_pot, dft_ot_backflow_pot, &(otf->bf_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid3d_fft(otf->backflow_pot);
+      fprintf(stderr, "Done.\n");
     }
   }
 
