@@ -129,43 +129,47 @@ EXPORT dft_ot_functional_2d *dft_ot2d_alloc(long model, long nz, long nr, double
   
     /* pre-calculate */
     if(model & DFT_DR) {
-      fprintf(stderr, "libdft: LJ according to DR.\n");
+      fprintf(stderr, "libdft: LJ according to DR - ");
       rgrid2d_adaptive_map_cyl(otf->lennard_jones, dft_common_lennard_jones_smooth_2d, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     } else {
-      fprintf(stderr, "libdft: LJ according to SD.\n");
+      fprintf(stderr, "libdft: LJ according to SD - ");
       rgrid2d_adaptive_map_cyl(otf->lennard_jones, dft_common_lennard_jones_2d, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       /* Scaling of LJ so that the integral is exactly b */
       rgrid2d_multiply(otf->lennard_jones, otf->b / rgrid2d_integral_cyl(otf->lennard_jones));
     }
     rgrid2d_fft_cylindrical(otf->lennard_jones);
+    fprintf(stderr, "Done.\n");
     
     if(otf->model & DFT_OT_HD2) {
       radius = otf->lj_params.h * 1.065;
-      fprintf(stderr, "libdft: Spherical average (new).\n");
+      fprintf(stderr, "libdft: Spherical average (new) - ");
     } else {
       radius = otf->lj_params.h;
-      fprintf(stderr, "libdft: Spherical average (original).\n");
+      fprintf(stderr, "libdft: Spherical average (original) - ");
     }
     rgrid2d_adaptive_map_cyl(otf->spherical_avg, dft_common_spherical_avg_2d, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     /* Scaling of sph. avg. so that the integral is exactly 1 */
     rgrid2d_multiply(otf->spherical_avg, 1.0 / rgrid2d_integral_cyl(otf->spherical_avg));
     rgrid2d_fft_cylindrical(otf->spherical_avg);
+    fprintf(stderr, "Done.\n");
     
     if(model & DFT_OT_KC) {
       inv_width = 1.0 / otf->l_g;
-      fprintf(stderr, "libdft: Kinetic correlation.\n");	
+      fprintf(stderr, "libdft: Kinetic correlation - ");
       rgrid2d_adaptive_map_cyl(otf->gaussian_tf, dft_common_gaussian_2d, &inv_width, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid2d_fd_gradient_cyl_z(otf->gaussian_tf, otf->gaussian_z_tf);
       rgrid2d_fd_gradient_cyl_r(otf->gaussian_tf, otf->gaussian_r_tf);
       rgrid2d_fft_cylindrical(otf->gaussian_tf);
       rgrid2d_fft_cylindrical(otf->gaussian_z_tf);
       rgrid2d_fft_cylindrical(otf->gaussian_r_tf);
+      fprintf(stderr, "Done.\n");
     }
-  
+    
     if(model & DFT_OT_BACKFLOW) {
-      fprintf(stderr, "libdft: Backflow.\n");	
+      fprintf(stderr, "libdft: Backflow - ");	
       rgrid2d_adaptive_map_cyl(otf->backflow_pot, dft_ot_backflow_pot_2d, &(otf->bf_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid2d_fft_cylindrical(otf->backflow_pot);
+      fprintf(stderr, "Done.\n");
     }
   }
 
@@ -437,7 +441,7 @@ static void dft_ot2d_add_nonlocal_correlation_potential_r(dft_ot_functional_2d *
   rgrid2d_fft_cylindrical_convolute(workspace4, otf->gaussian_tf, workspace4);
   rgrid2d_inverse_fft_cylindrical(workspace4);
   rgrid2d_fft_cylindrical_cleanup(workspace4, dft_ot2d_hankel_pad);
-  rgrid2d_multiply(workspace4, 1.0 * c);    /* Cartesian dot product, 2 X */
+  rgrid2d_multiply(workspace4, c);
   grid2d_add_real_to_complex_re(potential, workspace4);
 
   /* workspace1 (grad rho), workspace3 (J) */
@@ -450,7 +454,7 @@ static void dft_ot2d_add_nonlocal_correlation_potential_r(dft_ot_functional_2d *
   rgrid2d_fft_cylindrical_cleanup(workspace2, dft_ot2d_hankel_pad);
   rgrid2d_fd_gradient_cyl_r(workspace2, workspace4);
   rgrid2d_product(workspace2, workspace4, workspace3);
-  rgrid2d_multiply(workspace2, -1.0 * c);    /* Cartesian dot product, 2 X */
+  rgrid2d_multiply(workspace2, -c);
   grid2d_add_real_to_complex_re(potential, workspace2);
 }
 
@@ -561,8 +565,8 @@ EXPORT void dft_ot2d_energy_density(dft_ot_functional_2d *otf, rgrid2d *energy_d
     rgrid2d_fd_gradient_cyl_z(density, workspace3); /* d/dz (cartesian) */
     rgrid2d_fd_gradient_cyl_r(density, workspace4); /* d/dr (cartesian) */
     
-    /* 4. Z component: wrk6 = wrk3 * wrk1 (wrk1 = (d/dz)\rho_z * (1 - \tilde{\rho}/\rho_{0s})) */
-    /*    R component: wrk7 = wrk4 * wrk1 (wrk1 = (d/dr)\rho_r * (1 - \tilde{\rho}/\rho_{0s})) (include twice in dot product) */
+    /* 4. Z component: wrk6 = wrk3 * wrk1 (wrk6 = (d/dz\rho) * (1 - \tilde{\rho}/\rho_{0s})) */
+    /*    R component: wrk7 = wrk4 * wrk1 (wrk7 = (d/dr\rho) * (1 - \tilde{\rho}/\rho_{0s})) (include twice in dot product) */
     /* workspace 5 is now free */
     rgrid2d_product(workspace6, workspace3, workspace1);
     rgrid2d_product(workspace7, workspace4, workspace1);
@@ -690,7 +694,7 @@ EXPORT void dft_ot2d_backflow_potential(dft_ot_functional_2d *otf, cgrid2d *pote
 
   /* 1. Calculate the real part of the potential */
 
-  /* -(m/2) (v(r) . (v(r)A(r) - 2B(r)) + C(r))  = -(m/2) [ A(v_x^2 + v_y^2 + v_z^2) - 2v_x B_x - 2v_y B_y - 2v_z B_z + C] */
+  /* -(m/2) (v(r) . (v(r)A(r) - 2B(r)) + C(r))  = -(m/2) [ A(v_z^2 + v_r^2) - 2v_z B_z - 2v_r B_r + C] */
   rgrid2d_product(workspace5, veloc_z, veloc_z);
   rgrid2d_add_scaled_product(workspace5, 1.0, veloc_r, veloc_r);
   rgrid2d_product(workspace5, workspace5, workspace1);
@@ -712,22 +716,21 @@ EXPORT void dft_ot2d_backflow_potential(dft_ot_functional_2d *otf, cgrid2d *pote
   rgrid2d_product((rgrid2d *) veloc_r, veloc_r, workspace1);
   rgrid2d_add_scaled((rgrid2d *) veloc_r, -1.0, workspace4);
 
-  /* 1.1 (drho/dz)/rho * (v_zA - B_z) */
+  /* 1.1 (1/2) (drho/dz)/rho * (v_zA - B_z) */
   rgrid2d_fd_gradient_cyl_z(density, workspace2);
   rgrid2d_division_eps(workspace2, workspace2, density, DFT_BF_EPS);
   rgrid2d_add_scaled_product(workspace5, 0.5, workspace2, veloc_z);
 
-  /* 1.2 (drho/dr)/rho * (v_rA - B_r) */
+  /* 1.2 (1/2) (drho/dr)/rho * (v_rA - B_r) */
   rgrid2d_fd_gradient_cyl_r(density, workspace2);
   rgrid2d_division_eps(workspace2, workspace2, density, DFT_BF_EPS);
-  /* dot product: 2 X r */
   rgrid2d_add_scaled_product(workspace5, 0.5, workspace2, veloc_r);
 
-  /* 2.1 (d/dz) (v_zA - B_z) */
+  /* 2.1 (1/2) (d/dz) (v_zA - B_z) */
   rgrid2d_fd_gradient_cyl_z(veloc_z, workspace2);
   rgrid2d_add_scaled(workspace5, 0.5, workspace2);
 
-  /* 2.2 (d/dr) (v_rA - B_r) */
+  /* 2.2 (1/2) (d/dr) (v_rA - B_r) */
   rgrid2d_fd_gradient_cyl_r(veloc_r, workspace2);
   rgrid2d_add_scaled(workspace5, 0.5, workspace2);
 

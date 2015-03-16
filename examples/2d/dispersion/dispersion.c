@@ -14,8 +14,8 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define N 512
-#define STEP 0.4 /* Bohr */
+#define N 256
+#define STEP 0.25 /* Bohr */
 #define TS 10.0 /* fs */
 
 #define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
 
   dft_driver_setup_grid_2d(N, N, STEP, 32); /* 32 threads */
   //dft_driver_setup_model_2d(DFT_OT_PLAIN + DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
-  dft_driver_setup_model_2d(DFT_OT_PLAIN | DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
+  dft_driver_setup_model_2d(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
   dft_driver_setup_boundaries_2d(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   dft_driver_setup_normalization_2d(DFT_DRIVER_NORMALIZE_BULK, 0, 0.0, 0);
   dft_driver_initialize_2d();
