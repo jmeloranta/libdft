@@ -548,7 +548,7 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
     fprintf(stderr, "libdft: Predict - absorbing boundary for helium ; imaginary potential.\n");
     grid3d_wf_absorb(potential, density, driver_rho0, region_func, workspace1, (driver_iter_mode==1) ? I:1.0);
   }
- /* External potential for Helium */
+  /* External potential for Helium */
   /* Im - He contribution */
   if(ext_pot) grid3d_add_real_to_complex_re(potential, ext_pot);
 
@@ -592,6 +592,7 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
 EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3d *gwf, wf3d *gwfp, cgrid3d *potential, double tstep, long iter) {
 
   double complex time, htime;
+  double complex potvar;
   
   check_mode();
 
@@ -608,9 +609,14 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
   /* correct */
   if(!what) {
     grid3d_wf_density(gwfp, density);
+    // Diag print
+    if(!cworkspace) cworkspace = dft_driver_alloc_cgrid();
+    cgrid3d_copy(cworkspace, potential);
+    // end diag print
     // no zeroing - add to the previous potential to get avg (new)
     dft_ot3d_potential(dft_driver_otf, potential, gwfp, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
   }
+  
   /* absorbing boundary */
   if(driver_boundary_type == 1 && !what && !driver_iter_mode) {
     fprintf(stderr, "libdft: Correct - absorbing boundary for helium ; imaginary potential.\n");
@@ -621,6 +627,19 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
   if(ext_pot) grid3d_add_real_to_complex_re(potential, ext_pot);
   /* average of future and current (new) */
   cgrid3d_multiply(potential, 0.5);
+  
+  // Diag print
+  if(!what) {
+    int i;
+    cgrid3d_difference(cworkspace, potential, cworkspace);
+    cgrid3d_multiply(cworkspace, 2.0);
+    for (i = 0; i < cworkspace->nx * cworkspace->ny * cworkspace->nz; i++)
+      cworkspace->value[i] = fabs(creal(cworkspace->value[i])) + I * fabs(cimag(cworkspace->value[i]));
+    grid3d_product_complex_with_real(cworkspace, density);
+    potvar = cgrid3d_integral(cworkspace) / rgrid3d_integral(density);
+    fprintf(stderr, "libdft: Re(potvar) = %le K, Im(potvar) = %le K.\n", creal(potvar) * GRID_AUTOK, cimag(potvar) * GRID_AUTOK);
+  }
+  // end diag print
   
   /* potential */
   grid3d_wf_propagate_potential(gwf, potential, time);
@@ -1641,14 +1660,17 @@ EXPORT double dft_driver_energy(wf3d *gwf, rgrid3d *ext_pot) {
 
 EXPORT double dft_driver_potential_energy(wf3d *gwf, rgrid3d *ext_pot) {
 
-  /* we may need more memory for this... */
-
   check_mode();
+
+  /* we may need more memory for this... */
   if(!workspace7) workspace7 = dft_driver_alloc_rgrid();
   if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
   if(!workspace9) workspace9 = dft_driver_alloc_rgrid();
+
   grid3d_wf_density(gwf, density);
+
   dft_ot3d_energy_density(dft_driver_otf, workspace9, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
+
   if(ext_pot) rgrid3d_add_scaled_product(workspace9, 1.0, density, ext_pot);
   
   return rgrid3d_integral(workspace9);
@@ -2771,5 +2793,5 @@ EXPORT void dft_driver_clear(wf3d *gwf, rgrid3d *potential, double ul) {
 
 #pragma omp parallel for firstprivate(d,gwf,potential,ul) private(i) default(none) schedule(runtime)
   for(i = 0; i < d; i++)
-    if(potential->value[i] > ul) gwf->grid->value[i] = 0.0;
+    if(potential->value[i] >= ul) gwf->grid->value[i] = 0.0;
 }

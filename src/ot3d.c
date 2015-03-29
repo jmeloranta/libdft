@@ -184,7 +184,7 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
     }
 
     if(otf->model & DFT_OT_HD2) {
-      radius = otf->lj_params.h * 1.065; /* Pr B 72, 214522 (2005) */
+      radius = otf->lj_params.h * 1.065; /* PRB 72, 214522 (2005) */
       fprintf(stderr, "libdft: Spherical average (new) - ");
     } else {
       radius = otf->lj_params.h;
@@ -681,6 +681,7 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
     rgrid3d_add_scaled(energy_density, -otf->alpha_s / (4.0 * otf->mass), workspace7);
     rgrid3d_add_scaled(energy_density, -otf->alpha_s / (4.0 * otf->mass), workspace8);
   }
+
   if(otf->model & DFT_OT_BACKFLOW) {
     grid3d_wf_probability_flux(wf, workspace1, workspace2, workspace3);    /* finite difference */
     // grid3d_wf_momentum(wf, workspace1, workspace2, workspace3, workspace4);   /* this would imply FFT boundaries */
