@@ -30,7 +30,7 @@ double complex wave(void *arg, double x, double y, double z);
 
 int main(int argc, char **argv) {
 
-  long l, n;
+  long l, n, model;
   double mu0, prev_val;
   grid_timer timer;
   cgrid3d *potential_store;
@@ -48,7 +48,8 @@ int main(int argc, char **argv) {
 
   //dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
   // dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
-  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
+  model = DFT_OT_PLAIN;
+  dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, 0.0);
 
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
@@ -61,8 +62,11 @@ int main(int argc, char **argv) {
   pot = dft_driver_alloc_rgrid();
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
   rgrid3d_constant(pot, -mu0);
-  
-  for (n = 1; n < atof(argv[1]); n++) {
+
+  fprintf(stderr, "Maxmimum n corresponds to %le Angs^-1.\n", atof(argv[1]) * 2.0 * M_PI / (GRID_AUTOANG * N * STEP));
+  printf("# Dispersion relation for functional %ld.\n", model);
+  printf("0 0\n");
+  for (n = 1; n <= atof(argv[1]); n++) {
     wave_params.kx = n * 2.0 * M_PI / (N * STEP);   /* TODO: should be able to choose x, y or z */
     wave_params.ky = 0.0;
     wave_params.kz = 0.0;
