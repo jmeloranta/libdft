@@ -17,9 +17,9 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define N 128
-#define STEP 0.5 /* Bohr */
-#define TS 40.0 /* fs */
+#define N 256
+#define STEP 0.25 /* Bohr */
+#define TS 10.0 /* fs */
 
 #define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
 
