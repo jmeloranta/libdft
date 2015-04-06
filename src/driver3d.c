@@ -1849,7 +1849,7 @@ EXPORT cgrid1d *dft_driver_spectrum(rgrid3d *density, double tstep, double endti
   rgrid3d_difference(dpot, workspace1, workspace2); /* final - initial */
   
   rgrid3d_product(workspace1, dpot, density);
-  fprintf(stderr, "libdft: Average shift = %le.\n", rgrid3d_integral(workspace1) * GRID_AUTOCM1);
+  fprintf(stderr, "libdft: Average shift = %le cm-1.\n", rgrid3d_integral(workspace1) * GRID_AUTOCM1);
 
 #pragma omp parallel for firstprivate(stderr,tstep,ntime,density,dpot,corr,wrk) private(i,t) default(none) schedule(runtime)
   for(i = 0; i < ntime; i++) {

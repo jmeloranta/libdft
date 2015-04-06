@@ -13,8 +13,8 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define N 64
-#define STEP 1.0 /* Bohr */
+#define N 128
+#define STEP 0.2 /* Bohr */
 #define TS 10.0 /* fs */
 
 #define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
@@ -39,16 +39,18 @@ int main(int argc, char **argv) {
   sWaveParams wave_params;
   
   /* parameters */
-  if (argc != 2) {
-    fprintf(stderr, "Usage: %s <n_max>\n", argv[0]);
+  if (argc != 3) {
+    fprintf(stderr, "Usage: %s <n_min> <n_max>\n", argv[0]);
     return 1;
   }
   
+  fprintf(stderr, "Minimum n corresponds to %le Angs^-1.\n", atof(argv[1]) * 2.0 * M_PI / (GRID_AUTOANG * N * STEP));
+  fprintf(stderr, "Maxmimum n corresponds to %le Angs^-1.\n", atof(argv[2]) * 2.0 * M_PI / (GRID_AUTOANG * N * STEP));
   dft_driver_setup_grid(N, N, N, STEP, 16); /* 6 threads */
 
   //dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
   // dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
-  model = DFT_OT_PLAIN;
+  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
   dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, 0.0);
 
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
@@ -63,10 +65,9 @@ int main(int argc, char **argv) {
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
   rgrid3d_constant(pot, -mu0);
 
-  fprintf(stderr, "Maxmimum n corresponds to %le Angs^-1.\n", atof(argv[1]) * 2.0 * M_PI / (GRID_AUTOANG * N * STEP));
   printf("# Dispersion relation for functional %ld.\n", model);
   printf("0 0\n");
-  for (n = 1; n <= atof(argv[1]); n++) {
+  for (n = atof(argv[1]); n <= atof(argv[2]); n++) {
     wave_params.kx = n * 2.0 * M_PI / (N * STEP);   /* TODO: should be able to choose x, y or z */
     wave_params.ky = 0.0;
     wave_params.kz = 0.0;

@@ -16,13 +16,13 @@
 #define TMAX 4000.0 /* fs */
 #define TSTEP 1.0 /* fs */
 
-#define UPPER_X "potentials/2p-exp.dat"
-#define UPPER_Y "potentials/2p-exp.dat"
-#define UPPER_Z "potentials/2p-exp.dat"
+#define UPPER_X "potentials/cu2-b.dat"
+#define UPPER_Y "potentials/cu2-b.dat"
+#define UPPER_Z "potentials/cu2-b.dat"
 
-#define LOWER_X "potentials/2s-exp.dat"
-#define LOWER_Y "potentials/2s-exp.dat"
-#define LOWER_Z "potentials/2s-exp.dat"
+#define LOWER_X "potentials/cu2-x.dat"
+#define LOWER_Y "potentials/cu2-x.dat"
+#define LOWER_Z "potentials/cu2-x.dat"
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(180, 180, 180, 0.5 /* Bohr */, 16 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_T1600MK, DFT_DRIVER_IMAG_TIME, 0.0260446 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+  dft_driver_setup_model(DFT_OT_PLAIN | DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0260446 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);
   /* Normalization condition */
