@@ -559,11 +559,12 @@ EXPORT void dft_common_potential_map_tilt_shift(int average, char *filex, char *
   set.theta0 = theta0;
   set.phi0 = phi0;
 
-  fprintf(stderr, "libdft: Mapping potential file with x = %s, y = %s, z = %s. Average = %d\n", filex, filey, filez, average);
+  fprintf(stderr, "libdft: Mapping potential file with x = %s, y = %s, z = %s. Average = %d - ", filex, filey, filez, average);
   dft_common_read_pot(filex, &x);
   dft_common_read_pot(filey, &y);
   dft_common_read_pot(filez, &z);
   rgrid3d_map(potential, dft_common_extpot, (void *) &set);
+  fprintf(stderr, "done.\n");
 }
 
 /* Special case with x0=y0=z0=theta0=phi0=0 for backwards compatibility */
