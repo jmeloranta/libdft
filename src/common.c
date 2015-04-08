@@ -438,9 +438,15 @@ double dft_common_extpot(void *arg, double x, double y, double z) {
   double sx = set->x->step, sy = set->y->step, sz = set->z->step;
   long lx = set->x->length, ly = set->y->length, lz = set->z->length;
   int aver = set->average;
-  double theta0 = set->theta0, theta, cos_theta, sin_theta ;
-  double phi0 = set->phi0, phi, cos_phi, sin_phi ;
+  double theta0 = set->theta0, theta, cos_theta, sin_theta;
+  double phi0 = set->phi0, phi, cos_phi, sin_phi;
+  double x0 = set->x0, y0 = set->y0, z0 = set->z0;
 
+  /* shift origin */
+  x += x0;
+  y += y0;
+  z += z0;
+  
   /* x */
   i = (long) ((r - bx) / sx);
   if(i < 0) {
@@ -525,12 +531,19 @@ double dft_common_extpot_cyl(void *arg, double r, double phi, double z) {
  * file_y  = Potential along y axis (char *).
  * file_z  = Potential along z axis (char *).
  * grid    = Output potential grid (cgrid3d *).
+ * theta0  = Rotation angle theta.
+ * phi0    = Rotation angle phi.
+ * x0      = New origin x.
+ * y0      = New origin y.
+ * z0      = New origin z.
  * 
  * No return value.
  *
+ * TODO: Change tilt to rotate.
+ *
  */
 	
-EXPORT void dft_common_potential_map_tilt(int average, char *filex, char *filey, char *filez, rgrid3d *potential, double theta0, double phi0) {
+EXPORT void dft_common_potential_map_tilt_shift(int average, char *filex, char *filey, char *filez, rgrid3d *potential, double theta0, double phi0, double x0, double y0, double z0) {
 
   dft_extpot x, y, z;
   dft_extpot_set set;
@@ -538,6 +551,9 @@ EXPORT void dft_common_potential_map_tilt(int average, char *filex, char *filey,
   set.x = &x;
   set.y = &y;
   set.z = &z;
+  set.x0 = x0;
+  set.y0 = y0;
+  set.z0 = z0;
   set.average = average;
   set.theta0 = theta0;
   set.phi0 = phi0;
@@ -549,11 +565,18 @@ EXPORT void dft_common_potential_map_tilt(int average, char *filex, char *filey,
   rgrid3d_map(potential, dft_common_extpot, (void *) &set);
 }
 
-/* Special case with theta0=phi0=0 for backwards compatibility */
+/* Special case with x0=y0=z0=theta0=phi0=0 for backwards compatibility */
 EXPORT void dft_common_potential_map(int average, char *filex, char *filey, char *filez, rgrid3d *potential) {
-
-  dft_common_potential_map_tilt(average, filex, filey, filez, potential, 0.0, 0.0);
+  
+  dft_common_potential_map_tilt_shift(average, filex, filey, filez, potential, 0.0, 0.0, 0.0, 0.0, 0.0);
 }
+
+/* Special case with x0=y0=z0=0 for backwards compatibility */
+EXPORT void dft_common_potential_map_tilt(int average, char *filex, char *filey, char *filez, rgrid3d *potential, double theta, double phi) {
+  
+  dft_common_potential_map_tilt_shift(average, filex, filey, filez, potential, theta, phi, 0.0, 0.0, 0.0);
+}
+
 /*
  * Nonperiodic version of dft_common_potential_map 
  * No need for this, just set x0,y0,z0.

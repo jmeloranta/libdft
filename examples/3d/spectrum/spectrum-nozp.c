@@ -13,33 +13,59 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TMAX 4000.0 /* fs */
-#define TSTEP 1.0 /* fs */
+#define TS 5.0 /* fs */
 
+#define NX 256
+#define NY 256
+#define NZ 256
+#define STEP 0.5
+
+#define TMAX 4000.0 /* fs */
+#define ZEROFILL 1024
+
+#define IMITER 200
+#define REITER 400
+
+#if 0
+#define UPPER_X "potentials/cu2-b-t.dat"
+#define UPPER_Y "potentials/cu2-b-t.dat"
+#define UPPER_Z "potentials/cu2-b-l.dat"
+#else
 #define UPPER_X "potentials/cu2-b.dat"
 #define UPPER_Y "potentials/cu2-b.dat"
 #define UPPER_Z "potentials/cu2-b.dat"
+#endif
 
+#if 0
+#define LOWER_X "potentials/cu2-x-t.dat"
+#define LOWER_Y "potentials/cu2-x-t.dat"
+#define LOWER_Z "potentials/cu2-x-l.dat"
+#else
 #define LOWER_X "potentials/cu2-x.dat"
 #define LOWER_Y "potentials/cu2-x.dat"
 #define LOWER_Z "potentials/cu2-x.dat"
+#endif
+
+#define MODEL (DFT_OT_PLAIN)
+#define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
+#define TC 300.0
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
 int main(int argc, char **argv) {
 
   cgrid3d *potential_store;
-  rgrid3d *ext_pot;
+  rgrid3d *ext_pot, *density;
   cgrid1d *spectrum;
   wf3d *gwf, *gwfp;
   long iter;
-  double energy, natoms, en;
+  double energy, natoms, en, mu0;
   FILE *fp;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(180, 180, 180, 0.5 /* Bohr */, 16 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 16 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN | DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0260446 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+  dft_driver_setup_model(MODEL, DFT_DRIVER_IMAG_TIME, RHO0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);
   /* Normalization condition */
@@ -50,30 +76,51 @@ int main(int argc, char **argv) {
 
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid();
+  density = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
   /* Read external potential from file */
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, ext_pot);
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z, ext_pot);
 
+  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
+  printf("mu0 = %le K.\n", mu0 * GRID_AUTOK);
+  
   /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
 
-  /* Run 200 iterations using imaginary time (50 fs time step) */
-  for (iter = 0; iter < 200; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 80.0 /* fs */, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 80.0 /* fs */, iter);
-  }
-  /* At this point gwf contains the converged wavefunction */
-  dft_driver_write_grid(gwf->grid, "output");
-
+  if(argc == 1) {
+    /* Run imaginary time */
+    for (iter = 0; iter < IMITER; iter++) {
+      dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 4.0 * TS, iter);
+      dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 4.0 * TS, iter);
+    }
+    /* At this point gwf contains the converged wavefunction */
+    dft_driver_write_grid(gwf->grid, "output");
+  } else dft_driver_read_grid(gwf->grid, argv[1]);
+    
   energy = dft_driver_energy(gwf, ext_pot);
   natoms = dft_driver_natoms(gwf);
   printf("Total energy is %le K\n", energy * GRID_AUTOK);
   printf("Number of He atoms is %le.\n", natoms);
   printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
 
-  grid3d_wf_density(gwf, ext_pot);
-  spectrum = dft_driver_spectrum(ext_pot, TSTEP, TMAX, 0, UPPER_X, UPPER_Y, UPPER_Z, 0, LOWER_X, LOWER_Y, LOWER_Z);
+  dft_driver_setup_model(MODEL, DFT_DRIVER_REAL_TIME, RHO0);
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, ext_pot);
+  rgrid3d_add(ext_pot, -mu0);
+  dft_driver_spectrum_init(gwf, REITER, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z);
+  for (iter = 0; iter < REITER; iter++) {
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_spectrum_collect(gwf);
+    if(!(iter % 10)) {
+      char buf[512];
+      grid3d_wf_density(gwf, density);
+      sprintf(buf, "realtime-%ld", iter);
+      dft_driver_write_density(density, buf);
+    }
+  }
+  spectrum = dft_driver_spectrum_evaluate(TS, 0.0, TC);
+
   if(!(fp = fopen("spectrum.dat", "w"))) {
     fprintf(stderr, "Can't open spectrum.dat for writing.\n");
     exit(1);
