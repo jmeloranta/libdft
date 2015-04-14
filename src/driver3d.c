@@ -84,8 +84,9 @@ static double region_func(void *gr, double x, double y, double z) {
  *
  */
 static double complex cregion_func(void *gr, double x, double y, double z) {
-	double r = sqrt(x*x + y*y + z*z) ;
-	return 1. + tanh( 4.0 * (r - driver_halfbox_length)/driver_abs ) ;
+
+  double r = sqrt(x*x + y*y + z*z) ;
+  return 1.0 + tanh(4.0 * (r - driver_halfbox_length) / driver_abs);
 }
 
 inline static void scale_wf(long what, dft_ot_functional *local_otf, wf3d *gwf) {
@@ -385,7 +386,7 @@ EXPORT void dft_driver_setup_boundary_condition(int bc) {
 /*
  * Modify the value of the damping constant for absorbing boundary.
  *
- * dmp = damping constant (default 0.03).
+ * dmp = damping constant (default 0.2).
  *
  */
 
@@ -1993,7 +1994,9 @@ EXPORT cgrid1d *dft_driver_spectrum_zp(rgrid3d *density, rgrid3d *imdensity, dou
 }
 
 /*
- * Routines for evaluating the dynamic lineshape (CPL 396, 155 (2004)).
+ * Routines for evaluating the dynamic lineshape (similar to CPL 396, 155 (2004) but
+ * see intro of JCP 141, 014107 (2014) + references there in). The dynamics should be run on average
+ * potential of gnd and excited states (returned by the init routine).
  *
  * 1) Initialize the difference potential:
  *     dft_driver_spectrum_init().
@@ -2011,7 +2014,6 @@ EXPORT cgrid1d *dft_driver_spectrum_zp(rgrid3d *density, rgrid3d *imdensity, dou
 /*
  * Collect the time dependent difference energy data.
  * 
- * gwf      = Initial order parameter (used to get the initial density) (wf3d *).
  * nt       = Maximum number of time steps to be collected (long).
  * zerofill = How many zeros to fill in before FFT (int).
  * upperave = Averaging on the upper state (see dft_driver_potential_map()) (int).
@@ -2023,36 +2025,43 @@ EXPORT cgrid1d *dft_driver_spectrum_zp(rgrid3d *density, rgrid3d *imdensity, dou
  * lowery   = Lower potential file name along-y (char *).
  * lowerz   = Lower potential file name along-z (char *).
  *
+ * Returns difference potential for dynamics.
+ *
  */
 
-static rgrid3d *xxdiff = NULL;
+static rgrid3d *xxdiff = NULL, *xxave = NULL;
 static cgrid1d *tdpot = NULL;
 static long ntime, cur_time, zerofill;
 
-EXPORT void dft_driver_spectrum_init(wf3d *gwf, long nt, long zf, int upperave, char *upperx, char *uppery, char *upperz, int lowerave, char *lowerx, char *lowery, char *lowerz) {
+EXPORT rgrid3d *dft_driver_spectrum_init(long nt, long zf, int upperave, char *upperx, char *uppery, char *upperz, int lowerave, char *lowerx, char *lowery, char *lowerz) {
 
   check_mode();
 
   cur_time = 0;
   ntime = nt;
   zerofill = zf;
-  if(!xxdiff)
-    xxdiff = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
   if(!tdpot)
     tdpot = cgrid1d_alloc(ntime + zf, 0.1, CGRID1D_PERIODIC_BOUNDARY, 0);
+  if(upperx == NULL) return NULL;   /* potentials not given */
+  if(!xxdiff)
+    xxdiff = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
+  if(!xxave)
+    xxave = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);    
   fprintf(stderr, "libdft: Upper level potential.\n");
   dft_common_potential_map(upperave, upperx, uppery, upperz, workspace1);
   fprintf(stderr, "libdft: Lower level potential.\n");
   dft_common_potential_map(lowerave, lowerx, lowery, lowerz, workspace2);
   fprintf(stderr, "libdft: spectrum init complete.\n");
   rgrid3d_difference(xxdiff, workspace1, workspace2);
+  rgrid3d_sum(xxave, workspace1, workspace2);
+  rgrid3d_multiply(xxave, 0.5);
+  return xxave;
 }
 
 /*
  * Collect the time dependent difference energy data. Same as above but with direct
  * grid input for potentials.
  * 
- * gwf      = Initial order parameter (used to get the initial density) (wf3d *).
  * nt       = Maximum number of time steps to be collected (long).
  * zerofill = How many zeros to fill in before FFT (int).
  * upper    = upper state potential grid (rgrid3d *).
@@ -2060,18 +2069,45 @@ EXPORT void dft_driver_spectrum_init(wf3d *gwf, long nt, long zf, int upperave, 
  *
  */
 
-EXPORT void dft_driver_spectrum_init2(wf3d *gwf, long nt, long zf, rgrid3d *upper, rgrid3d *lower) {
+EXPORT rgrid3d *dft_driver_spectrum_init2(long nt, long zf, rgrid3d *upper, rgrid3d *lower) {
 
   check_mode();
 
   cur_time = 0;
   ntime = nt;
   zerofill = zf;
-  if(!xxdiff)
-    xxdiff = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
   if(!tdpot)
     tdpot = cgrid1d_alloc(ntime + zf, 0.1, CGRID1D_PERIODIC_BOUNDARY, 0);
+  if(upper == NULL) return NULL; /* not given */
+  if(!xxdiff)
+    xxdiff = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);
+  if(!xxave)
+    xxave = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID3D_PERIODIC_BOUNDARY, 0);    
   rgrid3d_difference(xxdiff, upper, lower);
+  rgrid3d_sum(xxave, workspace1, workspace2);
+  rgrid3d_multiply(xxave, 0.5);
+  return xxave;
+}
+
+/*
+ * Collect the difference energy data (user calculated).
+ *
+ * val = difference energy value to be inserted.
+ *
+ */
+
+EXPORT void dft_driver_spectrum_collect_user(double val) {
+
+  check_mode();
+
+  if(cur_time > ntime) {
+    fprintf(stderr, "libdft: initialized with too few points (spectrum collect).\n");
+    exit(1);
+  }
+  tdpot->value[cur_time] = val;
+
+  fprintf(stderr, "libdft: spectrum collect complete (point = %ld, value = %le K).\n", cur_time, creal(tdpot->value[cur_time]) * GRID_AUTOK);
+  cur_time++;
 }
 
 /*
@@ -2130,17 +2166,17 @@ EXPORT void dft_driver_spectrum_collect_zp(wf3d *gwf, wf3d *igwf) {
  *
  * tstep       = Time step length at which the energy difference data was collected
  *               (fs; usually the simulation time step) (double).
- * zero_offset = Frequency offset (to account for 1/omega dependency); usually zero.
+ * omega       = Detuning frequency (double).
  * tc          = Exponential decay time constant (fs; double).
  *
  * Returns a pointer to the calculated spectrum (grid1d *). X-axis in cm$^{-1}$.
  *
  */
 
-EXPORT cgrid1d *dft_driver_spectrum_evaluate(double tstep, double zero_offset, double tc) {
+EXPORT cgrid1d *dft_driver_spectrum_evaluate(double tstep, double omega, double tc) {
 
-  long i;
-  double omega, de, ct;
+  long t;
+  double de, ct;
   static cgrid1d *spectrum = NULL;
 
   check_mode();
@@ -2155,36 +2191,35 @@ EXPORT cgrid1d *dft_driver_spectrum_evaluate(double tstep, double zero_offset, d
   tc /= GRID_AUTOFS;
   if(!spectrum)
     spectrum = cgrid1d_alloc(cur_time + zerofill, GRID_HZTOCM1 / (tstep * GRID_AUTOFS * 1E-15 * (double) (cur_time + zerofill)), CGRID1D_PERIODIC_BOUNDARY, 0);
-  tdpot->value[0] = 0.0;
-  /* This is approximate form of the first order polarization (see the CPL paper) */
-  /* g(t) */
-  for (i = 1; i < cur_time; i++)
-    tdpot->value[i] = tdpot->value[i-1] + tstep * tdpot->value[i];
-  for (i = 0; i < cur_time; i++)
-    tdpot->value[i] = cexp(I * tdpot->value[i]);
+
+  /* semiclassical dipole auto correlation function */
+  spectrum->value[0] = 0.0;
+  for (t = 1; t < cur_time; t++) 
+    spectrum->value[t] = spectrum->value[t-1] + tstep * tdpot->value[t-1];
+  for (t = 0; t < cur_time; t++)
+    spectrum->value[t] = cexp(I * spectrum->value[t] / HBAR); /* transition dipole moment = 1 (TODO: sign ?) */
+
   /* exponential decay */
   if(tc > 0.0) {
-    for (i = 0; i < cur_time; i++) {
-      ct = i * (double) tstep;
+    for (t = 0; t < cur_time; t++) {
+      ct = t * (double) tstep;
       de = exp(-ct / tc);
-      tdpot->value[i] *= de;
+      spectrum->value[t] *= de;
+      fprintf(stderr, "libdft: Polarization at %le fs = %le\n", t * tstep * GRID_AUTOFS, creal(spectrum->value[t]));
     }
   }
   /* zero fill */
-  for (i = cur_time; i < cur_time + zerofill; i++)
-    tdpot->value[i] = 0.0;
-  for (i = 0; i < cur_time + zerofill; i++)
-    printf("libdft: Correlation function at %le fs = (%le, %le)\n", i * tstep * GRID_AUTOFS, creal(tdpot->value[i]), cimag(tdpot->value[i]));
+  for (t = cur_time; t < cur_time + zerofill; t++)
+    spectrum->value[t] = 0.0;
 
   /* flip zero frequency to the middle */
-  for (i = 0; i < cur_time + zerofill; i++)
-    tdpot->value[i] *= pow(-1.0, (double) i);
+  for (t = 0; t < cur_time + zerofill; t++)
+    spectrum->value[t] *= pow(-1.0, (double) t);
 
-  cgrid1d_fft(tdpot);
-  for (i = 0, omega = -0.5 * spectrum->step * (spectrum->nx - 1); i < spectrum->nx; i++, omega += spectrum->step) {
-    spectrum->value[i] = pow(creal(tdpot->value[i]), 2.0) + pow(cimag(tdpot->value[i]), 2.0);
-    if(zero_offset != 0.0) spectrum->value[i] *= zero_offset + omega;
-  }
+  cgrid1d_fft(spectrum);
+  /* power spectrum */
+  for (t = 0, omega = -0.5 * spectrum->step * (spectrum->nx - 1); t < spectrum->nx; t++)
+    spectrum->value[t] = pow(creal(spectrum->value[t]), 2.0) + pow(cimag(spectrum->value[t]), 2.0);
 
   return spectrum;
 }

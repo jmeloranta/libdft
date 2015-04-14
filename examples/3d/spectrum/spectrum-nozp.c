@@ -26,29 +26,18 @@
 #define IMITER 200
 #define REITER 400
 
-#if 0
-#define UPPER_X "potentials/cu2-b-t.dat"
-#define UPPER_Y "potentials/cu2-b-t.dat"
-#define UPPER_Z "potentials/cu2-b-l.dat"
-#else
-#define UPPER_X "potentials/cu2-b.dat"
-#define UPPER_Y "potentials/cu2-b.dat"
-#define UPPER_Z "potentials/cu2-b.dat"
-#endif
+#define UPPER_X "potentials/cu2-b-s.dat"
+#define UPPER_Y "potentials/cu2-b-s.dat"
+#define UPPER_Z "potentials/cu2-b-s.dat"
 
-#if 0
-#define LOWER_X "potentials/cu2-x-t.dat"
-#define LOWER_Y "potentials/cu2-x-t.dat"
-#define LOWER_Z "potentials/cu2-x-l.dat"
-#else
-#define LOWER_X "potentials/cu2-x.dat"
-#define LOWER_Y "potentials/cu2-x.dat"
-#define LOWER_Z "potentials/cu2-x.dat"
-#endif
+#define LOWER_X "potentials/cu2-x-s.dat"
+#define LOWER_Y "potentials/cu2-x-s.dat"
+#define LOWER_Z "potentials/cu2-x-s.dat"
 
-#define MODEL (DFT_OT_PLAIN)
+#define MODEL (DFT_OT_PLAIN | DFT_OT_HD | DFT_OT_KC | DFT_OT_BACKFLOW)
+/* #define MODEL (DFT_OT_PLAIN | DFT_OT_HD) */
 #define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
-#define TC 300.0
+#define TC 520.0
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
@@ -105,9 +94,9 @@ int main(int argc, char **argv) {
   printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
 
   dft_driver_setup_model(MODEL, DFT_DRIVER_REAL_TIME, RHO0);
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, ext_pot);
+  rgrid3d_free(ext_pot);
+  ext_pot = dft_driver_spectrum_init(REITER, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z);
   rgrid3d_add(ext_pot, -mu0);
-  dft_driver_spectrum_init(gwf, REITER, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z);
   for (iter = 0; iter < REITER; iter++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
@@ -119,7 +108,7 @@ int main(int argc, char **argv) {
       dft_driver_write_density(density, buf);
     }
   }
-  spectrum = dft_driver_spectrum_evaluate(TS, 0.0, TC);
+  spectrum = dft_driver_spectrum_evaluate(TS, 1000.0, TC);
 
   if(!(fp = fopen("spectrum.dat", "w"))) {
     fprintf(stderr, "Can't open spectrum.dat for writing.\n");
