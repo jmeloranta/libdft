@@ -15,12 +15,11 @@
 
 #define TS 5.0 /* fs */
 
-#define NX 256
-#define NY 256
-#define NZ 256
-#define STEP 0.5
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 1.0
 
-#define TMAX 4000.0 /* fs */
 #define ZEROFILL 1024
 
 #define IMITER 200
@@ -34,10 +33,11 @@
 #define LOWER_Y "potentials/cu2-x-s.dat"
 #define LOWER_Z "potentials/cu2-x-s.dat"
 
-#define MODEL (DFT_OT_PLAIN | DFT_OT_HD | DFT_OT_KC | DFT_OT_BACKFLOW)
-/* #define MODEL (DFT_OT_PLAIN | DFT_OT_HD) */
+/* #define MODEL (DFT_OT_PLAIN | DFT_OT_HD | DFT_OT_KC | DFT_OT_BACKFLOW) */
+#define MODEL (DFT_OT_PLAIN | DFT_OT_HD)
+/* #define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG) */
 #define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
-#define TC 520.0
+#define TC 150.0
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
   FILE *fp;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 16 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 32 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(MODEL, DFT_DRIVER_IMAG_TIME, RHO0);
   /* No absorbing boundary */
@@ -108,13 +108,13 @@ int main(int argc, char **argv) {
       dft_driver_write_density(density, buf);
     }
   }
-  spectrum = dft_driver_spectrum_evaluate(TS, 1000.0, TC);
+  spectrum = dft_driver_spectrum_evaluate(TS, TC);
 
   if(!(fp = fopen("spectrum.dat", "w"))) {
     fprintf(stderr, "Can't open spectrum.dat for writing.\n");
     exit(1);
   }
-  for (iter = 0, en = -0.5 * spectrum->step * (spectrum->nx - 1); iter < spectrum->nx; iter++, en += spectrum->step)
+  for (iter = 0, en = -0.5 * spectrum->step * spectrum->nx; iter < spectrum->nx; iter++, en += spectrum->step)
     fprintf(fp, "%le %le\n", en, creal(cgrid1d_value_at_index(spectrum, iter)));
   fclose(fp);
   printf("Spectrum written to spectrum.dat\n");

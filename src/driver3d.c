@@ -2166,17 +2166,15 @@ EXPORT void dft_driver_spectrum_collect_zp(wf3d *gwf, wf3d *igwf) {
  *
  * tstep       = Time step length at which the energy difference data was collected
  *               (fs; usually the simulation time step) (double).
- * omega       = Detuning frequency (double).
  * tc          = Exponential decay time constant (fs; double).
  *
  * Returns a pointer to the calculated spectrum (grid1d *). X-axis in cm$^{-1}$.
  *
  */
 
-EXPORT cgrid1d *dft_driver_spectrum_evaluate(double tstep, double omega, double tc) {
+EXPORT cgrid1d *dft_driver_spectrum_evaluate(double tstep, double tc) {
 
-  long t;
-  double de, ct;
+  long t, npts;
   static cgrid1d *spectrum = NULL;
 
   check_mode();
@@ -2189,38 +2187,70 @@ EXPORT cgrid1d *dft_driver_spectrum_evaluate(double tstep, double omega, double 
 
   tstep /= GRID_AUTOFS;
   tc /= GRID_AUTOFS;
+  npts = 2 * (cur_time + zerofill - 1);
   if(!spectrum)
-    spectrum = cgrid1d_alloc(cur_time + zerofill, GRID_HZTOCM1 / (tstep * GRID_AUTOFS * 1E-15 * (double) (cur_time + zerofill)), CGRID1D_PERIODIC_BOUNDARY, 0);
+    spectrum = cgrid1d_alloc(npts, GRID_HZTOCM1 / (tstep * GRID_AUTOFS * 1E-15 * ((double) npts)), CGRID1D_PERIODIC_BOUNDARY, 0);
 
-  /* semiclassical dipole auto correlation function */
+/* #define SEMICLASSICAL /* */
+  
+#ifndef SEMICLASSICAL
+  /* P(t) - full expression - see the Eloranta/Apkarian CPL paper on lineshapes */
+  /* Instead of propagating the liquid on the excited state, it is run on the average (V_e + V_g)/2 potential */
   spectrum->value[0] = 0.0;
-  for (t = 1; t < cur_time; t++) 
-    spectrum->value[t] = spectrum->value[t-1] + tstep * tdpot->value[t-1];
-  for (t = 0; t < cur_time; t++)
-    spectrum->value[t] = cexp(I * spectrum->value[t] / HBAR); /* transition dipole moment = 1 (TODO: sign ?) */
-
-  /* exponential decay */
-  if(tc > 0.0) {
-    for (t = 0; t < cur_time; t++) {
+  fprintf(stderr, "libdft: Polarization at time 0 fs = 0.\n");
+  for (t = 1; t < cur_time; t++) {
+    double tmp;
+    double complex tmp2;
+    long tp, tpp;
+    tmp2 = 0.0;
+    for(tp = 0; tp < t; tp++) {
+      tmp = 0.0;
+      for(tpp = tp; tpp < t; tpp++)
+	tmp += tdpot->value[tpp] * tstep;
+      tmp2 += cexp(-(I / HBAR) * tmp) * tstep;
+    }
+    spectrum->value[t] = -2.0 * cimag(tmp2) * exp(-t * tstep / tc);
+    fprintf(stderr, "libdft: Polarization at time %le fs = %le.\n", t * tstep * GRID_AUTOFS, creal(spectrum->value[t]));
+    spectrum->value[npts - t] = -spectrum->value[t];
+  }
+#else
+  { double ct, last;
+    /* This seems to perform poorly - not in use */
+    /* Construct semiclassical dipole autocorrelation function */
+    last = tdpot->value[0];
+    tdpot->value[0] = 0.0;
+    for(t = 1; t < cur_time; t++) {
+      double tmp;
+      tmp = tdpot->value[t];
+      tdpot->value[t] = tdpot->value[t-1] + tstep * (last + tmp)/2.0;
+      last = tmp;
+    }
+    
+    if(tc < 0.0) tc = -tc;
+    spectrum->value[0] = 1.0;
+    for (t = 1; t < cur_time; t++) {
       ct = t * (double) tstep;
-      de = exp(-ct / tc);
-      spectrum->value[t] *= de;
-      fprintf(stderr, "libdft: Polarization at %le fs = %le\n", t * tstep * GRID_AUTOFS, creal(spectrum->value[t]));
+      spectrum->value[t] = cexp(-I * tdpot->value[t] / HBAR - ct / tc); /* transition dipole moment = 1 */
+      spectrum->value[npts - t] = cexp(I * tdpot->value[t] / HBAR - ct / tc); /* last point rolled over */
     }
   }
+#endif
+  
   /* zero fill */
   for (t = cur_time; t < cur_time + zerofill; t++)
-    spectrum->value[t] = 0.0;
-
+    spectrum->value[t] = spectrum->value[npts - t] = 0.0;
+  
   /* flip zero frequency to the middle */
-  for (t = 0; t < cur_time + zerofill; t++)
+  for (t = 0; t < 2 * (cur_time + zerofill - 1); t++)
     spectrum->value[t] *= pow(-1.0, (double) t);
+  
+  cgrid1d_inverse_fft(spectrum);
 
-  cgrid1d_fft(spectrum);
-  /* power spectrum */
-  for (t = 0, omega = -0.5 * spectrum->step * (spectrum->nx - 1); t < spectrum->nx; t++)
-    spectrum->value[t] = pow(creal(spectrum->value[t]), 2.0) + pow(cimag(spectrum->value[t]), 2.0);
-
+#ifndef SEMI
+  for(t = 0; t < npts; t++)
+    spectrum->value[t] *= -I;
+#endif
+  
   return spectrum;
 }
 
