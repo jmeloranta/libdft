@@ -18,9 +18,9 @@
 
 /********** USER SETTINGS *********/
 
-/* #define EXP_P           /* pure exponential repulsion */
+#define EXP_P           /* pure exponential repulsion */
 /* #define ZERO_P             /* zero potential */
-#define CA_P            /* Ca+ ion */
+/* #define CA_P            /* Ca+ ion */
 /* #define K_P             /* K+ ion */
 /* #define BE_P            /* Be+ ion */
 /* #define SR_P            /* Sr+ ion */
@@ -29,37 +29,46 @@
 /* #define I_M             /* I- ion */
 /* #define BR_M            /* Br- ion */
 
-#define TIME_PROP 1    /* 0 = real time, 1 = imag time (only liquid) */
-#define TIME_STEP 1.0  /* Time step in fs (5 for real, 10 for imag) */
-#define MAXITER 60000  /* Maximum number of iterations */
-#define OUTPUT 1      /* output every this iteration */
-#define THREADS  16     /* # of parallel threads to use */
+#define TIME_PROP 0    /* 0 = real time, 1 = imag time (only liquid) */
+#define TIME_STEP 5.0  /* Time step in fs (5 for real, 10 for imag) */
+#define MAXITER 600000  /* Maximum number of iterations */
+#define OUTPUT 100     /* output every this iteration (was 1000) */
+#define THREADS  32     /* # of parallel threads to use */
 
 /* #define FORCE_SPHERICAL /* Force spherical symmetry */
-/* #define UNCOUPLED   /* Uncouple ion from the liquid */
+/* #define UNCOUPLED   /* Decouple ion from the liquid */
+/* #define ZERO_CORE   /* Zero wf above E(RMIN) energy treshold */
 
-#define NX 125          /* # of grid points along x */
-#define NY 125          /* # of grid points along y */
-#define NZ 125          /* # of grid points along z */
-#define STEP 0.6        /* spatial step length (Bohr) */
-#define DENSITY 0.0     /* bulk liquid density (0.0 = default) */
-#define DAMP 0.0    /* absorbing boundary damp coefficient (2.0E-2) */
-#define DAMP_R 20.0      /* damp at this distance from the boundary */
+#define NX 256         /* # of grid points along x */
+#define NY 256        /* # of grid points along y */
+#define NZ 512          /* # of grid points along z */
+#define STEP 1.0        /* spatial step length (Bohr) */
+#define DENSITY (0.0218360 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default) */
+#define DAMP 2.0E-1   /* absorbing boundary damp coefficient (2.0E-1) */
+#define DAMP_R 10.0      /* damp at this distance from the boundary */
 
-//#define T0 (600000.0 / GRID_AUTOFS) /* warm up period (1ps) */
-//#define EVAL 1.0E-7              /* final efield (3.98E-8) */
-//#define EFIELDZ ((global_time < T0)?((EVAL/T0) * global_time):(EVAL))
-#define EFIELDZ (1E-7) /* E field along z (3.98E-8) */
-//#define EFIELDZ 0.0     /* E field along z (imag time) */
+#if TIME_PROP == 0
+#define EFIELDZ (1E-6) /* E field along z (3.98E-8) */
+#define RISETIME 1.0 /* 1000 fs = 1ps */
+#else
+#define EFIELDZ 0.0     /* E field along z (imag time) */
+#endif
+
+/* Viscosity 1.26 micro Pa s */
+#define VISCOSITY (1.26E-6)
+/* Normal fluid fraction (0 - 1) */
+#define RHON (0.286)
+/* Stokes BC (4 = electron, 6 = positive ion) */
+#define SBC 4.0
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
 #ifdef ZERO_P
-#define IMASS (40.078 / GRID_AUTOAMU) /* ion atom mass (Ca) -- arbitrarily picked */
+#define IMASS HELIUM_MASS
 #endif
 
 #ifdef EXP_P
-#define IMASS (40.078 / GRID_AUTOAMU) /* ion atom mass (Ca) -- arbitrarily picked */
+#define IMASS (5.0*HELIUM_MASS) /* electron bubble mass */
 #endif
 
 #ifdef CA_P
@@ -94,28 +103,38 @@
 #define IMASS (79.904 / GRID_AUTOAMU) /* ion atom mass (Br) */
 #endif
 
-#define IZ 0.0                     /* ion initial position (bohr) */
+#define IZ (0.0)                     /* ion initial position (bohr) */
 #define IVZ (0.0 / 2.187691E6)     /* ion initial velocity (m/s) */
 
 double global_time;
+long iter;
 
 /************ END USER SETTINGS ************/
+
+#if TIME_PROP == 0
+double get_efield(double t) {
+
+  if(t > RISETIME) return EFIELDZ;
+  return (t / RISETIME) * EFIELDZ + 1E-20;
+}
+#else
+double get_efield(double t) { return 0.0; }
+#endif
 
 #include "verlet-3d.c"
 
 int main(int argc, char *argv[]) {
 
   cgrid3d *cworkspace;
-  rgrid3d *current_density,  *rworkspace;
+  rgrid3d *current_density,  *rworkspace, *vx, *vy, *vz, *temp;
   rgrid1d *radial;
   wf3d *gwf, *gwfp;
-  long iter;
   char filename[2048];
-  double iz = IZ, ivz = IVZ;
-  double piz, pivz;
+  double iz = IZ, ivz = IVZ, tmp;
+  double piz, pivz, mu0, rho0;
   double iaz = 0.0;
   double piaz;
-  double fz;
+  double fz, emax;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
@@ -148,7 +167,13 @@ int main(int argc, char *argv[]) {
   cworkspace = dft_driver_alloc_cgrid();
   rworkspace = dft_driver_alloc_rgrid();
   radial = rgrid1d_alloc(NZ, STEP, RGRID1D_PERIODIC_BOUNDARY, 0);
-
+  temp = dft_driver_alloc_rgrid();
+  vx = dft_driver_alloc_rgrid();
+  vy = dft_driver_alloc_rgrid();
+  vz = dft_driver_alloc_rgrid();
+  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
+  rho0 = dft_driver_otf->rho0;
+  
   iter = 0;
   if(!TIME_PROP) {  /* ext_pot is temp here */
     dft_driver_read_density(current_density, "classical-3d"); /* Initial density */
@@ -175,7 +200,7 @@ int main(int argc, char *argv[]) {
 
     global_time = (TIME_STEP / GRID_AUTOFS) * (double) iter;
 
-    fprintf(stderr, "Current EFIELDZ = %le\n", EFIELDZ);
+    fprintf(stderr, "Current EFIELDZ = %le\n", get_efield(iter * TIME_STEP));
 
 #ifdef FORCE_SPHERICAL
     fprintf(stderr, "Forcing spherical symmetry.\n");
@@ -186,6 +211,29 @@ int main(int argc, char *argv[]) {
     grid3d_wf_density(gwf, current_density);
     ZI = iz;
     rgrid3d_map(rworkspace, pot_func, NULL);
+    rgrid3d_add(rworkspace, -mu0);    
+    if(!TIME_PROP) {
+      /* Viscosity */
+      dft_driver_veloc_field(gwf, vx, vy, vz);
+      rgrid3d_fd_gradient_x(vx, temp);
+      rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / DENSITY);
+      rgrid3d_sum(rworkspace, rworkspace, temp);
+      rgrid3d_fd_gradient_y(vy, temp);
+      rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / DENSITY);
+      rgrid3d_sum(rworkspace, rworkspace, temp);
+      rgrid3d_fd_gradient_z(vz, temp);
+      rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / DENSITY);
+      rgrid3d_sum(rworkspace, rworkspace, temp);
+      /* End viscosity */
+    }
+#ifdef ZERO_CORE
+    /* zero core */
+    tmp = ZI; ZI = 0.0;
+    emax = pot_func(NULL, 0.0, 0.0, RMIN);
+    ZI = tmp;
+    dft_driver_clear(gwf, rworkspace, emax);
+    /* end core zero */
+#endif
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, rworkspace, gwf, gwfp, cworkspace, TIME_STEP, iter);
     if(!TIME_PROP) {
       ZI = iz;
@@ -196,22 +244,49 @@ int main(int argc, char *argv[]) {
       (void) propagate_impurity(&piz, &pivz, &piaz, current_density);
       ZI = piz;
       rgrid3d_map(rworkspace, pot_func, NULL);
+      rgrid3d_add(rworkspace, -mu0);    
+      if(!TIME_PROP) {
+        /* Viscosity */
+        dft_driver_veloc_field(gwfp, vx, vy, vz);
+	rgrid3d_fd_gradient_x(vx, temp);
+	rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / DENSITY);
+	rgrid3d_sum(rworkspace, rworkspace, temp);
+	rgrid3d_fd_gradient_y(vy, temp);
+	rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / DENSITY);
+	rgrid3d_sum(rworkspace, rworkspace, temp);
+	rgrid3d_fd_gradient_z(vz, temp);
+	rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / DENSITY);
+	rgrid3d_sum(rworkspace, rworkspace, temp);
+	/* End viscosity */
+      }
     }
     /* CORRECT */
+#ifdef ZERO_CORE
+    /* Zero core */
+    tmp = ZI; ZI = 0.0;
+    emax = pot_func(NULL, 0.0, 0.0, RMIN);
+    ZI = tmp;
+    dft_driver_clear(gwfp, rworkspace, emax);
+    /* End core zero */
+#endif
     (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, rworkspace, gwf, gwfp, cworkspace, TIME_STEP, iter);
     if(!TIME_PROP) {
+      double mobility;
       ZI = iz;
       grid3d_wf_density(gwf, current_density);
       fz = propagate_impurity(&iz, &ivz, &iaz, current_density);
       fprintf(stderr, "z = %le [a.u.].\n", iz);
       fprintf(stderr, "v = %le [m/s].\n", ivz * 2.187691E6);
-      fprintf(stderr, "Added mass = %le (in units of He atoms).\n", IMASS * ((EFIELDZ / fz) - 1.0) / HELIUM_MASS);
-      fprintf(stderr, "Added mass_2 = %le (in units of He atoms).\n", ((2.0 * EFIELDZ * (iz - IZ) / (ivz * ivz)) - IMASS) / HELIUM_MASS);
+      fprintf(stderr, "Added mass = %le (in units of He atoms).\n", IMASS * ((get_efield(iter * TIME_STEP) / fz) - 1.0) / HELIUM_MASS);
+      fprintf(stderr, "Added mass_2 = %le (in units of He atoms).\n", ((2.0 * get_efield(iter * TIME_STEP) * (iz - IZ) / (ivz * ivz)) - IMASS) / HELIUM_MASS);
       ZI = iz;
       fprintf(stderr, "PE = %le K.\n", rgrid3d_weighted_integral(current_density, pot_func, NULL) * GRID_AUTOK);
-      fprintf(stderr, "f_z = %le, f_z - EFIELDZ = %le\n", fz, fz - EFIELDZ);
+      fprintf(stderr, "f_z = %le, f_z - EFIELDZ = %le\n", fz, fz - get_efield(iter * TIME_STEP));
       //      fprintf(stderr, "R_b = %le\n", dft_driver_spherical_rb(current_density));
-      fprintf(stderr, "Mobility = %le [cm^2/(Vs)]\n", 100.0 * ivz * 2.187691E6 / (EFIELDZ * 5.1422E9));
+      mobility = ivz * 2.187691E6 / (get_efield(iter * TIME_STEP) * 5.142206E11); /* m^2 / (Vs) */
+      fprintf(stderr, "Mobility = %le [cm^2/(Vs)]\n", 1E4 * mobility);
+      /* R = e / (SBC * pi * mobility * rhon * visc) */
+      fprintf(stderr, "Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
     }
     
     /* Write output to a file iter3d-XX.{x,y,z,grd} */

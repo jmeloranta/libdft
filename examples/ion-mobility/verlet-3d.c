@@ -26,8 +26,8 @@ double ZI; /* global variables for ion coords */
 #define A3 0.0
 #define A4 0.0
 #define A5 0.0
-#define RMIN 3.0
-#define RADD (-8.0)
+#define RMIN 0.1
+#define RADD (-20.0)
 #endif
 
 /* Ca+ */
@@ -146,18 +146,7 @@ double pot_func(void *asd, double x, double y, double z) {
   double r = sqrt(x * x + y * y + (z - ZI) * (z - ZI)) + RADD;
   double r2, r4, r6, r8, r10, tmp;
 
-  //  if(r < RMIN) r = RMIN;
-  if(r < RMIN) {
-    double rt = r;
-    r = RMIN;
-    r2 = r * r;
-    r4 = r2 * r2;
-    r6 = r4 * r2;
-    r8 = r6 * r2;
-    r10 = r8 * r2;
-    tmp = A0 * exp(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
-    return 0.5 * (RMIN - rt) / RMIN + tmp;
-  }
+  if(r < RMIN) r = RMIN;
   r2 = r * r;
   r4 = r2 * r2;
   r6 = r4 * r2;
@@ -173,7 +162,7 @@ double pot_func(void *asd, double x, double y, double z) {
 double force(rgrid3d *density, double z) {
 
   ZI = z;
-  return -rgrid3d_weighted_integral(density, dpot_func, NULL) + EFIELDZ;
+  return -rgrid3d_weighted_integral(density, dpot_func, NULL) + get_efield(iter * TIME_STEP);
 }
 
 double propagate_impurity(double *z, double *vz, double *az, rgrid3d *density) {
@@ -185,28 +174,11 @@ double propagate_impurity(double *z, double *vz, double *az, rgrid3d *density) {
   *z += vhalf * time_step;
   fz = force(density, *z);
 #ifdef UNCOUPLED
-  *az = EFIELDZ / IMASS;
+  *az = get_efield(iter * TIME_STEP) / IMASS;
 #else
   *az = fz / IMASS;
 #endif
   *vz = vhalf + 0.5 * (*az) * time_step;
 
   return fz;
-}
-
-void zero_core(wf2d *wf) {
-
-  long i, j, k;
-  double x, y, z;
-
-  for (i = 0; i < NZ; i++) {
-    x = (i - NX/2) * STEP;
-    for (j = 0; j < NY; j++) { 
-      y = (j - NY/2) * STEP;
-      for (k = 0; k < NZ; k++) {
-	z = (k - NZ/2) * STEP;
-	if(sqrt(x * x + y * y + (z - ZI) * (z - ZI)) < RMIN) wf->grid->value[i * NY * NZ + j * NZ + k] = 0.0;
-      }
-    }
-  }
 }

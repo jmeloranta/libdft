@@ -241,9 +241,6 @@ static double C[LENC] = {-0.00022908, 1.0032, 0.18414, 0.03958, -0.0024563, 0.05
 #define LEND 5
 static double D[LEND] = {5.913E-5, 0.99913, -0.35069, 0.053981, -0.0038613};
 
-/* Boltzmann constant in au */
-#define DFT_KB 3.1668773658e-06
-
 /*
  * Return thermal wavelength for a particle with mass "mass" at temperature
  * "temp".
@@ -255,27 +252,8 @@ EXPORT inline double dft_common_lwl3(double mass, double temp) {
   double lwl;
 
   /* hbar = 1 */
-  lwl = sqrt(2.0 * M_PI / (mass * DFT_KB * temp));
+  lwl = sqrt(2.0 * M_PI * HBAR * HBAR / (mass * GRID_AUKB * temp));
   return lwl * lwl * lwl;
-}
-
-/*
- * Evaluate z(rho, T) (polylog).
- *
- */
-
-EXPORT inline double dft_common_fit_z(double val) {
-
-  int i;
-  double rv = 0.0, e = 1.0;
-
-  if(val >= 2.583950) return 1.0; /* g_{3/2}(1) */
-  for (i = 0; i < LEND; i++) {
-    rv += D[i] * e;
-    e *= val;
-  }
-  if(rv <= 0.0) rv = 1E-6;
-  return rv;
 }
 
 /* 
@@ -289,13 +267,14 @@ EXPORT inline double dft_common_fit_g12(double z) {
   double rv = 0.0, e = 1.0;
 
   if(fabs(z) > 1.0) fprintf(stderr, "polylog: warning |z| > 1.\n");
+  if(fabs(z) < 0.1) return z;   /* linear region -- causes a small discontinuous step (does this work for negative z?; well we don't need those amyway) */
   z -= 1.0;
   rv = A[0] / (z + EPS);
-  for (i = 0; i < LENA-1; i++) {   /* reduced to LENA - 1 otherwise would overflow the array access */
-    rv += A[i+1] * e;
+  for (i = 1; i < LENA; i++) {   /* reduced to LENA - 1 otherwise would overflow the array access */
+    rv += A[i] * e;
     e *= z;
   }
-  if(z + 1.0 > 0.0 && rv < 0.0) rv = 0.0; /* small values may give wrong sign */
+  if(z + 1.0 > 0.0 && rv < 0.0) rv = 0.0; /* small values may give wrong sign (is this still neded?) */
   return rv;
 }
 
@@ -332,6 +311,27 @@ EXPORT inline double dft_common_fit_g52(double z) {
     rv += C[i] * e;
     e *= z;
   }
+  if(z < 1E-3) return 0.0;
+  return rv;
+}
+
+
+/*
+ * Evaluate z(rho, T) (polylog). Invert g_{3/2}.
+ *
+ */
+
+EXPORT inline double dft_common_fit_z(double val) {
+
+  int i;
+  double rv = 0.0, e = 1.0;
+
+  if(val >= dft_common_fit_g32(1.0)) return 1.0; /* g_{3/2}(1) */
+  for (i = 0; i < LEND; i++) {
+    rv += D[i] * e;
+    e *= val;
+  }
+  if(rv <= 0.0) rv = 1E-6;
   return rv;
 }
 
@@ -358,13 +358,13 @@ EXPORT double dft_common_idealgas_op(double rhop) {
 
   l3 = dft_common_lwl3(XXX_mass, XXX_temp);
   rl3 = rhop * l3;
-  if(rl3 >= 2.583950) return 0.0;
-  z0 = dft_common_fit_z(rl3);
+  if(rl3 >= dft_common_fit_g32(1.0)) return 0.0;
+  z0 = dft_common_fit_z(rl3);    /* check these fits */
   g12 = dft_common_fit_g12(z0);
   g32 = dft_common_fit_g32(z0);
 
   /* note g12 may be zero too - avoid NaNs... */
-  tmp = XXX_c4 * DFT_KB * XXX_temp * (log(z0 + EPS) + rl3 / (g12 + EPS) - g32 / (g12 + EPS));
+  tmp = XXX_c4 * GRID_AUKB * XXX_temp * (log(z0 + EPS) + rl3 / (g12 + EPS) - g32 / (g12 + EPS));
   /* The above term is ill behaved at low densities */
   if(fabs(tmp) > CUTOFF) {
     if(tmp < 0.0) return -CUTOFF;
@@ -378,7 +378,7 @@ EXPORT double dft_common_idealgas_energy_op(double rhop) {
 
   l3 = dft_common_lwl3(XXX_mass, XXX_temp);
   z = dft_common_fit_z(rhop * l3);
-  return (XXX_c4 * DFT_KB * XXX_temp * (rhop * log(z) - dft_common_fit_g52(z) / l3));
+  return (XXX_c4 * GRID_AUKB * XXX_temp * (rhop * log(z) - dft_common_fit_g52(z) / l3));
 }
 
 /*

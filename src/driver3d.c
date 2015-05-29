@@ -546,7 +546,7 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
   }
   /* absorbing boundary - imaginary potential */
   if(driver_boundary_type == 1 && !what && !driver_iter_mode) {
-    fprintf(stderr, "libdft: Predict - absorbing boundary for helium ; imaginary potential.\n");
+    fprintf(stderr, "libdft: Predict - absorbing boundary for helium; imaginary potential.\n");
     grid3d_wf_absorb(potential, density, driver_rho0, region_func, workspace1, (driver_iter_mode==1) ? I:1.0);
   }
   /* External potential for Helium */
@@ -559,7 +559,7 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
 
   /* wavefunction damping  */
   if(driver_boundary_type == 2 && !what && !driver_iter_mode) {
-    fprintf(stderr, "libdft: Predict - absorbing boundary for helium ; wavefunction damping.\n");
+    fprintf(stderr, "libdft: Predict - absorbing boundary for helium; wavefunction damping.\n");
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
     grid3d_damp_wf(gwfp, driver_rho0, damp, cregion_func, cworkspace, NULL) ; 
@@ -620,7 +620,7 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
   
   /* absorbing boundary */
   if(driver_boundary_type == 1 && !what && !driver_iter_mode) {
-    fprintf(stderr, "libdft: Correct - absorbing boundary for helium ; imaginary potential.\n");
+    fprintf(stderr, "libdft: Correct - absorbing boundary for helium; imaginary potential.\n");
     grid3d_wf_absorb(potential, density, driver_rho0, region_func, workspace1, (driver_iter_mode==1) ? I:1.0);
   }  
   /* External potential for Helium */
@@ -678,7 +678,7 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
   
   /* wavefunction damping  */
   if(driver_boundary_type == 2 && !what && !driver_iter_mode) {
-    fprintf(stderr, "libdft: Correct - absorbing boundary for helium ; wavefunction damping.\n");
+    fprintf(stderr, "libdft: Correct - absorbing boundary for helium; wavefunction damping.\n");
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
     grid3d_damp_wf(gwf, driver_rho0, damp, cregion_func, cworkspace,  NULL) ; 
@@ -2239,13 +2239,14 @@ EXPORT cgrid1d *dft_driver_spectrum_evaluate(double tstep, double tc) {
   /* zero fill */
   for (t = cur_time; t < cur_time + zerofill; t++)
     spectrum->value[t] = spectrum->value[npts - t] = 0.0;
-  
+
   /* flip zero frequency to the middle */
   for (t = 0; t < 2 * (cur_time + zerofill - 1); t++)
     spectrum->value[t] *= pow(-1.0, (double) t);
   
   cgrid1d_inverse_fft(spectrum);
 
+  /* Make the spectrum appear in the real part rather than imaginary */
 #ifndef SEMI
   for(t = 0; t < npts; t++)
     spectrum->value[t] *= -I;
@@ -2263,6 +2264,9 @@ EXPORT cgrid1d *dft_driver_spectrum_evaluate(double tstep, double tc) {
  * vy    = Velocity field y component (output; rgrid3d *).
  * vz    = Velocity field z component (output; rgrid3d *).
  *
+ * Note: This routine caps the maximum liquid velocity using
+ *       DFT_BF_EPS.
+ *
  */
 
 EXPORT void dft_driver_veloc_field(wf3d *wf, rgrid3d *vx, rgrid3d *vy, rgrid3d *vz) {
@@ -2271,11 +2275,9 @@ EXPORT void dft_driver_veloc_field(wf3d *wf, rgrid3d *vx, rgrid3d *vy, rgrid3d *
 
   grid3d_wf_probability_flux(wf, vx, vy, vz);
   grid3d_wf_density(wf, workspace1);
-  // TODO: Should we do this? (numerical stability)
-  //  rgrid3d_add(workspace4, DFT_BF_EPS);
-  rgrid3d_division(vx, vx, workspace1);
-  rgrid3d_division(vy, vy, workspace1);
-  rgrid3d_division(vz, vz, workspace1);
+  rgrid3d_division_eps(vx, vx, workspace1, DFT_BF_EPS);  
+  rgrid3d_division_eps(vy, vy, workspace1, DFT_BF_EPS);
+  rgrid3d_division_eps(vz, vz, workspace1, DFT_BF_EPS);
 }
 
 /*

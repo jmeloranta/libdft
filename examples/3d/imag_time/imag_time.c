@@ -24,13 +24,13 @@ int main(int argc, char **argv) {
   double energy, natoms, mu0, rho0;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(128, 128, 128, 1.0 /* Bohr */, 32 /* threads */);
+  dft_driver_setup_grid(256, 256, 256, 0.5 /* Bohr */, 32 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN | DFT_OT_KC, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   /* Normalization condition */
-  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 0, 0.0, 0);
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
 
   /* Initialize the DFT driver */
   dft_driver_initialize();
@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
 
   /* Read external potential from file */
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "he2-He.dat-spline", "he2-He.dat-spline", "he2-He.dat-spline", ext_pot);
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "cu2-x-s-ccsdt.dat", "cu2-x-s-ccsdt.dat", "cu2-x-s-ccsdt.dat", ext_pot);
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
   rgrid3d_add(ext_pot, -mu0);
   rho0 = dft_driver_otf->rho0;
