@@ -20,12 +20,12 @@
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 32	/* # of parallel threads to use */
-#define NX 256      	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256        	/* # of grid points along z */
+#define NX 128      	/* # of grid points along x */
+#define NY 128          /* # of grid points along y */
+#define NZ 128        	/* # of grid points along z */
 #define STEP 1.0        /* spatial step length (Bohr) */
 /* Note: density at 1.8 K */
-#define DENSITY (0.0218735 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default at SVP) */
+#define DENSITY (0.021920 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default at SVP) */
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
 /* velocity components */
@@ -38,8 +38,8 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define VISCOSITY (1.26E-6) /* In Pa s */
-#define RHON    0.286       /* normal fraction (0.286) */
+#define VISCOSITY (1.406E-6) /* In Pa s */
+#define RHON    0.566       /* normal fraction (0.286) */
 #define SBC     4.0         /* boundary condition: 4 = electron, 6 = + ion */
 
 /* Ion */
@@ -212,7 +212,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_momentum(KX, KY, KZ);
 
   /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(DFT_OT_T1800MK, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
+  dft_driver_setup_model(DFT_OT_T2100MK, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
 
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
@@ -222,8 +222,8 @@ int main(int argc, char *argv[]) {
   /* Initialize */
   dft_driver_initialize();
 
-  /* bulk normalization */
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
+  /* bulk normalization -- dft_ot_bulk routines do not work properly with T > 0 K */
+  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density(dft_driver_otf);
@@ -264,13 +264,13 @@ int main(int argc, char *argv[]) {
     if(RHON != 0.0) {
       dft_driver_veloc_field(gwf, vx, vy, vz);
       rgrid3d_fd_gradient_x(vx, temp);
-      rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / rho0);
+      rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / DENSITY);
       rgrid3d_sum(ext_pot2, ext_pot2, temp);
       rgrid3d_fd_gradient_y(vy, temp);
-      rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / rho0);
+      rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / DENSITY);
       rgrid3d_sum(ext_pot2, ext_pot2, temp);
       rgrid3d_fd_gradient_z(vz, temp);
-      rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / rho0);
+      rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / DENSITY);
       rgrid3d_sum(ext_pot2, ext_pot2, temp);
     }
     /* End viscous response */
