@@ -16,7 +16,7 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 5.0	/* Time step in fs (5 for real, 10 for imag) */
+#define TIME_STEP 50.0	/* Time step in fs (5 for real, 10 for imag) */
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 32	/* # of parallel threads to use */
@@ -305,6 +305,7 @@ int main(int argc, char *argv[]) {
       grid3d_wf_density(gwf, density);                     /* Density from gwf */
       force = -rgrid3d_weighted_integral(density, dpot_func, NULL);
       printf("Force = %le a.u.\n", force);
+      printf("E-field = %le V/m\n", force * GRID_AUTOVPM);
       mobility = VX * GRID_AUTOMPS / (force * GRID_AUTOVPM);
       printf("Mobility = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
       printf("Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
