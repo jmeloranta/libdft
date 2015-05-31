@@ -40,7 +40,7 @@
 
 #define VISCOSITY (1.406E-6) /* In Pa s */
 #define RHON    0.566       /* normal fraction (0.286) */
-#define SBC     4.0         /* boundary condition: 4 = electron, 6 = + ion */
+#define SBC     4.0         /* boundary condition: 4 = electron, 6 = + ion (for Stokes) */
 
 /* Ion */
 #define EXP_P
@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
 
   wf3d *gwf, *gwfp;
   cgrid3d *cworkspace;
-  rgrid3d *ext_pot, *ext_pot2, *density, *current, *temp, *vx, *vy, *vz;
+  rgrid3d *ext_pot, *density, *current;
   long iter;
   char filename[2048];
   double kin, pot;
@@ -218,6 +218,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
   dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
+  dft_driver_setup_viscosity(VISCOSITY * RHON);    /* set viscosity */
   
   /* Initialize */
   dft_driver_initialize();
@@ -235,13 +236,8 @@ int main(int argc, char *argv[]) {
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS); /* order parameter for future (predict) */
   cworkspace = dft_driver_alloc_cgrid();             /* allocate complex workspace */
   ext_pot = dft_driver_alloc_rgrid();                /* allocate real external potential grid */
-  ext_pot2 = dft_driver_alloc_rgrid();
   density = dft_driver_alloc_rgrid();                /* allocate real density grid */
   current = dft_driver_alloc_rgrid();                /* allocate real density grid */
-  temp = dft_driver_alloc_rgrid();
-  vx = dft_driver_alloc_rgrid();
-  vy = dft_driver_alloc_rgrid();
-  vz = dft_driver_alloc_rgrid();
   
   fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = ( %le , %le ,%le ) (A/ps)\n", 
@@ -259,23 +255,8 @@ int main(int argc, char *argv[]) {
 
   for(iter = 0; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
     /*2. Predict + correct */
-    /* Viscous response */
-    rgrid3d_copy(ext_pot2, ext_pot);
-    if(RHON != 0.0) {
-      dft_driver_veloc_field(gwf, vx, vy, vz);
-      rgrid3d_fd_gradient_x(vx, temp);
-      rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / DENSITY);
-      rgrid3d_sum(ext_pot2, ext_pot2, temp);
-      rgrid3d_fd_gradient_y(vy, temp);
-      rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / DENSITY);
-      rgrid3d_sum(ext_pot2, ext_pot2, temp);
-      rgrid3d_fd_gradient_z(vz, temp);
-      rgrid3d_multiply(temp, -(VISCOSITY/GRID_AUTOPAS) * RHON / DENSITY);
-      rgrid3d_sum(ext_pot2, ext_pot2, temp);
-    }
-    /* End viscous response */
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
     
     if(iter && !(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       double force, mobility;

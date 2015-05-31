@@ -8,5 +8,5 @@ added_mass2: added_mass2.o
 added_mass2.o: added_mass2.c
 	        $(CC) $(CFLAGS) -c added_mass2.c
 clean:
-	-rm added_mass2
+	-rm added_mass2 added_mass2.o
 

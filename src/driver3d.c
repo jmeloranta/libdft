@@ -48,7 +48,7 @@ static rgrid3d *workspace8 = 0;
 static rgrid3d *workspace9 = 0;
 static cgrid3d *cworkspace = 0;
 static grid_timer timer;
-static double damp = 0.2;
+static double damp = 0.2, viscosity = 0.0;
 
 int dft_internal_using_3d = 0;
 extern int dft_internal_using_2d, dft_internal_using_cyl;
@@ -306,11 +306,12 @@ EXPORT void dft_driver_setup_grid(long nx, long ny, long nz, double step, long t
  * Can be overwritten for a particular grid calling (r/c)grid3d_set_origin
  *
  */
-EXPORT void dft_driver_setup_origin(double x0, double y0, double z0){
-	driver_x0 = x0 ;
-	driver_y0 = y0 ;
-	driver_z0 = z0 ;
-	fprintf(stderr, "libdft: Origin of coordinates set at (%le,%le,%le)\n", x0, y0, z0 );
+EXPORT void dft_driver_setup_origin(double x0, double y0, double z0) {
+
+  driver_x0 = x0;
+  driver_y0 = y0;
+  driver_z0 = z0;
+  fprintf(stderr, "libdft: Origin of coordinates set at (%le,%le,%le)\n", x0, y0, z0);
 }
 
 /*
@@ -318,11 +319,26 @@ EXPORT void dft_driver_setup_origin(double x0, double y0, double z0){
  * Can be overwritten for a particular grid calling (r/c)grid3d_set_momentum
  *
  */
-EXPORT void dft_driver_setup_momentum(double kx0, double ky0, double kz0){
-	driver_kx0 = kx0 ;
-	driver_ky0 = ky0 ;
-	driver_kz0 = kz0 ;
-	fprintf(stderr, "libdft: Frame of reference momentum = (%le,%le,%le)\n", kx0, ky0, kz0 );
+EXPORT void dft_driver_setup_momentum(double kx0, double ky0, double kz0) {
+
+  driver_kx0 = kx0;
+  driver_ky0 = ky0;
+  driver_kz0 = kz0;
+  fprintf(stderr, "libdft: Frame of reference momentum = (%le,%le,%le)\n", kx0, ky0, kz0);
+}
+
+/*
+ * Set effective visocisty.
+ *
+ * visc = effective Viscosity in Pa s (SI) units. This is typically the normal fraction x normal fluid viscosity.
+ *        (default value 0.0)
+ *
+ */
+
+EXPORT void dft_driver_setup_viscosity(double visc) {
+
+  viscosity = (visc / GRID_AUTOPAS) / driver_rho0;
+  fprintf(stderr, "libdft: Effective viscosity set to %le a.u.\n", visc / GRID_AUTOPAS);
 }
 
 /*
@@ -344,8 +360,7 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
 
   driver_dft_model = dft_model;
   driver_iter_mode = iter_mode;
-  if(been_here)
-	  fprintf(stderr,"libdft: WARNING -- Overwritting driver_rho0 to %le\n", rho0) ;
+  if(been_here) fprintf(stderr,"libdft: WARNING -- Overwritting driver_rho0 to %le\n", rho0) ;
   driver_rho0 = rho0;
 }
 
@@ -543,6 +558,22 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
   if(!what) {
     grid3d_wf_density(gwfp, density);
     dft_ot3d_potential(dft_driver_otf, potential, gwfp, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
+    /* add viscous response */
+    if(viscosity > 0.0) {
+      dft_driver_veloc_field(gwfp, workspace2, workspace3, workspace4); // Watch out! workspace1 used by veloc_field!
+      /* x */
+      rgrid3d_fd_gradient_x(workspace2, workspace5);
+      rgrid3d_multiply(workspace5, -viscosity);
+      grid3d_add_real_to_complex_re(potential, workspace5);
+      /* y */
+      rgrid3d_fd_gradient_y(workspace3, workspace5);
+      rgrid3d_multiply(workspace5, -viscosity);
+      grid3d_add_real_to_complex_re(potential, workspace5);
+      /* z */
+      rgrid3d_fd_gradient_z(workspace4, workspace5);
+      rgrid3d_multiply(workspace5, -viscosity);
+      grid3d_add_real_to_complex_re(potential, workspace5);
+    }
   }
   /* absorbing boundary - imaginary potential */
   if(driver_boundary_type == 1 && !what && !driver_iter_mode) {
@@ -616,6 +647,22 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
     // end diag print
     // no zeroing - add to the previous potential to get avg (new)
     dft_ot3d_potential(dft_driver_otf, potential, gwfp, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
+    /* add viscous response */
+    if(viscosity > 0.0) {
+      dft_driver_veloc_field(gwfp, workspace2, workspace3, workspace4); // Watch out! workspace1 used by veloc_field!
+      /* x */
+      rgrid3d_fd_gradient_x(workspace2, workspace5);
+      rgrid3d_multiply(workspace5, -viscosity);
+      grid3d_add_real_to_complex_re(potential, workspace5);
+      /* y */
+      rgrid3d_fd_gradient_y(workspace3, workspace5);
+      rgrid3d_multiply(workspace5, -viscosity);
+      grid3d_add_real_to_complex_re(potential, workspace5);
+      /* z */
+      rgrid3d_fd_gradient_z(workspace4, workspace5);
+      rgrid3d_multiply(workspace5, -viscosity);
+      grid3d_add_real_to_complex_re(potential, workspace5);
+    }
   }
   
   /* absorbing boundary */
