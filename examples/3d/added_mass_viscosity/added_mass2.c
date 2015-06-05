@@ -16,16 +16,15 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 50.0	/* Time step in fs (5 for real, 10 for imag) */
+#define TIME_STEP 100.0	/* Time step in fs (5 for real, 10 for imag) */
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 32	/* # of parallel threads to use */
-#define NX 128      	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128        	/* # of grid points along z */
-#define STEP 1.0        /* spatial step length (Bohr) */
-/* Note: density at 1.8 K */
-#define DENSITY (0.021920 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default at SVP) */
+#define NX 64      	/* # of grid points along x */
+#define NY 64          /* # of grid points along y */
+#define NZ 64      	/* # of grid points along z */
+#define STEP 2.0        /* spatial step length (Bohr) */
+
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
 /* velocity components */
@@ -38,10 +37,58 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define VISCOSITY (1.406E-6) /* In Pa s */
-#define RHON    0.566       /* normal fraction (0.286) */
-#define SBC     4.0         /* boundary condition: 4 = electron, 6 = + ion (for Stokes) */
+#define T2100MK
 
+#ifdef T2100MK
+/* Exp mobility = 0.0492 cm^2/Vs - gives 0.096 (well conv. kc+bf 0.087) */
+#define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define VISCOSITY (1.71877E-6) /* In Pa s */
+#define RHON    20.752       /* normal fraction (0.752) */
+#define FUNCTIONAL DFT_OT_T2100MK
+#endif
+
+#ifdef T1800MK
+/* Exp mobility = 0.097 cm^2/Vs - gives 0.287 */
+#define DENSITY (0.021885 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define VISCOSITY (1.25E-6) /* In Pa s */
+#define RHON    0.35       /* normal fraction */
+#define FUNCTIONAL DFT_OT_T1800MK
+#endif
+  
+#ifdef T1600MK
+/* Exp mobiolity = 0.183 cm^2/Vs - gives 0.565 */
+#define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define VISCOSITY (1.30977E-6) /* In Pa s */
+#define RHON    0.171       /* normal fraction */
+#define FUNCTIONAL DFT_OT_T1600MK
+#endif
+
+#ifdef T1200MK
+/* Exp mobility = 1.0 cm^2/Vs - gives 2.45 */
+#define DENSITY (0.021846 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define VISCOSITY (1.809E-6) /* In Pa s */
+#define RHON    0.0289       /* normal fraction */
+#define FUNCTIONAL DFT_OT_T1200MK
+#endif
+
+#ifdef T800MK
+/* Exp mobility = 20.86 cm^2/Vs - gives 8.17 (512/0.1 grid gives maybe slightly higher */
+#define DENSITY (0.021876 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define VISCOSITY (15.823E-6) /* In Pa s */
+#define RHON    0.001       /* normal fraction (Donnelly 0.001, nist 0.0025) */
+#define FUNCTIONAL DFT_OT_T800MK
+#endif
+
+#ifdef T400MK
+/* Exp mobiolity = 438 cm^2/Vs - gives 395 */
+#define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define VISCOSITY (114.15E-6) /* In Pa s */
+#define RHON    2.89188E-6       /* normal fraction */
+#define FUNCTIONAL DFT_OT_T400MK
+#endif
+
+#define SBC     4.0         /* boundary condition: 4 = electron, 6 = + ion (for Stokes) */
+  
 /* Ion */
 #define EXP_P
 
@@ -167,7 +214,7 @@
 /* Impurity must always be at the origin */
 double dpot_func(void *NA, double x, double y, double z) {
 
-  double r = sqrt(x * x + y * y + z * z) + RADD;
+  double rp = sqrt(x * x + y * y + z * z), r = rp + RADD;
   double r2 = r * r;
   double r3 = r2 * r;
   double r5 = r2 * r3;
@@ -176,7 +223,7 @@ double dpot_func(void *NA, double x, double y, double z) {
   double r11 = r9 * r2;
   
   if(r < RMIN) return 0.0;   /* hopefully no liquid density in the core region */
-  return (x / r) * (-A0 * A1 * exp(-A1 * r) + 4.0 * A2 / r5 + 6.0 * A3 / r7 + 8.0 * A4 / r9 + 10.0 * A5 / r11);
+  return (x / rp) * (-A0 * A1 * exp(-A1 * r) + 4.0 * A2 / r5 + 6.0 * A3 / r7 + 8.0 * A4 / r9 + 10.0 * A5 / r11);
 }
 
 double pot_func(void *asd, double x, double y, double z) {
@@ -212,7 +259,8 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_momentum(KX, KY, KZ);
 
   /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(DFT_OT_T2100MK, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
+  //  dft_driver_setup_model(FUNCTIONAL | DFT_OT_HD | DFT_OT_KC | DFT_OT_BACKFLOW, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
+  dft_driver_setup_model(FUNCTIONAL, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
 
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
@@ -245,6 +293,7 @@ int main(int argc, char *argv[]) {
 		  VY * 1000.0 * GRID_AUTOANG / GRID_AUTOFS,
 		  VZ * 1000.0 * GRID_AUTOANG / GRID_AUTOFS);
 
+  
   /* Read pair potential from file and do FFT */
 #if 1
   rgrid3d_map(ext_pot, pot_func, NULL);
@@ -278,19 +327,30 @@ int main(int argc, char *argv[]) {
 	grid3d_wf_probability_flux_y(gwf, current);
       else
 	grid3d_wf_probability_flux_z(gwf, current);
-
+      
       if(VX != 0.0)
 	printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(current) / VX); 
       else
 	printf("VX = 0, no added mass.\n");
       grid3d_wf_density(gwf, density);                     /* Density from gwf */
-      force = -rgrid3d_weighted_integral(density, dpot_func, NULL);
-      printf("Force = %le a.u.\n", force);
-      printf("E-field = %le V/m\n", force * GRID_AUTOVPM);
-      mobility = VX * GRID_AUTOMPS / (force * GRID_AUTOVPM);
+#if 0
+      rgrid3d_map(density, pot_func, NULL);
+      rgrid3d_fd_gradient_x(density, current);
+      grid3d_wf_density(gwf, density);
+      rgrid3d_product(density, density, current);
+      force = -rgrid3d_integral(density);
+#else
+      force = rgrid3d_weighted_integral(density, dpot_func, NULL); /* force on ion - should be - but gives wrong sign?? */
+#endif
+      printf("Drag force on ion = %le a.u.\n", force);
+      printf("E-field = %le V/m\n", -force * GRID_AUTOVPM);
+      mobility = VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
       printf("Mobility = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
       printf("Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
+      dft_driver_veloc_field_x(gwf, density);
+      printf("Current ion velocity (front) = %le m/s.\n", -rgrid3d_value(density, -62.0, 0.0, 0.0) * GRID_AUTOMPS);
 
+      grid3d_wf_density(gwf, density);
       sprintf(filename, "liquid-%ld", iter);              
       dft_driver_write_density(density, filename);
     }

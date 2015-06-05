@@ -72,8 +72,8 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
   
   /* get bulk density and chemical potential */
-  rho0 = bulk_density(dft_driver_otf);
-  mu0  = bulk_chempot(dft_driver_otf);
+  rho0 = dft_ot_bulk_density(dft_driver_otf);
+  mu0  = dft_ot_bulk_chempot(dft_driver_otf);
   printf("rho0 = %le Angs^-3, mu0 = %le K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
 
   /* Allocate wavefunctions and grids */
