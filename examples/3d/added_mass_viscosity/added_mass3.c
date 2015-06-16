@@ -17,21 +17,20 @@
 
 /* Only imaginary time */
 #define TIME_STEP 100.0	/* Time step in fs (50-100) */
-#define IMP_STEP 0.01	/* Time step in fs (0.01) */
-#define MAXITER 50000 /* Maximum number of iterations (was 300) */
-#define WARMUP  0 /* warm up iterations for liquid (100 fs timestep) */
-#define OUTPUT     100	/* output every this iteration */
+#define IMP_STEP 0.1	/* Time step in fs (0.01) */
+#define MAXITER 500000 /* Maximum number of iterations (was 300) */
+#define OUTPUT     500	/* output every this iteration */
 #define THREADS 32	/* # of parallel threads to use */
-#define NX 128       	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128      	/* # of grid points along z */
+#define NX 256       	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 256      	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 #define IMP_MASS 1.0 /* electron mass */
 
 /* velocity components (v_lix < 0) */
-#define KX	(1.0 * 2.0 * M_PI / (NX * STEP))
+#define KX	(6.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
@@ -42,47 +41,47 @@
 #define T2100MK
 
 #ifdef T2100MK
-/* Exp mobility = 0.0492 cm^2/Vs - gives 0.096 (well conv. kc+bf 0.087) */
+/* Exp mobility = 0.0492 cm^2/Vs - gives 0.048 */
 #define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.71877E-6) /* In Pa s */
-#define RHON    0.752       /* normal fraction (0.752) */
+#define VISCOSITY (1.71877E-6) /* In Pa s Donnelly: 1.73E-6 to 1.92E-6, recommended 1.803E-6 (2.0x) */
+#define RHON    (0.752)      /* normal fraction Donnelly: 0.741 */
 #define FUNCTIONAL DFT_OT_T2100MK
 #endif
 
 #ifdef T1800MK
-/* Exp mobility = 0.097 cm^2/Vs - gives 0.287 */
+/* Exp mobility = 0.097 cm^2/Vs - gives 1.08 */
 #define DENSITY (0.021885 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.25E-6) /* In Pa s */
-#define RHON    0.35       /* normal fraction */
+#define VISCOSITY (1.25E-6) /* In Pa s (x2.6) */
+#define RHON    (0.35)       /* normal fraction */
 #define FUNCTIONAL DFT_OT_T1800MK
 #endif
   
 #ifdef T1600MK
-/* Exp mobility = 0.183 cm^2/Vs - gives 0.565 */
+/* Exp mobility = 0.183 cm^2/Vs - gives 0.185 */
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.30977E-6) /* In Pa s */
+#define VISCOSITY (1.30977E-6) /* In Pa s (was 2.5) */
 #define RHON    0.171       /* normal fraction */
 #define FUNCTIONAL DFT_OT_T1600MK
 #endif
 
 #ifdef T1200MK
-/* Exp mobility = 1.0 cm^2/Vs - gives 2.45 */
+/* Exp mobility = 1.0 cm^2/Vs - gives  */
 #define DENSITY (0.021846 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.809E-6) /* In Pa s */
+#define VISCOSITY (1.809E-6) /* In Pa s (1.5x) */
 #define RHON    0.0289       /* normal fraction */
 #define FUNCTIONAL DFT_OT_T1200MK
 #endif
 
 #ifdef T800MK
-/* Exp mobility = 20.86 cm^2/Vs - gives 8.17 (512/0.1 grid gives maybe slightly higher */
+/* Exp mobility = 20.86 cm^2/Vs - gives  */
 #define DENSITY (0.021876 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (15.823E-6) /* In Pa s */
+#define VISCOSITY (15.823E-6) /* In Pa s (0.7) */
 #define RHON    0.001       /* normal fraction (Donnelly 0.001, nist 0.0025) */
 #define FUNCTIONAL DFT_OT_T800MK
 #endif
 
 #ifdef T400MK
-/* Exp mobility = 438 cm^2/Vs - gives 395 */
+/* Exp mobility = 438 cm^2/Vs - gives  */
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (114.15E-6) /* In Pa s */
 #define RHON    1.3E-6       /* normal fraction (2.89188E-6) */
@@ -111,6 +110,16 @@ double center_func2(void *NA, double x, double y, double z) {
   return x;   /* (x - x_0) but x_0 = 0 */
 }
 
+double stddev_x(void *NA, double x, double y, double z) {
+
+  return x * x;
+}
+
+double stddev_y(void *NA, double x, double y, double z) {
+
+  return y * y;
+}
+
 double eval_force(wf3d *gwf, wf3d *impwf, rgrid3d *pair_pot, rgrid3d *dpair_pot, rgrid3d *workspace1, rgrid3d *workspace2) {
 
   double tmp;
@@ -120,18 +129,18 @@ double eval_force(wf3d *gwf, wf3d *impwf, rgrid3d *pair_pot, rgrid3d *dpair_pot,
   dft_driver_convolution_eval(workspace2, dpair_pot, workspace1);
   grid3d_wf_density(impwf, workspace1);
   rgrid3d_product(workspace1, workspace1, workspace2);
-  tmp = -rgrid3d_integral(workspace1);
+  tmp = rgrid3d_integral(workspace1);   /* double minus: from force calc and the change of reference frame (x' = -x) */
   return tmp;
 }
 
 int main(int argc, char *argv[]) {
 
-  wf3d *gwf, *gwfp;
+  wf3d *gwf, *gwfp, *nwf, *total;
   wf3d *impwf, *impwfp; /* impurity wavefunction */
   cgrid3d *cworkspace;
   rgrid3d *pair_pot, *dpair_pot, *ext_pot, *density;
   rgrid3d *vx, *vy, *vz;
-  long iter, iter2;
+  long iter;
   char filename[2048];
   double kin, pot;
   double rho0, mu0, n;
@@ -143,13 +152,14 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_momentum(KX, KY, KZ);
 
   /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(FUNCTIONAL, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
-
+  dft_driver_setup_model(FUNCTIONAL, 1, DENSITY * (1.0 - RHON));   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
+  dft_driver_setup_normal_density(DENSITY * RHON);
+  dft_driver_setup_viscosity(VISCOSITY);
+  
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
   dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
-  dft_driver_setup_viscosity(VISCOSITY * RHON);    /* set viscosity */
   
   /* Initialize */
   dft_driver_initialize();
@@ -179,7 +189,9 @@ int main(int argc, char *argv[]) {
   cgrid3d_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);  /* order parameter for current time */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS); /* order parameter for future (predict) */
-
+  nwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* order parameter for normal fluid */
+  total = dft_driver_alloc_wavefunction(HELIUM_MASS); /* Total wavefunction (normal & super) */
+  
   fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = ( %le , %le ,%le ) (A/ps)\n", 
 		  VX * 1000.0 * GRID_AUTOANG / GRID_AUTOFS,
@@ -187,71 +199,52 @@ int main(int argc, char *argv[]) {
 		  VZ * 1000.0 * GRID_AUTOANG / GRID_AUTOFS);
 
   /* Initial wavefunctions. Read from file or set to initial guess */
-#if 1
   /* Constant density (initial guess) */
-  cgrid3d_constant(gwf->grid, sqrt(rho0));
+  cgrid3d_constant(gwf->grid, sqrt(rho0) * (1.0 - RHON));
+  cgrid3d_constant(nwf->grid, sqrt(rho0) * RHON);
   /* Gaussian for impurity (initial guess) */
   double inv_width = 0.05;
   cgrid3d_map(impwf->grid, dft_common_cgaussian, &inv_width);
-#else
-  /* Read liquid wavefunction from file */ 
-  dft_driver_read_grid(gwf->grid, "liquid_input");
-  /* Read impurity wavefunction from file */ 
-  dft_driver_read_grid(impwf->grid, "impurity_input");
-#endif
   cgrid3d_multiply(impwf->grid, 1.0 / sqrt(grid3d_wf_norm(impwf)));
 
   cgrid3d_copy(gwfp->grid, gwf->grid);                    /* make current and predicted wf's equal */
   cgrid3d_copy(impwfp->grid, impwf->grid);                /* make current and predicted wf's equal */
   
   /* Read pair potential from file and do FFT */
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "../electron/jortner.dat", "../electron/jortner.dat", "../electron/jortner.dat", pair_pot);
+  dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "/home2/git/libdft/examples/3d/electron/jortner.dat", "/home2/git/libdft/examples/3d/electron/jortner.dat", "/home2/git/libdft/examples/3d/electron/jortner.dat", pair_pot);
   rgrid3d_fd_gradient_x(pair_pot, dpair_pot);
   dft_driver_convolution_prepare(pair_pot, dpair_pot);
   
   for(iter = 0; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
-    if(iter > WARMUP) {
-      /*** IMPURITY ***/
-      /* 1. update potential */
-      grid3d_wf_density(gwf, density);
-      dft_driver_convolution_prepare(NULL, density);      
-      dft_driver_convolution_eval(ext_pot, density, pair_pot);
-      /* counter field */
-#if 0
-      force = eval_force(gwf, impwf, pair_pot, dpair_pot, density, vx);
-      rgrid3d_map(density, center_func2, NULL);
-      printf("Opposing field = %le\n", -force);
-      rgrid3d_multiply(density, -force);
-      rgrid3d_sum(ext_pot, ext_pot, density);
-#endif
-      /* end counter field */
-      for (iter2 = 0; iter2 < (long) 1 + 0*(TIME_STEP/IMP_STEP); iter2++) { /* substeps disabled */
-	/*2. Predict + correct */
-	(void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, IMP_STEP, iter); /* PREDICT */ 
-	(void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, IMP_STEP, iter); /* CORRECT */
-	force = creal(cgrid3d_grid_expectation_value_func(NULL, center_func, impwf->grid));
-	printf("Expectation value of position (electron): %le\n", force * GRID_AUTOANG);
-	/* TODO: add opposing E-field */
-#if 1
-	cgrid3d_shift(cworkspace, impwf->grid, -force, 0.0, 0.0);
-	cgrid3d_copy(impwf->grid, cworkspace);
-#endif
-      }
-      
-      /*3. if OUTPUT, compute energy*/
-      if(!(iter % OUTPUT)){	
-	/* Impurity energy */
-	grid3d_wf_density(impwf, density);
-	kin = grid3d_wf_energy(impwf, NULL, cworkspace) ;     /*kinetic*/ 
-	pot = rgrid3d_integral_of_product(ext_pot, density) ; /*potential*/
-	printf("Iteration %ld impurity kinetic   = %.30lf\n", iter, kin * GRID_AUTOK);  /* Print result in K */
-	printf("Iteration %ld impurity potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
-	printf("Iteration %ld impurity energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
-	/* Impurity density */
-	sprintf(filename, "ebubble_imp-%ld", iter);
-	//dft_driver_write_2d_density(density, filename);  /* Write 2D density slices to file */
-	dft_driver_write_density(density, filename);      /* Write wavefunction to file */
-      }
+    /*** IMPURITY ***/
+    /* 1. update potential */
+    grid3d_wf_density(gwf, density);
+    grid3d_wf_density(nwf, vx);
+    rgrid3d_sum(density, density, vx); /* total density = normal + super */
+    dft_driver_convolution_prepare(NULL, density);      
+    dft_driver_convolution_eval(ext_pot, density, pair_pot);
+    /*2. Predict + correct */
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, IMP_STEP, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, IMP_STEP, iter); /* CORRECT */
+    force = creal(cgrid3d_grid_expectation_value_func(NULL, center_func, impwf->grid));
+    printf("Expectation value of position (electron): %le\n", force * GRID_AUTOANG);
+    /* keep electron at origin */
+    cgrid3d_shift(cworkspace, impwf->grid, -force, 0.0, 0.0);
+    cgrid3d_copy(impwf->grid, cworkspace);
+    
+    /*3. if OUTPUT, compute energy*/
+    if(!(iter % OUTPUT)){	
+      /* Impurity energy */
+      grid3d_wf_density(impwf, density);
+      kin = grid3d_wf_energy(impwf, NULL, cworkspace) ;     /*kinetic*/ 
+      pot = rgrid3d_integral_of_product(ext_pot, density) ; /*potential*/
+      printf("Iteration %ld impurity kinetic   = %.30lf\n", iter, kin * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration %ld impurity potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration %ld impurity energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
+      /* Impurity density */
+      sprintf(filename, "ebubble_imp-%ld", iter);
+      //dft_driver_write_2d_density(density, filename);  /* Write 2D density slices to file */
+      dft_driver_write_density(density, filename);      /* Write wavefunction to file */
     }
     
     /***  HELIUM  ***/
@@ -259,60 +252,73 @@ int main(int argc, char *argv[]) {
     grid3d_wf_density(impwf, density);
     dft_driver_convolution_prepare(NULL, density);
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
-    rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
+    //    rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
     
-    /*2. Predict + correct */
-    if(iter < WARMUP) {
-      (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, 100.0, iter); /* PREDICT */ 
-      (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, 100.0, iter); /* CORRECT */ 
-    } else {
-      (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-      (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
-    }
+    /*2a. Superfluid (missing predict-correct for gwf/nwf) */
+    dft_driver_total_wf(total, gwf, nwf);
+    (void) dft_driver_propagate_predict2(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, total, TIME_STEP, iter);
+    (void) dft_driver_propagate_correct2(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, total, TIME_STEP, iter);
+    
+    /* 2b. Normal fluid (missing predict-correct for gwf/nwf) */
+    (void) dft_driver_propagate_predict2(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, nwf, gwfp, cworkspace, total, TIME_STEP, iter);
+    (void) dft_driver_propagate_correct2(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, nwf, gwfp, cworkspace, total, TIME_STEP, iter);
     
     if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       /* Helium energy */
+      dft_driver_total_wf(total, gwf, nwf);
       kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
-      pot = dft_driver_potential_energy(gwf, ext_pot); /* Potential energy for gwf */
+      kin += dft_driver_kinetic_energy(nwf);
+      pot = dft_driver_potential_energy(total, ext_pot); /* Potential energy for gwf */
       //ene = kin + pot;           /* Total energy for gwf */
-      n = dft_driver_natoms(gwf) ;
+      n = dft_driver_natoms(total);
       printf("Iteration %ld background kinetic = %.30lf\n", iter, n * EKIN * GRID_AUTOK);
       printf("Iteration %ld helium natoms    = %le particles.\n", iter, n);   /* Energy / particle in K */
       printf("Iteration %ld helium kinetic   = %.30lf\n", iter, kin * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld helium potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld helium energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       
-      if(VX != 0.0)
-	grid3d_wf_probability_flux_x(gwf, vx);
-      else if(VY != 0.0)
-	grid3d_wf_probability_flux_y(gwf, vx);
-      else
-	grid3d_wf_probability_flux_z(gwf, vx);
+      grid3d_wf_probability_flux_x(total, vx);
+      printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(vx) / VX);
 
-      if(VX != 0.0)
-	printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(vx) / VX); 
-      else
-	printf("VX = 0, no added mass.\n");
-
-      force = eval_force(gwf, impwf, pair_pot, dpair_pot, ext_pot, density);
+      force = eval_force(total, impwf, pair_pot, dpair_pot, ext_pot, density);  /* ext_pot & density are temps */
       printf("Drag force on ion = %le a.u.\n", force);
       printf("E-field = %le V/m\n", -force * GRID_AUTOVPM);
       printf("Target ion velocity = %le m/s\n", VX * GRID_AUTOMPS);
-      mobility = VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
+      mobility = -VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
       printf("Mobility = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
       printf("Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
-      grid3d_wf_density(gwf, density);                     /* Density from gwf */
-      sprintf(filename, "ebubble_liquid-%ld", iter);              
+      grid3d_wf_density(total, density);                     /* Density from gwf */
+      printf("Bubble asymmetry = %le\n", rgrid3d_weighted_integral(density, stddev_x, NULL) / rgrid3d_weighted_integral(density, stddev_y, NULL));
+
+      /* write out normal fluid density */
+      sprintf(filename, "ebubble_nliquid-%ld", iter);              
+      grid3d_wf_density(nwf, density);
       dft_driver_write_density(density, filename);
-      //      dft_driver_veloc_field(gwf, vx, vy, vz);
-      grid3d_wf_probability_flux(gwf, vx, vy, vz);
-      rgrid3d_multiply(density, -VX); /* moving frame background */
-      rgrid3d_sum(vx, vx, density);
-      sprintf(filename, "ebubble_liquid-vx-%ld", iter);              
+      /* write out superfluid density */
+      sprintf(filename, "ebubble_sliquid-%ld", iter);              
+      grid3d_wf_density(gwf, density);
+      dft_driver_write_density(density, filename);
+      /* write out normal fluid flux field */
+      grid3d_wf_probability_flux(nwf, vx, vy, vz);
+      grid3d_wf_density(nwf, density);
+      rgrid3d_multiply(density, VX); /* moving frame background */
+      rgrid3d_difference(vx, density, vx);
+      sprintf(filename, "ebubble_nliquid-vx-%ld", iter);              
       dft_driver_write_density(vx, filename);
-      sprintf(filename, "ebubble_liquid-vy-%ld", iter);              
+      sprintf(filename, "ebubble_nliquid-vy-%ld", iter);              
       dft_driver_write_density(vy, filename);
-      sprintf(filename, "ebubble_liquid-vz-%ld", iter);              
+      sprintf(filename, "ebubble_nliquid-vz-%ld", iter);              
+      dft_driver_write_density(vz, filename);
+      /* write out superfluid flux field */
+      grid3d_wf_probability_flux(gwf, vx, vy, vz);
+      grid3d_wf_density(gwf, density);
+      rgrid3d_multiply(density, VX); /* moving frame background */
+      rgrid3d_difference(vx, density, vx);
+      sprintf(filename, "ebubble_sliquid-vx-%ld", iter);              
+      dft_driver_write_density(vx, filename);
+      sprintf(filename, "ebubble_sliquid-vy-%ld", iter);              
+      dft_driver_write_density(vy, filename);
+      sprintf(filename, "ebubble_sliquid-vz-%ld", iter);              
       dft_driver_write_density(vz, filename);
     }
   }

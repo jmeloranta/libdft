@@ -20,7 +20,7 @@
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 32	/* # of parallel threads to use */
-#define NX 64      	/* # of grid points along x */
+#define NX 512      	/* # of grid points along x */
 #define NY 64          /* # of grid points along y */
 #define NZ 64      	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
@@ -43,7 +43,7 @@
 /* Exp mobility = 0.0492 cm^2/Vs - gives 0.096 (well conv. kc+bf 0.087) */
 #define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (1.71877E-6) /* In Pa s */
-#define RHON    20.752       /* normal fraction (0.752) */
+#define RHON    0.752       /* normal fraction (0.752) */
 #define FUNCTIONAL DFT_OT_T2100MK
 #endif
 
@@ -333,22 +333,13 @@ int main(int argc, char *argv[]) {
       else
 	printf("VX = 0, no added mass.\n");
       grid3d_wf_density(gwf, density);                     /* Density from gwf */
-#if 0
-      rgrid3d_map(density, pot_func, NULL);
-      rgrid3d_fd_gradient_x(density, current);
-      grid3d_wf_density(gwf, density);
-      rgrid3d_product(density, density, current);
-      force = -rgrid3d_integral(density);
-#else
-      force = rgrid3d_weighted_integral(density, dpot_func, NULL); /* force on ion - should be - but gives wrong sign?? */
-#endif
+      force = -rgrid3d_weighted_integral(density, dpot_func, NULL); /* force on ion - should be - but gives wrong sign?? */
       printf("Drag force on ion = %le a.u.\n", force);
       printf("E-field = %le V/m\n", -force * GRID_AUTOVPM);
       mobility = VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
       printf("Mobility = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
       printf("Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
       dft_driver_veloc_field_x(gwf, density);
-      printf("Current ion velocity (front) = %le m/s.\n", -rgrid3d_value(density, -62.0, 0.0, 0.0) * GRID_AUTOMPS);
 
       grid3d_wf_density(gwf, density);
       sprintf(filename, "liquid-%ld", iter);              
