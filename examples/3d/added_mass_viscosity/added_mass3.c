@@ -19,7 +19,7 @@
 #define TIME_STEP 100.0	/* Time step in fs (50-100) */
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
-#define OUTPUT     100	/* output every this iteration */
+#define OUTPUT     500	/* output every this iteration */
 #define THREADS 32	/* # of parallel threads to use */
 #define NX 256       	/* # of grid points along x */
 #define NY 256          /* # of grid points along y */
@@ -38,7 +38,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T2100MK
+#define T1800MK
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs */
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
   char filename[2048];
   double kin, pot;
   double rho0, mu0, n;
-  double force, mobility;
+  double force, mobility, force_normal;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
@@ -289,14 +289,20 @@ int main(int argc, char *argv[]) {
       grid3d_wf_probability_flux_x(total, vx);
       printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(vx) / VX);
 
-      //      force = eval_force(total, impwf, pair_pot, dpair_pot, ext_pot, density);  /* ext_pot & density are temps */
-      force = eval_force(nwf, impwf, pair_pot, dpair_pot, ext_pot, density);  /* ext_pot & density are temps */
+      force = eval_force(total, impwf, pair_pot, dpair_pot, ext_pot, density);  /* ext_pot & density are temps */
+      force_normal = eval_force(nwf, impwf, pair_pot, dpair_pot, ext_pot, density);  /* ext_pot & density are temps */
       printf("Drag force on ion = %le a.u.\n", force);
+      printf("Drag force on ion(normal) = %le a.u.\n", force_normal);
       printf("E-field = %le V/m\n", -force * GRID_AUTOVPM);
+      printf("E-field(normal) = %le V/m\n", -force_normal * GRID_AUTOVPM);
       printf("Target ion velocity = %le m/s\n", VX * GRID_AUTOMPS);
       mobility = VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
       printf("Mobility = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
       printf("Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
+      mobility = VX * GRID_AUTOMPS / (-force_normal * GRID_AUTOVPM);
+      printf("Mobility(normal) = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
+      printf("Hydrodynamic radius (Stokes,normal) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
+
       grid3d_wf_density(total, density);                     /* Density from gwf */
       printf("Bubble asymmetry = %le\n", rgrid3d_weighted_integral(density, stddev_x, NULL) / rgrid3d_weighted_integral(density, stddev_y, NULL));
 

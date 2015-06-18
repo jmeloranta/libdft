@@ -589,13 +589,13 @@ EXPORT inline void dft_driver_propagate_predict2(long what, rgrid3d *ext_pot, wf
       dft_driver_veloc_field(gwfp, workspace2, workspace3, workspace4); // Watch out! workspace1 used by veloc_field!
       /* x */
       rgrid3d_fd_gradient_z(workspace3, workspace5);  /* dv_y / dz */
-      rgrid3d_multiply(workspace5, -viscosity / driver_rho0_normal);
+      rgrid3d_multiply(workspace5, -viscosity / (driver_rho0 + driver_rho0_normal));
       grid3d_add_real_to_complex_re(potential, workspace5);
       rgrid3d_fd_gradient_y(workspace4, workspace5);  /* dv_z / dy */
-      rgrid3d_multiply(workspace5, -viscosity / driver_rho0_normal);
+      rgrid3d_multiply(workspace5, -viscosity / (driver_rho0 + driver_rho0_normal));
       grid3d_add_real_to_complex_re(potential, workspace5);
       rgrid3d_fd_gradient_x(workspace2, workspace5);  /* dv_x / dx (propagation direction) */
-      rgrid3d_multiply(workspace5, (2.0/3.0) * viscosity / driver_rho0_normal);
+      rgrid3d_multiply(workspace5, (2.0/3.0) * viscosity / (driver_rho0 + driver_rho0_normal));
       grid3d_add_real_to_complex_re(potential, workspace5);
 #if 0
       /* y */
@@ -726,13 +726,13 @@ EXPORT inline void dft_driver_propagate_correct2(long what, rgrid3d *ext_pot, wf
       dft_driver_veloc_field(gwfp, workspace2, workspace3, workspace4); // Watch out! workspace1 used by veloc_field!
       /* x */
       rgrid3d_fd_gradient_z(workspace3, workspace5);  /* dv_y / dz */
-      rgrid3d_multiply(workspace5, -viscosity / driver_rho0_normal);
+      rgrid3d_multiply(workspace5, -viscosity / (driver_rho0 + driver_rho0_normal));
       grid3d_add_real_to_complex_re(potential, workspace5);
       rgrid3d_fd_gradient_y(workspace4, workspace5);  /* dv_z / dy */
-      rgrid3d_multiply(workspace5, -viscosity / driver_rho0_normal);
+      rgrid3d_multiply(workspace5, -viscosity / (driver_rho0 + driver_rho0_normal));
       grid3d_add_real_to_complex_re(potential, workspace5);
       rgrid3d_fd_gradient_x(workspace2, workspace5);  /* dv_x / dx (propagation direction) */
-      rgrid3d_multiply(workspace5, (2.0/3.0) * viscosity / driver_rho0_normal);
+      rgrid3d_multiply(workspace5, (2.0/3.0) * viscosity / (driver_rho0 + driver_rho0_normal));
       grid3d_add_real_to_complex_re(potential, workspace5);
 #if 0
       /* y */
