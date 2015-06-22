@@ -20,10 +20,10 @@
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
 #define OUTPUT     500	/* output every this iteration */
-#define THREADS 32	/* # of parallel threads to use */
-#define NX 256       	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256      	/* # of grid points along z */
+#define THREADS 64	/* # of parallel threads to use */
+#define NX 512       	/* # of grid points along x */
+#define NY 512          /* # of grid points along y */
+#define NZ 512      	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
@@ -38,59 +38,59 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T1800MK
+#define T1600MK
 
 #ifdef T2100MK
-/* Exp mobility = 0.0492 cm^2/Vs */
+/* Exp mobility = 0.0492 cm^2/Vs (Donnelly 0.05052) */
 #define IDENT "T = 2.1 K"
 #define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.71877E-6) /* In Pa s Donnelly: 1.73E-6 to 1.92E-6, recommended 1.803E-6 (2.0x) */
-#define RHON    (0.752)      /* normal fraction Donnelly: 0.741 */
+#define VISCOSITY (1.803E-6) /* In Pa s (Donnelly 1.803E-6) */
+#define RHON    (0.741)      /* normal fraction (Donnelly 0.741) */
 #define FUNCTIONAL DFT_OT_T2100MK
 #endif
 
 #ifdef T1800MK
-/* Exp mobility = 0.097 cm^2/Vs */
+/* Exp mobility = 0.097 cm^2/Vs (Donnelly 0.1088) */
 #define IDENT "T = 1.8 K"
 #define DENSITY (0.021885 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.25E-6) /* In Pa s (x2.6) */
-#define RHON    (0.35)       /* normal fraction */
+#define VISCOSITY (1.298E-6) /* In Pa s (Donnelly 1.298E-6) */
+#define RHON    (0.313)       /* normal fraction (Donnelly 0.313) */
 #define FUNCTIONAL DFT_OT_T1800MK
 #endif
   
 #ifdef T1600MK
-/* Exp mobility = 0.183 cm^2/Vs */
+/* Exp mobility = 0.183 cm^2/Vs (Donnelly 0.1772) */
 #define IDENT "T = 1.6 K"
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.30977E-6) /* In Pa s (was 2.5) */
-#define RHON    0.171       /* normal fraction */
+#define VISCOSITY (1.306E-6) /* In Pa s (Donnelly 1.306E-6) */
+#define RHON    0.162       /* normal fraction (Donnelly 0.162) */
 #define FUNCTIONAL DFT_OT_T1600MK
 #endif
 
 #ifdef T1200MK
-/* Exp mobility = 1.0 cm^2/Vs */
+/* Exp mobility = 1.0 cm^2/Vs (Donnelly 0.9880) */
 #define IDENT "T = 1.2 K"
 #define DENSITY (0.021846 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.809E-6) /* In Pa s (1.5x) */
-#define RHON    0.0289       /* normal fraction */
+#define VISCOSITY (1.736E-6) /* In Pa s (Donnelly 1.736E-6) */
+#define RHON    0.026       /* normal fraction (Donnelly 0.026) */
 #define FUNCTIONAL DFT_OT_T1200MK
 #endif
 
 #ifdef T800MK
-/* Exp mobility = 20.86 cm^2/Vs */
+/* Exp mobility = 20.86 cm^2/Vs (Donnelly 21.38) */
 #define IDENT "T = 0.8 K"
 #define DENSITY (0.021876 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (15.823E-6) /* In Pa s (0.7) */
-#define RHON    0.001       /* normal fraction (Donnelly 0.001, nist 0.0025) */
+#define VISCOSITY (15.82E-6) /* In Pa s (Donnelly 1.582E-5) */
+#define RHON    9.27E-4       /* normal fraction (Donnelly 9.27E-4) */
 #define FUNCTIONAL DFT_OT_T800MK
 #endif
 
 #ifdef T400MK
-/* Exp mobility = 438 cm^2/Vs */
+/* Exp mobility = 438 cm^2/Vs (Donnelly 454.6) */
 #define IDENT "T = 0.4 K"
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (114.15E-6) /* In Pa s */
-#define RHON    1.3E-6       /* normal fraction (2.89188E-6) */
+#define VISCOSITY (114.15E-6) /* In Pa s (Donnelly ??) */
+#define RHON    2.92E-6       /* normal fraction (Donnelly 2.92E-6) */
 #define FUNCTIONAL DFT_OT_T400MK
 #endif
 
@@ -202,11 +202,11 @@ int main(int argc, char *argv[]) {
   total = dft_driver_alloc_wavefunction(HELIUM_MASS); /* Total wavefunction (normal & super) */
   
   fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
-  fprintf(stderr, "Relative velocity = ( %le , %le ,%le ) (A/ps)\n", 
-		  VX * 1000.0 * GRID_AUTOANG / GRID_AUTOFS,
-		  VY * 1000.0 * GRID_AUTOANG / GRID_AUTOFS,
-		  VZ * 1000.0 * GRID_AUTOANG / GRID_AUTOFS);
-
+  fprintf(stderr, "Relative velocity = (%le, %le, %le) (Angs/ps)\n", 
+	  VX * 1000.0 * GRID_AUTOANG / GRID_AUTOFS,
+	  VY * 1000.0 * GRID_AUTOANG / GRID_AUTOFS,
+	  VZ * 1000.0 * GRID_AUTOANG / GRID_AUTOFS);
+  
   /* Initial wavefunctions. Read from file or set to initial guess */
   /* Constant density (initial guess) */
   cgrid3d_constant(gwf->grid, sqrt(rho0) * (1.0 - RHON));

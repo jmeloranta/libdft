@@ -339,6 +339,8 @@ EXPORT void dft_driver_setup_momentum(double kx0, double ky0, double kz0) {
  * visc = effective Viscosity in Pa s (SI) units. This is typically the normal fraction x normal fluid viscosity.
  *        (default value 0.0)
  *
+ * NOTE: Viscous response is set along the x-axis only!
+ *
  */
 
 EXPORT void dft_driver_setup_viscosity(double visc) {
@@ -586,39 +588,18 @@ EXPORT inline void dft_driver_propagate_predict2(long what, rgrid3d *ext_pot, wf
     }
     /* add viscous response */
     if(what == DFT_DRIVER_PROPAGATE_NORMAL && viscosity > 0.0) {
+      double tot = viscosity / (driver_rho0 + driver_rho0_normal);
       dft_driver_veloc_field(gwfp, workspace2, workspace3, workspace4); // Watch out! workspace1 used by veloc_field!
-      /* x */
+      /* Along x-axis */
       rgrid3d_fd_gradient_z(workspace3, workspace5);  /* dv_y / dz */
-      rgrid3d_multiply(workspace5, -viscosity / (driver_rho0 + driver_rho0_normal));
+      rgrid3d_multiply(workspace5, -tot);
       grid3d_add_real_to_complex_re(potential, workspace5);
       rgrid3d_fd_gradient_y(workspace4, workspace5);  /* dv_z / dy */
-      rgrid3d_multiply(workspace5, -viscosity / (driver_rho0 + driver_rho0_normal));
+      rgrid3d_multiply(workspace5, -tot);
       grid3d_add_real_to_complex_re(potential, workspace5);
       rgrid3d_fd_gradient_x(workspace2, workspace5);  /* dv_x / dx (propagation direction) */
-      rgrid3d_multiply(workspace5, (2.0/3.0) * viscosity / (driver_rho0 + driver_rho0_normal));
+      rgrid3d_multiply(workspace5, (2.0/3.0) * tot);
       grid3d_add_real_to_complex_re(potential, workspace5);
-#if 0
-      /* y */
-      rgrid3d_fd_gradient_z(workspace2, workspace5);  /* dv_x / dz */
-      rgrid3d_multiply(workspace5, -viscosity / driver_rho0_normal);
-      grid3d_add_real_to_complex_re(potential, workspace5);
-      rgrid3d_fd_gradient_x(workspace4, workspace5);  /* dv_z / dx */
-      rgrid3d_multiply(workspace5, -viscosity / driver_rho0_normal);
-      grid3d_add_real_to_complex_re(potential, workspace5);
-      rgrid3d_fd_gradient_y(workspace3, workspace5);  /* dv_y / dy (propagation direction) */
-      rgrid3d_multiply(workspace5, (2.0/3.0) * viscosity / driver_rho0_normal);
-      grid3d_add_real_to_complex_re(potential, workspace5);
-      /* z */
-      rgrid3d_fd_gradient_x(workspace3, workspace5);  /* dv_y / dx */
-      rgrid3d_multiply(workspace5, -viscosity / driver_rho0_normal);
-      grid3d_add_real_to_complex_re(potential, workspace5);
-      rgrid3d_fd_gradient_y(workspace2, workspace5);  /* dv_x / dy */
-      rgrid3d_multiply(workspace5, -viscosity / driver_rho0_normal);
-      grid3d_add_real_to_complex_re(potential, workspace5);
-      rgrid3d_fd_gradient_z(workspace4, workspace5);  /* dv_z / dz (propagation direction) */
-      rgrid3d_multiply(workspace5, (2.0/3.0) * viscosity / driver_rho0_normal);
-      grid3d_add_real_to_complex_re(potential, workspace5);      
-#endif
     }
     /* absorbing boundary - imaginary potential */
     if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ABSORB && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
@@ -723,39 +704,18 @@ EXPORT inline void dft_driver_propagate_correct2(long what, rgrid3d *ext_pot, wf
     }
     /* add viscous response */
     if(what == DFT_DRIVER_PROPAGATE_NORMAL && viscosity > 0.0) {
+      double tot = viscosity / (driver_rho0 + driver_rho0_normal);
       dft_driver_veloc_field(gwfp, workspace2, workspace3, workspace4); // Watch out! workspace1 used by veloc_field!
       /* x */
       rgrid3d_fd_gradient_z(workspace3, workspace5);  /* dv_y / dz */
-      rgrid3d_multiply(workspace5, -viscosity / (driver_rho0 + driver_rho0_normal));
+      rgrid3d_multiply(workspace5, -tot);
       grid3d_add_real_to_complex_re(potential, workspace5);
       rgrid3d_fd_gradient_y(workspace4, workspace5);  /* dv_z / dy */
-      rgrid3d_multiply(workspace5, -viscosity / (driver_rho0 + driver_rho0_normal));
+      rgrid3d_multiply(workspace5, -tot);
       grid3d_add_real_to_complex_re(potential, workspace5);
       rgrid3d_fd_gradient_x(workspace2, workspace5);  /* dv_x / dx (propagation direction) */
-      rgrid3d_multiply(workspace5, (2.0/3.0) * viscosity / (driver_rho0 + driver_rho0_normal));
+      rgrid3d_multiply(workspace5, (2.0/3.0) * tot);
       grid3d_add_real_to_complex_re(potential, workspace5);
-#if 0
-      /* y */
-      rgrid3d_fd_gradient_z(workspace2, workspace5);  /* dv_x / dz */
-      rgrid3d_multiply(workspace5, -viscosity / driver_rho0_normal);
-      grid3d_add_real_to_complex_re(potential, workspace5);
-      rgrid3d_fd_gradient_x(workspace4, workspace5);  /* dv_z / dx */
-      rgrid3d_multiply(workspace5, -viscosity / driver_rho0_normal);
-      grid3d_add_real_to_complex_re(potential, workspace5);
-      rgrid3d_fd_gradient_y(workspace3, workspace5);  /* dv_y / dy (propagation direction) */
-      rgrid3d_multiply(workspace5, (2.0/3.0) * viscosity / driver_rho0_normal);
-      grid3d_add_real_to_complex_re(potential, workspace5);
-      /* z */
-      rgrid3d_fd_gradient_x(workspace3, workspace5);  /* dv_y / dx */
-      rgrid3d_multiply(workspace5, -viscosity / driver_rho0_normal);
-      grid3d_add_real_to_complex_re(potential, workspace5);
-      rgrid3d_fd_gradient_y(workspace2, workspace5);  /* dv_x / dy */
-      rgrid3d_multiply(workspace5, -viscosity / driver_rho0_normal);
-      grid3d_add_real_to_complex_re(potential, workspace5);
-      rgrid3d_fd_gradient_z(workspace4, workspace5);  /* dv_z / dz (propagation direction) */
-      rgrid3d_multiply(workspace5, (2.0/3.0) * viscosity / driver_rho0_normal);
-      grid3d_add_real_to_complex_re(potential, workspace5);
-#endif
     }  
     /* absorbing boundary */
     if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ABSORB && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
