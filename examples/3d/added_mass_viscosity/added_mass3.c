@@ -19,7 +19,7 @@
 #define TIME_STEP 100.0	/* Time step in fs (50-100) */
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
-#define OUTPUT     500	/* output every this iteration */
+#define OUTPUT     100	/* output every this iteration */
 #define THREADS 48	/* # of parallel threads to use (was 48) */
 #define NX 512       	/* # of grid points along x */
 #define NY 128          /* # of grid points along y */
@@ -223,8 +223,8 @@ int main(int argc, char *argv[]) {
   
   /* Initial wavefunctions. Read from file or set to initial guess */
   /* Constant density (initial guess) */
-  cgrid3d_constant(gwf->grid, sqrt(rho0) * (1.0 - RHON));
-  cgrid3d_constant(nwf->grid, sqrt(rho0) * RHON);
+  cgrid3d_constant(gwf->grid, sqrt(rho0 * (1.0 - RHON)));
+  cgrid3d_constant(nwf->grid, sqrt(rho0 * RHON));
   /* Gaussian for impurity (initial guess) */
   double inv_width = 0.05;
   cgrid3d_map(impwf->grid, dft_common_cgaussian, &inv_width);
@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
   for(iter = 0; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
     
     grid_timer_start(&timer);
-    printf("Iteration = %ld -- ", iter);
+    printf("Iteration %ld took ", iter);
     /* FIRST HALF OF KINETIC ENERGY */
     dft_driver_propagate_kinetic_first(DFT_DRIVER_PROPAGATE_OTHER, impwf, IMP_STEP);
     dft_driver_propagate_kinetic_first(DFT_DRIVER_PROPAGATE_HELIUM, gwf, TIME_STEP);
@@ -278,16 +278,18 @@ int main(int argc, char *argv[]) {
     cgrid3d_multiply(cpot_el, 0.5);
     dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_OTHER, impwf, cpot_el, IMP_STEP);
     /* super external potential */
-    dft_driver_ot_potential(total, cpot_super);
+    cgrid3d_zero(cpot_el);
+    dft_driver_ot_potential(total, cpot_el); // cpot_el is temp
     grid3d_wf_density(impwfp, density);
     dft_driver_convolution_prepare(NULL, density);
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
-    grid3d_add_real_to_complex_re(cpot_super, ext_pot);
-    cgrid3d_sum(cpot_normal, cpot_normal, cpot_super);
+    grid3d_add_real_to_complex_re(cpot_el, ext_pot);
+    cgrid3d_sum(cpot_super, cpot_super, cpot_el);
+    cgrid3d_sum(cpot_normal, cpot_normal, cpot_el);
     cgrid3d_multiply(cpot_super, 0.5);
     dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_HELIUM, gwf, cpot_super, TIME_STEP);
     /* normal external potential */
-    dft_driver_viscous_potential(nwf, cpot_normal); // veloc field from normal only?
+    dft_driver_viscous_potential(nwf, cpot_normal);
     cgrid3d_multiply(cpot_normal, 0.5);
     dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_NORMAL, nwf, cpot_normal, TIME_STEP);
     
@@ -302,11 +304,13 @@ int main(int argc, char *argv[]) {
     if(iter && !(iter % OUTPUT)){	
       printf("Iteration %ld impurity energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       /* Impurity density */
+      grid3d_wf_density(impwf, density);
       sprintf(filename, "ebubble_imp-%ld", iter);
-      //dft_driver_write_2d_density(density, filename);  /* Write 2D density slices to file */
-      dft_driver_write_density(density, filename);      /* Write wavefunction to file */
+      dft_driver_write_density(density, filename);
 
       /* Helium energy */
+      dft_driver_convolution_prepare(NULL, density);
+      dft_driver_convolution_eval(ext_pot, density, pair_pot);
       dft_driver_total_wf(total, gwf, nwf);
       kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
       kin += dft_driver_kinetic_energy(nwf);
