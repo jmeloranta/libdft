@@ -16,21 +16,21 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 100.0	/* Time step in fs (50-100) */
+#define TIME_STEP 200.0	/* Time step in fs (50-100) */
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
-#define OUTPUT     100	/* output every this iteration */
+#define OUTPUT     500	/* output every this iteration */
 #define THREADS 48	/* # of parallel threads to use (was 48) */
 #define NX 512       	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128      	/* # of grid points along z */
-#define STEP 3.0        /* spatial step length (Bohr) */
+#define NY 256          /* # of grid points along y */
+#define NZ 256      	/* # of grid points along z */
+#define STEP 2.0        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 #define IMP_MASS 1.0 /* electron mass */
 
 /* velocity components (v_lix < 0) */
-#define KX	(1.0 * 2.0 * M_PI / (NX * STEP))
+#define KX	(5.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
@@ -110,11 +110,10 @@ double global_time;
 double dynamic_time_step(long iter) {
 
   return 200.0;
-#if 0
-  if(iter < 200) return 300.0;
-  if(iter < 2000) return 500.0;
-  else return 50.0;
-#endif
+  if(iter < 2000) return 200.0;
+  if(iter < 5000) return 100.0;
+  if(iter < 8000) return 50.0;
+  else return 20.0;
 }
 
 double complex center_func(void *NA, double complex val, double x, double y, double z) {
@@ -164,6 +163,9 @@ int main(int argc, char *argv[]) {
   double force, mobility, force_normal, last_mobility = 0.0;
   grid_timer timer;
 
+  /* Set fftw planning mode (0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
+  grid_set_fftw_flags(1);
+  
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
   /* Setup frame of reference momentum */
@@ -236,14 +238,16 @@ int main(int argc, char *argv[]) {
   dft_driver_convolution_prepare(pair_pot, dpair_pot);
   
   for(iter = 0; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
+    double ts;
+    ts = dynamic_time_step(iter);
+    printf("Time step = %le fs.\n", ts);
     
     grid_timer_start(&timer);
     printf("Iteration %ld took ", iter);
     /* FIRST HALF OF KINETIC ENERGY */
     dft_driver_propagate_kinetic_first(DFT_DRIVER_PROPAGATE_OTHER, impwf, IMP_STEP);
-    dft_driver_propagate_kinetic_first(DFT_DRIVER_PROPAGATE_HELIUM, gwf, TIME_STEP);
-    dft_driver_propagate_kinetic_first(DFT_DRIVER_PROPAGATE_NORMAL, nwf, TIME_STEP);
-
+    dft_driver_propagate_kinetic_first(DFT_DRIVER_PROPAGATE_HELIUM, gwf, ts);
+    dft_driver_propagate_kinetic_first(DFT_DRIVER_PROPAGATE_NORMAL, nwf, ts);
     /* PREDICT */
     /* electron external potential */
     dft_driver_total_wf(total, gwf, nwf);
@@ -261,12 +265,12 @@ int main(int argc, char *argv[]) {
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
     grid3d_add_real_to_complex_re(cpot_super, ext_pot);
     cgrid3d_copy(gwfp->grid, gwf->grid);
-    dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_HELIUM, gwfp, cpot_super, TIME_STEP);
+    dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_HELIUM, gwfp, cpot_super, ts);
     /* normal external potential */
     cgrid3d_copy(cpot_normal, cpot_super);
-    dft_driver_viscous_potential(nwf, cpot_normal); // veloc field from normal only?
+    dft_driver_viscous_potential(nwf, cpot_normal);
     cgrid3d_copy(nwfp->grid, nwf->grid);
-    dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_NORMAL, nwfp, cpot_normal, TIME_STEP);
+    dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_NORMAL, nwfp, cpot_normal, ts);
 
     /* CORRECT */
     /* electron external potential */
@@ -287,22 +291,21 @@ int main(int argc, char *argv[]) {
     cgrid3d_sum(cpot_super, cpot_super, cpot_el);
     cgrid3d_sum(cpot_normal, cpot_normal, cpot_el);
     cgrid3d_multiply(cpot_super, 0.5);
-    dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_HELIUM, gwf, cpot_super, TIME_STEP);
+    dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_HELIUM, gwf, cpot_super, ts);
     /* normal external potential */
     dft_driver_viscous_potential(nwf, cpot_normal);
     cgrid3d_multiply(cpot_normal, 0.5);
-    dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_NORMAL, nwf, cpot_normal, TIME_STEP);
+    dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_NORMAL, nwf, cpot_normal, ts);
     
     /* SECOND HALF OF KINETIC */
     dft_driver_propagate_kinetic_second(DFT_DRIVER_PROPAGATE_OTHER, impwf, IMP_STEP);
-    dft_driver_propagate_kinetic_second(DFT_DRIVER_PROPAGATE_HELIUM, gwf, TIME_STEP);
-    dft_driver_propagate_kinetic_second(DFT_DRIVER_PROPAGATE_NORMAL, nwf, TIME_STEP);
+    dft_driver_propagate_kinetic_second(DFT_DRIVER_PROPAGATE_HELIUM, gwf, ts);
+    dft_driver_propagate_kinetic_second(DFT_DRIVER_PROPAGATE_NORMAL, nwf, ts);
     
     printf("%lf wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
     fflush(stdout);
     
     if(iter && !(iter % OUTPUT)){	
-      printf("Iteration %ld impurity energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       /* Impurity density */
       grid3d_wf_density(impwf, density);
       sprintf(filename, "ebubble_imp-%ld", iter);
@@ -333,7 +336,7 @@ int main(int argc, char *argv[]) {
       printf("E-field = %le V/m\n", -force * GRID_AUTOVPM);
       printf("E-field(normal) = %le V/m\n", -force_normal * GRID_AUTOVPM);
       printf("Target ion velocity = %le m/s\n", VX * GRID_AUTOMPS);
-      mobility = VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM + 1E-8);
+      mobility = VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
       printf("Mobility = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
       printf("Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
       mobility = VX * GRID_AUTOMPS / (-force_normal * GRID_AUTOVPM);
