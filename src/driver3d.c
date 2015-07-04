@@ -888,9 +888,9 @@ EXPORT rgrid3d *dft_driver_alloc_rgrid() {
   }
 
   tmp = rgrid3d_alloc(driver_nx, driver_ny, driver_nz, driver_step, grid_type, 0);
-  rgrid3d_set_origin(tmp, driver_x0, driver_y0, driver_z0) ;
-  rgrid3d_set_momentum(tmp, driver_kx0, driver_ky0, driver_kz0) ;
-  return tmp ;
+  rgrid3d_set_origin(tmp, driver_x0, driver_y0, driver_z0);
+  rgrid3d_set_momentum(tmp, driver_kx0, driver_ky0, driver_kz0);
+  return tmp;
 }
 
 /*
