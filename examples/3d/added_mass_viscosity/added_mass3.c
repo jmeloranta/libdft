@@ -39,7 +39,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T1600MK
+#define T2100MK
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs (Donnelly 0.05052) */
@@ -366,7 +366,7 @@ int main(int argc, char *argv[]) {
       printf("Hydrodynamic radius (Stokes,normal) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
 
       grid3d_wf_density(total, density);                     /* Density from gwf */
-      //      printf("Bubble asymmetry = %le\n", rgrid3d_weighted_integral(density, stddev_x, NULL) / rgrid3d_weighted_integral(density, stddev_y, NULL));
+      printf("Bubble asymmetry = %le\n", rgrid3d_weighted_integral(density, stddev_x, NULL) / rgrid3d_weighted_integral(density, stddev_y, NULL));
 
       /* write out normal fluid density */
       sprintf(filename, "ebubble_nliquid-%ld", iter);              
@@ -376,16 +376,18 @@ int main(int argc, char *argv[]) {
       sprintf(filename, "ebubble_sliquid-%ld", iter);              
       grid3d_wf_density(gwf, density);
       dft_driver_write_density(density, filename);
-      /* write out normal fluid flux field */
+      /* write out normal fluid velocity field */
       dft_driver_veloc_field(nwf, vx, vy, vz);
+      rgrid3d_add(vx, -VX);
       sprintf(filename, "ebubble_nliquid-vx-%ld", iter);              
       dft_driver_write_density(vx, filename);
       sprintf(filename, "ebubble_nliquid-vy-%ld", iter);              
       dft_driver_write_density(vy, filename);
       sprintf(filename, "ebubble_nliquid-vz-%ld", iter);              
       dft_driver_write_density(vz, filename);
-      /* write out superfluid flux field */
+      /* write out superfluid velocity field */
       dft_driver_veloc_field(gwf, vx, vy, vz);
+      rgrid3d_add(vx, -VX);
       sprintf(filename, "ebubble_sliquid-vx-%ld", iter);              
       dft_driver_write_density(vx, filename);
       sprintf(filename, "ebubble_sliquid-vy-%ld", iter);              
