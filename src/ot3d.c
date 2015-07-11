@@ -133,7 +133,6 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
     exit(1);
   }
 
-
   dft_ot_temperature(otf, model);
   /* these grids are not needed for GP */
   if(!(model & DFT_GP) && !(model & DFT_ZERO)) {

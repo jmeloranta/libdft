@@ -19,12 +19,12 @@
 #define TIME_STEP 100.0	/* Time step in fs (50-100) */
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
-#define OUTPUT     1000	/* output every this iteration */
-#define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define PLANNING 2      /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
-#define NX 1024       	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256      	/* # of grid points along z */
+#define OUTPUT     100	/* output every this iteration */
+#define THREADS 4	/* # of parallel threads to use (0 = all) */
+#define PLANNING 1      /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
+#define NX 128       	/* # of grid points along x */
+#define NY 128          /* # of grid points along y */
+#define NZ 128      	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
@@ -39,7 +39,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T2100MK
+#define T1800MK
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs (Donnelly 0.05052) */
@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
   dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "/home2/git/libdft/examples/3d/electron/jortner.dat", "/home2/git/libdft/examples/3d/electron/jortner.dat", "/home2/git/libdft/examples/3d/electron/jortner.dat", pair_pot);
   rgrid3d_fd_gradient_x(pair_pot, dpair_pot);
   dft_driver_convolution_prepare(pair_pot, dpair_pot);
-
+  
   for(iter = 0; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
     double ts;
     ts = dynamic_time_step(iter);
@@ -273,6 +273,9 @@ int main(int argc, char *argv[]) {
     grid3d_wf_density(impwf, density);
     dft_driver_convolution_prepare(NULL, density);
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
+    //
+    rgrid3d_add(ext_pot, mu0);
+    //
     grid3d_add_real_to_complex_re(cpot_super, ext_pot);
     cgrid3d_copy(gwfp->grid, gwf->grid);
     dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_HELIUM, gwfp, cpot_super, ts);
@@ -300,6 +303,9 @@ int main(int argc, char *argv[]) {
     grid3d_wf_density(impwfp, density);
     dft_driver_convolution_prepare(NULL, density);
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
+    //
+    rgrid3d_add(ext_pot, mu0);
+    //
     grid3d_add_real_to_complex_re(cpot_el, ext_pot);
     cgrid3d_sum(cpot_super, cpot_super, cpot_el);
     cgrid3d_sum(cpot_normal, cpot_normal, cpot_el);
