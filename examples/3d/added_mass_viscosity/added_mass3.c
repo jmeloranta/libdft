@@ -19,7 +19,7 @@
 #define TIME_STEP 100.0	/* Time step in fs (50-100) */
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
-#define OUTPUT     100	/* output every this iteration */
+#define OUTPUT     10	/* output every this iteration */
 #define THREADS 4	/* # of parallel threads to use (0 = all) */
 #define PLANNING 1      /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
 #define NX 128       	/* # of grid points along x */
@@ -194,13 +194,14 @@ int main(int argc, char *argv[]) {
   dft_driver_initialize();
 
   /* bulk normalization */
-  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
+  //  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density(dft_driver_otf);
   mu0  = dft_ot_bulk_chempot(dft_driver_otf);
   printf("rho0 = %le Angs^-3, mu0 = %le K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
-
+  
   /* Allocate wavefunctions and grids */
   cpot_el = dft_driver_alloc_cgrid();            
   cpot_super = dft_driver_alloc_cgrid();         
@@ -273,9 +274,7 @@ int main(int argc, char *argv[]) {
     grid3d_wf_density(impwf, density);
     dft_driver_convolution_prepare(NULL, density);
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
-    //
-    rgrid3d_add(ext_pot, mu0);
-    //
+    rgrid3d_add(ext_pot, -mu0); // chemical potential (same for super & normal)
     grid3d_add_real_to_complex_re(cpot_super, ext_pot);
     cgrid3d_copy(gwfp->grid, gwf->grid);
     dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_HELIUM, gwfp, cpot_super, ts);
@@ -303,9 +302,7 @@ int main(int argc, char *argv[]) {
     grid3d_wf_density(impwfp, density);
     dft_driver_convolution_prepare(NULL, density);
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
-    //
-    rgrid3d_add(ext_pot, mu0);
-    //
+    rgrid3d_add(ext_pot, -mu0);   // Chemical potential (same for super & normal)
     grid3d_add_real_to_complex_re(cpot_el, ext_pot);
     cgrid3d_sum(cpot_super, cpot_super, cpot_el);
     cgrid3d_sum(cpot_normal, cpot_normal, cpot_el);

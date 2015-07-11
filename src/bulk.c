@@ -104,7 +104,6 @@ EXPORT double dft_ot_bulk_chempot(dft_ot_functional *otf) {
  * to the above is that the chemical potential is computed for the bulk density
  * provided in otf rather than the saturated vapor pressure.
  *
- *
  * otf = OT functional (dft_ot_functional *; input).
  *
  * Returns chemical potential at otf->rho0.
@@ -163,7 +162,7 @@ EXPORT double dft_ot_bulk_dPdRho(dft_ot_functional *otf, double rho) {
 EXPORT double dft_ot_bulk_density_pressurized(dft_ot_functional *otf, double pressure) {
 
   //  double rho0 = dft_ot_bulk_density(otf);
-  double rho0 = otf->rho0;
+  double rho0 = 1.0;
   double misP = dft_ot_bulk_pressure(otf, rho0) - pressure;
   double tol2 = 1.0E-12;
   int i, maxiter = 1000;
