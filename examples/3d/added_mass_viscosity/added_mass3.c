@@ -16,22 +16,22 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 100.0	/* Time step in fs (50-100) */
+#define TIME_STEP 20.0	/* Time step in fs (50-100) */
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
-#define OUTPUT     10	/* output every this iteration */
+#define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define PLANNING 2      /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
-#define NX 1024       	/* # of grid points along x */
+#define PLANNING 1     /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
+#define NX 256       	/* # of grid points along x */
 #define NY 256          /* # of grid points along y */
 #define NZ 256      	/* # of grid points along z */
-#define STEP 1.0        /* spatial step length (Bohr) */
+#define STEP 1.5        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 #define IMP_MASS 1.0 /* electron mass */
 
 /* velocity components */
-#define KX	(3.0 * 2.0 * M_PI / (NX * STEP))
+#define KX	(1.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NY * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NZ * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
@@ -39,14 +39,21 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T2100MK
+// #define T2100MK
+
+/* debug */
+#define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define VISCOSITY (2.4E-6)
+#define RHON 1.0
+#define FUNCTIONAL DFT_OT_PLAIN
+#define IDENT "debug"
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs (Donnelly 0.05052) */
 #define IDENT "T = 2.1 K"
 #define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.803E-6) /* In Pa s (Donnelly 1.803E-6) */
-#define RHON    (0.741)      /* normal fraction (Donnelly 0.741) */
+#define VISCOSITY (1.803E-6) /* In Pa s (Fred 1.719E-6) */
+#define RHON    (0.741)      /* normal fraction (Fred 0.752)) */
 #define FUNCTIONAL DFT_OT_T2100MK
 #endif
 
@@ -54,8 +61,8 @@
 /* Exp mobility = 0.097 cm^2/Vs (Donnelly 0.1088) */
 #define IDENT "T = 1.8 K"
 #define DENSITY (0.021885 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.298E-6) /* In Pa s (Donnelly 1.298E-6) */
-#define RHON    (0.313)       /* normal fraction (Donnelly 0.313) */
+#define VISCOSITY (1.298E-6) /* In Pa s (Fred 1.25E-6, donnelly 1.298E-6) */
+#define RHON    (0.313)       /* normal fraction (Fred 0.35)) */
 #define FUNCTIONAL DFT_OT_T1800MK
 #endif
   
@@ -63,8 +70,8 @@
 /* Exp mobility = 0.183 cm^2/Vs (Donnelly 0.1772) */
 #define IDENT "T = 1.6 K"
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.306E-6) /* In Pa s (Donnelly 1.306E-6) */
-#define RHON    0.162       /* normal fraction (Donnelly 0.162) */
+#define VISCOSITY (1.306E-6) /* In Pa s (Fred 1.310E-6)) */
+#define RHON    0.162       /* normal fraction (Fred 0.171) */
 #define FUNCTIONAL DFT_OT_T1600MK
 #endif
 
@@ -72,8 +79,8 @@
 /* Exp mobility = 1.0 cm^2/Vs (Donnelly 0.9880) */
 #define IDENT "T = 1.2 K"
 #define DENSITY (0.021846 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.736E-6) /* In Pa s (Donnelly 1.736E-6) */
-#define RHON    0.026       /* normal fraction (Donnelly 0.026) */
+#define VISCOSITY (1.736E-6) /* In Pa s (Fred 1.809E-6)) */
+#define RHON    0.026       /* normal fraction (Fred 0.0289) */
 #define FUNCTIONAL DFT_OT_T1200MK
 #endif
 
@@ -81,8 +88,8 @@
 /* Exp mobility = 20.86 cm^2/Vs (Donnelly 21.38) */
 #define IDENT "T = 0.8 K"
 #define DENSITY (0.021876 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (15.82E-6) /* In Pa s (Donnelly 1.582E-5) */
-#define RHON    9.27E-4       /* normal fraction (Donnelly 9.27E-4) */
+#define VISCOSITY (15.82E-6) /* In Pa s (Fred ...) */
+#define RHON    9.27E-4       /* normal fraction (Fred ...) */
 #define FUNCTIONAL DFT_OT_T800MK
 #endif
 
@@ -90,8 +97,8 @@
 /* Exp mobility = 438 cm^2/Vs (Donnelly 454.6) */
 #define IDENT "T = 0.4 K"
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (114.15E-6) /* In Pa s (Donnelly ??) */
-#define RHON    2.92E-6       /* normal fraction (Donnelly 2.92E-6) */
+#define VISCOSITY (114.15E-6) /* In Pa s (Fred ...) */
+#define RHON    2.92E-6       /* normal fraction (Fred ...) */
 #define FUNCTIONAL DFT_OT_T400MK
 #endif
 
@@ -175,8 +182,8 @@ int main(int argc, char *argv[]) {
   printf("Run ID: %s\n", IDENT);
   
   /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(FUNCTIONAL, 1, DENSITY * (1.0 - RHON));   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
-  dft_driver_setup_normal_density(DENSITY * RHON);
+  dft_driver_setup_model(FUNCTIONAL, 1, DENSITY * (1.0 - RHON));   /* This holds the superfluid part */
+  dft_driver_setup_normal_density(DENSITY * RHON);                 /* normal fluid */
   dft_driver_setup_viscosity(VISCOSITY);
   
   /* Regular boundaries */
@@ -187,14 +194,14 @@ int main(int argc, char *argv[]) {
   /* Initialize */
   dft_driver_initialize();
 
-  /* bulk normalization */
-  //  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
+  /* normalization */
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density(dft_driver_otf);
   mu0  = dft_ot_bulk_chempot(dft_driver_otf);
-  printf("rho0 = %le Angs^-3, mu0 = %le K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
+  printf("Bulk: rho0 = %le Angs^-3, mu0 = %le K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
+  printf("Exp: rho0 = %le Angs^-3.\n", DENSITY / (0.529 * 0.529 * 0.529));
   
   /* Allocate wavefunctions and grids */
   cpot_el = dft_driver_alloc_cgrid();            
@@ -221,6 +228,7 @@ int main(int argc, char *argv[]) {
   
   fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (a.u.)\n", VX, VY, VZ);
+  fprintf(stderr, "Relative velocity = (%le, %le, %le) (m/s)\n", VX * GRID_AUTOMPS, VY * GRID_AUTOMPS, VZ * GRID_AUTOMPS);
   
   /* Initial wavefunctions. Read from file or set to initial guess */
   /* Constant density (initial guess) */
@@ -237,7 +245,7 @@ int main(int argc, char *argv[]) {
   rgrid3d_fd_gradient_x(pair_pot, dpair_pot);
   dft_driver_convolution_prepare(pair_pot, dpair_pot);
   
-  for(iter = 0; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
+  for(iter = 1; iter < MAXITER; iter++) {
     double ts;
     ts = dynamic_time_step(iter);
     printf("Time step = %le fs.\n", ts);
@@ -251,7 +259,7 @@ int main(int argc, char *argv[]) {
 
     /* PREDICT */
 
-    /* electron external potential */
+    /* electron external potential (TODO: potential pointing wrong way?) */
     dft_driver_total_wf(total, gwf, nwf);
     grid3d_wf_density(total, density);
     dft_driver_convolution_prepare(NULL, density);      
@@ -279,7 +287,7 @@ int main(int argc, char *argv[]) {
 
     /* CORRECT */
 
-    /* electron external potential */
+    /* electron external potential (TODO: potential pointing wrong way?) */
     dft_driver_total_wf(total, gwfp, nwfp);
     grid3d_wf_density(total, density);
     dft_driver_convolution_prepare(NULL, density);      
@@ -297,11 +305,11 @@ int main(int argc, char *argv[]) {
     rgrid3d_add(ext_pot, -mu0);   // Chemical potential (same for super & normal)
     grid3d_add_real_to_complex_re(cpot_el, ext_pot);
     cgrid3d_sum(cpot_super, cpot_super, cpot_el);
-    cgrid3d_sum(cpot_normal, cpot_normal, cpot_el);
     cgrid3d_multiply(cpot_super, 0.5);
     dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_HELIUM, gwf, cpot_super, ts);
 
     /* normal external potential */
+    cgrid3d_sum(cpot_normal, cpot_normal, cpot_el); // from above
     dft_driver_viscous_potential(nwf, cpot_normal);
     cgrid3d_multiply(cpot_normal, 0.5);
     dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_NORMAL, nwf, cpot_normal, ts);
@@ -314,10 +322,10 @@ int main(int argc, char *argv[]) {
     printf("%lf wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
     fflush(stdout);
 
-    force = creal(cgrid3d_grid_expectation_value_func(NULL, center_func, impwf->grid));
+    force = creal(cgrid3d_grid_expectation_value_func(NULL, center_func, impwf->grid)); // force is temp
     printf("Expectation value of position (electron): %le\n", force * GRID_AUTOANG);
     /* keep electron at origin */
-    cgrid3d_shift(cpot_super, impwf->grid, -force, 0.0, 0.0);
+    cgrid3d_shift(cpot_super, impwf->grid, -force, 0.0, 0.0);  // cpot_super is temp
     cgrid3d_copy(impwf->grid, cpot_super);
     
     if(iter && !(iter % OUTPUT)){	
@@ -333,7 +341,6 @@ int main(int argc, char *argv[]) {
       kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
       kin += dft_driver_kinetic_energy(nwf);
       pot = dft_driver_potential_energy(total, ext_pot); /* Potential energy for gwf */
-      //ene = kin + pot;           /* Total energy for gwf */
       n = dft_driver_natoms(total);
       printf("Iteration %ld background kinetic = %.30lf\n", iter, n * EKIN * GRID_AUTOK);
       printf("Iteration %ld helium natoms    = %le particles.\n", iter, n);   /* Energy / particle in K */
@@ -341,7 +348,9 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld helium potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld helium energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       
-      grid3d_wf_probability_flux_x(total, vx);
+      grid3d_wf_probability_flux_x(gwf, vx);
+      grid3d_wf_probability_flux_y(nwf, vy);
+      rgrid3d_sum(vx, vx, vy);
       printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(vx) / VX);
 
       force = eval_force(total, impwf, pair_pot, dpair_pot, ext_pot, density);  /* ext_pot & density are temps */
@@ -350,7 +359,6 @@ int main(int argc, char *argv[]) {
       printf("Drag force on ion(normal) = %le a.u.\n", force_normal);
       printf("E-field = %le V/m\n", -force * GRID_AUTOVPM);
       printf("E-field(normal) = %le V/m\n", -force_normal * GRID_AUTOVPM);
-      printf("Target ion velocity = %le m/s\n", VX * GRID_AUTOMPS);
       mobility = VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
       printf("Mobility = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
       printf("Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));

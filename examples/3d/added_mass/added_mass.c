@@ -16,16 +16,16 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 10.0	/* Time step in fs (5 for real, 10 for imag) */
-#define IMP_STEP 0.1	/* Time step in fs (5 for real, 10 for imag) */
+#define TIME_STEP 20.0	/* Time step in fs (5 for real, 10 for imag) */
+#define IMP_STEP 0.2	/* Time step in fs (5 for real, 10 for imag) */
 #define STARTING_ITER 1 /* Starting iteration - be careful if set to zero */
-#define MAXITER (50000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
-#define OUTPUT     10000	/* output every this iteration */
-#define THREADS 32	/* # of parallel threads to use */
-#define NX 256       	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256        	/* # of grid points along z */
-#define STEP 1.0        /* spatial step length (Bohr) */
+#define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
+#define OUTPUT     200	/* output every this iteration */
+#define THREADS 64	/* # of parallel threads to use */
+#define NX 128       	/* # of grid points along x */
+#define NY 128          /* # of grid points along y */
+#define NZ 128        	/* # of grid points along z */
+#define STEP 1.5        /* spatial step length (Bohr) */
 #define DENSITY (0.0218360 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default at SVP) */
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 #define IMP_MASS 1.0 /* electron mass */
@@ -119,7 +119,8 @@ int main(int argc, char *argv[]) {
   dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "../electron/jortner.dat", "../electron/jortner.dat", "../electron/jortner.dat", pair_pot);
   dft_driver_convolution_prepare(pair_pot, NULL);
 
-  for(iter = STARTING_ITER ; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
+  for(iter = STARTING_ITER; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
+    fprintf(stderr,"Iter = %ld\n", iter);fflush(stderr);
     /*** IMPURITY ***/
     /* 1. update potential */
     grid3d_wf_density(gwf, density);
@@ -138,6 +139,7 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld impurity kinetic   = %.30lf\n", iter, kin * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld impurity potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld impurity energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
+      fflush(stdout);
       /* Impurity density */
       sprintf(filename, "ebubble_imp-%ld", iter);
       //dft_driver_write_2d_density(density, filename);  /* Write 2D density slices to file */
@@ -165,7 +167,8 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld helium kinetic   = %.30lf\n", iter, kin * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld helium potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld helium energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
-      
+      fflush(stdout);
+
       /* Helium density */
       if(VX != 0.0)
 	grid3d_wf_probability_flux_x(gwf, current);
@@ -178,6 +181,7 @@ int main(int argc, char *argv[]) {
 	printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(current) / VX); 
       else
 	printf("VX = 0, no added mass.\n");
+      fflush(stdout);
       grid3d_wf_density(gwf, density);                     /* Density from gwf */
       sprintf(filename, "ebubble_liquid-%ld", iter);              
       dft_driver_write_density(density, filename);

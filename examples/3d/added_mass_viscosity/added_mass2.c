@@ -19,17 +19,16 @@
 #define TIME_STEP 100.0	/* Time step in fs (5 for real, 10 for imag) */
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
-#define THREADS 32	/* # of parallel threads to use */
-#define NX 512      	/* # of grid points along x */
-#define NY 64          /* # of grid points along y */
-#define NZ 64      	/* # of grid points along z */
-#define STEP 2.0        /* spatial step length (Bohr) */
+#define THREADS 64	/* # of parallel threads to use */
+#define NX 256      	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 256      	/* # of grid points along z */
+#define STEP 1.0        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
 /* velocity components */
 #define KX	(1.0 * 2.0 * M_PI / (NX * STEP))
-//#define KX	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
@@ -37,53 +36,59 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T2100MK
+//#define T2100MK
+
+/* debug */
+#define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define VISCOSITY (2.4E-6)
+#define RHON 1.0
+#define FUNCTIONAL DFT_OT_PLAIN
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs - gives 0.096 (well conv. kc+bf 0.087) */
 #define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.71877E-6) /* In Pa s */
-#define RHON    0.752       /* normal fraction (0.752) */
+#define VISCOSITY (1.803E-6) /* In Pa s */
+#define RHON    0.741       /* normal fraction (0.752) */
 #define FUNCTIONAL DFT_OT_T2100MK
 #endif
 
 #ifdef T1800MK
 /* Exp mobility = 0.097 cm^2/Vs - gives 0.287 */
 #define DENSITY (0.021885 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.25E-6) /* In Pa s */
-#define RHON    0.35       /* normal fraction */
+#define VISCOSITY (1.298E-6) /* In Pa s */
+#define RHON    0.313       /* normal fraction */
 #define FUNCTIONAL DFT_OT_T1800MK
 #endif
   
 #ifdef T1600MK
 /* Exp mobiolity = 0.183 cm^2/Vs - gives 0.565 */
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.30977E-6) /* In Pa s */
-#define RHON    0.171       /* normal fraction */
+#define VISCOSITY (1.306E-6) /* In Pa s */
+#define RHON    0.162       /* normal fraction */
 #define FUNCTIONAL DFT_OT_T1600MK
 #endif
 
 #ifdef T1200MK
 /* Exp mobility = 1.0 cm^2/Vs - gives 2.45 */
 #define DENSITY (0.021846 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.809E-6) /* In Pa s */
-#define RHON    0.0289       /* normal fraction */
+#define VISCOSITY (1.736E-6) /* In Pa s */
+#define RHON    0.026       /* normal fraction */
 #define FUNCTIONAL DFT_OT_T1200MK
 #endif
 
 #ifdef T800MK
 /* Exp mobility = 20.86 cm^2/Vs - gives 8.17 (512/0.1 grid gives maybe slightly higher */
 #define DENSITY (0.021876 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (15.823E-6) /* In Pa s */
-#define RHON    0.001       /* normal fraction (Donnelly 0.001, nist 0.0025) */
+#define VISCOSITY (15.82E-6) /* In Pa s */
+#define RHON    9.27E-4       /* normal fraction (Donnelly 0.001, nist 0.0025) */
 #define FUNCTIONAL DFT_OT_T800MK
 #endif
 
 #ifdef T400MK
-/* Exp mobiolity = 438 cm^2/Vs - gives 395 */
+/* Exp mobility = 438 cm^2/Vs - gives 395 */
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (114.15E-6) /* In Pa s */
-#define RHON    2.89188E-6       /* normal fraction */
+#define RHON    2.92E-6       /* normal fraction */
 #define FUNCTIONAL DFT_OT_T400MK
 #endif
 
@@ -111,7 +116,7 @@
 #define A3 0.0
 #define A4 0.0
 #define A5 0.0
-#define RMIN 0.1
+#define RMIN 8.0
 #define RADD (-19.0)
 #endif
 
@@ -211,7 +216,9 @@
 #define RADD 0.0
 #endif
 
-/* Impurity must always be at the origin */
+// TODO: test cutoff for dpot and pot at 100 Bohr 
+
+/* Impurity must always be at the origin (dU/dx) */
 double dpot_func(void *NA, double x, double y, double z) {
 
   double rp = sqrt(x * x + y * y + z * z), r = rp + RADD;
@@ -272,7 +279,7 @@ int main(int argc, char *argv[]) {
   dft_driver_initialize();
 
   /* bulk normalization -- dft_ot_bulk routines do not work properly with T > 0 K */
-  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density(dft_driver_otf);
@@ -288,11 +295,8 @@ int main(int argc, char *argv[]) {
   current = dft_driver_alloc_rgrid();                /* allocate real density grid */
   
   fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
-  fprintf(stderr, "Relative velocity = ( %le , %le ,%le ) (A/ps)\n", 
-		  VX * 1000.0 * GRID_AUTOANG / GRID_AUTOFS,
-		  VY * 1000.0 * GRID_AUTOANG / GRID_AUTOFS,
-		  VZ * 1000.0 * GRID_AUTOANG / GRID_AUTOFS);
-
+  fprintf(stderr, "Relative velocity = (%le , %le ,%le) (m/s)\n", 
+	  VX * GRID_AUTOMPS, VY * GRID_AUTOMPS, VZ * GRID_AUTOMPS);
   
   /* Read pair potential from file and do FFT */
 #if 1
@@ -304,8 +308,8 @@ int main(int argc, char *argv[]) {
 
   for(iter = 0; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
     /*2. Predict + correct */
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
     
     if(iter && !(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       double force, mobility;
@@ -313,7 +317,7 @@ int main(int argc, char *argv[]) {
       kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
       pot = dft_driver_potential_energy(gwf, ext_pot); /* Potential energy for gwf */
       //ene = kin + pot;           /* Total energy for gwf */
-      n = dft_driver_natoms(gwf) ;
+      n = dft_driver_natoms(gwf);
       printf("Iteration %ld background kinetic = %.30lf\n", iter, n * EKIN * GRID_AUTOK);
       printf("Iteration %ld helium natoms    = %le particles.\n", iter, n);   /* Energy / particle in K */
       printf("Iteration %ld helium kinetic   = %.30lf\n", iter, kin * GRID_AUTOK);  /* Print result in K */
@@ -328,12 +332,15 @@ int main(int argc, char *argv[]) {
       else
 	grid3d_wf_probability_flux_z(gwf, current);
       
+      sprintf(filename, "liquid-jx-%ld", iter);
+      dft_driver_write_density(current, filename);
+
       if(VX != 0.0)
 	printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(current) / VX); 
       else
 	printf("VX = 0, no added mass.\n");
       grid3d_wf_density(gwf, density);                     /* Density from gwf */
-      force = -rgrid3d_weighted_integral(density, dpot_func, NULL); /* force on ion - should be - but gives wrong sign?? */
+      force = -rgrid3d_weighted_integral(density, dpot_func, NULL);
       printf("Drag force on ion = %le a.u.\n", force);
       printf("E-field = %le V/m\n", -force * GRID_AUTOVPM);
       mobility = VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
@@ -344,6 +351,7 @@ int main(int argc, char *argv[]) {
       grid3d_wf_density(gwf, density);
       sprintf(filename, "liquid-%ld", iter);              
       dft_driver_write_density(density, filename);
+      fflush(stdout);
     }
   }
   return 0;
