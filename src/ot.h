@@ -180,4 +180,7 @@ extern int dft_driver_kinetic;
 /* Density cutoff for backflow evaluation (was rho0 / 100 = 3E-5) */
 #define DFT_BF_EPS 1E-5
 
+/* Density cutoff for velocity calculation in driver3d.c (10XBF) */
+#define DFT_VELOC_EPS (1E-5)
+
 #endif /* __DFT_OT__ */

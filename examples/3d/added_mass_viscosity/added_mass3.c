@@ -16,15 +16,15 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 20.0	/* Time step in fs (50-100) */
+#define TIME_STEP 100.0	/* Time step in fs (50-100) */
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define PLANNING 1     /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
-#define NX 256       	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256      	/* # of grid points along z */
+#define NX 128       	/* # of grid points along x */
+#define NY 128          /* # of grid points along y */
+#define NZ 128      	/* # of grid points along z */
 #define STEP 1.5        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
@@ -41,12 +41,14 @@
 
 // #define T2100MK
 
+#if 1
 /* debug */
-#define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define DENSITY (0.021983 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (2.4E-6)
 #define RHON 1.0
 #define FUNCTIONAL DFT_OT_PLAIN
 #define IDENT "debug"
+#endif
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs (Donnelly 0.05052) */
@@ -148,12 +150,23 @@ double eval_force(wf3d *gwf, wf3d *impwf, rgrid3d *pair_pot, rgrid3d *dpair_pot,
 
   double tmp;
 
+#if 1
+  grid3d_wf_density(impwf, workspace1);
+  dft_driver_convolution_prepare(workspace1, NULL);
+  dft_driver_convolution_eval(workspace2, pair_pot, workspace1);
+  rgrid3d_fd_gradient_x(workspace2, workspace1);
+  grid3d_wf_density(gwf, workspace2);
+  rgrid3d_product(workspace1, workspace1, workspace2);
+  tmp = -rgrid3d_integral(workspace1);
+#else
   grid3d_wf_density(gwf, workspace1);
   dft_driver_convolution_prepare(workspace1, NULL);
   dft_driver_convolution_eval(workspace2, dpair_pot, workspace1);
   grid3d_wf_density(impwf, workspace1);
   rgrid3d_product(workspace1, workspace1, workspace2);
-  tmp = rgrid3d_integral(workspace1);   /* double minus: from force calc and the change of reference frame (x' = -x) */
+  tmp = -rgrid3d_integral(workspace1);
+#endif
+
   return tmp;
 }
 
@@ -169,6 +182,7 @@ int main(int argc, char *argv[]) {
   double kin, pot;
   double rho0, mu0, n;
   double force, mobility, force_normal, last_mobility = 0.0;
+  double inv_width = 0.05;
   grid_timer timer;
 
   /* Set fftw planning */
@@ -236,7 +250,6 @@ int main(int argc, char *argv[]) {
   cgrid3d_constant(nwf->grid, sqrt(rho0 * RHON));
 
   /* Gaussian for impurity (initial guess) */
-  double inv_width = 0.05;
   cgrid3d_map(impwf->grid, dft_common_cgaussian, &inv_width);
   cgrid3d_multiply(impwf->grid, 1.0 / sqrt(grid3d_wf_norm(impwf)));
 
@@ -349,7 +362,7 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld helium energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       
       grid3d_wf_probability_flux_x(gwf, vx);
-      grid3d_wf_probability_flux_y(nwf, vy);
+      grid3d_wf_probability_flux_x(nwf, vy);
       rgrid3d_sum(vx, vx, vy);
       printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(vx) / VX);
 

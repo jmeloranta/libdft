@@ -574,12 +574,13 @@ EXPORT void dft_driver_ot_potential(wf3d *gwf, cgrid3d *pot) {
 }
 
 /*
- * Viscous potential (along X-axis).
+ * Viscous potential.
  *
  * gwf = wavefunction (wf3d *; input).
  * pot = potential (cgrid3d *; output).
  *
- * TODO: add routines for y and z.
+ * Note: there is still some uncertainty about the overall sign but
+ *       the choice below gives the "correct" result.
  *
  */
 
@@ -588,16 +589,22 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
   double tot = -viscosity / (driver_rho0 + driver_rho0_normal);
 
   dft_driver_veloc_field(gwf, workspace2, workspace3, workspace4); // Watch out! workspace1 used by veloc_field!
-  /* Along x-axis */
-  rgrid3d_fd_gradient_z(workspace3, workspace5);  /* dv_y / dz */
-  rgrid3d_multiply(workspace5, tot);
-  grid3d_add_real_to_complex_re(pot, workspace5);
-  rgrid3d_fd_gradient_y(workspace4, workspace5);  /* dv_z / dy */
-  rgrid3d_multiply(workspace5, tot);
-  grid3d_add_real_to_complex_re(pot, workspace5);
+
+  rgrid3d_zero(workspace7);
+  
   rgrid3d_fd_gradient_x(workspace2, workspace5);  /* dv_x / dx (propagation direction) */
-  rgrid3d_multiply(workspace5, -(2.0/3.0) * tot);
-  grid3d_add_real_to_complex_re(pot, workspace5);
+  rgrid3d_multiply(workspace5, (4.0/3.0) * tot);
+  rgrid3d_sum(workspace7, workspace7, workspace5);
+
+  rgrid3d_fd_gradient_y(workspace3, workspace5);  /* dv_y / dy (propagation direction) */
+  rgrid3d_multiply(workspace5, (4.0/3.0) * tot);
+  rgrid3d_sum(workspace7, workspace7, workspace5);
+
+  rgrid3d_fd_gradient_z(workspace4, workspace5);  /* dv_z / dz (propagation direction) */
+  rgrid3d_multiply(workspace5, (4.0/3.0) * tot);
+  rgrid3d_sum(workspace7, workspace7, workspace5);
+
+  grid3d_add_real_to_complex_re(pot, workspace7);
 }
 
 /*
@@ -2121,7 +2128,7 @@ EXPORT void dft_driver_veloc_field_x(wf3d *wf, rgrid3d *vx) {
 
   grid3d_wf_probability_flux_x(wf, vx);
   grid3d_wf_density(wf, workspace1);
-  rgrid3d_division_eps(vx, vx, workspace1, DFT_BF_EPS);  
+  rgrid3d_division_eps(vx, vx, workspace1, DFT_VELOC_EPS);
 }
 
 /*
@@ -2142,7 +2149,7 @@ EXPORT void dft_driver_veloc_field_y(wf3d *wf, rgrid3d *vy) {
 
   grid3d_wf_probability_flux_y(wf, vy);
   grid3d_wf_density(wf, workspace1);
-  rgrid3d_division_eps(vy, vy, workspace1, DFT_BF_EPS);
+  rgrid3d_division_eps(vy, vy, workspace1, DFT_VELOC_EPS);
 }
 
 /*
@@ -2163,7 +2170,7 @@ EXPORT void dft_driver_veloc_field_z(wf3d *wf, rgrid3d *vz) {
 
   grid3d_wf_probability_flux_z(wf, vz);
   grid3d_wf_density(wf, workspace1);
-  rgrid3d_division_eps(vz, vz, workspace1, DFT_BF_EPS);
+  rgrid3d_division_eps(vz, vz, workspace1, DFT_VELOC_EPS);
 }
 
 /*
@@ -2186,9 +2193,9 @@ EXPORT void dft_driver_veloc_field(wf3d *wf, rgrid3d *vx, rgrid3d *vy, rgrid3d *
 
   grid3d_wf_probability_flux(wf, vx, vy, vz);
   grid3d_wf_density(wf, workspace1);
-  rgrid3d_division_eps(vx, vx, workspace1, 1E-3*DFT_BF_EPS);  
-  rgrid3d_division_eps(vy, vy, workspace1, 1E-3*DFT_BF_EPS);
-  rgrid3d_division_eps(vz, vz, workspace1, 1E-3*DFT_BF_EPS);
+  rgrid3d_division_eps(vx, vx, workspace1, DFT_VELOC_EPS);  
+  rgrid3d_division_eps(vy, vy, workspace1, DFT_VELOC_EPS);
+  rgrid3d_division_eps(vz, vz, workspace1, DFT_VELOC_EPS);
 }
 
 
@@ -2774,4 +2781,18 @@ EXPORT void dft_driver_clear(wf3d *gwf, rgrid3d *potential, double ul) {
 #pragma omp parallel for firstprivate(d,gwf,potential,ul) private(i) default(none) schedule(runtime)
   for(i = 0; i < d; i++)
     if(potential->value[i] >= ul) gwf->grid->value[i] = 0.0;
+}
+
+/*
+ * Zero part of a given grid based on a given density & treshold.
+ *
+ */
+
+EXPORT void dft_driver_clear_core(rgrid3d *grid, rgrid3d *density, double thr) {
+
+  long i;
+
+#pragma omp parallel for firstprivate(grid, density, thr) private(i) default(none) schedule(runtime)
+  for(i = 0; i < grid->nx * grid->ny * grid->nz; i++)
+    if(density->value[i] < thr) grid->value[i] = 0.0;
 }
