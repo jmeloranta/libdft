@@ -22,10 +22,10 @@
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define PLANNING 1     /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
-#define NX 128       	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128      	/* # of grid points along z */
-#define STEP 1.5        /* spatial step length (Bohr) */
+#define NX 512       	/* # of grid points along x */
+#define NY 512          /* # of grid points along y */
+#define NZ 512      	/* # of grid points along z */
+#define STEP 1.0        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 #define IMP_MASS 1.0 /* electron mass */
@@ -39,14 +39,15 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-// #define T2100MK
+#define T1800MK
 
-#if 1
+#if 0
 /* debug */
 #define DENSITY (0.021983 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (2.4E-6)
 #define RHON 1.0
-#define FUNCTIONAL DFT_OT_PLAIN
+//#define FUNCTIONAL DFT_OT_PLAIN
+#define FUNCTIONAL (DFT_OT_T3000MK | DFT_OT_KC | DFT_OT_BACKFLOW)
 #define IDENT "debug"
 #endif
 
@@ -56,7 +57,7 @@
 #define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (1.803E-6) /* In Pa s (Fred 1.719E-6) */
 #define RHON    (0.741)      /* normal fraction (Fred 0.752)) */
-#define FUNCTIONAL DFT_OT_T2100MK
+#define FUNCTIONAL (DFT_OT_T2100MK|DFT_OT_KC)
 #endif
 
 #ifdef T1800MK
@@ -65,7 +66,7 @@
 #define DENSITY (0.021885 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (1.298E-6) /* In Pa s (Fred 1.25E-6, donnelly 1.298E-6) */
 #define RHON    (0.313)       /* normal fraction (Fred 0.35)) */
-#define FUNCTIONAL DFT_OT_T1800MK
+#define FUNCTIONAL (DFT_OT_T1800MK|DFT_OT_KC)
 #endif
   
 #ifdef T1600MK
@@ -74,7 +75,7 @@
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (1.306E-6) /* In Pa s (Fred 1.310E-6)) */
 #define RHON    0.162       /* normal fraction (Fred 0.171) */
-#define FUNCTIONAL DFT_OT_T1600MK
+#define FUNCTIONAL (DFT_OT_T1600MK|DFT_OT_KC)
 #endif
 
 #ifdef T1200MK
@@ -83,7 +84,7 @@
 #define DENSITY (0.021846 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (1.736E-6) /* In Pa s (Fred 1.809E-6)) */
 #define RHON    0.026       /* normal fraction (Fred 0.0289) */
-#define FUNCTIONAL DFT_OT_T1200MK
+#define FUNCTIONAL (DFT_OT_T1200MK|DFT_OT_KC)
 #endif
 
 #ifdef T800MK
@@ -92,7 +93,7 @@
 #define DENSITY (0.021876 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (15.82E-6) /* In Pa s (Fred ...) */
 #define RHON    9.27E-4       /* normal fraction (Fred ...) */
-#define FUNCTIONAL DFT_OT_T800MK
+#define FUNCTIONAL (DFT_OT_T800MK|DFT_OT_KC)
 #endif
 
 #ifdef T400MK
@@ -101,7 +102,7 @@
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (114.15E-6) /* In Pa s (Fred ...) */
 #define RHON    2.92E-6       /* normal fraction (Fred ...) */
-#define FUNCTIONAL DFT_OT_T400MK
+#define FUNCTIONAL (DFT_OT_T400MK|DFT_OT_KC)
 #endif
 
 #ifdef T0MK
@@ -146,6 +147,7 @@ double stddev_y(void *NA, double x, double y, double z) {
   return y * y;
 }
 
+/* Sign: - to + */
 double eval_force(wf3d *gwf, wf3d *impwf, rgrid3d *pair_pot, rgrid3d *dpair_pot, rgrid3d *workspace1, rgrid3d *workspace2) {
 
   double tmp;
@@ -157,7 +159,7 @@ double eval_force(wf3d *gwf, wf3d *impwf, rgrid3d *pair_pot, rgrid3d *dpair_pot,
   rgrid3d_fd_gradient_x(workspace2, workspace1);
   grid3d_wf_density(gwf, workspace2);
   rgrid3d_product(workspace1, workspace1, workspace2);
-  tmp = -rgrid3d_integral(workspace1);
+  tmp = rgrid3d_integral(workspace1);
 #else
   grid3d_wf_density(gwf, workspace1);
   dft_driver_convolution_prepare(workspace1, NULL);

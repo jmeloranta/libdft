@@ -579,9 +579,6 @@ EXPORT void dft_driver_ot_potential(wf3d *gwf, cgrid3d *pot) {
  * gwf = wavefunction (wf3d *; input).
  * pot = potential (cgrid3d *; output).
  *
- * Note: there is still some uncertainty about the overall sign but
- *       the choice below gives the "correct" result.
- *
  */
 
 EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {

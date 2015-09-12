@@ -16,14 +16,14 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 50.0	/* Time step in fs (5 for real, 10 for imag) */
+#define TIME_STEP 100.0	/* Time step in fs (5 for real, 10 for imag) */
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 256      	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256      	/* # of grid points along z */
-#define STEP 1.0        /* spatial step length (Bohr) */
+#define NX 128      	/* # of grid points along x */
+#define NY 128          /* # of grid points along y */
+#define NZ 128      	/* # of grid points along z */
+#define STEP 1.5        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
@@ -36,15 +36,15 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-//#define T1800MK
+//#define T2100MK
 
 /* debug */
 #if 1
 #define DENSITY (0.021983 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (2.4E-6)
 #define RHON 1.0
-#define FUNCTIONAL (DFT_OT_PLAIN|DFT_OT_KC|DFT_OT_BACKFLOW)
-//#define FUNCTIONAL DFT_OT_PLAIN
+//#define FUNCTIONAL (DFT_OT_PLAIN|DFT_OT_KC|DFT_OT_BACKFLOW)
+#define FUNCTIONAL DFT_OT_PLAIN
 #endif
 
 #ifdef T2100MK
@@ -52,8 +52,8 @@
 #define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (1.803E-6) /* In Pa s */
 #define RHON    0.741       /* normal fraction (0.752) */
-//#define FUNCTIONAL DFT_OT_T2100MK
-#define FUNCTIONAL (DFT_OT_PLAIN|DFT_OT_KC|DFT_OT_BACKFLOW)
+#define FUNCTIONAL DFT_OT_T2100MK
+//#define FUNCTIONAL (DFT_OT_PLAIN|DFT_OT_KC|DFT_OT_BACKFLOW)
 #endif
 
 #ifdef T1800MK
@@ -340,6 +340,7 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(current) / VX); 
 
       grid3d_wf_density(gwf, density);                     /* Density from gwf */
+      /* sign - to + */
       force = rgrid3d_weighted_integral(density, dpot_func, NULL);
       printf("Drag force on ion = %le a.u.\n", force);
 
