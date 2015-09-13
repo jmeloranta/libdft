@@ -36,10 +36,10 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-//#define T2100MK
+#define T2100MK
 
 /* debug */
-#if 1
+#if 0
 #define DENSITY (0.021983 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (2.4E-6)
 #define RHON 1.0
@@ -53,7 +53,6 @@
 #define VISCOSITY (1.803E-6) /* In Pa s */
 #define RHON    0.741       /* normal fraction (0.752) */
 #define FUNCTIONAL DFT_OT_T2100MK
-//#define FUNCTIONAL (DFT_OT_PLAIN|DFT_OT_KC|DFT_OT_BACKFLOW)
 #endif
 
 #ifdef T1800MK
@@ -61,8 +60,7 @@
 #define DENSITY (0.021885 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (1.298E-6) /* In Pa s */
 #define RHON    0.313       /* normal fraction */
-//#define FUNCTIONAL DFT_OT_T1800MK
-#define FUNCTIONAL (DFT_OT_PLAIN|DFT_OT_KC|DFT_OT_BACKFLOW)
+#define FUNCTIONAL DFT_OT_T1800MK
 #endif
   
 #ifdef T1600MK
