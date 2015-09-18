@@ -583,22 +583,23 @@ EXPORT void dft_driver_ot_potential(wf3d *gwf, cgrid3d *pot) {
 
 EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
-  double tot = -viscosity / (driver_rho0 + driver_rho0_normal);
+  // sign: theory shows - but practice shows +...
+  double tot = 2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
 
   dft_driver_veloc_field(gwf, workspace2, workspace3, workspace4); // Watch out! workspace1 used by veloc_field!
 
   rgrid3d_zero(workspace7);
   
   rgrid3d_fd_gradient_x(workspace2, workspace5);  /* dv_x / dx (propagation direction) */
-  rgrid3d_multiply(workspace5, (4.0/3.0) * tot);
+  rgrid3d_multiply(workspace5, tot);
   rgrid3d_sum(workspace7, workspace7, workspace5);
 
   rgrid3d_fd_gradient_y(workspace3, workspace5);  /* dv_y / dy (propagation direction) */
-  rgrid3d_multiply(workspace5, (4.0/3.0) * tot);
+  rgrid3d_multiply(workspace5, tot);
   rgrid3d_sum(workspace7, workspace7, workspace5);
 
   rgrid3d_fd_gradient_z(workspace4, workspace5);  /* dv_z / dz (propagation direction) */
-  rgrid3d_multiply(workspace5, (4.0/3.0) * tot);
+  rgrid3d_multiply(workspace5, tot);
   rgrid3d_sum(workspace7, workspace7, workspace5);
 
   grid3d_add_real_to_complex_re(pot, workspace7);

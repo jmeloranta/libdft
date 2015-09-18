@@ -181,6 +181,6 @@ extern int dft_driver_kinetic;
 #define DFT_BF_EPS 1E-5
 
 /* Density cutoff for velocity calculation in driver3d.c (10XBF) */
-#define DFT_VELOC_EPS (1E-5)
+#define DFT_VELOC_EPS (5E-5)
 
 #endif /* __DFT_OT__ */

@@ -20,10 +20,10 @@
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 128      	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128      	/* # of grid points along z */
-#define STEP 1.5        /* spatial step length (Bohr) */
+#define NX 512      	/* # of grid points along x */
+#define NY 512          /* # of grid points along y */
+#define NZ 512      	/* # of grid points along z */
+#define STEP 0.5        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
@@ -36,7 +36,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T2100MK
+#define T800MK
 
 /* debug */
 #if 0
@@ -82,7 +82,7 @@
 #ifdef T800MK
 /* Exp mobility = 20.86 cm^2/Vs - gives 8.17 (512/0.1 grid gives maybe slightly higher */
 #define DENSITY (0.021876 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (15.82E-6) /* In Pa s */
+#define VISCOSITY (1.2E-6) /* In Pa s (was 15.82E-6) */
 #define RHON    9.27E-4       /* normal fraction (Donnelly 0.001, nist 0.0025) */
 #define FUNCTIONAL DFT_OT_T800MK
 #endif
@@ -224,13 +224,14 @@
 /* Impurity must always be at the origin (dU/dx) */
 double dpot_func(void *NA, double x, double y, double z) {
 
-  double rp = sqrt(x * x + y * y + z * z), r = rp + RADD;
-  double r2 = r * r;
-  double r3 = r2 * r;
-  double r5 = r2 * r3;
-  double r7 = r5 * r2;
-  double r9 = r7 * r2;
-  double r11 = r9 * r2;
+  double rp, r2, r3, r5, r7, r9, r11, r;
+  rp = sqrt(x * x + y * y + z * z), r = rp + RADD;
+  r2 = r * r;
+  r3 = r2 * r;
+  r5 = r2 * r3;
+  r7 = r5 * r2;
+  r9 = r7 * r2;
+  r11 = r9 * r2;
   
   if(r < RMIN) return 0.0;   /* hopefully no liquid density in the core region */
   return (x / rp) * (-A0 * A1 * exp(-A1 * r) + 4.0 * A2 / r5 + 6.0 * A3 / r7 + 8.0 * A4 / r9 + 10.0 * A5 / r11);
@@ -238,8 +239,9 @@ double dpot_func(void *NA, double x, double y, double z) {
 
 double pot_func(void *asd, double x, double y, double z) {
 
-  double r = sqrt(x * x + y * y + z * z) + RADD;
-  double r2, r4, r6, r8, r10, tmp;
+  double r, r2, r4, r6, r8, r10, tmp;
+
+  r = sqrt(x * x + y * y + z * z) + RADD;
 
   if(r < RMIN) r = RMIN;
   r2 = r * r;
@@ -304,7 +306,7 @@ int main(int argc, char *argv[]) {
   current = dft_driver_alloc_rgrid();                /* allocate real density grid */
   
   fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
-  fprintf(stderr, "Relative velocity = (%le , %le ,%le) (m/s)\n", 
+  fprintf(stderr, "Relative velocity = (%le, %le, %le) (m/s)\n", 
 	  VX * GRID_AUTOMPS, VY * GRID_AUTOMPS, VZ * GRID_AUTOMPS);
   
   /* Read pair potential from file and do FFT */
@@ -338,11 +340,10 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(current) / VX); 
 
       grid3d_wf_density(gwf, density);                     /* Density from gwf */
-      /* sign - to + */
-      force = rgrid3d_weighted_integral(density, dpot_func, NULL);
+      /* sign - to + (- is consistent with finite diff) */
+      force = -rgrid3d_weighted_integral(density, dpot_func, NULL);
       printf("Drag force on ion = %le a.u.\n", force);
-
-#if 1
+#if 0
       // rgrid3d.c: first points ignored for both integral & weighted integral
       //      rgrid3d_map(current, dpot_func, NULL);
       rgrid3d_map(current, x_func, NULL);
