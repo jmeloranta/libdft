@@ -82,7 +82,7 @@
 #ifdef T800MK
 /* Exp mobility = 20.86 cm^2/Vs - gives 8.17 (512/0.1 grid gives maybe slightly higher */
 #define DENSITY (0.021876 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.2E-6) /* In Pa s (was 15.82E-6) */
+#define VISCOSITY (2E-6) /* In Pa s (was 15.82E-6) */
 #define RHON    9.27E-4       /* normal fraction (Donnelly 0.001, nist 0.0025) */
 #define FUNCTIONAL DFT_OT_T800MK
 #endif

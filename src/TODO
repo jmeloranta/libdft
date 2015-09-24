@@ -1,4 +1,4 @@
-- 2D KC term gives wrong result for large bubbles
-- DR in 2D seems to give NaN
-- backflow and vortex give NaNs
-- fgrep TODO *.[ch]
+effect of VELOC_EPS
+why divide by rho_0 rather than rho_n?
+neglect mutual friction between super and normal
+

@@ -19,13 +19,13 @@
 #define TIME_STEP 100.0	/* Time step in fs (50-100) */
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
-#define OUTPUT     100	/* output every this iteration */
+#define OUTPUT     500	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define PLANNING 1     /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
 #define NX 512       	/* # of grid points along x */
 #define NY 512          /* # of grid points along y */
 #define NZ 512      	/* # of grid points along z */
-#define STEP 1.0        /* spatial step length (Bohr) */
+#define STEP 0.5        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 #define IMP_MASS 1.0 /* electron mass */
@@ -39,7 +39,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T1800MK
+#define T800MK
 
 #if 0
 /* debug */
@@ -57,7 +57,16 @@
 #define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (1.803E-6) /* In Pa s (Fred 1.719E-6) */
 #define RHON    (0.741)      /* normal fraction (Fred 0.752)) */
-#define FUNCTIONAL (DFT_OT_T2100MK|DFT_OT_KC)
+#define FUNCTIONAL DFT_OT_T2100MK
+#endif
+
+#ifdef T2000MK
+/* Exp mobility = 0.0685 cm^2/Vs (Donnelly) */
+#define IDENT "T = 2.0 K"
+#define DENSITY (0.021909 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define VISCOSITY (1.47E-6) /* In Pa s (Donnelly) */
+#define RHON    (0.553)      /* normal fraction (Donnelly) */
+#define FUNCTIONAL DFT_OT_T2000MK
 #endif
 
 #ifdef T1800MK
@@ -66,7 +75,7 @@
 #define DENSITY (0.021885 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (1.298E-6) /* In Pa s (Fred 1.25E-6, donnelly 1.298E-6) */
 #define RHON    (0.313)       /* normal fraction (Fred 0.35)) */
-#define FUNCTIONAL (DFT_OT_T1800MK|DFT_OT_KC)
+#define FUNCTIONAL DFT_OT_T1800MK
 #endif
   
 #ifdef T1600MK
@@ -75,25 +84,34 @@
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (1.306E-6) /* In Pa s (Fred 1.310E-6)) */
 #define RHON    0.162       /* normal fraction (Fred 0.171) */
-#define FUNCTIONAL (DFT_OT_T1600MK|DFT_OT_KC)
+#define FUNCTIONAL DFT_OT_T1600MK
+#endif
+
+#ifdef T1400MK
+/* Exp mobility = 0.36 cm^2/Vs (Donnelly) */
+#define IDENT "T = 1.4 K"
+#define DENSITY (0.021837 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define VISCOSITY (1.40E-6) /* In Pa s (Donnelly) */
+#define RHON    0.0745       /* normal fraction (Donnelly) */
+#define FUNCTIONAL DFT_OT_T1400MK
 #endif
 
 #ifdef T1200MK
 /* Exp mobility = 1.0 cm^2/Vs (Donnelly 0.9880) */
 #define IDENT "T = 1.2 K"
 #define DENSITY (0.021846 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.736E-6) /* In Pa s (Fred 1.809E-6)) */
+#define VISCOSITY (1.736E-6) /* In Pa s (Fred 1.809E-6) */
 #define RHON    0.026       /* normal fraction (Fred 0.0289) */
-#define FUNCTIONAL (DFT_OT_T1200MK|DFT_OT_KC)
+#define FUNCTIONAL DFT_OT_T1200MK
 #endif
 
 #ifdef T800MK
 /* Exp mobility = 20.86 cm^2/Vs (Donnelly 21.38) */
 #define IDENT "T = 0.8 K"
 #define DENSITY (0.021876 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (15.82E-6) /* In Pa s (Fred ...) */
-#define RHON    9.27E-4       /* normal fraction (Fred ...) */
-#define FUNCTIONAL (DFT_OT_T800MK|DFT_OT_KC)
+#define VISCOSITY (10E-6) /* In Pa s (Donnelly was 15.82E-6) */
+#define RHON    9.27E-4       /* normal fraction */
+#define FUNCTIONAL DFT_OT_T800MK
 #endif
 
 #ifdef T400MK
@@ -102,7 +120,7 @@
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #define VISCOSITY (114.15E-6) /* In Pa s (Fred ...) */
 #define RHON    2.92E-6       /* normal fraction (Fred ...) */
-#define FUNCTIONAL (DFT_OT_T400MK|DFT_OT_KC)
+#define FUNCTIONAL DFT_OT_T400MK
 #endif
 
 #ifdef T0MK
@@ -159,7 +177,7 @@ double eval_force(wf3d *gwf, wf3d *impwf, rgrid3d *pair_pot, rgrid3d *dpair_pot,
   rgrid3d_fd_gradient_x(workspace2, workspace1);
   grid3d_wf_density(gwf, workspace2);
   rgrid3d_product(workspace1, workspace1, workspace2);
-  tmp = rgrid3d_integral(workspace1);
+  tmp = -rgrid3d_integral(workspace1);
 #else
   grid3d_wf_density(gwf, workspace1);
   dft_driver_convolution_prepare(workspace1, NULL);
