@@ -48,7 +48,7 @@ static rgrid3d *workspace8 = 0;
 static rgrid3d *workspace9 = 0;
 static cgrid3d *cworkspace = 0;
 static grid_timer timer;
-static double damp = 0.2, viscosity = 0.0;
+static double damp = 0.2, viscosity = 0.0, viscosity_epsilon = 5E-5;
 
 int dft_internal_using_3d = 0;
 extern int dft_internal_using_2d, dft_internal_using_cyl;
@@ -334,6 +334,25 @@ EXPORT void dft_driver_setup_momentum(double kx0, double ky0, double kz0) {
 }
 
 /*
+ * Set the epsilon parameter for viscous response (similar to Millikan-Cunningham correction).
+ *
+ * eps = Epsilon value (typically 1 x 10^-5 to 5 x 10^-5).
+ *
+ * No return value.
+ *
+ */
+
+EXPORT void dft_driver_setup_viscosity_epsilon(double eps) {
+
+  if(eps < 0.0 || eps > 1E-3) {
+    fprintf(stderr, "libdft: Illegal epsilon value.\n");
+    exit(1);
+  }
+  viscosity_epsilon = eps;
+  fprintf(stderr, "libdft: Viscosity epsilon = %le.\n", eps);
+}
+
+/*
  * Set effective visocisty.
  *
  * visc = effective Viscosity in Pa s (SI) units. This is typically the normal fraction x normal fluid viscosity.
@@ -579,14 +598,16 @@ EXPORT void dft_driver_ot_potential(wf3d *gwf, cgrid3d *pot) {
  * gwf = wavefunction (wf3d *; input).
  * pot = potential (cgrid3d *; output).
  *
+ * Note this routine uses the epsilon parameter to scren velocity.
+ *
  */
 
 EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
-  // sign: theory shows - but practice shows +...
+  // sign: theory shows - but practice shows +... - moving background causing the change?
   double tot = 2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
 
-  dft_driver_veloc_field(gwf, workspace2, workspace3, workspace4); // Watch out! workspace1 used by veloc_field!
+  dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, viscosity_epsilon); // Watch out! workspace1 used by veloc_field!
 
   rgrid3d_zero(workspace7);
   
@@ -2113,20 +2134,96 @@ EXPORT cgrid1d *dft_driver_spectrum_evaluate(double tstep, double tc) {
  * $v = \vec{J}/\rho$.
  *
  * gwf  = Order parameter for which the velocity field is evaluated (input; wf3d *).
- * vx    = Velocity field x component (output; rgrid3d *).
- *
- * Note: This routine caps the maximum liquid velocity using
- *       DFT_BF_EPS.
+ * vx   = Velocity field x component (output; rgrid3d *).
+ * eps  = Epsilon to add to rho when dividing (input; double).
  *
  */
 
-EXPORT void dft_driver_veloc_field_x(wf3d *wf, rgrid3d *vx) {
+EXPORT void dft_driver_veloc_field_x_eps(wf3d *wf, rgrid3d *vx, double eps) {
 
   check_mode();
 
   grid3d_wf_probability_flux_x(wf, vx);
   grid3d_wf_density(wf, workspace1);
-  rgrid3d_division_eps(vx, vx, workspace1, DFT_VELOC_EPS);
+  rgrid3d_division_eps(vx, vx, workspace1, eps);
+}
+
+/*
+ * Evaluate the liquid velocity field for a given order paremeter (Y component),
+ * $v = \vec{J}/\rho$.
+ *
+ * gwf  = Order parameter for which the velocity field is evaluated (input; wf3d *).
+ * vy   = Velocity field y component (output; rgrid3d *).
+ * eps  = Epsilon to add to rho when dividing (inputl double).
+ *
+ */
+
+EXPORT void dft_driver_veloc_field_y_eps(wf3d *wf, rgrid3d *vy, double eps) {
+
+  check_mode();
+
+  grid3d_wf_probability_flux_y(wf, vy);
+  grid3d_wf_density(wf, workspace1);
+  rgrid3d_division_eps(vy, vy, workspace1, eps);
+}
+
+/*
+ * Evaluate the liquid velocity field for a given order paremeter (Z compinent),
+ * $v = \vec{J}/\rho$.
+ *
+ * gwf  = Order parameter for which the velocity field is evaluated (input; wf3d *).
+ * vz   = Velocity field z component (output; rgrid3d *).
+ * eps  = Epsilon to add to rho when dividing (input; double).
+ *
+ */
+
+EXPORT void dft_driver_veloc_field_z_eps(wf3d *wf, rgrid3d *vz, double eps) {
+
+  check_mode();
+
+  grid3d_wf_probability_flux_z(wf, vz);
+  grid3d_wf_density(wf, workspace1);
+  rgrid3d_division_eps(vz, vz, workspace1, eps);
+}
+
+/*
+ * Evaluate the liquid velocity field for a given order paremeter,
+ * $v = \vec{J}/\rho$.
+ *
+ * gwf  = Order parameter for which the velocity field is evaluated (input; wf3d *).
+ * vx    = Velocity field x component (output; rgrid3d *).
+ * vy    = Velocity field y component (output; rgrid3d *).
+ * vz    = Velocity field z component (output; rgrid3d *).
+ * eps   = Epsilon to add to rho when dividing (input; double).
+ *
+ */
+
+EXPORT void dft_driver_veloc_field_eps(wf3d *wf, rgrid3d *vx, rgrid3d *vy, rgrid3d *vz, double eps) {
+
+  check_mode();
+
+  grid3d_wf_probability_flux(wf, vx, vy, vz);
+  grid3d_wf_density(wf, workspace1);
+  rgrid3d_division_eps(vx, vx, workspace1, eps);
+  rgrid3d_division_eps(vy, vy, workspace1, eps);
+  rgrid3d_division_eps(vz, vz, workspace1, eps);
+}
+
+/*
+ * Evaluate the liquid velocity field for a given order paremeter (X component),
+ * $v = \vec{J}/\rho$.
+ *
+ * gwf  = Order parameter for which the velocity field is evaluated (input; wf3d *).
+ * vx    = Velocity field x component (output; rgrid3d *).
+ *
+ * Note: This routine caps the maximum liquid velocity using
+ *       DFT_VELOC_EPS.
+ *
+ */
+
+EXPORT void dft_driver_veloc_field_x(wf3d *wf, rgrid3d *vx) {
+
+  dft_driver_veloc_field_x_eps(wf, vx, DFT_VELOC_EPS);
 }
 
 /*
@@ -2137,17 +2234,13 @@ EXPORT void dft_driver_veloc_field_x(wf3d *wf, rgrid3d *vx) {
  * vy    = Velocity field y component (output; rgrid3d *).
  *
  * Note: This routine caps the maximum liquid velocity using
- *       DFT_BF_EPS.
+ *       DFT_VELOC_EPS.
  *
  */
 
 EXPORT void dft_driver_veloc_field_y(wf3d *wf, rgrid3d *vy) {
 
-  check_mode();
-
-  grid3d_wf_probability_flux_y(wf, vy);
-  grid3d_wf_density(wf, workspace1);
-  rgrid3d_division_eps(vy, vy, workspace1, DFT_VELOC_EPS);
+  dft_driver_veloc_field_y_eps(wf, vy, DFT_VELOC_EPS);
 }
 
 /*
@@ -2158,17 +2251,13 @@ EXPORT void dft_driver_veloc_field_y(wf3d *wf, rgrid3d *vy) {
  * vz    = Velocity field z component (output; rgrid3d *).
  *
  * Note: This routine caps the maximum liquid velocity using
- *       DFT_BF_EPS.
+ *       DFT_VELOC_EPS.
  *
  */
 
 EXPORT void dft_driver_veloc_field_z(wf3d *wf, rgrid3d *vz) {
 
-  check_mode();
-
-  grid3d_wf_probability_flux_z(wf, vz);
-  grid3d_wf_density(wf, workspace1);
-  rgrid3d_division_eps(vz, vz, workspace1, DFT_VELOC_EPS);
+  dft_driver_veloc_field_z_eps(wf, vz, DFT_VELOC_EPS);
 }
 
 /*
@@ -2181,22 +2270,14 @@ EXPORT void dft_driver_veloc_field_z(wf3d *wf, rgrid3d *vz) {
  * vz    = Velocity field z component (output; rgrid3d *).
  *
  * Note: This routine caps the maximum liquid velocity using
- *       DFT_BF_EPS.
+ *       DFT_VELOC_EPS.
  *
  */
 
 EXPORT void dft_driver_veloc_field(wf3d *wf, rgrid3d *vx, rgrid3d *vy, rgrid3d *vz) {
 
-  check_mode();
-
-  grid3d_wf_probability_flux(wf, vx, vy, vz);
-  grid3d_wf_density(wf, workspace1);
-  rgrid3d_division_eps(vx, vx, workspace1, DFT_VELOC_EPS);  
-  rgrid3d_division_eps(vy, vy, workspace1, DFT_VELOC_EPS);
-  rgrid3d_division_eps(vz, vz, workspace1, DFT_VELOC_EPS);
+  dft_driver_veloc_field_eps(wf, vx, vy, vz, DFT_VELOC_EPS);
 }
-
-
 
 /*
  * Evaluate liquid momentum according to:

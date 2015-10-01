@@ -19,13 +19,13 @@
 #define TIME_STEP 100.0	/* Time step in fs (50-100) */
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
-#define OUTPUT     500	/* output every this iteration */
+#define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define PLANNING 1     /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
-#define NX 512       	/* # of grid points along x */
-#define NY 512          /* # of grid points along y */
-#define NZ 512      	/* # of grid points along z */
-#define STEP 0.5        /* spatial step length (Bohr) */
+#define NX 256       	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 256      	/* # of grid points along z */
+#define STEP 1.0        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 #define IMP_MASS 1.0 /* electron mass */
@@ -39,7 +39,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T800MK
+#define T1200MK
 
 #if 0
 /* debug */
@@ -109,7 +109,7 @@
 /* Exp mobility = 20.86 cm^2/Vs (Donnelly 21.38) */
 #define IDENT "T = 0.8 K"
 #define DENSITY (0.021876 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (10E-6) /* In Pa s (Donnelly was 15.82E-6) */
+#define VISCOSITY (15.82E-6) /* In Pa s (Donnelly was 15.82E-6) */
 #define RHON    9.27E-4       /* normal fraction */
 #define FUNCTIONAL DFT_OT_T800MK
 #endif

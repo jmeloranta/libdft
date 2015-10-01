@@ -20,15 +20,15 @@
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 512      	/* # of grid points along x */
-#define NY 512          /* # of grid points along y */
-#define NZ 512      	/* # of grid points along z */
-#define STEP 0.5        /* spatial step length (Bohr) */
+#define NX 256      	/* # of grid points along x */
+#define NY 128          /* # of grid points along y */
+#define NZ 128      	/* # of grid points along z */
+#define STEP 2.0        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
 /* velocity components */
-#define KX	(1.0 * 2.0 * M_PI / (NX * STEP))
+#define KX	(2.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
@@ -36,7 +36,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T800MK
+#define T2100MK
 
 /* debug */
 #if 0
@@ -119,7 +119,7 @@
 #define A3 0.0
 #define A4 0.0
 #define A5 0.0
-#define RMIN 1.0
+#define RMIN 2.0
 #define RADD (-19.0)
 #endif
 
@@ -225,7 +225,9 @@
 double dpot_func(void *NA, double x, double y, double z) {
 
   double rp, r2, r3, r5, r7, r9, r11, r;
-  rp = sqrt(x * x + y * y + z * z), r = rp + RADD;
+  rp = sqrt(x * x + y * y + z * z);
+  if(rp < RMIN) return 0.0;
+  r = rp + RADD;
   r2 = r * r;
   r3 = r2 * r;
   r5 = r2 * r3;
@@ -233,17 +235,21 @@ double dpot_func(void *NA, double x, double y, double z) {
   r9 = r7 * r2;
   r11 = r9 * r2;
   
-  if(r < RMIN) return 0.0;   /* hopefully no liquid density in the core region */
   return (x / rp) * (-A0 * A1 * exp(-A1 * r) + 4.0 * A2 / r5 + 6.0 * A3 / r7 + 8.0 * A4 / r9 + 10.0 * A5 / r11);
 }
 
 double pot_func(void *asd, double x, double y, double z) {
 
-  double r, r2, r4, r6, r8, r10, tmp;
+  double r, r2, r4, r6, r8, r10, tmp, *asdf;
 
-  r = sqrt(x * x + y * y + z * z) + RADD;
-
+  if(asd) {
+    asdf = asd;
+    x -= *asdf;
+  }
+  r = sqrt(x * x + y * y + z * z);
   if(r < RMIN) r = RMIN;
+  r += RADD;
+
   r2 = r * r;
   r4 = r2 * r2;
   r6 = r4 * r2;
@@ -315,7 +321,7 @@ int main(int argc, char *argv[]) {
 #else
   dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "pot.dat", "pot.dat", "pot.dat", ext_pot);
 #endif
-  rgrid3d_add(ext_pot, -mu0) ; /* Add the chemical potential */
+  rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
   
   for(iter = 0; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
 
@@ -340,8 +346,21 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(current) / VX); 
 
       grid3d_wf_density(gwf, density);                     /* Density from gwf */
-      /* sign - to + (- is consistent with finite diff) */
-      force = -rgrid3d_weighted_integral(density, dpot_func, NULL);
+      force = rgrid3d_weighted_integral(density, dpot_func, NULL);   /* includes the minus already somehow (cmp FD below) */
+#if 0
+      printf("Force1 = %le\n", force);
+      {
+	double ep, em, off;
+	off = 1E-1;
+	ep = rgrid3d_weighted_integral(density, pot_func, &off);
+	off = -off;
+	em = rgrid3d_weighted_integral(density, pot_func, &off);
+	off = -off;
+	printf("ep = %le, em = %le\n", ep, em);
+	force = -(ep - em) / (2.0 * off);
+      }
+      printf("Force2 = %le\n", force);
+#endif
       printf("Drag force on ion = %le a.u.\n", force);
 #if 0
       // rgrid3d.c: first points ignored for both integral & weighted integral
