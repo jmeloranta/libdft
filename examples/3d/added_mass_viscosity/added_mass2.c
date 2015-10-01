@@ -37,6 +37,7 @@
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
 #define T2100MK
+#define EPSILON 5E-5
 
 /* debug */
 #if 0
@@ -291,6 +292,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   dft_driver_setup_viscosity(VISCOSITY * RHON);    /* set viscosity */
+  dft_driver_setup_viscosity_epsilon(EPSILON);
   
   /* Initialize */
   dft_driver_initialize();

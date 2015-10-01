@@ -40,6 +40,7 @@
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
 #define T1200MK
+#define EPSILON 5E-5
 
 #if 0
 /* debug */
@@ -219,7 +220,8 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_model(FUNCTIONAL, 1, DENSITY * (1.0 - RHON));   /* This holds the superfluid part */
   dft_driver_setup_normal_density(DENSITY * RHON);                 /* normal fluid */
   dft_driver_setup_viscosity(VISCOSITY);
-  
+  dft_driver_setup_viscosity_epsilon(EPSILON);
+
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
   dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */
