@@ -19,12 +19,12 @@
 #define TIME_STEP 100.0	/* Time step in fs (50-100) */
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
-#define OUTPUT     100	/* output every this iteration */
+#define OUTPUT     500	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define PLANNING 1     /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
-#define NX 256       	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256      	/* # of grid points along z */
+#define NX 512       	/* # of grid points along x */
+#define NY 512         /* # of grid points along y */
+#define NZ 512      	/* # of grid points along z */
 #define STEP 1.0        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
@@ -39,7 +39,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T1200MK
+#define T2100MK
 #define EPSILON 5E-5
 
 #if 0
@@ -178,7 +178,7 @@ double eval_force(wf3d *gwf, wf3d *impwf, rgrid3d *pair_pot, rgrid3d *dpair_pot,
   rgrid3d_fd_gradient_x(workspace2, workspace1);
   grid3d_wf_density(gwf, workspace2);
   rgrid3d_product(workspace1, workspace1, workspace2);
-  tmp = -rgrid3d_integral(workspace1);
+  tmp = rgrid3d_integral(workspace1);   /* minus -> plus */
 #else
   grid3d_wf_density(gwf, workspace1);
   dft_driver_convolution_prepare(workspace1, NULL);
