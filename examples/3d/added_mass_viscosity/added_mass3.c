@@ -204,7 +204,7 @@ int main(int argc, char *argv[]) {
   char filename[2048];
   double kin, pot;
   double rho0, mu0, n;
-  double force, mobility, force_normal, last_mobility = 0.0;
+  double force, mobility, last_mobility = 0.0;
   double inv_width = 0.05;
   grid_timer timer;
 
