@@ -41,7 +41,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T2100MK
+#define T1200MK
 #define EPSILON 5E-5
 
 #if 0
@@ -393,17 +393,12 @@ int main(int argc, char *argv[]) {
       force = eval_force(total, impwf, pair_pot, dpair_pot, ext_pot, density);  /* ext_pot & density are temps */
       force_normal = eval_force(nwf, impwf, pair_pot, dpair_pot, ext_pot, density);  /* ext_pot & density are temps */
       printf("Drag force on ion = %le a.u.\n", force);
-      printf("Drag force on ion(normal) = %le a.u.\n", force_normal);
       printf("E-field = %le V/m\n", -force * GRID_AUTOVPM);
-      printf("E-field(normal) = %le V/m\n", -force_normal * GRID_AUTOVPM);
       mobility = VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
       printf("Mobility = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
       printf("Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
-      mobility = VX * GRID_AUTOMPS / (-force_normal * GRID_AUTOVPM);
-      printf("Mobility(normal) = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
-      printf("Mobility(normal) convergence = %le %%.\n", 100.0 * fabs(mobility - last_mobility) / mobility);
+      printf("Mobility convergence = %le %%.\n", 100.0 * fabs(mobility - last_mobility) / mobility);
       last_mobility = mobility;
-      printf("Hydrodynamic radius (Stokes,normal) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
 
       grid3d_wf_density(impwf, density);
       printf("Electron asymmetry (stddev x/y) = %le\n", rgrid3d_weighted_integral(density, stddev_x, NULL) / rgrid3d_weighted_integral(density, stddev_y, NULL));
