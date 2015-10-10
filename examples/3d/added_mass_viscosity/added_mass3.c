@@ -199,11 +199,11 @@ int main(int argc, char *argv[]) {
   wf3d *impwf, *impwfp; /* impurity wavefunction */
   cgrid3d *cpot_el, *cpot_super, *cpot_normal;
   rgrid3d *pair_pot, *dpair_pot, *ext_pot, *density;
-  rgrid3d *vx, *vy, *vz;
+  rgrid3d *vx;
   long iter;
   char filename[2048];
   double kin, pot;
-  double rho0, mu0, n;
+  double rho0, mu0, n, tmp, tmp2;
   double force, mobility, last_mobility = 0.0;
   double inv_width = 0.05;
   grid_timer timer;
@@ -250,8 +250,6 @@ int main(int argc, char *argv[]) {
   ext_pot = dft_driver_alloc_rgrid();                /* allocate real external potential grid */
   density = dft_driver_alloc_rgrid();                /* allocate real density grid */
   vx = dft_driver_alloc_rgrid();                /* allocate real density grid */
-  vy = dft_driver_alloc_rgrid();                /* allocate real density grid */
-  vz = dft_driver_alloc_rgrid();                /* allocate real density grid */
   impwf = dft_driver_alloc_wavefunction(IMP_MASS);   /* impurity - order parameter for current time */
   impwf->norm  = 1.0;
   impwfp = dft_driver_alloc_wavefunction(IMP_MASS);  /* impurity - order parameter for future (predict) */
@@ -268,15 +266,28 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (a.u.)\n", VX, VY, VZ);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (m/s)\n", VX * GRID_AUTOMPS, VY * GRID_AUTOMPS, VZ * GRID_AUTOMPS);
   
-  /* Initial wavefunctions. Read from file or set to initial guess */
-  /* Constant density (initial guess) */
-  cgrid3d_constant(gwf->grid, sqrt(rho0 * (1.0 - RHON)));
-  cgrid3d_constant(nwf->grid, sqrt(rho0 * RHON));
-
-  /* Gaussian for impurity (initial guess) */
-  cgrid3d_map(impwf->grid, dft_common_cgaussian, &inv_width);
-  cgrid3d_multiply(impwf->grid, 1.0 / sqrt(grid3d_wf_norm(impwf)));
-
+  if(argc < 2) {
+    printf("Standard initial guess.\n");
+    /* Initial wavefunctions. Read from file or set to initial guess */
+    /* Constant density (initial guess) */
+    cgrid3d_constant(gwf->grid, sqrt(rho0 * (1.0 - RHON)));
+    cgrid3d_constant(nwf->grid, sqrt(rho0 * RHON));
+    /* Gaussian for impurity (initial guess) */
+    cgrid3d_map(impwf->grid, dft_common_cgaussian, &inv_width);
+    cgrid3d_multiply(impwf->grid, 1.0 / sqrt(grid3d_wf_norm(impwf)));
+  } else if (argc == 4) {   /* restarting */
+    printf("Initial guess read from a file.\n");
+    printf("Superfluid WF from %s.\n", argv[1]);
+    dft_driver_read_grid(gwf->grid, argv[1]);      
+    printf("Normal fluid WF from %s.\n", argv[2]);
+    dft_driver_read_grid(nwf->grid, argv[2]);      
+    printf("Electron WF from %s.\n", argv[3]);
+    dft_driver_read_grid(impwf->grid, argv[3]);      
+  } else {
+    printf("Usage: added_mass3 <superfluid_wf normalfluid_wf electron_wf>\n");
+    exit(1);
+  }
+    
   /* Read pair potential from file and do FFT */
   dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, PSPOT, PSPOT, PSPOT, pair_pot);
   rgrid3d_fd_gradient_x(pair_pot, dpair_pot);
@@ -386,9 +397,12 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld helium energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       
       grid3d_wf_probability_flux_x(gwf, vx);
-      grid3d_wf_probability_flux_x(nwf, vy);
-      rgrid3d_sum(vx, vx, vy);
-      printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(vx) / VX);
+      tmp =  rgrid3d_integral(vx) / VX;
+      printf("Iteration %ld added mass (super) = %.30lf\n", iter, tmp);
+      grid3d_wf_probability_flux_x(nwf, vx);
+      tmp2 =  rgrid3d_integral(vx) / VX;
+      printf("Iteration %ld added mass (normal) = %.30lf\n", iter, tmp2);
+      printf("Iteration %ld added mass (total) = %.30lf\n", iter, tmp + tmp2);
 
       force = eval_force(total, impwf, pair_pot, dpair_pot, ext_pot, density);  /* ext_pot & density are temps */
       printf("Drag force on ion = %le a.u.\n", force);
@@ -402,32 +416,18 @@ int main(int argc, char *argv[]) {
       grid3d_wf_density(impwf, density);
       printf("Electron asymmetry (stddev x/y) = %le\n", rgrid3d_weighted_integral(density, stddev_x, NULL) / rgrid3d_weighted_integral(density, stddev_y, NULL));
 
-      /* write out normal fluid density */
-      sprintf(filename, "ebubble_nliquid-%ld", iter);              
-      grid3d_wf_density(nwf, density);
-      dft_driver_write_density(density, filename);
-      /* write out superfluid density */
-      sprintf(filename, "ebubble_sliquid-%ld", iter);              
-      grid3d_wf_density(gwf, density);
-      dft_driver_write_density(density, filename);
-      /* write out normal fluid velocity field */
-      dft_driver_veloc_field(nwf, vx, vy, vz);
-      rgrid3d_add(vx, -VX);
-      sprintf(filename, "ebubble_nliquid-vx-%ld", iter);              
-      dft_driver_write_density(vx, filename);
-      sprintf(filename, "ebubble_nliquid-vy-%ld", iter);              
-      dft_driver_write_density(vy, filename);
-      sprintf(filename, "ebubble_nliquid-vz-%ld", iter);              
-      dft_driver_write_density(vz, filename);
-      /* write out superfluid velocity field */
-      dft_driver_veloc_field(gwf, vx, vy, vz);
-      rgrid3d_add(vx, -VX);
-      sprintf(filename, "ebubble_sliquid-vx-%ld", iter);              
-      dft_driver_write_density(vx, filename);
-      sprintf(filename, "ebubble_sliquid-vy-%ld", iter);              
-      dft_driver_write_density(vy, filename);
-      sprintf(filename, "ebubble_sliquid-vz-%ld", iter);              
-      dft_driver_write_density(vz, filename);
+      /* write out superfluid WF */
+      sprintf(filename, "wf_sliquid-%ld", iter);              
+      dft_driver_write_grid(gwf->grid, filename);
+
+      /* write out normal fluid WF */
+      sprintf(filename, "wf_nliquid-%ld", iter);              
+      dft_driver_write_grid(nwf->grid, filename);
+
+      /* write out superfluid WF */
+      sprintf(filename, "wf_electron-%ld", iter);              
+      dft_driver_write_grid(impwf->grid, filename);
+
     }
   }
   return 0;
