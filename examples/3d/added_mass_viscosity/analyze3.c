@@ -14,18 +14,7 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 1024       	/* # of grid points along x */
-#define NY 512         /* # of grid points along y */
-#define NZ 512      	/* # of grid points along z */
-#define STEP 0.8        /* spatial step length (Bohr) */
-
-#define THREADS 0
-
-#define KX	(2.0 * 2.0 * M_PI / (NX * STEP))
-#define VX	(KX * HBAR / HELIUM_MASS)
-
-#define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
-#define IMP_MASS 1.0 /* electron mass */
+#include "added_mass3.h"
 
 int main(int argc, char **argv) {
 
