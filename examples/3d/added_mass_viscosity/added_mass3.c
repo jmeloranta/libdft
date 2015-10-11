@@ -279,10 +279,13 @@ int main(int argc, char *argv[]) {
     printf("Initial guess read from a file.\n");
     printf("Superfluid WF from %s.\n", argv[1]);
     dft_driver_read_grid(gwf->grid, argv[1]);      
+    cgrid3d_multiply(gwf->grid, sqrt(rho0 * (1.0 - RHON)) / gwf->grid->value[0]);
     printf("Normal fluid WF from %s.\n", argv[2]);
     dft_driver_read_grid(nwf->grid, argv[2]);      
+    cgrid3d_multiply(nwf->grid, sqrt(rho0 *  RHON) / nwf->grid->value[0]);
     printf("Electron WF from %s.\n", argv[3]);
     dft_driver_read_grid(impwf->grid, argv[3]);      
+    cgrid3d_multiply(impwf->grid, 1.0 / sqrt(grid3d_wf_norm(impwf)));
   } else {
     printf("Usage: added_mass3 <superfluid_wf normalfluid_wf electron_wf>\n");
     exit(1);
