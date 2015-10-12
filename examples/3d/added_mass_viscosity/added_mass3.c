@@ -171,6 +171,11 @@ int main(int argc, char *argv[]) {
   double inv_width = 0.05;
   grid_timer timer;
 
+  if(argc != 1 && argc != 4) {
+    printf("Usage: added_mass3 <superfluid_wf normalfluid_wf electron_wf>\n");
+    exit(1);
+  }
+  
   /* Set fftw planning */
   grid_set_fftw_flags(PLANNING);
   
