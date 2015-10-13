@@ -264,6 +264,7 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (a.u.)\n", VX, VY, VZ);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (m/s)\n", VX * GRID_AUTOMPS, VY * GRID_AUTOMPS, VZ * GRID_AUTOMPS);
+  fprintf(stderr, "VISCOSITY = %le Pa s; RHON/RHO0 = %le.\n", VISCOSITY, RHON);
   
   if(argc < 2) {
     printf("Standard initial guess.\n");
