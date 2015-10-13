@@ -19,83 +19,114 @@
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs (Donnelly 0.05052) */
-#define IDENT "T = 2.1 K"
 #define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.803E-6) /* In Pa s (Fred 1.719E-6) */
-#define RHON    (0.741)      /* normal fraction (Fred 0.752)) */
+#ifdef DONNELLY
+#define IDENT "T = 2.1 K (Donnelly)"
+#define VISCOSITY (1.803E-6) /* In Pa s */
+#define RHON    (0.741)      /* normal fraction */
+#endif
+#ifdef FRED
+#define IDENT "T = 2.1 K (Fred)"
+#define VISCOSITY (1.719E-6) /* In Pa s */
+#define RHON    (0.752)      /* normal fraction */
+#endif
 #define FUNCTIONAL DFT_OT_T2100MK
 #endif
 
 #ifdef T2000MK
 /* Exp mobility = 0.0685 cm^2/Vs (Donnelly) */
-#define IDENT "T = 2.0 K"
 #define DENSITY (0.021909 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.47E-6) /* In Pa s (Donnelly) */
-#define RHON    (0.553)      /* normal fraction (Donnelly) */
+#ifdef DONNELLY
+#define IDENT "T = 2.0 K (Donnelly)"
+#define VISCOSITY (1.47E-6) /* In Pa s */
+#define RHON    (0.553)      /* normal fraction */
+#endif
+#ifdef FRED
+#define IDENT "T = 2.0 K (Fred)"
+#define VISCOSITY (1.406E-6) /* In Pa s */
+#define RHON    (0.566)      /* normal fraction */
+#endif
 #define FUNCTIONAL DFT_OT_T2000MK
 #endif
 
 #ifdef T1800MK
 /* Exp mobility = 0.097 cm^2/Vs (Donnelly 0.1088) */
-#define IDENT "T = 1.8 K"
 #define DENSITY (0.021885 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.298E-6) /* In Pa s (Fred 1.25E-6, donnelly 1.298E-6) */
+#ifdef DONNELLY
+#define IDENT "T = 1.8 K (Donnelly)"
+#define VISCOSITY (1.298E-6)  /* In Pa s */
 #define RHON    (0.313)       /* normal fraction (Fred 0.35)) */
+#endif
+#ifdef FRED
+#define IDENT "T = 1.8 K (Fred)"
+#define VISCOSITY (1.25E-6)  /* In Pa s */
+#define RHON    (0.35)       /* normal fraction */
+#endif
 #define FUNCTIONAL DFT_OT_T1800MK
 #endif
   
 #ifdef T1600MK
 /* Exp mobility = 0.183 cm^2/Vs (Donnelly 0.1772) */
-#define IDENT "T = 1.6 K"
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.306E-6) /* In Pa s (Fred 1.310E-6)) */
-#define RHON    0.162       /* normal fraction (Fred 0.171) */
+#ifdef DONNELLY
+#define IDENT "T = 1.6 K (Donnelly)"
+#define VISCOSITY (1.306E-6) /* In Pa s */
+#define RHON    0.162       /* normal fraction */
+#endif
+#ifdef FRED
+#define IDENT "T = 1.6 K (Fred)"
+#define VISCOSITY (1.310E-6) /* In Pa s */
+#define RHON    0.171       /* normal fraction */
+#endif
 #define FUNCTIONAL DFT_OT_T1600MK
 #endif
 
 #ifdef T1400MK
 /* Exp mobility = 0.36 cm^2/Vs (Donnelly) */
-#define IDENT "T = 1.4 K"
 #define DENSITY (0.021837 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.40E-6) /* In Pa s (Donnelly) */
-#define RHON    0.0745       /* normal fraction (Donnelly) */
+#ifdef DONNELLY
+#define IDENT "T = 1.4 K (Donnelly)"
+#define VISCOSITY (1.40E-6) /* In Pa s */
+#define RHON    0.0745       /* normal fraction */
+#endif
+#ifdef FRED
+#define IDENT "T = 1.4 K (Fred)"
+#define VISCOSITY (1.406E-6) /* In Pa s */
+#define RHON    0.0787       /* normal fraction */
+#endif
 #define FUNCTIONAL DFT_OT_T1400MK
 #endif
 
 #ifdef T1200MK
 /* Exp mobility = 1.0 cm^2/Vs (Donnelly 0.9880) */
-#define IDENT "T = 1.2 K"
 #define DENSITY (0.021846 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (1.736E-6) /* In Pa s (Fred 1.809E-6) */
-#define RHON    0.026       /* normal fraction (Fred 0.0289) */
+#ifdef DONNELLY
+#define IDENT "T = 1.2 K (Donnelly)"
+#define VISCOSITY (1.736E-6) /* Pa s */
+#define RHON    0.026       /* normal fraction */
+#endif
+#ifdef FRED
+#define IDENT "T = 1.2 K (Fred)"
+#define VISCOSITY (1.809E-6) /* Pa s */
+#define RHON    0.0289      /* normal fraction */
+#endif
 #define FUNCTIONAL DFT_OT_T1200MK
 #endif
 
 #ifdef T800MK
 /* Exp mobility = 20.86 cm^2/Vs (Donnelly 21.38) */
-#define IDENT "T = 0.8 K"
 #define DENSITY (0.021876 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (15.82E-6) /* In Pa s (Donnelly was 15.82E-6) */
+#ifdef DONNELLY
+#define IDENT "T = 0.8 K (Donnelly)"
+#define VISCOSITY (15.82E-6)  /* In Pa s */
 #define RHON    9.27E-4       /* normal fraction */
+#endif
+#ifdef FRED
+#define IDENT "T = 0.8 K (Fred)"
+#define VISCOSITY (15.823E-6) /* Pa s */
+#define RHON    0.0025       /* normal fraction */
+#endif
 #define FUNCTIONAL DFT_OT_T800MK
-#endif
-
-#ifdef T400MK
-/* Exp mobility = 438 cm^2/Vs (Donnelly 454.6) */
-#define IDENT "T = 0.4 K"
-#define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (114.15E-6) /* In Pa s (Fred ...) */
-#define RHON    2.92E-6       /* normal fraction (Fred ...) */
-#define FUNCTIONAL DFT_OT_T400MK
-#endif
-
-#ifdef T0MK
-/* Exp mobility = infinity cm^2/Vs */
-#define IDENT "T = 0 K"
-#define DENSITY (0.0218360 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (0.0) /* In Pa s */
-#define RHON    0.0       /* normal fraction */
-#define FUNCTIONAL DFT_OT_PLAIN
 #endif
 
 #define SBC     4.0         /* boundary condition: 4 = electron, 6 = + ion (for Stokes) */
