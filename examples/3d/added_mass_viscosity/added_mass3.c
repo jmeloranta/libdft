@@ -401,11 +401,9 @@ int main(int argc, char *argv[]) {
       
       grid3d_wf_probability_flux_x(gwf, vx);
       tmp =  rgrid3d_integral(vx) / VX;
-      printf("Iteration %ld added mass (super) = %.30lf\n", iter, tmp);
       grid3d_wf_probability_flux_x(nwf, vx);
       tmp2 =  rgrid3d_integral(vx) / VX;
-      printf("Iteration %ld added mass (normal) = %.30lf\n", iter, tmp2);
-      printf("Iteration %ld added mass (total) = %.30lf\n", iter, tmp + tmp2);
+      printf("Iteration %ld added mass = %.30lf\n", iter, tmp + tmp2);
 
       force = eval_force(total, impwf, pair_pot, dpair_pot, ext_pot, density);  /* ext_pot & density are temps */
       printf("Drag force on ion = %le a.u.\n", force);
