@@ -382,8 +382,6 @@ int main(int argc, char *argv[]) {
     if(iter && !(iter % OUTPUT)){	
       /* Impurity density */
       grid3d_wf_density(impwf, density);
-      sprintf(filename, "ebubble_imp-%ld", iter);
-      dft_driver_write_density(density, filename);
 
       /* Helium energy */
       dft_driver_convolution_prepare(NULL, density);
@@ -425,7 +423,7 @@ int main(int argc, char *argv[]) {
       sprintf(filename, "wf_nliquid-%ld", iter);              
       dft_driver_write_grid(nwf->grid, filename);
 
-      /* write out superfluid WF */
+      /* write out impurity WF */
       sprintf(filename, "wf_electron-%ld", iter);              
       dft_driver_write_grid(impwf->grid, filename);
 
