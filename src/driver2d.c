@@ -36,7 +36,7 @@ int dft_driver_init_wavefunction_2d = 1;
 static long driver_nz = 0, driver_nr = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0;
 static long driver_rels = 0;
-static double driver_frad = 0.0, driver_halfbox_length;
+static double driver_frad = 0.0, driver_halfbox_length, driver_kz0 = 0.0, driver_kr0 = 0.0;
 static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0, driver_rho0_normal = 0.0;
 static rgrid2d *density = 0;
 static rgrid2d *workspace1 = 0;
@@ -263,8 +263,13 @@ EXPORT void dft_driver_setup_origin_2d(double z0, double r0) {
  */
 EXPORT void dft_driver_setup_momentum_2d(double kz0, double kr0) {
 
-  fprintf(stderr, "libdft: dft_driver_setup_momentum_2d() not implemented yet.\n");
-  exit(1);
+  driver_kz0 = kz0;
+  driver_kr0 = kr0;
+  if(kr0 != 0.0) {
+    fprintf(stderr, "libdft: dft_driver_setup_momentum_2d() for kr0 not implemented yet.\n");
+    exit(1);
+  }
+  fprintf(stderr, "libdft: Frame of reference momentum = (%le,%le)\n", kz0, kr0);
 }
 
 /*
@@ -745,13 +750,17 @@ EXPORT void dft_driver_convolution_eval_2d(rgrid2d *out, rgrid2d *pot, rgrid2d *
 
 EXPORT cgrid2d *dft_driver_alloc_cgrid_2d() {
 
+  cgrid2d *tmp;
+
   check_mode();
 
   if(driver_nz == 0) {
     fprintf(stderr, "libdft: dft_driver routines must be initialized first.\n");
     exit(1);
   }
-  return cgrid2d_alloc(driver_nz, driver_nr, driver_step, CGRID2D_NEUMANN_BOUNDARY, 0);
+  tmp = cgrid2d_alloc(driver_nz, driver_nr, driver_step, CGRID2D_NEUMANN_BOUNDARY, 0);
+  cgrid2d_set_momentum(tmp, driver_kz0, driver_kr0);
+  return tmp;  
 }
 
 /*

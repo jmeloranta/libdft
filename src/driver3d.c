@@ -815,7 +815,7 @@ EXPORT void dft_driver_convolution_eval(rgrid3d *out, rgrid3d *pot, rgrid3d *den
 EXPORT cgrid3d *dft_driver_alloc_cgrid() {
 
   double complex (*grid_type)(const cgrid3d *, long, long, long);
-  cgrid3d *tmp ;
+  cgrid3d *tmp;
 
   check_mode();
   if(driver_nx == 0) {
