@@ -24,8 +24,8 @@
  *
  */
 
-#define MIN_SUBSTEPS 2
-#define MAX_SUBSTEPS 16
+#define MIN_SUBSTEPS 4
+#define MAX_SUBSTEPS 32
 
 /* End of tunable parameters */
 
@@ -36,8 +36,8 @@ int dft_driver_init_wavefunction_2d = 1;
 static long driver_nz = 0, driver_nr = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0;
 static long driver_rels = 0;
-static double driver_frad = 0.0;
-static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0;
+static double driver_frad = 0.0, driver_halfbox_length;
+static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0, driver_rho0_normal = 0.0;
 static rgrid2d *density = 0;
 static rgrid2d *workspace1 = 0;
 static rgrid2d *workspace2 = 0;
@@ -50,7 +50,7 @@ static rgrid2d *workspace8 = 0;
 static rgrid2d *workspace9 = 0;
 static cgrid2d *cworkspace = 0;
 static grid_timer timer;
-static double damp = 0.2;
+static double damp = 0.2, viscosity = 0.0, viscosity_epsilon = 5E-5;
 
 int dft_internal_using_2d = 0;
 extern int dft_internal_using_3d, dft_internal_using_cyl;
@@ -75,7 +75,17 @@ static double region_func(void *gr, double z, double r) {
   return d / 2.0;
 }
 
-// TODO: Out of date: merge from 3D.
+/*
+ * Spherical region going from 0 to 1 radially, increasing as tanh(r).
+ * It has a value of ~0 (6.e-4) when r = driver_abs, and goes up to 1 
+ * when r = driver_halfbox_length (i.e. the smallest end of the box).
+ *
+ */
+static double complex cregion_func(void *gr, double z, double r) {
+
+  double rp = sqrt(r*r + z*z);
+  return 1.0 + tanh(4.0 * (rp - driver_halfbox_length) / driver_abs);
+}
 
 static inline void scale_wf(long what, wf2d *gwf) {
 
@@ -83,7 +93,7 @@ static inline void scale_wf(long what, wf2d *gwf) {
   double z, r;
   double complex norm;
 
-  if(what) { /* impurity */
+  if(what == DFT_DRIVER_PROPAGATE_OTHER) { /* impurity */
     grid2d_wf_normalize_cyl(gwf);
     return;
   }
@@ -91,13 +101,22 @@ static inline void scale_wf(long what, wf2d *gwf) {
   /* liquid helium */
   switch(driver_norm_type) {
   case DFT_DRIVER_NORMALIZE_BULK: /* bulk normalization */
-    norm = cgrid2d_value_at_index(gwf->grid, gwf->grid->nx-1, 0); /* zmax, rmin */
-    norm = sqrt(driver_rho0) / norm;
+    if(what == DFT_DRIVER_PROPAGATE_NORMAL) norm = sqrt(driver_rho0_normal) / cabs(gwf->grid->value[0]);
+    else norm = sqrt(driver_rho0) / cabs(gwf->grid->value[0]);
+    cgrid2d_multiply(gwf->grid, norm);
+    break;
+  case DFT_DRIVER_NORMALIZE_ZEROB:
+    i = driver_nz / driver_nhe;
+    j = driver_nr / driver_nhe;
+    if(what == DFT_DRIVER_PROPAGATE_NORMAL) norm = sqrt(driver_rho0_normal) / cabs(gwf->grid->value[i * driver_nr + j]);
+    else norm = sqrt(driver_rho0) / cabs(gwf->grid->value[i * driver_nr + j]);
     cgrid2d_multiply(gwf->grid, norm);
     break;
   case DFT_DRIVER_NORMALIZE_DROPLET: /* helium droplet */
     if(!center_release) {
-      double sq = sqrt(3.0*driver_rho0/4.0);
+      double sq;
+      if(what == DFT_DRIVER_PROPAGATE_NORMAL) sq = sqrt(3.0*driver_rho0_normal/4.0);
+      else sq = sqrt(3.0*driver_rho0/4.0);
       for (i = 0; i < driver_nz; i++) {
 	z = (i - driver_nz/2.0) * driver_step;
 	for (j = 0; j < driver_nr; j++) {
@@ -115,12 +134,11 @@ static inline void scale_wf(long what, wf2d *gwf) {
     exit(1);
   case DFT_DRIVER_NORMALIZE_SURFACE: /* 2-D surface */
     if(!center_release) {
-      double sq = sqrt(0.9*driver_rho0);
       for (i = 0; i < driver_nz; i++) { /* force zero around z = 0 */
 	z = (i - driver_nz/2.0) * driver_step;      
 	for (j = 0; j < driver_nr; j++)
-	  if(fabs(z) < driver_frad && cabs(gwf->grid->value[i * driver_nr + j]) < sq)
-	    gwf->grid->value[i * driver_nr + j] = sq;
+	  if(fabs(z) < driver_frad)
+	    gwf->grid->value[i * driver_nr + j] = 0.0;
       }
     }
     grid2d_wf_normalize_cyl(gwf); /* normalize to given # of He */
@@ -134,6 +152,27 @@ static inline void scale_wf(long what, wf2d *gwf) {
   }
 }
 
+
+/*
+ * FFTW Wisdom interface - import wisdom. FFT not used -> NOP.
+ *
+ */
+
+void dft_driver_read_wisdom_2d(char *file) {
+
+  return;
+}
+
+/*
+ * FFTW Wisdom interface - export wisdom. FFT not used -> NOP.
+ *
+ */
+
+void dft_driver_write_wisdom_2d(char *file) {
+
+  return;
+}
+
 /*
  * Initialize dft_driver routines. This must always be called after the
  * parameters have been set.
@@ -142,9 +181,9 @@ static inline void scale_wf(long what, wf2d *gwf) {
  *
  */
 
-EXPORT void dft_driver_initialize_2d() {
+static int been_here = 0;
 
-  static int been_here = 0;
+EXPORT void dft_driver_initialize_2d() {
 
   check_mode();
 
@@ -163,15 +202,20 @@ EXPORT void dft_driver_initialize_2d() {
     workspace6 = rgrid2d_alloc(driver_nz, driver_nr, driver_step, RGRID2D_NEUMANN_BOUNDARY, 0);
     workspace7 = rgrid2d_alloc(driver_nz, driver_nr, driver_step, RGRID2D_NEUMANN_BOUNDARY, 0);
     cworkspace = cgrid2d_alloc(driver_nz, driver_nr, driver_step, CGRID2D_NEUMANN_BOUNDARY, 0);
-
     if(driver_dft_model & DFT_OT_BACKFLOW) {
       workspace8 = rgrid2d_alloc(driver_nz, driver_nr, driver_step, RGRID2D_NEUMANN_BOUNDARY, 0);
       workspace9 = rgrid2d_alloc(driver_nz, driver_nr, driver_step, RGRID2D_NEUMANN_BOUNDARY, 0);
     }
     density = rgrid2d_alloc(driver_nz, driver_nr, driver_step, RGRID2D_NEUMANN_BOUNDARY, 0);
     dft_driver_otf_2d = dft_ot2d_alloc(driver_dft_model, driver_nz, driver_nr, driver_step, MIN_SUBSTEPS, MAX_SUBSTEPS);
-    if(driver_rho0 == 0.0) driver_rho0 = dft_driver_otf_2d->rho0;
-    else dft_driver_otf_2d->rho0 = driver_rho0;
+
+    if(driver_rho0 == 0.0) {
+      fprintf(stderr, "libdft: Setting driver_rho0 to %le\n", dft_driver_otf_2d->rho0);
+      driver_rho0 = dft_driver_otf_2d->rho0;
+    } else {
+      fprintf(stderr, "libdft: Overwritting dft_driver_otf_2d->rho0 to %le\n", driver_rho0);
+      dft_driver_otf_2d->rho0 = driver_rho0;
+    }
     fprintf(stderr, "libdft: rho0 = %le Angs^-3.\n", driver_rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
     been_here = 1;
     fprintf(stderr, "libdft: %lf wall clock seconds for initialization.\n", grid_timer_wall_clock_time(&timer));
@@ -196,9 +240,68 @@ EXPORT void dft_driver_setup_grid_2d(long nz, long nr, double step, long threads
   driver_nr = nr;
   driver_nz = nz;
   driver_step = step;
+  driver_halfbox_length = 0.5 * ((nz<nr)?nz:nr) * step;
   fprintf(stderr, "libgrid: Grid size = (%ld,%ld) with step = %le.\n", nz, nr, step);
   driver_threads = threads;
 }
+
+/*
+ * Set up the origin of coordinates for the grids.
+ * Can be overwritten for a particular grid calling (r/c)grid2d_set_origin
+ *
+ */
+EXPORT void dft_driver_setup_origin_2d(double z0, double r0) {
+
+  fprintf(stderr, "libgrid: dft_driver_setup_origin_2d() not implemented yet.\n");
+  exit(1);
+}
+
+/*
+ * Set up the momentum of the frame of reference, i.e. a background velocity for the grids.
+ * Can be overwritten for a particular grid calling (r/c)grid2d_set_momentum
+ *
+ */
+EXPORT void dft_driver_setup_momentum_2d(double kz0, double kr0) {
+
+  fprintf(stderr, "libdft: dft_driver_setup_momentum_2d() not implemented yet.\n");
+  exit(1);
+}
+
+/*
+ * Set the epsilon parameter for viscous response (similar to Millikan-Cunningham correction).
+ *
+ * eps = Epsilon value (typically 1 x 10^-5 to 5 x 10^-5).
+ *
+ * No return value.
+ *
+ */
+
+EXPORT void dft_driver_setup_viscosity_epsilon_2d(double eps) {
+
+  if(eps < 0.0 || eps > 1E-3) {
+    fprintf(stderr, "libdft: Illegal epsilon value.\n");
+    exit(1);
+  }
+  viscosity_epsilon = eps;
+  fprintf(stderr, "libdft: Viscosity epsilon = %le.\n", eps);
+}
+
+/*
+ * Set effective visocisty.
+ *
+ * visc = effective Viscosity in Pa s (SI) units. This is typically the normal fraction x normal fluid viscosity.
+ *        (default value 0.0)
+ *
+ * NOTE: Viscous response is set along the x-axis only!
+ *
+ */
+
+EXPORT void dft_driver_setup_viscosity_2d(double visc) {
+
+  viscosity = (visc / GRID_AUTOPAS);
+  fprintf(stderr, "libdft: Effective viscosity set to %le a.u.\n", visc / GRID_AUTOPAS);
+}
+
 
 /*
  * Set up the DFT calculation model.
@@ -218,7 +321,23 @@ EXPORT void dft_driver_setup_model_2d(long dft_model, long iter_mode, double rho
 
   driver_dft_model = dft_model;
   driver_iter_mode = iter_mode;
+  if(been_here) fprintf(stderr,"libdft: WARNING -- Overwritting driver_rho0 to %le\n", rho0) ;
   driver_rho0 = rho0;
+}
+
+
+/*
+ * Set up the normal liquid density.
+ *
+ * rho0 = normal liquid density.
+ *
+ */
+
+EXPORT void dft_driver_setup_normal_density_2d(double rho0) {
+
+  check_mode();
+
+  driver_rho0_normal = rho0;
 }
 
 /*
@@ -238,6 +357,23 @@ EXPORT void dft_driver_setup_boundaries_2d(long boundary_type, double absb) {
 
   driver_boundary_type = boundary_type;
   driver_abs = absb;
+}
+
+/*
+ * Impose normal or vortex compatible boundaries.
+ *
+ * bc = Boundary type:
+ *           Normal (0), Vortex along X (1), Vortex along Y (2), Vortex along Z (3), Neumann (4) (int).
+ *
+ */
+
+EXPORT void dft_driver_setup_boundary_condition_2d(int bc) {
+
+  check_mode();
+
+  fprintf(stderr, "libdft: dft_driver_setup_boundary_condition_2d() not implemented yet.\n");
+  exit(1);
+  /* driver_bc = bc; */
 }
 
 /*
@@ -278,6 +414,145 @@ EXPORT void dft_driver_setup_normalization_2d(long norm_type, long nhe, double f
   driver_frad = frad;
 }
 
+
+/*
+ * Modify the value of the angular velocity omega (rotating liquid).
+ *
+ * omega = angular velocity (double);
+ *
+ */
+
+EXPORT void dft_driver_setup_rotation_omega_2d(double omega) {
+
+  check_mode();
+
+  fprintf(stderr, "libdft: dft_driver_setup_rotation_omega_2d() not implemented yet.\n");
+  exit(1);
+#if 0
+  driver_omega = omega;
+  dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC_ROT;
+  fprintf(stderr, "libdft: Using CN for kinetic energy propagation. Set BC to Neumann to also evaluate kinetic energy using CN.\n");
+#endif
+}
+
+/*
+ * Propagate kinetic (1st half).
+ *
+ * what = normal super or other (long; input).
+ * gwf = wavefunction (wf2d *; input).
+ * tstep = time step (double; input).
+ *
+ */
+
+EXPORT void dft_driver_propagate_kinetic_first_2d(long what, wf2d *gwf, double tstep) {
+
+  double complex htime;
+
+  tstep /= GRID_AUTOFS;
+
+  if(driver_iter_mode == DFT_DRIVER_REAL_TIME) htime = tstep / 2.0;
+  else htime = -I * tstep / 2.0;
+  
+  /* 1/2 x kinetic */
+  grid2d_wf_propagate_kinetic_cn_cyl(gwf, htime, cworkspace); 
+  if(driver_iter_mode == DFT_DRIVER_IMAG_TIME) scale_wf(what, gwf);
+}
+
+/*
+ * Propagate kinetic (2nd half).
+ *
+ * what = super, normal, other (long; input).
+ * gwf = wavefunction (wf2d *; input/output).
+ * tstep = time step (double; input).
+ *
+ */
+
+EXPORT void dft_driver_propagate_kinetic_second_2d(long what, wf2d *gwf, double tstep) {
+
+  static long local_been_here = 0;
+  
+  dft_driver_propagate_kinetic_first_2d(what, gwf, tstep);
+  /* wavefunction damping  */
+  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_DAMPING && what != DFT_DRIVER_PROPAGATE_OTHER && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
+    fprintf(stderr, "libdft: Predict - absorbing boundary for helium; wavefunction damping.\n");
+    if(!cworkspace)
+      cworkspace = dft_driver_alloc_cgrid_2d();
+    grid2d_damp_wf(gwf, driver_rho0, damp, cregion_func, cworkspace, NULL) ; 
+  }
+
+  if(!local_been_here) {
+    local_been_here = 1;
+    dft_driver_write_wisdom_2d("fftw.wis"); // we have done many FFTs at this point
+  }
+}
+
+/*
+ * Calculate OT-DFT potential.
+ *
+ * gwf = wavefunction (wf2d *; input).
+ * pot = complex potential (cgrid2d *; output).
+ *
+ */
+
+EXPORT void dft_driver_ot_potential_2d(wf2d *gwf, cgrid2d *pot) {
+
+  grid2d_wf_density(gwf, density);
+  dft_ot2d_potential(dft_driver_otf_2d, pot, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
+}
+
+/*
+ * Viscous potential.
+ *
+ * gwf = wavefunction (wf2d *; input).
+ * pot = potential (cgrid2d *; output).
+ *
+ * Note this routine uses the epsilon parameter to scren velocity.
+ *
+ */
+
+EXPORT void dft_driver_viscous_potential_2d(wf2d *gwf, cgrid2d *pot) {
+
+  double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
+
+  dft_driver_veloc_field_eps_2d(gwf, workspace2, workspace3, viscosity_epsilon); // Watch out! workspace1 used by veloc_field!
+
+  rgrid2d_zero(workspace7);
+  
+  rgrid2d_fd_gradient_x(workspace2, workspace5);  /* dv_z / dz */
+  rgrid2d_multiply(workspace5, tot);
+  rgrid2d_sum(workspace7, workspace7, workspace5);
+
+  rgrid2d_fd_gradient_y(workspace3, workspace5);  /* 2 x dv_r / dr */
+  rgrid2d_multiply(workspace5, 2.0 * tot);
+  rgrid2d_sum(workspace7, workspace7, workspace5);
+
+  grid2d_add_real_to_complex_re(pot, workspace7);
+}
+
+/*
+ * Propagate potential.
+ *
+ * gwf = wavefunction (wf2d *; input/output).
+ * pot = potential (cgrid2d *; input).
+ *
+ */
+
+EXPORT void dft_driver_propagate_potential_2d(long what, wf2d *gwf, cgrid2d *pot, double tstep) {
+
+  double complex time;
+
+  tstep /= GRID_AUTOFS;
+  if(driver_iter_mode == DFT_DRIVER_REAL_TIME) time = tstep;
+  else time = -I * tstep;
+  /* absorbing boundary - imaginary potential */
+  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ABSORB && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
+    fprintf(stderr, "libdft: Predict - absorbing boundary for helium; imaginary potential.\n");
+    grid2d_wf_absorb(pot, density, driver_rho0, region_func, workspace1, 1.0);
+  }
+  grid2d_wf_propagate_potential(gwf, pot, time);
+  if(driver_iter_mode == DFT_DRIVER_IMAG_TIME) scale_wf(what, gwf);
+}
+
 /*
  * Predict: propagate the given wf in time.
  *
@@ -286,7 +561,7 @@ EXPORT void dft_driver_setup_normalization_2d(long norm_type, long nhe, double f
  * gwf       = liquid wavefunction to propagate (wf2d *; input).
  *             Note that gwf is NOT changed by this routine.
  * gwfp      = predicted wavefunction (wf2d *; output).
- * potential = storage space for the potential (cgrid3d *; output).
+ * potential = storage space for the potential (cgrid2d *; output).
  *             Do not overwrite this before calling the correct routine.
  * tstep     = time step in FS (double; input).
  * iter      = current iteration (long; input).
@@ -297,15 +572,11 @@ EXPORT void dft_driver_setup_normalization_2d(long norm_type, long nhe, double f
  *
  * No return value.
  *
- * TODO: It is now impossible to propagate two different wavefunctions
- * simultaneously such that both will active predict/correct cycles.
- *
  */
 
 EXPORT inline void dft_driver_propagate_predict_2d(long what, rgrid2d *ext_pot, wf2d *gwf, wf2d *gwfp, cgrid2d *potential, double tstep, long iter) {
 
-  double complex time, htime;
-  static double last_tstep = -1.0;
+  grid_timer_start(&timer);  
 
   check_mode();
 
@@ -314,59 +585,39 @@ EXPORT inline void dft_driver_propagate_predict_2d(long what, rgrid2d *ext_pot, 
     exit(1);
   }
 
-  if(last_tstep != tstep) {
-    fprintf(stderr, "libdft: New propagation time step = %le fs.\n", tstep);
-    last_tstep = tstep;
-  }
-
-  tstep /= GRID_AUTOFS;
-
-  if(!iter && driver_iter_mode == 1 && what == 0 && dft_driver_init_wavefunction == 1) {
+  if(!iter && driver_iter_mode == DFT_DRIVER_IMAG_TIME && what != DFT_DRIVER_PROPAGATE_OTHER && dft_driver_init_wavefunction == 1) {
     fprintf(stderr, "libdft: first imag. time iteration - initializing the wavefunction.\n");
     grid2d_wf_constant(gwf, sqrt(dft_driver_otf_2d->rho0));
   }
 
-  if(driver_iter_mode == 0) {
-    time = tstep;
-    htime = tstep / 2.0;
-  } else {
-    time = -I * tstep;
-    htime = -I * tstep / 2.0;
-  }
-
   /* droplet & column center release */
-  if(driver_rels && iter > driver_rels && driver_norm_type > 0 && what == 0) {
+  if(driver_rels && iter > driver_rels && driver_norm_type > 0 && what != DFT_DRIVER_PROPAGATE_OTHER) {
     if(!center_release) fprintf(stderr, "libdft: center release activated.\n");
     center_release = 1;
   } else center_release = 0;
-  
-  grid_timer_start(&timer);
 
-  cgrid2d_copy(gwfp->grid, gwf->grid);
-
-  /* 1/2 x kinetic */
-  grid2d_wf_propagate_kinetic_cn_cyl(gwfp, htime, cworkspace); 
-  if(driver_iter_mode) scale_wf(what, gwfp);
-  cgrid2d_copy(gwf->grid, gwfp->grid);
-
-  /* predict */
-  cgrid2d_zero(potential);  // new
-  if(!what) {
-    grid2d_wf_density(gwfp, density);
-    dft_ot2d_potential(dft_driver_otf_2d, potential, gwfp, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
+  dft_driver_propagate_kinetic_first_2d(what, gwf, tstep);
+  cgrid2d_zero(potential);
+  switch(what) {
+  case DFT_DRIVER_PROPAGATE_HELIUM:
+    dft_driver_ot_potential_2d(gwf, potential);
+    break;
+  case DFT_DRIVER_PROPAGATE_NORMAL:
+    dft_driver_ot_potential_2d(gwf, potential);
+    dft_driver_viscous_potential_2d(gwf, potential);
+    break;
+  case DFT_DRIVER_PROPAGATE_OTHER:
+    break;
+  default:
+    fprintf(stderr, "libdft: Unknown propagator flag.\n");
+    exit(1);
   }
-  /* absorbing boundary */
-  if(!driver_iter_mode && driver_boundary_type == 1 && !what) {
-    fprintf(stderr, "libdft: Predict - absorbing boundary for helium.\n");
-    grid2d_wf_absorb_cyl(potential, density, driver_rho0, region_func, workspace1);
-  }
-  /* External potential for Helium */
-  /* Im - He contribution */
   if(ext_pot) grid2d_add_real_to_complex_re(potential, ext_pot);
 
-  /* potential */
-  grid2d_wf_propagate_potential(gwfp, potential, time);
-  if(driver_iter_mode) scale_wf(what, gwfp);
+  cgrid2d_copy(gwfp->grid, gwf->grid);
+  dft_driver_propagate_potential_2d(what, gwfp, potential, tstep);
+  fprintf(stderr, "libdft: Predict step %le wall clock seconds (iter = %ld).\n", grid_timer_wall_clock_time(&timer), iter);
+  fflush(stderr);
 }
 
 /*
@@ -375,9 +626,9 @@ EXPORT inline void dft_driver_propagate_predict_2d(long what, rgrid2d *ext_pot, 
  * what      = what is propagated: 0 = L-He, 1 = other.
  * ext_pot   = present external potential grid (rgrid2d *) (NULL = no ext. pot).
  * gwf       = liquid wavefunction to propagate (wf2d *).
- * gwfp      = predicted wavefunction (wf3d *; output).
- *             Note that gwfp is NOT changed by this routine.
- * potential = storage space for the potential (cgrid3d *; output).
+ *             Note that gwf is NOT changed by this routine.
+ * gwfp      = predicted wavefunction (wf2d *; output).
+ * potential = storage space for the potential (cgrid2d *; output).
  * tstep     = time step in FS (double).
  * iter      = current iteration (long).
  *
@@ -390,47 +641,57 @@ EXPORT inline void dft_driver_propagate_predict_2d(long what, rgrid2d *ext_pot, 
 
 EXPORT inline void dft_driver_propagate_correct_2d(long what, rgrid2d *ext_pot, wf2d *gwf, wf2d *gwfp, cgrid2d *potential, double tstep, long iter) {
 
-  double complex time, htime;
+  grid_timer_start(&timer);  
 
-  check_mode();
-
-  tstep /= GRID_AUTOFS;
-  
-  if(driver_iter_mode == 0) {
-    time = tstep;
-    htime = tstep / 2.0;
-  } else {
-    time = -I * tstep;
-    htime = -I * tstep / 2.0;
+  switch(what) {
+  case DFT_DRIVER_PROPAGATE_HELIUM:
+    dft_driver_ot_potential_2d(gwfp, potential);
+    break;
+  case DFT_DRIVER_PROPAGATE_NORMAL:
+    dft_driver_ot_potential_2d(gwfp, potential);
+    dft_driver_viscous_potential_2d(gwfp, potential);
+    break;
+  case DFT_DRIVER_PROPAGATE_OTHER:
+    break;
+  default:
+    fprintf(stderr, "libdft: Unknown propagator flag.\n");
+    exit(1);
   }
-
-  /* correct */
-  if(!what) {
-    grid2d_wf_density(gwfp, density);
-    /* no zeroing - add to the previous potential to get avg (new) */
-    dft_ot2d_potential(dft_driver_otf_2d, potential, gwfp, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
-  }
-  /* absorbing boundary */
-  if(!driver_iter_mode && driver_boundary_type == 1 && !what) {
-    fprintf(stderr, "libdft: Correct - absorbing boundary for helium.\n");
-    grid2d_wf_absorb_cyl(potential, density, driver_rho0, region_func, workspace1);
-  }  
-  /* External potential for Helium */
-  /* Im - He contribution (new) */
   if(ext_pot) grid2d_add_real_to_complex_re(potential, ext_pot);
-  /* average of future and current (new) */
   cgrid2d_multiply(potential, 0.5);
+  dft_driver_propagate_potential_2d(what, gwf, potential, tstep);
+  dft_driver_propagate_kinetic_second_2d(what, gwf, tstep);
+  fprintf(stderr, "libdft: Correct step %le wall clock seconds (iter = %ld).\n", grid_timer_wall_clock_time(&timer), iter);
+  fflush(stderr);
+}
 
-  /* potential */
-  grid2d_wf_propagate_potential(gwf, potential, time);
-  if(driver_iter_mode) scale_wf(what, gwf);
-  
-  /* 1/2 x kinetic */
-  grid2d_wf_propagate_kinetic_cn_cyl(gwf, htime, cworkspace); 
-  if(driver_iter_mode) scale_wf(what, gwf);
-  
-  fprintf(stderr, "libdft: Iteration %ld took %lf wall clock seconds.\n", iter, grid_timer_wall_clock_time(&timer));
-  fflush(stdout);
+/*
+ * Calculate the total wavefunction from a given super and normal liquid wavefunctions (order parameters).
+ *
+ */
+
+EXPORT void dft_driver_total_wf_2d(wf2d *total, wf2d *super, wf2d *normal) {
+
+  /* Just a sum of densitities - for velocity, this is wrong anyway */
+#if 1
+  grid2d_wf_density(super, workspace1);
+  grid2d_wf_density(normal, workspace2);
+  rgrid2d_sum(workspace3, workspace1, workspace2);
+  rgrid2d_power(workspace1, workspace3, 0.5);  
+  grid2d_real_to_complex_re(total->grid, workspace1);
+#else
+  cgrid2d_product(total->grid, super->grid, normal->grid); /* product of super and normal */
+  /* renormalize */
+  grid2d_wf_density(super, workspace1);
+  grid2d_wf_density(normal, workspace2);
+  rgrid2d_sum(workspace3, workspace1, workspace2);
+  rgrid2d_power(workspace3, workspace3, 0.5);
+  rgrid2d_power(workspace1, workspace1, 0.5); /* square root of super density */
+  rgrid2d_power(workspace2, workspace2, 0.5); /* square root of normal density */
+  rgrid2d_product(workspace1, workspace1, workspace2);
+  rgrid2d_division_eps(workspace3, workspace3, workspace1, DFT_BF_EPS);
+  grid2d_product_complex_with_real(total->grid, workspace3);
+#endif
 }
 
 /*
@@ -439,7 +700,7 @@ EXPORT inline void dft_driver_propagate_correct_2d(long what, rgrid2d *ext_pot, 
  * pot  = potential to be convoluted with (rgrid2d *).
  * dens = denisity to be convoluted with (rgrid2d *).
  *
- * This must be called before cgrid3d_driver_convolute_eval().
+ * This must be called before cgrid2d_driver_convolute_eval().
  * Both pot and dens are overwritten with their FFTs.
  * if either is specified as NULL, no transform is done for that grid.
  *
@@ -459,8 +720,8 @@ EXPORT void dft_driver_convolution_prepare_2d(rgrid2d *pot, rgrid2d *dens) {
  * Convolute density and potential.
  *
  * out  = output from convolution (cgrid2d *).
- * pot  = potential grid that has been prepared with cgrid3d_driver_convolute_prepare().
- * dens = density against which has been prepared with cgrid3d_driver_convolute_prepare().
+ * pot  = potential grid that has been prepared with cgrid2d_driver_convolute_prepare().
+ * dens = density against which has been prepared with cgrid2d_driver_convolute_prepare().
  *
  * No return value.
  *
@@ -658,7 +919,7 @@ EXPORT void dft_driver_write_density_2d(rgrid2d *grid, char *base) {
 /*
  * Read in a grid from a binary file (.grd).
  *
- * grid = grid where the data is placed (cgrid3d *).
+ * grid = grid where the data is placed (cgrid2d *).
  * file = filename for the file (char *). Note: the .grd extension must be given.
  *
  * No return value.
@@ -1154,12 +1415,112 @@ EXPORT cgrid1d *dft_driver_spectrum_evaluate_2d(double tstep, double zero_offset
 }
 
 /*
+ * Evaluate the liquid velocity field for a given order paremeter (Z component),
+ * $v = \vec{J}/\rho$.
+ *
+ * gwf  = Order parameter for which the velocity field is evaluated (input; wf2d *).
+ * vz   = Velocity field x component (output; rgrid2d *).
+ * eps  = Epsilon to add to rho when dividing (input; double).
+ *
+ */
+
+EXPORT void dft_driver_veloc_field_z_eps_2d(wf2d *wf, rgrid2d *vz, double eps) {
+
+  check_mode();
+
+  grid2d_wf_probability_flux_x(wf, vz);
+  grid2d_wf_density(wf, workspace1);
+  rgrid2d_division_eps(vz, vz, workspace1, eps);
+}
+
+/*
+ * Evaluate the liquid velocity field for a given order paremeter (R component),
+ * $v = \vec{J}/\rho$.
+ *
+ * gwf  = Order parameter for which the velocity field is evaluated (input; wf2d *).
+ * vr   = Velocity field y component (output; rgrid2d *).
+ * eps  = Epsilon to add to rho when dividing (inputl double).
+ *
+ */
+
+EXPORT void dft_driver_veloc_field_r_eps_2d(wf2d *wf, rgrid2d *vr, double eps) {
+
+  check_mode();
+
+  grid2d_wf_probability_flux_y(wf, vr);
+  grid2d_wf_density(wf, workspace1);
+  rgrid2d_division_eps(vr, vr, workspace1, eps);
+}
+
+/*
  * Evaluate the liquid velocity field for a given order paremeter,
- * $v = m_{He} \vec{J}/\rho$.
+ * $v = \vec{J}/\rho$.
+ *
+ * gwf  = Order parameter for which the velocity field is evaluated (input; wf2d *).
+ * vz    = Velocity field z component (output; rgrid2d *).
+ * vr    = Velocity field r component (output; rgrid2d *).
+ * eps   = Epsilon to add to rho when dividing (input; double).
+ *
+ */
+
+EXPORT void dft_driver_veloc_field_eps_2d(wf2d *wf, rgrid2d *vz, rgrid2d *vr, double eps) {
+
+  check_mode();
+
+  grid2d_wf_probability_flux(wf, vz, vr);
+  grid2d_wf_density(wf, workspace1);
+  rgrid2d_division_eps(vz, vz, workspace1, eps);
+  rgrid2d_division_eps(vr, vr, workspace1, eps);
+}
+
+/*
+ * Evaluate the liquid velocity field for a given order paremeter (Z component),
+ * $v = \vec{J}/\rho$.
+ *
+ * gwf  = Order parameter for which the velocity field is evaluated (input; wf2d *).
+ * vz    = Velocity field x component (output; rgrid2d *).
+ *
+ * Note: This routine caps the maximum liquid velocity using
+ *       DFT_VELOC_EPS.
+ *
+ */
+
+EXPORT void dft_driver_veloc_field_z_2d(wf2d *wf, rgrid2d *vz) {
+
+  check_mode();
+
+  dft_driver_veloc_field_z_eps_2d(wf, vz, DFT_VELOC_EPS);
+}
+
+/*
+ * Evaluate the liquid velocity field for a given order paremeter (R component),
+ * $v = \vec{J}/\rho$.
+ *
+ * gwf  = Order parameter for which the velocity field is evaluated (input; wf2d *).
+ * vr    = Velocity field r component (output; rgrid2d *).
+ *
+ * Note: This routine caps the maximum liquid velocity using
+ *       DFT_VELOC_EPS.
+ *
+ */
+
+EXPORT void dft_driver_veloc_field_r_2d(wf2d *wf, rgrid2d *vr) {
+
+  check_mode();
+
+  dft_driver_veloc_field_r_eps_2d(wf, vr, DFT_VELOC_EPS);
+}
+
+/*
+ * Evaluate the liquid velocity field for a given order paremeter,
+ * $v = \vec{J}/\rho$.
  *
  * gwf  = Order parameter for which the velocity field is evaluated (input; wf2d *).
  * vz    = Velocity field x component (output; rgrid2d *).
  * vr    = Velocity field y component (output; rgrid2d *).
+ *
+ * Note: This routine caps the maximum liquid velocity using
+ *       DFT_VELOC_EPS.
  *
  */
 
@@ -1167,10 +1528,7 @@ EXPORT void dft_driver_veloc_field_2d(wf2d *wf, rgrid2d *vz, rgrid2d *vr) {
 
   check_mode();
 
-  grid2d_wf_probability_flux(wf, vz, vr);  /* TODO: correct? */
-  grid2d_wf_density(wf, workspace1);
-  rgrid2d_division(vz, vz, workspace1);
-  rgrid2d_division(vr, vr, workspace1);
+  dft_driver_veloc_field_eps_2d(wf, vz, vr, DFT_VELOC_EPS);
 }
 
 /*
@@ -1301,7 +1659,7 @@ EXPORT void dft_driver_radial_complex_2d(cgrid1d *radial, cgrid2d *grid, double 
  * Note: R_b = (3 N_{disp} / (4 \pi \rho_0))^{1/3} is equivalent to the
  * integral definition of R_b. 
  *
- * density = liquid density (rgrid3d *; input).
+ * density = liquid density (rgrid2d *; input).
  *
  * Return value: R_b.
  *
@@ -1328,7 +1686,7 @@ EXPORT double dft_driver_spherical_rb_2d(rgrid2d *density) {
  * Calculate convergence norm:
  * max |\rho(r,t) - \rho(r,t - \Delta t)|
  *
- * density = Current density (rgrid3d *, input).
+ * density = Current density (rgrid2d *, input).
  *
  * Return value: norm.
  *

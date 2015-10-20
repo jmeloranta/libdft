@@ -85,7 +85,7 @@ static double region_func(void *gr, double x, double y, double z) {
  */
 static double complex cregion_func(void *gr, double x, double y, double z) {
 
-  double r = sqrt(x*x + y*y + z*z) ;
+  double r = sqrt(x*x + y*y + z*z);
   return 1.0 + tanh(4.0 * (r - driver_halfbox_length) / driver_abs);
 }
 
@@ -108,32 +108,6 @@ inline static void scale_wf(long what, wf3d *gwf) {
     cgrid3d_multiply(gwf->grid, norm);
     break;
   case DFT_DRIVER_NORMALIZE_ZEROB:
-#if 0
-    i = 0;
-    for (j = 0; j < driver_ny; j++)
-      for (k = 0; k < driver_nz; k++)
-	gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k] = 0.0;
-    i = driver_nx - 1;
-    for (j = 0; j < driver_ny; j++)
-      for (k = 0; k < driver_nz; k++)
-	gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k] = 0.0;
-    j = 0;
-    for (i = 0; i < driver_nx; i++)
-      for (k = 0; k < driver_nz; k++)
-	gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k] = 0.0;
-    j = driver_ny - 1;
-    for (i = 0; i < driver_nx; i++)
-      for (k = 0; k < driver_nz; k++)
-	gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k] = 0.0;
-    k = 0;
-    for (i = 0; i < driver_nx; i++)
-      for (j = 0; j < driver_ny; j++)
-	gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k] = 0.0;
-    k = driver_nz - 1;
-    for (i = 0; i < driver_nx; i++)
-      for (j = 0; j < driver_ny; j++)
-	gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k] = 0.0;
- #endif
     i = driver_nx / driver_nhe;
     j = driver_ny / driver_nhe;
     k = driver_nz / driver_nhe;
@@ -610,15 +584,15 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
   rgrid3d_zero(workspace7);
   
-  rgrid3d_fd_gradient_x(workspace2, workspace5);  /* dv_x / dx (propagation direction) */
+  rgrid3d_fd_gradient_x(workspace2, workspace5);  /* dv_x / dx */
   rgrid3d_multiply(workspace5, tot);
   rgrid3d_sum(workspace7, workspace7, workspace5);
 
-  rgrid3d_fd_gradient_y(workspace3, workspace5);  /* dv_y / dy (propagation direction) */
+  rgrid3d_fd_gradient_y(workspace3, workspace5);  /* dv_y / dy */
   rgrid3d_multiply(workspace5, tot);
   rgrid3d_sum(workspace7, workspace7, workspace5);
 
-  rgrid3d_fd_gradient_z(workspace4, workspace5);  /* dv_z / dz (propagation direction) */
+  rgrid3d_fd_gradient_z(workspace4, workspace5);  /* dv_z / dz */
   rgrid3d_multiply(workspace5, tot);
   rgrid3d_sum(workspace7, workspace7, workspace5);
 
