@@ -35,7 +35,7 @@ int dft_driver_init_wavefunction_2d = 1;
 
 static long driver_nz = 0, driver_nr = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0;
-static long driver_rels = 0;
+static long driver_rels = 0, driver_bc = 0;
 static double driver_frad = 0.0, driver_halfbox_length, driver_kz0 = 0.0, driver_kr0 = 0.0;
 static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0, driver_rho0_normal = 0.0;
 static rgrid2d *density = 0;
@@ -376,9 +376,11 @@ EXPORT void dft_driver_setup_boundary_condition_2d(int bc) {
 
   check_mode();
 
-  fprintf(stderr, "libdft: dft_driver_setup_boundary_condition_2d() not implemented yet.\n");
-  exit(1);
-  /* driver_bc = bc; */
+  if(bc != 0) {
+    fprintf(stderr, "libdft: dft_driver_setup_boundary_condition_2d() not implemented yet.\n");
+    exit(1);
+  }
+  driver_bc = bc;
 }
 
 /*
