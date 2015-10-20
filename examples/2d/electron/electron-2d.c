@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Invalid iteration mode (0 = real time, 1 = imaginary time).\n");
     exit(1);
   }
-  if(itp == 1) NST = 100; else NST = 1;
+  if(itp == 1) NST = 1000; else NST = 1;
 
   if(fscanf(fp, " dump = %ld%*[^\n]", &dump_nth) < 1) {
     fprintf(stderr, "Invalid dump iteration specification.\n");
@@ -177,7 +177,7 @@ int main(int argc, char *argv[]) {
       natoms = dft_driver_natoms_2d(gwf);
       printf("Energy with respect to bulk = %le K.\n", (energy - dft_ot_bulk_energy_2d(dft_driver_otf_2d, rho0) * natoms / rho0) * GRID_AUTOK);
       printf("Number of He atoms = %lf.\n", natoms);
-      printf("mu0 = %le K, energy/natoms = %le K\n", mu0 * GRID_AUTOK,  GRID_AUTOK * energy / natoms);
+      printf("mu0 = %le K, energy/natom = %le K\n", mu0 * GRID_AUTOK,  GRID_AUTOK * energy / natoms);
 
       /* Dump helium density */
       grid2d_wf_density(gwf, density);

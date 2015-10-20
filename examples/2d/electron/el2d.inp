@@ -1,7 +1,7 @@
-threads = 48
-grid = 1024 1024
-gstep = 0.2
-timestep = 10
+threads = 4
+grid = 512 512
+gstep = 0.5
+timestep = 100
 iter = 5000
 itermode = 1
 dump = 10
