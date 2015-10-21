@@ -4,9 +4,9 @@
 #define OUTPUT     500	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define PLANNING 1     /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
-#define NZ 1024       	/* # of grid points along x */
-#define NR 512         /* # of grid points along y */
-#define STEP 0.8        /* spatial step length (Bohr) */
+#define NZ 512       	/* # of grid points along x */
+#define NR 256         /* # of grid points along y */
+#define STEP 1.0        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 #define IMP_MASS 1.0 /* electron mass */

@@ -804,6 +804,7 @@ EXPORT wf2d *dft_driver_alloc_wavefunction_2d(double mass) {
   }
   tmp = grid2d_wf_alloc(driver_nz, driver_nr, driver_step, mass, WF2D_NEUMANN_BOUNDARY, WF2D_2ND_ORDER_PROPAGATOR);
   cgrid2d_constant(tmp->grid, sqrt(driver_rho0));
+  cgrid2d_set_momentum(tmp->grid, driver_kz0, driver_kr0);
   return tmp;
 }
 

@@ -273,7 +273,7 @@ int main(int argc, char *argv[]) {
     cgrid2d_constant(gwf->grid, sqrt(rho0 * (1.0 - RHON)));
     cgrid2d_constant(nwf->grid, sqrt(rho0 * RHON));
     /* Gaussian for impurity (initial guess) */
-    cgrid2d_map(impwf->grid, dft_common_cgaussian_2d, &inv_width);
+    cgrid2d_map_cyl(impwf->grid, dft_common_cgaussian_2d, &inv_width);
     cgrid2d_multiply(impwf->grid, 1.0 / sqrt(grid2d_wf_norm_cyl(impwf)));
   } else if (argc == 4) {   /* restarting */
     printf("Initial guess read from a file.\n");
