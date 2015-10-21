@@ -517,6 +517,11 @@ EXPORT void dft_driver_ot_potential_2d(wf2d *gwf, cgrid2d *pot) {
  *
  */
 
+static double one_over_r(void *NA, double z, double r) {
+
+  return 1.0 / (r + DFT_BF_EPS);
+}
+
 EXPORT void dft_driver_viscous_potential_2d(wf2d *gwf, cgrid2d *pot) {
 
   double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
@@ -525,11 +530,13 @@ EXPORT void dft_driver_viscous_potential_2d(wf2d *gwf, cgrid2d *pot) {
 
   rgrid2d_zero(workspace7);
   
-  rgrid2d_fd_gradient_x(workspace2, workspace5);  /* dv_z / dz */
+  rgrid2d_fd_gradient_cyl_z(workspace2, workspace5);  /* dv_z / dz */
   rgrid2d_multiply(workspace5, tot);
   rgrid2d_sum(workspace7, workspace7, workspace5);
 
-  rgrid2d_fd_gradient_y(workspace3, workspace5);  /* dv_r / dr + (1/r)v_r */
+  rgrid2d_fd_gradient_cyl_r(workspace3, workspace5);  /* dv_r / dr + (1/r)v_r */
+  rgrid2d_product_func_cyl(workspace3, one_over_r, NULL);
+  rgrid2d_sum(workspace5, workspace5, workspace3);
   /* TODO: add 1/r v_r */
   rgrid2d_multiply(workspace5, tot);
   rgrid2d_sum(workspace7, workspace7, workspace5);
