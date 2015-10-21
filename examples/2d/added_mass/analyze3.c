@@ -20,7 +20,12 @@ int main(int argc, char **argv) {
 
   rgrid2d *density, *vz, *vr;
   wf2d *gwf, *nwf, *impwf;
-  
+
+  if(argc != 4) {
+    printf("Usage: analyze3 superfluid_wf normalfluid_wf electron_wf\n");
+    exit(1);
+  }
+   
   /* Setup grid driver parameters */
   dft_driver_setup_grid_2d(NZ, NR, STEP /* Bohr */, THREADS /* threads */);
   dft_driver_initialize_2d();
