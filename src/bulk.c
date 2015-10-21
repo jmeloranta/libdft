@@ -180,7 +180,7 @@ EXPORT double dft_ot_bulk_density_pressurized(dft_ot_functional *otf, double pre
    */
   for(i = 0; i < maxiter; i++) {
     //    if(misP * misP / (pressure * pressure) < tol2) return rho0;
-    //printf("rho0 = %le, misP = %le, tol2 = %le\n", rho0, misP, tol2);
+    // printf("rho0 = %le, misP = %le, tol2 = %le\n", rho0, misP, tol2);
     if(fabs(misP) < tol2) return rho0;
     rho0 -= misP / dft_ot_bulk_dPdRho(otf, rho0);
     misP = dft_ot_bulk_pressure(otf, rho0) - pressure;
@@ -319,7 +319,7 @@ EXPORT double dft_ot_bulk_dPdRho_2d(dft_ot_functional_2d *otf, double rho) {
 EXPORT double dft_ot_bulk_density_pressurized_2d(dft_ot_functional_2d *otf, double pressure) {
 
   //  double rho0 = dft_ot_bulk_density_2d(otf);
-  double rho0 = otf->rho0;
+  double rho0 = 1.0;
   double misP = dft_ot_bulk_pressure_2d(otf, rho0) - pressure;
   double tol2 = 1.0E-12;
   int i, maxiter = 1000;
@@ -337,7 +337,7 @@ EXPORT double dft_ot_bulk_density_pressurized_2d(dft_ot_functional_2d *otf, doub
    */
   for(i = 0; i < maxiter; i++) {
     //    if(misP*misP / (pressure*pressure) < tol2) return rho0;
-    //printf("rho0 = %le, misP = %le, tol2 = %le\n", rho0, misP, tol2);
+    // printf("rho0 = %le, misP = %le, tol2 = %le\n", rho0, misP, tol2);
     if(fabs(misP) < tol2) return rho0;
     rho0 -= misP / dft_ot_bulk_dPdRho_2d(otf, rho0);
     misP = dft_ot_bulk_pressure_2d(otf, rho0) - pressure;
