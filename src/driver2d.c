@@ -529,8 +529,9 @@ EXPORT void dft_driver_viscous_potential_2d(wf2d *gwf, cgrid2d *pot) {
   rgrid2d_multiply(workspace5, tot);
   rgrid2d_sum(workspace7, workspace7, workspace5);
 
-  rgrid2d_fd_gradient_y(workspace3, workspace5);  /* 2 x dv_r / dr */
-  rgrid2d_multiply(workspace5, 2.0 * tot);
+  rgrid2d_fd_gradient_y(workspace3, workspace5);  /* dv_r / dr + (1/r)v_r */
+  /* TODO: add 1/r v_r */
+  rgrid2d_multiply(workspace5, tot);
   rgrid2d_sum(workspace7, workspace7, workspace5);
 
   grid2d_add_real_to_complex_re(pot, workspace7);

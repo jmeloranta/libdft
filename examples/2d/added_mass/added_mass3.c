@@ -174,14 +174,14 @@ double eval_force(wf2d *gwf, wf2d *impwf, rgrid2d *pair_pot, rgrid2d *dpair_pot,
   rgrid2d_fd_gradient_x(workspace2, workspace1);
   grid2d_wf_density(gwf, workspace2);
   rgrid2d_product(workspace1, workspace1, workspace2);
-  tmp = rgrid2d_integral(workspace1);   /* minus -> plus */
+  tmp = rgrid2d_integral_cyl(workspace1);   /* minus -> plus */
 #else
   grid2d_wf_density(gwf, workspace1);
   dft_driver_convolution_prepare_2d(workspace1, NULL);
   dft_driver_convolution_eval_2d(workspace2, dpair_pot, workspace1);
   grid2d_wf_density(impwf, workspace1);
   rgrid2d_product(workspace1, workspace1, workspace2);
-  tmp = -rgrid2d_integral(workspace1);
+  tmp = -rgrid2d_integral_cyl(workspace1);
 #endif
 
   return tmp;
@@ -413,7 +413,7 @@ int main(int argc, char *argv[]) {
       last_mobility = mobility;
 
       grid2d_wf_density(impwf, density);
-      printf("Electron asymmetry (stddev x/y) = %le\n", rgrid2d_weighted_integral_cyl(density, stddev_z, NULL) / rgrid2d_weighted_integral_cyl(density, stddev_r, NULL));
+      printf("Electron asymmetry (stddev z/r) = %le\n", 2.0 * rgrid2d_weighted_integral_cyl(density, stddev_z, NULL) / rgrid2d_weighted_integral_cyl(density, stddev_r, NULL));
 
       /* write out superfluid WF */
       sprintf(filename, "wf_sliquid-%ld", iter);              
