@@ -535,9 +535,9 @@ EXPORT void dft_driver_viscous_potential_2d(wf2d *gwf, cgrid2d *pot) {
   rgrid2d_sum(workspace7, workspace7, workspace5);
 
   rgrid2d_fd_gradient_cyl_r(workspace3, workspace5);  /* dv_r / dr + (1/r)v_r */
+  /* TODO: add divergence calculation to rgrid2d_cyl.c */
   rgrid2d_product_func_cyl(workspace3, one_over_r, NULL);
   rgrid2d_sum(workspace5, workspace5, workspace3);
-  /* TODO: add 1/r v_r */
   rgrid2d_multiply(workspace5, tot);
   rgrid2d_sum(workspace7, workspace7, workspace5);
 
