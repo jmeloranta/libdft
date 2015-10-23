@@ -224,7 +224,6 @@ EXPORT void dft_ot2d_free(dft_ot_functional_2d *otf) {
 
 EXPORT void dft_ot2d_potential(dft_ot_functional_2d *otf, cgrid2d *potential, wf2d *wf, rgrid2d *density, rgrid2d *workspace1, rgrid2d *workspace2, rgrid2d *workspace3, rgrid2d *workspace4, rgrid2d *workspace5, rgrid2d *workspace6, rgrid2d *workspace7, rgrid2d *workspace8, rgrid2d *workspace9) {
 
-
   if(otf->model & DFT_ZERO) {
     fprintf(stderr, "libdft: Warning - zero potential used.\n");
     cgrid2d_zero(potential);

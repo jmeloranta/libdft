@@ -484,7 +484,7 @@ EXPORT void dft_driver_propagate_kinetic_second_2d(long what, wf2d *gwf, double 
     fprintf(stderr, "libdft: Predict - absorbing boundary for helium; wavefunction damping.\n");
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid_2d();
-    grid2d_damp_wf(gwf, driver_rho0, damp, cregion_func, cworkspace, NULL) ; 
+    grid2d_damp_wf(gwf, driver_rho0, damp, cregion_func, cworkspace, NULL);  // TODO: works in 2d?
   }
 
   if(!local_been_here) {
@@ -562,7 +562,7 @@ EXPORT void dft_driver_propagate_potential_2d(long what, wf2d *gwf, cgrid2d *pot
   /* absorbing boundary - imaginary potential */
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ABSORB && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
     fprintf(stderr, "libdft: Predict - absorbing boundary for helium; imaginary potential.\n");
-    grid2d_wf_absorb(pot, density, driver_rho0, region_func, workspace1, 1.0);
+    grid2d_wf_absorb_cyl(pot, density, driver_rho0, region_func, workspace1, 1.0);
   }
   grid2d_wf_propagate_potential(gwf, pot, time);
   if(driver_iter_mode == DFT_DRIVER_IMAG_TIME) scale_wf(what, gwf);
