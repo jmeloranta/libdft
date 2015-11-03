@@ -525,8 +525,7 @@ static double one_over_r(void *NA, double z, double r) {
 
 EXPORT void dft_driver_viscous_potential_2d(wf2d *gwf, cgrid2d *pot) {
 
-  //  double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
-  double tot = -2.0 * viscosity / driver_rho0_normal;
+  double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
 
   dft_driver_veloc_field_eps_2d(gwf, workspace2, workspace3, viscosity_epsilon); // Watch out! workspace1 used by veloc_field!
 

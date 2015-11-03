@@ -23,7 +23,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T2100MK
+#define T1200MK
 #define DONNELLY /* Use rho_n and eta from Donnelly */
 /*#define FRED     /* Use rho_n and eta from Fred; rho_n from NIST */
-#define EPSILON 5E-7
+#define EPSILON 1E-10

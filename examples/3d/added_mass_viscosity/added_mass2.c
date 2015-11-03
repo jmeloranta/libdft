@@ -20,10 +20,10 @@
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 256      	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128      	/* # of grid points along z */
-#define STEP 2.0        /* spatial step length (Bohr) */
+#define NX 512      	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 256      	/* # of grid points along z */
+#define STEP 1.0        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
@@ -36,8 +36,8 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T2100MK
-#define EPSILON 5E-5
+#define T1200MK
+#define EPSILON 1E-10
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs - gives 0.096 (well conv. kc+bf 0.087) */

@@ -580,8 +580,7 @@ EXPORT void dft_driver_ot_potential(wf3d *gwf, cgrid3d *pot) {
 
 EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
-  //double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
-  double tot = -2.0 * viscosity / driver_rho0_normal;
+  double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
 
   dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, viscosity_epsilon); // Watch out! workspace1 used by veloc_field
 
