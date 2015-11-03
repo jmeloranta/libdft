@@ -30,11 +30,13 @@
 #define VISCOSITY (1.719E-6) /* In Pa s */
 #define RHON    (0.752)      /* normal fraction */
 #endif
-#define FUNCTIONAL DFT_OT_T2100MK
+// DEBUG
+// #define FUNCTIONAL DFT_OT_T2100MK
+#define FUNCTIONAL DFT_GP
 #endif
 
 #ifdef T2000MK
-/* Exp mobility = 0.0685 cm^2/Vs (Donnelly) */
+/* Exp mobility = 0.06862 cm^2/Vs (Donnelly) */
 #define DENSITY (0.021909 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #ifdef DONNELLY
 #define IDENT "T = 2.0 K (Donnelly)"
@@ -82,7 +84,7 @@
 #endif
 
 #ifdef T1400MK
-/* Exp mobility = 0.36 cm^2/Vs (Donnelly) */
+/* Exp mobility = 0.3636 cm^2/Vs (Donnelly) */
 #define DENSITY (0.021837 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #ifdef DONNELLY
 #define IDENT "T = 1.4 K (Donnelly)"
@@ -232,7 +234,8 @@ int main(int argc, char *argv[]) {
   dft_driver_initialize();
 
   /* normalization */
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
+  //dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
+  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density(dft_driver_otf);
@@ -270,6 +273,7 @@ int main(int argc, char *argv[]) {
     printf("Standard initial guess.\n");
     /* Initial wavefunctions. Read from file or set to initial guess */
     /* Constant density (initial guess) */
+    if(rho0 == 0.0) rho0 = DENSITY;  /* for GP testing */    
     cgrid3d_constant(gwf->grid, sqrt(rho0 * (1.0 - RHON)));
     cgrid3d_constant(nwf->grid, sqrt(rho0 * RHON));
     /* Gaussian for impurity (initial guess) */
@@ -387,6 +391,7 @@ int main(int argc, char *argv[]) {
       dft_driver_convolution_prepare(NULL, density);
       dft_driver_convolution_eval(ext_pot, density, pair_pot);
       dft_driver_total_wf(total, gwf, nwf);
+#if 0
       kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
       kin += dft_driver_kinetic_energy(nwf);
       pot = dft_driver_potential_energy(total, ext_pot); /* Potential energy for gwf */
@@ -396,6 +401,7 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld helium kinetic   = %.30lf\n", iter, kin * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld helium potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld helium energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
+#endif
       
       grid3d_wf_probability_flux_x(gwf, vx);
       tmp =  rgrid3d_integral(vx) / VX;

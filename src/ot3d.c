@@ -137,19 +137,19 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, 
   /* these grids are not needed for GP */
   if(!(model & DFT_GP) && !(model & DFT_ZERO)) {
     otf->lennard_jones = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
-    rgrid3d_set_origin(otf->lennard_jones, x0, y0, z0) ;
+    rgrid3d_set_origin(otf->lennard_jones, x0, y0, z0);
     otf->spherical_avg = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
-    rgrid3d_set_origin(otf->spherical_avg, x0, y0, z0) ;
+    rgrid3d_set_origin(otf->spherical_avg, x0, y0, z0);
 
     if(model & DFT_OT_KC) {
       otf->gaussian_tf = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
       otf->gaussian_x_tf = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
       otf->gaussian_y_tf = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
       otf->gaussian_z_tf = rgrid3d_alloc(nx, ny, nz, step, grid_type, 0);
-      rgrid3d_set_origin(otf->gaussian_tf  , x0, y0, z0) ;
-      rgrid3d_set_origin(otf->gaussian_x_tf, x0, y0, z0) ;
-      rgrid3d_set_origin(otf->gaussian_y_tf, x0, y0, z0) ;
-      rgrid3d_set_origin(otf->gaussian_z_tf, x0, y0, z0) ;
+      rgrid3d_set_origin(otf->gaussian_tf, x0, y0, z0);
+      rgrid3d_set_origin(otf->gaussian_x_tf, x0, y0, z0);
+      rgrid3d_set_origin(otf->gaussian_y_tf, x0, y0, z0);
+      rgrid3d_set_origin(otf->gaussian_z_tf, x0, y0, z0);
 
       if(!otf->gaussian_x_tf || !otf->gaussian_y_tf || !otf->gaussian_z_tf || !otf->gaussian_tf) {
 	fprintf(stderr, "libdft: Error in dft_ot3d_alloc(): Could not allocate memory for gaussian.\n");
@@ -270,7 +270,7 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
 
   if(otf->model & DFT_ZERO) {
     fprintf(stderr, "libdft: Warning - zero potential used.\n");
-    cgrid3d_zero(potential);
+    //cgrid3d_zero(potential);
     return;
   }
 
@@ -339,7 +339,7 @@ static void dft_ot3d_add_local_correlation_potential(dft_ot_functional *otf, cgr
   grid3d_add_real_to_complex_re(potential, workspace2);
 
   /* C3 */
-  rgrid3d_power(workspace2, workspace1, otf->c3_exp);
+  rgrid3d_abs_power(workspace2, workspace1, otf->c3_exp);
   rgrid3d_multiply(workspace2, otf->c3 / 3.0);
   grid3d_add_real_to_complex_re(potential, workspace2);
   
@@ -548,7 +548,6 @@ static void dft_ot3d_add_barranco(dft_ot_functional *otf, cgrid3d *potential, co
   rgrid3d_operate_one(workspace1, rho, dft_ot3d_barranco_op);
   grid3d_add_real_to_complex_re(potential, workspace1);
 }
-
 
 /*
  * Evaluate the potential part to the energy density.

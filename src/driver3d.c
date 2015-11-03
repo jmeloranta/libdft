@@ -89,6 +89,8 @@ static double complex cregion_func(void *gr, double x, double y, double z) {
   return 1.0 + tanh(4.0 * (r - driver_halfbox_length) / driver_abs);
 }
 
+int dft_driver_temp_disable_other_normalization = 0;
+
 inline static void scale_wf(long what, wf3d *gwf) {
 
   long i, j, k;
@@ -96,7 +98,7 @@ inline static void scale_wf(long what, wf3d *gwf) {
   double complex norm;
 
   if(what == DFT_DRIVER_PROPAGATE_OTHER) { /* impurity */
-    grid3d_wf_normalize(gwf);
+    if(!dft_driver_temp_disable_other_normalization) grid3d_wf_normalize(gwf);
     return;
   }
   
@@ -578,9 +580,10 @@ EXPORT void dft_driver_ot_potential(wf3d *gwf, cgrid3d *pot) {
 
 EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
-  double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
+  //double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
+  double tot = -2.0 * viscosity / driver_rho0_normal;
 
-  dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, viscosity_epsilon); // Watch out! workspace1 used by veloc_field!
+  dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, viscosity_epsilon); // Watch out! workspace1 used by veloc_field
 
   rgrid3d_zero(workspace7);
   

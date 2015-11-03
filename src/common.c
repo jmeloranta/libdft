@@ -141,6 +141,7 @@ EXPORT inline double dft_common_lennard_jones_smooth_2d(void *arg, double z, dou
 EXPORT inline double dft_common_spherical_avg(void *arg, double x, double y, double z) {
 
   double h = *((double *) arg), h2 = h * h;
+
   if (x*x + y*y + z*z <= h2)
     return 3.0 / (4.0 * M_PI * h * h2);
   return 0.0;
@@ -155,10 +156,10 @@ EXPORT inline double dft_common_spherical_avg(void *arg, double x, double y, dou
 
 EXPORT inline double dft_common_spherical_avg_k(void *arg, double kx, double ky, double kz) {
 
-  double hk = *((double *) arg) * sqrt(kx*kx + ky*ky + kz*kz) ;
-  if(hk < 1.e-5)
-	return 1.0 - 0.1*hk*hk; /* second order Taylor expansion */
-  return 3.0 * (sin(hk) - hk * cos(hk) ) / (hk*hk*hk) ;
+  double hk = *((double *) arg) * sqrt(kx * kx + ky * ky + kz * kz);
+
+  if(hk < 1.e-5) return 1.0 - 0.1 * hk * hk; /* second order Taylor expansion */
+  return 3.0 * (sin(hk) - hk * cos(hk)) / (hk * hk * hk);
 }
 
 /*
@@ -170,6 +171,7 @@ EXPORT inline double dft_common_spherical_avg_k(void *arg, double kx, double ky,
 EXPORT inline double dft_common_spherical_avg_2d(void *arg, double z, double r) {
 
   double h = *((double *) arg), h2 = h * h;
+
   if (z * z + r * r <= h2)
     return 3.0 / (4.0 * M_PI * h * h2);
   return 0.0;

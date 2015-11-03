@@ -24,9 +24,9 @@ int main(int argc, char **argv) {
   double energy, natoms;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid_2d(256, 256, 0.5 /* Bohr */, 16 /* threads */);
+  dft_driver_setup_grid_2d(256, 256, 1.0 /* Bohr */, 32 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model_2d(DFT_OT_PLAIN | DFT_OT_KC, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model_2d(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundaries_2d(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   /* Normalization condition */

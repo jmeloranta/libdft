@@ -28,7 +28,7 @@
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
 /* velocity components */
-#define KX	(2.0 * 2.0 * M_PI / (NX * STEP))
+#define KX	(1.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
@@ -38,15 +38,6 @@
 
 #define T2100MK
 #define EPSILON 5E-5
-
-/* debug */
-#if 0
-#define DENSITY (0.021983 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
-#define VISCOSITY (2.4E-6)
-#define RHON 1.0
-//#define FUNCTIONAL (DFT_OT_PLAIN|DFT_OT_KC|DFT_OT_BACKFLOW)
-#define FUNCTIONAL DFT_OT_PLAIN
-#endif
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs - gives 0.096 (well conv. kc+bf 0.087) */
@@ -284,7 +275,6 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_momentum(KX, KY, KZ);
 
   /* Plain Orsay-Trento in real or imaginary time */
-  //  dft_driver_setup_model(FUNCTIONAL | DFT_OT_HD | DFT_OT_KC | DFT_OT_BACKFLOW, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
   dft_driver_setup_model(FUNCTIONAL, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
 
   /* Regular boundaries */

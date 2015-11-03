@@ -232,7 +232,8 @@ int main(int argc, char *argv[]) {
   dft_driver_initialize_2d();
 
   /* normalization */
-  dft_driver_setup_normalization_2d(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
+  //  dft_driver_setup_normalization_2d(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
+  dft_driver_setup_normalization_2d(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density_2d(dft_driver_otf_2d);
@@ -270,6 +271,7 @@ int main(int argc, char *argv[]) {
     printf("Standard initial guess.\n");
     /* Initial wavefunctions. Read from file or set to initial guess */
     /* Constant density (initial guess) */
+    if(rho0 == 0.0) rho0 = DENSITY;  /* for GP testing */
     cgrid2d_constant(gwf->grid, sqrt(rho0 * (1.0 - RHON)));
     cgrid2d_constant(nwf->grid, sqrt(rho0 * RHON));
     /* Gaussian for impurity (initial guess) */
@@ -387,6 +389,7 @@ int main(int argc, char *argv[]) {
       dft_driver_convolution_prepare_2d(NULL, density);
       dft_driver_convolution_eval_2d(ext_pot, density, pair_pot);
       dft_driver_total_wf_2d(total, gwf, nwf);
+#if 0
       kin = dft_driver_kinetic_energy_2d(gwf);            /* Kinetic energy for gwf */
       kin += dft_driver_kinetic_energy_2d(nwf);
       pot = dft_driver_potential_energy_2d(total, ext_pot); /* Potential energy for gwf */
@@ -396,6 +399,7 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld helium kinetic   = %.30lf\n", iter, kin * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld helium potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld helium energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
+#endif
       
       grid2d_wf_probability_flux_x(gwf, vz);
       tmp =  rgrid2d_integral_cyl(vz) / VZ;

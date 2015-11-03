@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_grid_2d(nz, nr, step, threads);
   dft_driver_setup_model_2d(model, itp, rho0);
   dft_driver_setup_boundaries_2d(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
-  dft_driver_setup_normalization_2d(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
+  dft_driver_setup_normalization_2d(DFT_DRIVER_NORMALIZE_BULK, 0, 0.0, 0);
   /* Neumann boundaries */
   dft_driver_initialize_2d();
 
@@ -161,6 +161,7 @@ int main(int argc, char *argv[]) {
   /* solve */
   for(; l < iterations; l++) {
 
+    fflush(stdout);
     if(!(l % dump_nth) || l == iterations-1 || l == 1) {
       double energy, natoms;
       energy = dft_driver_energy_2d(gwf, NULL);

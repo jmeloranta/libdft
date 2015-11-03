@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Invalid iteration mode (0 = real time, 1 = imaginary time).\n");
     exit(1);
   }
-  if(itp == 1) NST = 100; else NST = 1;
+  if(itp == 1) NST = 1000; else NST = 1;
 
   if(fscanf(fp, " dump = %ld%*[^\n]", &dump_nth) < 1) {
     fprintf(stderr, "Invalid dump iteration specification.\n");
@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_grid(nx, ny, nz, step, threads);
   dft_driver_setup_model(model, itp, rho0);
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
+  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 0, 0.0, 0);
   /* Neumann boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
   dft_driver_initialize();

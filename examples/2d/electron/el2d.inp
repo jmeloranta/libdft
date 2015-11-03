@@ -1,10 +1,10 @@
-threads = 4
+threads = 64
 grid = 512 512
 gstep = 0.5
 timestep = 100
 iter = 5000
 itermode = 1
-dump = 10
+dump = 100
 model = 0
 rho0 = 0.0218360
 restart = 0

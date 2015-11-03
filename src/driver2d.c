@@ -519,12 +519,14 @@ EXPORT void dft_driver_ot_potential_2d(wf2d *gwf, cgrid2d *pot) {
 
 static double one_over_r(void *NA, double z, double r) {
 
-  return 1.0 / (r + DFT_BF_EPS);
+  if(r == 0.0) return 0.0;
+  else return 1.0 / r;
 }
 
 EXPORT void dft_driver_viscous_potential_2d(wf2d *gwf, cgrid2d *pot) {
 
-  double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
+  //  double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
+  double tot = -2.0 * viscosity / driver_rho0_normal;
 
   dft_driver_veloc_field_eps_2d(gwf, workspace2, workspace3, viscosity_epsilon); // Watch out! workspace1 used by veloc_field!
 
@@ -535,7 +537,6 @@ EXPORT void dft_driver_viscous_potential_2d(wf2d *gwf, cgrid2d *pot) {
   rgrid2d_sum(workspace7, workspace7, workspace5);
 
   rgrid2d_fd_gradient_cyl_r(workspace3, workspace5);  /* dv_r / dr + (1/r)v_r */
-  /* TODO: add divergence calculation to rgrid2d_cyl.c */
   rgrid2d_product_func_cyl(workspace3, one_over_r, NULL);
   rgrid2d_sum(workspace5, workspace5, workspace3);
   rgrid2d_multiply(workspace5, tot);
@@ -562,7 +563,7 @@ EXPORT void dft_driver_propagate_potential_2d(long what, wf2d *gwf, cgrid2d *pot
   /* absorbing boundary - imaginary potential */
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ABSORB && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
     fprintf(stderr, "libdft: Predict - absorbing boundary for helium; imaginary potential.\n");
-    grid2d_wf_absorb_cyl(pot, density, driver_rho0, region_func, workspace1, 1.0);
+    grid2d_wf_absorb(pot, density, driver_rho0, region_func, workspace1, 1.0); // TODO: must be _cyl !!
   }
   grid2d_wf_propagate_potential(gwf, pot, time);
   if(driver_iter_mode == DFT_DRIVER_IMAG_TIME) scale_wf(what, gwf);
@@ -1783,4 +1784,19 @@ EXPORT void dft_driver_force_spherical_2d(wf2d *wf, double zc) {
     }
   }
   cgrid1d_free(average);
+}
+
+
+/*
+ * Zero part of a given grid based on a given density & treshold.
+ *
+ */
+
+EXPORT void dft_driver_clear_core_2d(rgrid2d *grid, rgrid2d *density, double thr) {
+
+  long i;
+
+#pragma omp parallel for firstprivate(grid, density, thr) private(i) default(none) schedule(runtime)
+  for(i = 0; i < grid->nx * grid->ny; i++)
+    if(density->value[i] < thr) grid->value[i] = 0.0;
 }
