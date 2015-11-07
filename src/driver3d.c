@@ -578,27 +578,53 @@ EXPORT void dft_driver_ot_potential(wf3d *gwf, cgrid3d *pot) {
  *
  */
 
+/* #define POISSON */
+
 EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
-  double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
+#ifdef POISSON
+#define DIV_EPS 1E-4
+  dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, viscosity_epsilon); // Watch out! workspace1 used by veloc_field
+  grid3d_wf_density(gwf, workspace1);
 
+  rgrid3d_fd_laplace(workspace2, workspace5);   /* laplace v_x */
+  rgrid3d_division_eps(workspace5, workspace5, workspace1, DIV_EPS);  /* 1 / rho */
+  rgrid3d_fd_laplace(workspace3, workspace6);   /* laplace v_y */
+  rgrid3d_division_eps(workspace6, workspace6, workspace1, DIV_EPS);  /* 1 / rho */
+  rgrid3d_fd_laplace(workspace4, workspace7);   /* laplace v_z */
+  rgrid3d_division_eps(workspace7, workspace7, workspace1, DIV_EPS);  /* 1 / rho */
+
+  rgrid3d_zero(workspace1);
+  rgrid3d_fd_gradient_x(workspace5, workspace2);  /* d/dx */
+  rgrid3d_sum(workspace1, workspace1, workspace2);
+  rgrid3d_fd_gradient_y(workspace6, workspace2);  /* d/dy */
+  rgrid3d_sum(workspace1, workspace1, workspace2);
+  rgrid3d_fd_gradient_z(workspace7, workspace2);  /* d/dz */
+  rgrid3d_sum(workspace1, workspace1, workspace2);
+
+  rgrid3d_multiply(workspace1, -2.0 * viscosity);
+  rgrid3d_poisson(workspace1);
+  grid3d_add_real_to_complex_re(pot, workspace1);
+#else
+  double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
+  //double tot = -(4.0/3.0) * viscosity / (driver_rho0 + driver_rho0_normal);
+  
   dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, viscosity_epsilon); // Watch out! workspace1 used by veloc_field
 
-  rgrid3d_zero(workspace7);
-  
+  rgrid3d_zero(workspace1);
+
   rgrid3d_fd_gradient_x(workspace2, workspace5);  /* dv_x / dx */
-  rgrid3d_multiply(workspace5, tot);
-  rgrid3d_sum(workspace7, workspace7, workspace5);
+  rgrid3d_sum(workspace1, workspace1, workspace5);
 
   rgrid3d_fd_gradient_y(workspace3, workspace5);  /* dv_y / dy */
-  rgrid3d_multiply(workspace5, tot);
-  rgrid3d_sum(workspace7, workspace7, workspace5);
+  rgrid3d_sum(workspace1, workspace1, workspace5);
 
   rgrid3d_fd_gradient_z(workspace4, workspace5);  /* dv_z / dz */
-  rgrid3d_multiply(workspace5, tot);
-  rgrid3d_sum(workspace7, workspace7, workspace5);
+  rgrid3d_sum(workspace1, workspace1, workspace5);
 
-  grid3d_add_real_to_complex_re(pot, workspace7);
+  rgrid3d_multiply(workspace1, tot);
+  grid3d_add_real_to_complex_re(pot, workspace1);
+#endif
 }
 
 /*

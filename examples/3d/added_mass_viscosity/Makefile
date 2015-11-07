@@ -1,6 +1,6 @@
 include ../../../make.conf
 
-all: added_mass2 added_mass3 analyze3
+all: added_mass2 added_mass3 analyze3 added_mass4
 
 added_mass2: added_mass2.o
 	        $(CC) $(CFLAGS) -o added_mass2 added_mass2.o $(LDFLAGS) 
@@ -20,7 +20,12 @@ analyze3: analyze3.o added_mass3.h
 analyze3.o: analyze3.c
 	        $(CC) $(CFLAGS) -c analyze3.c
 
+added_mass4: added_mass4.o
+	        $(CC) $(CFLAGS) -o added_mass4 added_mass4.o $(LDFLAGS) 
+
+added_mass4.o: added_mass4.c added_mass4.h
+	        $(CC) $(CFLAGS) -c added_mass4.c
 
 clean:
-	-rm added_mass2 added_mass2.o added_mass3 added_mass3.o analyze3 analyze3.o
+	-rm added_mass2 added_mass2.o added_mass3 added_mass3.o analyze3 analyze3.o added_mass4 added_mass4.o
 

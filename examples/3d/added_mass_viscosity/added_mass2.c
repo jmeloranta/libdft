@@ -18,7 +18,7 @@
 /* Only imaginary time */
 #define TIME_STEP 100.0	/* Time step in fs (5 for real, 10 for imag) */
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
-#define OUTPUT     100	/* output every this iteration */
+#define OUTPUT     1000	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
 #define NX 512      	/* # of grid points along x */
 #define NY 256          /* # of grid points along y */
@@ -36,7 +36,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T1200MK
+#define T1400MK
 #define EPSILON 1E-10
 
 #ifdef T2100MK
@@ -45,6 +45,16 @@
 #define VISCOSITY (1.803E-6) /* In Pa s */
 #define RHON    0.741       /* normal fraction (0.752) */
 #define FUNCTIONAL DFT_OT_T2100MK
+#define TEMP 2.1
+#endif
+
+#ifdef T2000MK
+/* Exp mobility = 0.06862 cm^2/Vs (Donnelly) */
+#define DENSITY (0.021909 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define VISCOSITY (1.47E-6) /* In Pa s */
+#define RHON    (0.553)      /* normal fraction */
+#define FUNCTIONAL DFT_OT_T2000MK
+#define TEMP 2.0
 #endif
 
 #ifdef T1800MK
@@ -53,6 +63,7 @@
 #define VISCOSITY (1.298E-6) /* In Pa s */
 #define RHON    0.313       /* normal fraction */
 #define FUNCTIONAL DFT_OT_T1800MK
+#define TEMP 1.8
 #endif
   
 #ifdef T1600MK
@@ -61,6 +72,16 @@
 #define VISCOSITY (1.306E-6) /* In Pa s */
 #define RHON    0.162       /* normal fraction */
 #define FUNCTIONAL DFT_OT_T1600MK
+#define TEMP 1.6
+#endif
+
+#ifdef T1400MK
+/* Exp mobility = 0.3636 cm^2/Vs (Donnelly) */
+#define DENSITY (0.021837 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
+#define VISCOSITY (1.40E-6) /* In Pa s */
+#define RHON    0.0745       /* normal fraction */
+#define FUNCTIONAL DFT_OT_T1400MK
+#define TEMP 1.4
 #endif
 
 #ifdef T1200MK
@@ -69,6 +90,7 @@
 #define VISCOSITY (1.736E-6) /* In Pa s */
 #define RHON    0.026       /* normal fraction */
 #define FUNCTIONAL DFT_OT_T1200MK
+#define TEMP 1.2
 #endif
 
 #ifdef T800MK
@@ -213,6 +235,11 @@
 
 // TODO: test cutoff for dpot and pot at 100 Bohr 
 
+double visc(double T) {
+
+  return 1.02949E-8 * exp(2.46853 * T) - 0.00020593 * exp(-6.39798 * T);
+}
+
 /* Impurity must always be at the origin (dU/dx) */
 double dpot_func(void *NA, double x, double y, double z) {
 
@@ -281,7 +308,9 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
   dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
-  dft_driver_setup_viscosity(VISCOSITY * RHON);    /* set viscosity */
+  //  dft_driver_setup_viscosity(VISCOSITY * RHON);
+  dft_driver_setup_viscosity(visc(TEMP));    /* set viscosity */
+  fprintf(stderr,"Viscosity = %le Pa s\n", visc(TEMP));
   dft_driver_setup_viscosity_epsilon(EPSILON);
   
   /* Initialize */
