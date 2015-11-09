@@ -342,6 +342,7 @@ EXPORT void dft_driver_setup_viscosity(double visc) {
 
   viscosity = (visc / GRID_AUTOPAS);
   fprintf(stderr, "libdft: Effective viscosity set to %le a.u.\n", visc / GRID_AUTOPAS);
+  fprintf(stderr, "libdft: Note factor 2X no longer included.\n");
 }
 
 /*
@@ -606,7 +607,8 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
   rgrid3d_poisson(workspace1);
   grid3d_add_real_to_complex_re(pot, workspace1);
 #else
-  double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
+  double tot = -viscosity / (driver_rho0 + driver_rho0_normal);
+  //double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
   //double tot = -(4.0/3.0) * viscosity / (driver_rho0 + driver_rho0_normal);
   
   dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, viscosity_epsilon); // Watch out! workspace1 used by veloc_field

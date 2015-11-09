@@ -1,13 +1,13 @@
 #define TIME_STEP 100.0	/* Time step in fs (50-100) */
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
-#define OUTPUT     100	/* output every this iteration */
+#define OUTPUT     50	/* output every this iteration -- write files at 10XOUTPUT iterations */
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define PLANNING 1     /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
-#define NX 256       	/* # of grid points along x */
-#define NY 256         /* # of grid points along y */
-#define NZ 256      	/* # of grid points along z */
-#define STEP 1.6        /* spatial step length (Bohr) */
+#define NX 1024       	/* # of grid points along x */
+#define NY 512         /* # of grid points along y */
+#define NZ 512      	/* # of grid points along z */
+#define STEP 0.8        /* spatial step length (Bohr) */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 #define IMP_MASS 1.0 /* electron mass */
@@ -27,3 +27,4 @@
 #define DONNELLY /* Use rho_n and eta from Donnelly */
 /*#define FRED     /* Use rho_n and eta from Fred; rho_n from NIST */
 #define EPSILON 1E-10
+#define ADJUST_LAMBDA /**/

@@ -30,9 +30,7 @@
 #define VISCOSITY (1.719E-6) /* In Pa s */
 #define RHON    (0.752)      /* normal fraction */
 #endif
-// DEBUG
-// #define FUNCTIONAL DFT_OT_T2100MK
-#define FUNCTIONAL DFT_GP
+#define FUNCTIONAL DFT_OT_T2100MK
 #endif
 
 #ifdef T2000MK
@@ -222,7 +220,7 @@ int main(int argc, char *argv[]) {
   /* Plain Orsay-Trento in real or imaginary time */
   dft_driver_setup_model(FUNCTIONAL, 1, DENSITY * (1.0 - RHON));   /* This holds the superfluid part */
   dft_driver_setup_normal_density(DENSITY * RHON);                 /* normal fluid */
-  dft_driver_setup_viscosity(VISCOSITY);
+  dft_driver_setup_viscosity(2.0 * VISCOSITY);
   dft_driver_setup_viscosity_epsilon(EPSILON);
 
   /* Regular boundaries */

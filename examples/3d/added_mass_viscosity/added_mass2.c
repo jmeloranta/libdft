@@ -308,8 +308,8 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
   dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
-  //  dft_driver_setup_viscosity(VISCOSITY * RHON);
-  dft_driver_setup_viscosity(visc(TEMP));    /* set viscosity */
+  //  dft_driver_setup_viscosity(2.0 * VISCOSITY * RHON);
+  dft_driver_setup_viscosity(2.0 * visc(TEMP));    /* set viscosity */
   fprintf(stderr,"Viscosity = %le Pa s\n", visc(TEMP));
   dft_driver_setup_viscosity_epsilon(EPSILON);
   
