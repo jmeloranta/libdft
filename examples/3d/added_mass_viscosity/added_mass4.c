@@ -370,12 +370,13 @@ int main(int argc, char *argv[]) {
       printf("Mobility = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
 #ifdef ADJUST_LAMBDA
       if(mobility > 0.0) {
-	lambda = 2.0 * (1.0E4 * mobility / EXP_MOBILITY - 1.0);
+	lambda += 0.1 * 2.0 * (1.0E4 * mobility / EXP_MOBILITY - 1.0);
 	dft_driver_setup_viscosity((2.0 + lambda) * RHON * VISCOSITY);
 	fprintf(stderr, "New viscosity = %le based on lambda = %le.\n", (2.0 + lambda) * RHON * VISCOSITY, lambda);
       } else fprintf(stderr, "Negative mobility - skipping lambda adjustment.\n");
 #endif
       printf("Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
+      printf("Hydrodynamic radius (Stokes,eff) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * ((2.0 + lambda) * RHON * VISCOSITY)));
       printf("Mobility convergence = %le %%.\n", 100.0 * fabs(mobility - last_mobility) / mobility);
       last_mobility = mobility;
 
