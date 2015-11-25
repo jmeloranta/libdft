@@ -48,7 +48,7 @@ static rgrid3d *workspace8 = 0;
 static rgrid3d *workspace9 = 0;
 static cgrid3d *cworkspace = 0;
 static grid_timer timer;
-static double damp = 0.2, viscosity = 0.0, viscosity_epsilon = 5E-5;
+static double damp = 0.2, viscosity = 0.0, viscosity_alpha = 1.0;
 
 int dft_internal_using_3d = 0;
 extern int dft_internal_using_2d, dft_internal_using_cyl;
@@ -310,39 +310,21 @@ EXPORT void dft_driver_setup_momentum(double kx0, double ky0, double kz0) {
 }
 
 /*
- * Set the epsilon parameter for viscous response (similar to Millikan-Cunningham correction).
- *
- * eps = Epsilon value (typically 1 x 10^-5 to 5 x 10^-5).
- *
- * No return value.
- *
- */
-
-EXPORT void dft_driver_setup_viscosity_epsilon(double eps) {
-
-  if(eps < 0.0 || eps > 1E-3) {
-    fprintf(stderr, "libdft: Illegal epsilon value.\n");
-    exit(1);
-  }
-  viscosity_epsilon = eps;
-  fprintf(stderr, "libdft: Viscosity epsilon = %le.\n", eps);
-}
-
-/*
  * Set effective visocisty.
  *
- * visc = effective Viscosity in Pa s (SI) units. This is typically the normal fraction x normal fluid viscosity.
- *        (default value 0.0)
+ * visc  = Viscosity of bulk liquid in Pa s (SI) units. This is typically the normal fraction x normal fluid viscosity.
+ *         (default value 0.0)
+ * alpha = exponent for visc * (rho/rho0)^alpha  for calculating the interfacial viscosity.
  *
  * NOTE: Viscous response is set along the x-axis only!
  *
  */
 
-EXPORT void dft_driver_setup_viscosity(double visc) {
+EXPORT void dft_driver_setup_viscosity(double visc, double alpha) {
 
   viscosity = (visc / GRID_AUTOPAS);
-  fprintf(stderr, "libdft: Effective viscosity set to %le a.u.\n", visc / GRID_AUTOPAS);
-  fprintf(stderr, "libdft: Note factor 2X no longer included.\n");
+  viscosity_alpha = alpha;
+  fprintf(stderr, "libdft: Effective viscosity set to %le a.u, alpha = %le.\n", visc / GRID_AUTOPAS, alpha);
 }
 
 /*
@@ -575,55 +557,119 @@ EXPORT void dft_driver_ot_potential(wf3d *gwf, cgrid3d *pot) {
  * gwf = wavefunction (wf3d *; input).
  * pot = potential (cgrid3d *; output).
  *
- * Note this routine uses the epsilon parameter to scren velocity.
- *
  */
 
-/* #define POISSON */
+#define POISSON /**/
+
+static double visc_func(double rho) {
+
+  double rho0 = driver_rho0 + driver_rho0_normal;
+  
+  return pow(rho / rho0, viscosity_alpha) * viscosity;  // viscosity_alpha > 0
+}
 
 EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
 #ifdef POISSON
-#define DIV_EPS 1E-4
-  dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, viscosity_epsilon); // Watch out! workspace1 used by veloc_field
-  grid3d_wf_density(gwf, workspace1);
+#define POISSON_EPS 1E-8
+  if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
 
-  rgrid3d_fd_laplace(workspace2, workspace5);   /* laplace v_x */
-  rgrid3d_division_eps(workspace5, workspace5, workspace1, DIV_EPS);  /* 1 / rho */
-  rgrid3d_fd_laplace(workspace3, workspace6);   /* laplace v_y */
-  rgrid3d_division_eps(workspace6, workspace6, workspace1, DIV_EPS);  /* 1 / rho */
-  rgrid3d_fd_laplace(workspace4, workspace7);   /* laplace v_z */
-  rgrid3d_division_eps(workspace7, workspace7, workspace1, DIV_EPS);  /* 1 / rho */
+  /* Stress tensor elements (without viscosity) */
+  /* 1 (diagonal; workspace2) */
+  dft_driver_veloc_field_x_eps(gwf, workspace8, POISSON_EPS); // Watch out! workspace1 used by veloc_field
+  rgrid3d_fd_gradient_x(workspace8, workspace2);
+  rgrid3d_multiply(workspace2, 4.0/3.0);
+  dft_driver_veloc_field_y_eps(gwf, workspace8, POISSON_EPS);
+  rgrid3d_fd_gradient_y(workspace8, workspace1);
+  rgrid3d_multiply(workspace1, -2.0/3.0);
+  rgrid3d_sum(workspace2, workspace2, workspace1);
+  dft_driver_veloc_field_z_eps(gwf, workspace8, POISSON_EPS);
+  rgrid3d_fd_gradient_z(workspace8, workspace1);
+  rgrid3d_multiply(workspace1, -2.0/3.0);
+  rgrid3d_sum(workspace2, workspace2, workspace1);
 
-  rgrid3d_zero(workspace1);
-  rgrid3d_fd_gradient_x(workspace5, workspace2);  /* d/dx */
-  rgrid3d_sum(workspace1, workspace1, workspace2);
-  rgrid3d_fd_gradient_y(workspace6, workspace2);  /* d/dy */
-  rgrid3d_sum(workspace1, workspace1, workspace2);
-  rgrid3d_fd_gradient_z(workspace7, workspace2);  /* d/dz */
-  rgrid3d_sum(workspace1, workspace1, workspace2);
-
-  rgrid3d_multiply(workspace1, -2.0 * viscosity);
-  rgrid3d_poisson(workspace1);
-  grid3d_add_real_to_complex_re(pot, workspace1);
-#else
-  double tot = -viscosity / (driver_rho0 + driver_rho0_normal);
-  //double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
-  //double tot = -(4.0/3.0) * viscosity / (driver_rho0 + driver_rho0_normal);
+  /* 2 = 4 (symmetry; workspace3) */
+  dft_driver_veloc_field_y_eps(gwf, workspace8, POISSON_EPS); // Watch out! workspace1 used by veloc_field
+  rgrid3d_fd_gradient_x(workspace8, workspace3);
+  dft_driver_veloc_field_x_eps(gwf, workspace8, POISSON_EPS);
+  rgrid3d_fd_gradient_y(workspace8, workspace1);
+  rgrid3d_sum(workspace3, workspace3, workspace1);
   
-  dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, viscosity_epsilon); // Watch out! workspace1 used by veloc_field
+  /* 3 = 7 (symmetry; workspace4) */
+  dft_driver_veloc_field_z_eps(gwf, workspace8, POISSON_EPS); // Watch out! workspace1 used by veloc_field
+  rgrid3d_fd_gradient_x(workspace8, workspace4);
+  dft_driver_veloc_field_x_eps(gwf, workspace8, POISSON_EPS);
+  rgrid3d_fd_gradient_z(workspace8, workspace1);
+  rgrid3d_sum(workspace4, workspace4, workspace1);
 
-  rgrid3d_zero(workspace1);
+  /* 5 (diagonal; workspace5) */
+  dft_driver_veloc_field_y_eps(gwf, workspace8, POISSON_EPS); // Watch out! workspace1 used by veloc_field
+  rgrid3d_fd_gradient_y(workspace8, workspace5);
+  rgrid3d_multiply(workspace5, 4.0/3.0);
+  dft_driver_veloc_field_x_eps(gwf, workspace8, POISSON_EPS);
+  rgrid3d_fd_gradient_x(workspace8, workspace1);
+  rgrid3d_multiply(workspace1, -2.0/3.0);
+  rgrid3d_sum(workspace5, workspace5, workspace1);
+  dft_driver_veloc_field_z_eps(gwf, workspace8, POISSON_EPS);
+  rgrid3d_fd_gradient_z(workspace8, workspace1);
+  rgrid3d_multiply(workspace1, -2.0/3.0);
+  rgrid3d_sum(workspace5, workspace5, workspace1);
+  
+  /* 6 = 8 (symmetryl workspace6) */
+  dft_driver_veloc_field_z_eps(gwf, workspace8, POISSON_EPS); // Watch out! workspace1 used by veloc_field
+  rgrid3d_fd_gradient_y(workspace8, workspace6);
+  dft_driver_veloc_field_y_eps(gwf, workspace8, POISSON_EPS);
+  rgrid3d_fd_gradient_z(workspace8, workspace1);
+  rgrid3d_sum(workspace6, workspace6, workspace1);
 
-  rgrid3d_fd_gradient_x(workspace2, workspace5);  /* dv_x / dx */
-  rgrid3d_sum(workspace1, workspace1, workspace5);
+  /* 9 = (diagonal; workspace7) */
+  dft_driver_veloc_field_z_eps(gwf, workspace8, POISSON_EPS); // Watch out! workspace1 used by veloc_field
+  rgrid3d_fd_gradient_z(workspace8, workspace7);
+  rgrid3d_multiply(workspace7, 4.0/3.0);
+  dft_driver_veloc_field_x_eps(gwf, workspace8, POISSON_EPS);
+  rgrid3d_fd_gradient_x(workspace8, workspace1);
+  rgrid3d_multiply(workspace1, -2.0/3.0);
+  rgrid3d_sum(workspace7, workspace7, workspace1);
+  dft_driver_veloc_field_y_eps(gwf, workspace8, POISSON_EPS);
+  rgrid3d_fd_gradient_y(workspace8, workspace1);
+  rgrid3d_multiply(workspace1, -2.0/3.0);
+  rgrid3d_sum(workspace7, workspace7, workspace1);
 
-  rgrid3d_fd_gradient_y(workspace3, workspace5);  /* dv_y / dy */
-  rgrid3d_sum(workspace1, workspace1, workspace5);
+  /* factor in viscosity */
+  grid3d_wf_density(gwf, workspace8);
+  rgrid3d_operate_one(workspace8, workspace8, visc_func);
+  rgrid3d_product(workspace2, workspace2, workspace8);
+  rgrid3d_product(workspace3, workspace3, workspace8);
+  rgrid3d_product(workspace4, workspace4, workspace8);
+  rgrid3d_product(workspace5, workspace5, workspace8);
+  rgrid3d_product(workspace6, workspace6, workspace8);
+  rgrid3d_product(workspace7, workspace7, workspace8);
+  
+  /* x component of divergence (workspace1) */
+  rgrid3d_div(workspace1, workspace2, workspace3, workspace4); // (d/dx) 1(wrk2) + (d/dy) 2(wrk3) + (d/dz) 3(wrk4)
+  /* y component of divergence (workspace2) */
+  rgrid3d_div(workspace2, workspace3, workspace5, workspace6); // (d/dx) 2(wrk3) + (d/dy) 5(wrk5) + (d/dz) 6(wrk6)
+  /* x component of divergence (workspace3) */
+  rgrid3d_div(workspace3, workspace4, workspace6, workspace7); // (d/dx) 3(wrk4) + (d/dy) 6(wrk6) + (d/dz) 9(wrk7)
 
-  rgrid3d_fd_gradient_z(workspace4, workspace5);  /* dv_z / dz */
-  rgrid3d_sum(workspace1, workspace1, workspace5);
-
+  /* divide by -rho */
+  grid3d_wf_density(gwf, workspace8);
+  rgrid3d_multiply(workspace8, -1.0);
+  rgrid3d_division_eps(workspace1, workspace1, workspace8, POISSON_EPS);
+  rgrid3d_division_eps(workspace2, workspace2, workspace8, POISSON_EPS);
+  rgrid3d_division_eps(workspace3, workspace3, workspace8, POISSON_EPS);
+  
+  /* the final divergence */
+  rgrid3d_div(workspace8, workspace1, workspace2, workspace3);
+  
+  // Solve the Poisson equation to get the viscous potential
+  rgrid3d_poisson(workspace8);
+  grid3d_add_real_to_complex_re(pot, workspace8);
+#else
+  double tot = -(4.0 / 3.0) * viscosity / (driver_rho0 + driver_rho0_normal);
+  
+  dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, DFT_BF_EPS); // Watch out! workspace1 used by veloc_field
+  rgrid3d_div(workspace1, workspace2, workspace3, workspace4);  
   rgrid3d_multiply(workspace1, tot);
   grid3d_add_real_to_complex_re(pot, workspace1);
 #endif

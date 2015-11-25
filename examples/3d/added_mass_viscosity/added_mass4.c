@@ -204,7 +204,7 @@ int main(int argc, char *argv[]) {
   double kin, pot;
   double rho0, mu0, n, tmp;
   double force, mobility, last_mobility = 0.0;
-  double inv_width = 0.05, lambda = 0.0;
+  double inv_width = 0.05;
   grid_timer timer;
 
   if(argc != 1 && argc != 3) {
@@ -224,8 +224,7 @@ int main(int argc, char *argv[]) {
   
   /* Plain Orsay-Trento in real or imaginary time */
   dft_driver_setup_model(FUNCTIONAL, 1, DENSITY);
-  dft_driver_setup_viscosity(2.0 * RHON * VISCOSITY);
-  dft_driver_setup_viscosity_epsilon(EPSILON);
+  dft_driver_setup_viscosity(RHON * VISCOSITY, ALPHA);
 
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
@@ -241,6 +240,7 @@ int main(int argc, char *argv[]) {
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density(dft_driver_otf);
   mu0  = dft_ot_bulk_chempot(dft_driver_otf);
+
   printf("Bulk: rho0 = %le Angs^-3, mu0 = %le K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
   printf("Exp: rho0 = %le Angs^-3.\n", DENSITY / (0.529 * 0.529 * 0.529));
   
@@ -368,19 +368,11 @@ int main(int argc, char *argv[]) {
       printf("E-field = %le V/m\n", -force * GRID_AUTOVPM);
       mobility = VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
       printf("Mobility = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
-#ifdef ADJUST_LAMBDA
-      if(mobility > 0.0) {
-	lambda += 0.1 * 2.0 * (1.0E4 * mobility / EXP_MOBILITY - 1.0);
-	dft_driver_setup_viscosity((2.0 + lambda) * RHON * VISCOSITY);
-	fprintf(stderr, "New viscosity = %le based on lambda = %le.\n", (2.0 + lambda) * RHON * VISCOSITY, lambda);
-      } else fprintf(stderr, "Negative mobility - skipping lambda adjustment.\n");
-#endif
       printf("Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
-      printf("Hydrodynamic radius (Stokes,eff) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * ((2.0 + lambda) * RHON * VISCOSITY)));
       printf("Mobility convergence = %le %%.\n", 100.0 * fabs(mobility - last_mobility) / mobility);
       last_mobility = mobility;
 
-      if(!(iter % (10*OUTPUT))) {   /* 10XOUTPUT for writing files */
+      if(!(iter % (OUTPUT2*OUTPUT))) {   /* 10XOUTPUT for writing files */
 	/* Impurity density */
 	grid3d_wf_density(impwf, density);
 	

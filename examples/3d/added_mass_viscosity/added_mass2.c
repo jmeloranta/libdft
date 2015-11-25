@@ -25,6 +25,8 @@
 #define NZ 256      	/* # of grid points along z */
 #define STEP 1.0        /* spatial step length (Bohr) */
 
+#define ALPHA 1.0
+
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
 /* velocity components */
@@ -37,7 +39,6 @@
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
 #define T1400MK
-#define EPSILON 1E-10
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs - gives 0.096 (well conv. kc+bf 0.087) */
@@ -309,9 +310,8 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   //  dft_driver_setup_viscosity(2.0 * VISCOSITY * RHON);
-  dft_driver_setup_viscosity(2.0 * visc(TEMP));    /* set viscosity */
+  dft_driver_setup_viscosity(2.0 * visc(TEMP), ALPHA);    /* set viscosity */
   fprintf(stderr,"Viscosity = %le Pa s\n", visc(TEMP));
-  dft_driver_setup_viscosity_epsilon(EPSILON);
   
   /* Initialize */
   dft_driver_initialize();

@@ -26,4 +26,4 @@
 #define T1200MK
 #define DONNELLY /* Use rho_n and eta from Donnelly */
 /*#define FRED     /* Use rho_n and eta from Fred; rho_n from NIST */
-#define EPSILON 1E-10
+#define ALPHA 1.0

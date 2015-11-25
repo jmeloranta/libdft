@@ -1,7 +1,8 @@
 #define TIME_STEP 100.0	/* Time step in fs (50-100) */
 #define IMP_STEP 0.1	/* Time step in fs (0.01) */
 #define MAXITER 500000 /* Maximum number of iterations (was 300) */
-#define OUTPUT     50	/* output every this iteration -- write files at 10XOUTPUT iterations */
+#define OUTPUT     5	/* output every this iteration */
+#define OUTPUT2    10  /* write output files @ OUTPUT * OUTPUT2 */
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define PLANNING 1     /* 0 = estimate, 1 = measure, 2 = patient, 3 = exhaustive */
 #define NX 1024       	/* # of grid points along x */
@@ -23,8 +24,8 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T1200MK
+#define T2100MK
 #define DONNELLY /* Use rho_n and eta from Donnelly */
 /*#define FRED     /* Use rho_n and eta from Fred; rho_n from NIST */
-#define EPSILON 1E-10
-#define ADJUST_LAMBDA /**/
+
+#define ALPHA 5.2
