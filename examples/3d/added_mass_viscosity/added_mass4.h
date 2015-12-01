@@ -24,8 +24,8 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T2100MK
+#define T1200MK
 #define DONNELLY /* Use rho_n and eta from Donnelly */
 /*#define FRED     /* Use rho_n and eta from Fred; rho_n from NIST */
 
-#define ALPHA 5.2
+/* #define ALPHA 150.0 /* If not def, Use 0 to get 1.73 + 2.32E-10 * exp(11.15 * T) fit */

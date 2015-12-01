@@ -19,6 +19,7 @@
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs (Donnelly 0.05052) */
+#define T 2.1
 #define DENSITY (0.021954 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #ifdef DONNELLY
 #define IDENT "T = 2.1 K (Donnelly)"
@@ -37,6 +38,7 @@
 
 #ifdef T2000MK
 /* Exp mobility = 0.06862 cm^2/Vs (Donnelly) */
+#define T 2.0
 #define DENSITY (0.021909 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #ifdef DONNELLY
 #define IDENT "T = 2.0 K (Donnelly)"
@@ -55,6 +57,7 @@
 
 #ifdef T1800MK
 /* Exp mobility = 0.097 cm^2/Vs (Donnelly 0.1088) */
+#define T 1.8
 #define DENSITY (0.021885 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #ifdef DONNELLY
 #define IDENT "T = 1.8 K (Donnelly)"
@@ -73,6 +76,7 @@
   
 #ifdef T1600MK
 /* Exp mobility = 0.183 cm^2/Vs (Donnelly 0.1772) */
+#define T 1.6
 #define DENSITY (0.021845 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #ifdef DONNELLY
 #define IDENT "T = 1.6 K (Donnelly)"
@@ -91,6 +95,7 @@
 
 #ifdef T1400MK
 /* Exp mobility = 0.3636 cm^2/Vs (Donnelly) */
+#define T 1.4
 #define DENSITY (0.021837 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #ifdef DONNELLY
 #define IDENT "T = 1.4 K (Donnelly)"
@@ -109,6 +114,7 @@
 
 #ifdef T1200MK
 /* Exp mobility = 1.0 cm^2/Vs (Donnelly 0.9880) */
+#define T 1.2
 #define DENSITY (0.021846 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #ifdef DONNELLY
 #define IDENT "T = 1.2 K (Donnelly)"
@@ -127,6 +133,7 @@
 
 #ifdef T800MK
 /* Exp mobility = 20.86 cm^2/Vs (Donnelly 21.38) */
+#define T 0.8
 #define DENSITY (0.021876 * 0.529 * 0.529 * 0.529)     /* bulk liquid density */
 #ifdef DONNELLY
 #define IDENT "T = 0.8 K (Donnelly)"
@@ -224,8 +231,14 @@ int main(int argc, char *argv[]) {
   
   /* Plain Orsay-Trento in real or imaginary time */
   dft_driver_setup_model(FUNCTIONAL, 1, DENSITY);
+#ifdef ALPHA
+  printf("Using preset alpha.\n");
   dft_driver_setup_viscosity(RHON * VISCOSITY, ALPHA);
-
+#else
+  printf("Using precomputed alpha. with T = %le\n", T);
+  dft_driver_setup_viscosity(RHON * VISCOSITY, 1.72 + 2.32E-10*exp(11.15*T));  
+#endif
+  
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
   dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */

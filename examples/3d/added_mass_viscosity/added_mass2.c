@@ -25,7 +25,7 @@
 #define NZ 256      	/* # of grid points along z */
 #define STEP 1.0        /* spatial step length (Bohr) */
 
-#define ALPHA 1.0
+/* #define ALPHA 1.0 /**/
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
@@ -38,7 +38,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T1400MK
+#define T2000MK
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs - gives 0.096 (well conv. kc+bf 0.087) */
@@ -126,7 +126,7 @@
 #define RADD 0.0
 #endif
 
-/* exponential repulsion (approx. electron bubble) */
+/* exponential repulsion (approx. electron bubble) - RADD = -19.0 */
 #ifdef EXP_P
 #define A0 (3.8003E5 / GRID_AUTOK)
 #define A1 (1.6245 * GRID_AUTOANG)
@@ -234,13 +234,6 @@
 #define RADD 0.0
 #endif
 
-// TODO: test cutoff for dpot and pot at 100 Bohr 
-
-double visc(double T) {
-
-  return 1.02949E-8 * exp(2.46853 * T) - 0.00020593 * exp(-6.39798 * T);
-}
-
 /* Impurity must always be at the origin (dU/dx) */
 double dpot_func(void *NA, double x, double y, double z) {
 
@@ -309,9 +302,13 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
   dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
-  //  dft_driver_setup_viscosity(2.0 * VISCOSITY * RHON);
-  dft_driver_setup_viscosity(2.0 * visc(TEMP), ALPHA);    /* set viscosity */
-  fprintf(stderr,"Viscosity = %le Pa s\n", visc(TEMP));
+#ifdef ALPHA  
+  printf("Using preset alpha.\n");
+  dft_driver_setup_viscosity(VISCOSITY * RHON, ALPHA);
+#else
+  printf("Using precomputed alpha. with T = %le\n", TEMP);
+  dft_driver_setup_viscosity(RHON * VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));  
+#endif
   
   /* Initialize */
   dft_driver_initialize();

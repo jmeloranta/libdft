@@ -32,5 +32,6 @@ analyze4: analyze4.o added_mass4.h
 analyze4.o: analyze4.c
 	        $(CC) $(CFLAGS) -c analyze4.c
 clean:
-	-rm added_mass2 added_mass2.o added_mass3 added_mass3.o analyze3 analyze3.o added_mass4 added_mass4.o
+	-rm added_mass2 added_mass2.o added_mass3 added_mass3.o analyze3 analyze3.o added_mass4 added_mass4.o analyze4 analyze4.o
+
 
