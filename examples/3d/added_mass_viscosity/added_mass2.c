@@ -38,7 +38,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T2000MK
+#define T1800MK
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs - gives 0.096 (well conv. kc+bf 0.087) */
@@ -135,7 +135,7 @@
 #define A4 0.0
 #define A5 0.0
 #define RMIN 2.0
-#define RADD (-19.0)
+#define RADD (-10.0)
 #endif
 
 /* Ca+ */
@@ -290,6 +290,7 @@ int main(int argc, char *argv[]) {
   double kin, pot;
   double rho0, mu0, n;
 
+  printf("RADD = %le\n", RADD);
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
   /* Setup frame of reference momentum */
