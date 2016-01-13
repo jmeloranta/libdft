@@ -276,7 +276,7 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
 
   if(otf->model & DFT_GP) {
     rgrid3d_copy(workspace1, density);
-    rgrid3d_multiply(workspace1, otf->mu0 / otf->rho0);
+    rgrid3d_multiply(workspace1, -otf->mu0 / otf->rho0);
     grid3d_add_real_to_complex_re(potential, workspace1);
     return;
   }
@@ -1066,7 +1066,7 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, long model) {
   if((model & DFT_GP) || (model & DFT_ZERO)) {
     otf->temp = 0.0;
     otf->rho0 = 0.0212593;
-    otf->mu0 = 7.0 / GRID_AUTOK;
+    otf->mu0 = -7.0 / GRID_AUTOK;
     /* most of the parameters are unused */
   }
 
@@ -1077,8 +1077,8 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, long model) {
   otf->c3 /= GRID_AUTOK * pow(GRID_AUTOANG, 3.0 * otf->c3_exp);
   otf->rho0 *= GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG;
   otf->lj_params.h /= GRID_AUTOANG;
-  otf->lj_params.sigma   = 2.556  / GRID_AUTOANG;
-  otf->lj_params.epsilon = 10.22  / GRID_AUTOK;
+  otf->lj_params.sigma   = 2.556 / GRID_AUTOANG;
+  otf->lj_params.epsilon = 10.22 / GRID_AUTOK;
   otf->rho_0s = 0.04 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
   otf->alpha_s = 54.31 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
   otf->l_g = 1.0 / GRID_AUTOANG;

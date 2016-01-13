@@ -73,7 +73,7 @@ EXPORT double dft_ot_bulk_density(dft_ot_functional *otf) {
   //double Co2A = otf->b/(2.0 * otf->c3);
   
   if(otf->model & DFT_ZERO) return 0.0;
-  if(otf->model & DFT_GP) return 0.0;
+  if(otf->model & DFT_GP) return otf->rho0;
 
   //return sqrt(Bo2A * Bo2A - Co2A) - Bo2A;
   return dft_ot_bulk_density_pressurized(otf, 0.0);
@@ -93,6 +93,7 @@ EXPORT double dft_ot_bulk_density(dft_ot_functional *otf) {
 
 EXPORT double dft_ot_bulk_chempot(dft_ot_functional *otf) {
 
+  if(otf->model & DFT_GP) return otf->mu0;
   return dft_ot_bulk_dEdRho(otf, dft_ot_bulk_density(otf));
 }
 

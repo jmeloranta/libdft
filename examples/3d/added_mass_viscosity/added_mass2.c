@@ -16,14 +16,14 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 100.0	/* Time step in fs (5 for real, 10 for imag) */
+#define TIME_STEP 10.0	/* Time step in fs (5 for real, 10 for imag) */
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
-#define OUTPUT     1000	/* output every this iteration */
+#define OUTPUT     100	/* output every this iteration (was 1000) */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 512      	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256      	/* # of grid points along z */
-#define STEP 1.0        /* spatial step length (Bohr) */
+#define NX 256      	/* # of grid points along x */
+#define NY 128          /* # of grid points along y */
+#define NZ 128      	/* # of grid points along z */
+#define STEP 1.5        /* spatial step length (Bohr) */
 
 /* #define ALPHA 1.0 /**/
 
@@ -38,7 +38,7 @@
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
-#define T1800MK
+#define T2100MK
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs - gives 0.096 (well conv. kc+bf 0.087) */
@@ -135,7 +135,7 @@
 #define A4 0.0
 #define A5 0.0
 #define RMIN 2.0
-#define RADD (-10.0)
+#define RADD (-1.0)
 #endif
 
 /* Ca+ */

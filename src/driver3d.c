@@ -571,7 +571,8 @@ static double visc_func(double rho) {
 EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
 #ifdef POISSON
-#define POISSON_EPS 1E-8
+  // was 1e-8   (crashes, 5E-8 done, test 1E-7)
+#define POISSON_EPS 5E-9
   if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
 
   /* Stress tensor elements (without viscosity) */
@@ -664,6 +665,7 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
   
   // Solve the Poisson equation to get the viscous potential
   rgrid3d_poisson(workspace8);
+  //dft_driver_clear_pot(workspace8, 800.0 / GRID_AUTOK, -800.0 / GRID_AUTOK);
   grid3d_add_real_to_complex_re(pot, workspace8);
 #else
   double tot = -(4.0 / 3.0) * viscosity / (driver_rho0 + driver_rho0_normal);
@@ -2909,6 +2911,26 @@ EXPORT void dft_driver_clear(wf3d *gwf, rgrid3d *potential, double ul) {
 #pragma omp parallel for firstprivate(d,gwf,potential,ul) private(i) default(none) schedule(runtime)
   for(i = 0; i < d; i++)
     if(potential->value[i] >= ul) gwf->grid->value[i] = 0.0;
+}
+
+
+/*
+ * This routine will limit the given potential exceeds the specified max value.
+ *
+ * potential = Potential that determines the points to be zeroed (rgrid3d *).
+ * ul        = Limit for the potential above which the wf will be zeroed (double).
+ * 
+ */
+
+EXPORT void dft_driver_clear_pot(rgrid3d *potential, double ul, double ll) {
+
+  long i, d = potential->nx * potential->ny * potential->nz;
+
+#pragma omp parallel for firstprivate(d,potential,ul,ll) private(i) default(none) schedule(runtime)
+  for(i = 0; i < d; i++) {
+    if(potential->value[i] > ul) potential->value[i] = ul;
+    if(potential->value[i] < ll) potential->value[i] = ll;
+  }
 }
 
 /*
