@@ -16,7 +16,7 @@
  */
 
 typedef struct lj_struct {
-  double h, sigma, epsilon;
+  double h, sigma, epsilon, cval;
 } dft_common_lj;
 
 typedef struct extpot {

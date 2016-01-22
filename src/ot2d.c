@@ -970,6 +970,7 @@ EXPORT inline void dft_ot_temperature_2d(dft_ot_functional_2d *otf, long model) 
   otf->lj_params.h /= GRID_AUTOANG;
   otf->lj_params.sigma   = 2.556  / GRID_AUTOANG;
   otf->lj_params.epsilon = 10.22  / GRID_AUTOK;
+  otf->lj_params.cval = 0.0;
   otf->rho_0s = 0.04 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
   otf->alpha_s = 54.31 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
   otf->l_g = 1.0 / GRID_AUTOANG;

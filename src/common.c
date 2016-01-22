@@ -35,7 +35,7 @@ EXPORT inline double dft_common_ipow(double x, int y) {
   return v;
 }
 
-/* NOTE: r is actually r^2 */
+/* NOTE: r2 is r^2 */
 EXPORT inline double dft_common_lj_func(double r2, double sig, double eps) {
 
    /* s = (sigma/r)^6 */
@@ -59,11 +59,12 @@ EXPORT inline double dft_common_lennard_jones(void *arg, double x, double y, dou
   double h = ((dft_common_lj *) arg)->h;
   double sig = ((dft_common_lj *) arg)->sigma;
   double eps = ((dft_common_lj *) arg)->epsilon;
+  double cval = ((dft_common_lj *) arg)->cval;
   double r2;
 
   r2 = x * x + y * y + z * z;
   
-  if (r2 <= h * h) return 0.0;
+  if (r2 <= h * h) return cval;
   
   return dft_common_lj_func(r2, sig, eps);
 }
@@ -81,11 +82,12 @@ EXPORT inline double dft_common_lennard_jones_2d(void *arg, double z, double r) 
   double h = ((dft_common_lj *) arg)->h;
   double sig = ((dft_common_lj *) arg)->sigma;
   double eps = ((dft_common_lj *) arg)->epsilon;
+  double cval = ((dft_common_lj *) arg)->cval;
   double r2;
 
   r2 = z * z + r * r;
   
-  if (r2 <= h * h) return 0.0;
+  if (r2 <= h * h) return cval;
   
   return dft_common_lj_func(r2, sig, eps);
 }
@@ -369,8 +371,49 @@ EXPORT void dft_common_idealgas_params(double temp, double mass, double c4) {
   XXX_c4 = c4;
 }
 
+/*
+ * Classical ideal gas. NVT free energy / volume (i.e., A/V, A = U - TS).
+ *
+ */
+
+EXPORT double dft_common_classical_idealgas_op(double rhop) {   /* derivative of the energy */
+
+  double l3, val;
+
+  l3 = dft_common_lwl3(XXX_mass, XXX_temp);
+  val = GRID_AUKB * XXX_temp * log(rhop * l3);    // -log(1/x) = log(x)
+  //  if (val > CUTOFF) val = CUTOFF;
+  return val;
+}
+
+EXPORT double dft_common_classical_idealgas_energy_op(double rhop) {
+
+  double l3;
+
+  l3 = dft_common_lwl3(XXX_mass, XXX_temp);
+  return -rhop * GRID_AUKB * XXX_temp * (1.0 + log(1.0/(rhop*l3)));
+}
+
+/* These routines are for bose gas with cutoff (1) */
+
+EXPORT double dft_common_idealgas_energy_op(double rhop) {
+
+  double z, l3;
+
+  l3 = dft_common_lwl3(XXX_mass, XXX_temp);
+  z = dft_common_fit_z(rhop * l3);
+  return (XXX_c4 * GRID_AUKB * XXX_temp * (rhop * log(z) - dft_common_fit_g52(z) / l3));
+}
+
+/* Matches the difference of dft_common_idealgas_energy_op() */
+// #define USE_DIFFERENCE
+
 EXPORT double dft_common_idealgas_op(double rhop) {
 
+#ifdef USE_DIFFERENCE
+#define DIFF_EPS 1E-4
+  return (dft_common_idealgas_energy_op(rhop + DIFF_EPS) - dft_common_idealgas_energy_op(rhop - DIFF_EPS)) / (2.0 * DIFF_EPS);
+#else
   double l3, z0, rl3, g12, g32;
   double tmp;
 
@@ -388,15 +431,7 @@ EXPORT double dft_common_idealgas_op(double rhop) {
     if(tmp < 0.0) return -CUTOFF;
     else return CUTOFF;
   } else return tmp;
-}
-
-EXPORT double dft_common_idealgas_energy_op(double rhop) {
-
-  double z, l3;
-
-  l3 = dft_common_lwl3(XXX_mass, XXX_temp);
-  z = dft_common_fit_z(rhop * l3);
-  return (XXX_c4 * GRID_AUKB * XXX_temp * (rhop * log(z) - dft_common_fit_g52(z) / l3));
+#endif
 }
 
 /*
