@@ -582,7 +582,7 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
   if(otf->model & DFT_GP) {
     rgrid3d_copy(energy_density, density);
     rgrid3d_product(energy_density, energy_density, density);
-    rgrid3d_multiply(energy_density, 0.5 * otf->mu0 / otf->rho0);
+    rgrid3d_multiply(energy_density, -0.5 * otf->mu0 / otf->rho0);
     return;
   }
 

@@ -189,14 +189,12 @@ EXPORT dft_ot_functional_2d *dft_ot2d_alloc(long model, long nz, long nr, double
 EXPORT void dft_ot2d_free(dft_ot_functional_2d *otf) {
 
   if (otf) {
-    if(!(otf->model & DFT_GP) && !(otf->model & DFT_ZERO)) {
-      if (otf->lennard_jones) rgrid2d_free(otf->lennard_jones);
-      if (otf->spherical_avg) rgrid2d_free(otf->spherical_avg);
-      if (otf->gaussian_tf) rgrid2d_free(otf->gaussian_tf);
-      if (otf->gaussian_z_tf) rgrid2d_free(otf->gaussian_z_tf);
-      if (otf->gaussian_r_tf) rgrid2d_free(otf->gaussian_r_tf);
-      if (otf->backflow_pot) rgrid2d_free(otf->backflow_pot);
-    }
+    if (otf->lennard_jones) rgrid2d_free(otf->lennard_jones);
+    if (otf->spherical_avg) rgrid2d_free(otf->spherical_avg);
+    if (otf->gaussian_tf) rgrid2d_free(otf->gaussian_tf);
+    if (otf->gaussian_z_tf) rgrid2d_free(otf->gaussian_z_tf);
+    if (otf->gaussian_r_tf) rgrid2d_free(otf->gaussian_r_tf);
+    if (otf->backflow_pot) rgrid2d_free(otf->backflow_pot);
     free(otf);
   }
 }
@@ -232,7 +230,7 @@ EXPORT void dft_ot2d_potential(dft_ot_functional_2d *otf, cgrid2d *potential, wf
 
   if(otf->model & DFT_GP) {
     rgrid2d_copy(workspace1, density);
-    rgrid2d_multiply(workspace1, otf->mu0 / otf->rho0);
+    rgrid2d_multiply(workspace1, -otf->mu0 / otf->rho0);
     grid2d_add_real_to_complex_re(potential, workspace1);
     return;
   }
@@ -499,8 +497,9 @@ static void dft_ot2d_add_barranco(dft_ot_functional_2d *otf, cgrid2d *potential,
 EXPORT void dft_ot2d_energy_density(dft_ot_functional_2d *otf, rgrid2d *energy_density, wf2d *wf, const rgrid2d *density, rgrid2d *workspace1, rgrid2d *workspace2, rgrid2d *workspace3, rgrid2d *workspace4, rgrid2d *workspace5, rgrid2d *workspace6, rgrid2d *workspace7, rgrid2d *workspace8) {
   
   if(otf->model & DFT_GP) {
-    fprintf(stderr, "libdft: Energy density for DFT_GP not implemented (TODO).\n");
-    rgrid2d_zero(energy_density);
+    rgrid2d_copy(energy_density, density);
+    rgrid2d_product(energy_density, energy_density, density);
+    rgrid2d_multiply(energy_density, -0.5 * otf->mu0 / otf->rho0);
     return;
   }
 
