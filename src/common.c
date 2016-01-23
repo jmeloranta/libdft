@@ -381,7 +381,7 @@ EXPORT double dft_common_classical_idealgas_op(double rhop) {   /* derivative of
   double l3, val;
 
   l3 = dft_common_lwl3(XXX_mass, XXX_temp);
-  val = GRID_AUKB * XXX_temp * log(rhop * l3);    // -log(1/x) = log(x)
+  val = GRID_AUKB * XXX_temp * log(rhop * l3 + EPS);    // -log(1/x) = log(x)
   //  if (val > CUTOFF) val = CUTOFF;
   return val;
 }
@@ -391,7 +391,7 @@ EXPORT double dft_common_classical_idealgas_energy_op(double rhop) {
   double l3;
 
   l3 = dft_common_lwl3(XXX_mass, XXX_temp);
-  return -rhop * GRID_AUKB * XXX_temp * (1.0 + log(1.0/(rhop*l3)));
+  return -rhop * GRID_AUKB * XXX_temp * (1.0 - log(rhop*l3 + EPS));
 }
 
 /* These routines are for bose gas with cutoff (1) */
