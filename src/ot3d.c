@@ -1067,6 +1067,7 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, long model) {
     otf->temp = 0.0;
     otf->rho0 = 0.0212593;
     otf->mu0 = -7.0 / GRID_AUTOK;
+    otf->c2 = otf->c2_exp = otf->c3 = otf->c3_exp = 0.0;
     /* most of the parameters are unused */
   }
 

@@ -15,7 +15,7 @@
  * otf = OT functional (dft_ot_functional *; input).
  * rho = Bulk densiyt (double; input).
  *
- * Returns bulk liquid energy density.
+ * Returns bulk liquid energy density (i.e., energy / volume).
  *
  */
 
@@ -23,7 +23,7 @@ EXPORT double dft_ot_bulk_energy(dft_ot_functional *otf, double rho) {
 
   if(otf->model & DFT_ZERO) return 0.0;
 
-  if(otf->model & DFT_GP) return 0.5 * rho*rho * otf->mu0 / otf->rho0;
+  if(otf->model & DFT_GP) return otf->mu0 * rho;
 
   if(otf->c4 != 0.0) {
     dft_common_idealgas_params(otf->temp, otf->mass, otf->c4);
@@ -47,7 +47,7 @@ EXPORT double dft_ot_bulk_dEdRho(dft_ot_functional *otf, double rho) {
 
   if(otf->model & DFT_ZERO) return 0.0;
 
-  if(otf->model & DFT_GP) return rho * otf->mu0 / otf->rho0;
+  if(otf->model & DFT_GP) return otf->mu0;
 
   //  return otf->b * rho + otf->c2 * rho*rho*1.5 + otf->c3 * rho*rho*rho*4.0/3.0;
   return (dft_ot_bulk_energy(otf, rho + LOCAL_EPS) - dft_ot_bulk_energy(otf, rho - LOCAL_EPS)) / (2.0 * LOCAL_EPS);
@@ -170,7 +170,7 @@ EXPORT double dft_ot_bulk_density_pressurized(dft_ot_functional *otf, double pre
 
   if(otf->model & DFT_ZERO) return 0.0;
 
-  if(otf->model & DFT_GP) return sqrt(2.0 * pressure * otf->rho0 / otf->mu0);
+  if(otf->model & DFT_GP) return otf->rho0;  // no density dep.
   
   //  if(pressure==0.0) return dft_ot_bulk_density(otf);
 
@@ -217,7 +217,7 @@ EXPORT double dft_ot_bulk_energy_2d(dft_ot_functional_2d *otf, double rho) {
 
   if(otf->model & DFT_ZERO) return 0.0;
 
-  if(otf->model & DFT_GP) return 0.5 * rho*rho * otf->mu0 / otf->rho0;
+  if(otf->model & DFT_GP) return otf->mu0 * rho;
 
   if(otf->c4 != 0.0) {
     dft_common_idealgas_params(otf->temp, otf->mass, otf->c4);
@@ -236,7 +236,7 @@ EXPORT double dft_ot_bulk_dEdRho_2d(dft_ot_functional_2d *otf, double rho) {
 
   if(otf->model & DFT_ZERO) return 0.0;
 
-  if(otf->model & DFT_GP) return rho * otf->mu0 / otf->rho0;
+  if(otf->model & DFT_GP) return otf->mu0;
 
   //return otf->b * rho + otf->c2 * rho*rho*1.5 + otf->c3 * rho*rho*rho*4.0/3.0;
   return (dft_ot_bulk_energy_2d(otf, rho + LOCAL_EPS) - dft_ot_bulk_energy_2d(otf, rho - LOCAL_EPS) ) / (2.0 * LOCAL_EPS);
@@ -255,7 +255,7 @@ EXPORT double dft_ot_bulk_density_2d(dft_ot_functional_2d *otf) {
   //double Co2A = otf->b/(2.0 * otf->c3);
   
   if(otf->model & DFT_ZERO) return 0.0;
-  if(otf->model & DFT_GP) return 0.0;
+  if(otf->model & DFT_GP) return otf->rho0;
 
   //return sqrt(Bo2A * Bo2A - Co2A) - Bo2A;
   return dft_ot_bulk_density_pressurized_2d(otf, 0.0);
@@ -327,7 +327,7 @@ EXPORT double dft_ot_bulk_density_pressurized_2d(dft_ot_functional_2d *otf, doub
 
   if(otf->model & DFT_ZERO) return 0.0;
 
-  if(otf->model & DFT_GP) return sqrt(2.0 * pressure * otf->rho0 / otf->mu0);
+  if(otf->model & DFT_GP) return otf->rho0;
   
   //  if(pressure==0.0) return dft_ot_bulk_density_2d(otf);
 

@@ -19,12 +19,12 @@
 #define TIME_STEP 10.0	/* Time step in fs (5 for real, 10 for imag) */
 #define STARTING_ITER 1 /* Starting iteration - be careful if set to zero */
 #define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
-#define OUTPUT     5	/* output every this iteration */
+#define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 256       	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256        	/* # of grid points along z */
-#define STEP 0.5        /* spatial step length (Bohr) */
+#define NX 512       	/* # of grid points along x */
+#define NY 512          /* # of grid points along y */
+#define NZ 512        	/* # of grid points along z */
+#define STEP 1.0        /* spatial step length (Bohr) */
 // #define DENSITY (0.0220 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default at SVP); was 0.0218360 */
 #define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
@@ -33,11 +33,11 @@
 #define BUBBLE_TEMP 100.0 /* Gas temperature inside the bubble (K) */
 #define BUBBLE_SIZE 20.0 /* initial bubble size */
 
-//#define TEMP 1.6
-//#define VISCOSITY (1.306E-6 * 0.162)
+#define TEMP 1.6
+#define VISCOSITY (1.306E-6 * 0.162)
 
 /* velocity components */
-#define KX	(0.0 * 2.0 * M_PI / (NX * STEP))
+#define KX	(10.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_momentum(KX, KY, KZ);
 
   /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN, 1, 0.0);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
+  dft_driver_setup_model(DFT_OT_PLAIN, 1, 0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
 
   /* viscosity */
 #ifdef VISOSITY
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
   dft_driver_otf->rho0 = rho0;
   mu0  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
   printf("rho0 = %le Angs^-3, mu0 = %le K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
-
+  
   /* Allocate wavefunctions and grids */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);  /* order parameter for current time (He liquid) */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS); /* order parameter for future (predict) (He liquid) */
@@ -195,8 +195,8 @@ int main(int argc, char *argv[]) {
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
     rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
     /*2. Predict + correct */
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
     
     if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       /* Helium energy */
