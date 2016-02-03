@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
   /* Plain Orsay-Trento in real or imaginary time */
   dft_driver_setup_model(FUNCTIONAL, 1, DENSITY * (1.0 - RHON));   /* This holds the superfluid part */
   dft_driver_setup_normal_density(DENSITY * RHON);                 /* normal fluid */
-  dft_driver_setup_viscosity(2.0 * VISCOSITY, ALPHA);
+  dft_driver_setup_viscosity(VISCOSITY, ALPHA); // had 2.0 *  here -- removed??! 
 
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
