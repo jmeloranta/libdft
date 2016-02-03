@@ -230,7 +230,7 @@ EXPORT void dft_ot2d_potential(dft_ot_functional_2d *otf, cgrid2d *potential, wf
 
   if(otf->model & DFT_GP) {
     rgrid2d_copy(workspace1, density);
-    rgrid2d_multiply(workspace1, -otf->mu0 / otf->rho0);
+    rgrid2d_multiply(workspace1, otf->mu0 / otf->rho0);
     grid2d_add_real_to_complex_re(potential, workspace1);
     return;
   }
@@ -499,7 +499,7 @@ EXPORT void dft_ot2d_energy_density(dft_ot_functional_2d *otf, rgrid2d *energy_d
   if(otf->model & DFT_GP) {
     rgrid2d_copy(energy_density, density);
     rgrid2d_product(energy_density, energy_density, density);
-    rgrid2d_multiply(energy_density, -0.5 * otf->mu0 / otf->rho0);
+    rgrid2d_multiply(energy_density, 0.5 * otf->mu0 / otf->rho0);
     return;
   }
 

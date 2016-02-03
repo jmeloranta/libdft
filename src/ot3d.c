@@ -275,8 +275,10 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
   }
 
   if(otf->model & DFT_GP) {
+    /* the potential part is: \lambda \left|\psi\right|^2\psi - \mu\psi */
+    /* with \lambda < 0 and \mu < 0. For bulk: \lambda\rho_0 - \mu = 0 and \lambda = \frac{\mu}{\rho_0} (which is < 0) */
     rgrid3d_copy(workspace1, density);
-    rgrid3d_multiply(workspace1, -otf->mu0 / otf->rho0);
+    rgrid3d_multiply(workspace1, otf->mu0 / otf->rho0);
     grid3d_add_real_to_complex_re(potential, workspace1);
     return;
   }
@@ -582,7 +584,8 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
   if(otf->model & DFT_GP) {
     rgrid3d_copy(energy_density, density);
     rgrid3d_product(energy_density, energy_density, density);
-    rgrid3d_multiply(energy_density, -0.5 * otf->mu0 / otf->rho0);
+    /* the energy functional is: (\lambda/2)\int \left|\psi\right|^4 d\tau */
+    rgrid3d_multiply(energy_density, 0.5 * otf->mu0 / otf->rho0);
     return;
   }
 
@@ -1065,8 +1068,8 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, long model) {
 
   if((model & DFT_GP) || (model & DFT_ZERO)) {
     otf->temp = 0.0;
-    otf->rho0 = 0.0212593;
-    otf->mu0 = -7.0 / GRID_AUTOK;
+    otf->rho0 = 0.0218360;
+    otf->mu0 = -7.4 / GRID_AUTOK;
     otf->c2 = otf->c2_exp = otf->c3 = otf->c3_exp = 0.0;
     /* most of the parameters are unused */
   }

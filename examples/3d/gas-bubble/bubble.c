@@ -19,12 +19,12 @@
 #define TIME_STEP 10.0	/* Time step in fs (5 for real, 10 for imag) */
 #define STARTING_ITER 1 /* Starting iteration - be careful if set to zero */
 #define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
-#define OUTPUT     100	/* output every this iteration */
+#define OUTPUT     10	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 512       	/* # of grid points along x */
-#define NY 512          /* # of grid points along y */
-#define NZ 512        	/* # of grid points along z */
-#define STEP 1.0        /* spatial step length (Bohr) */
+#define NX 256       	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 256        	/* # of grid points along z */
+#define STEP 2.0        /* spatial step length (Bohr) */
 // #define DENSITY (0.0220 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default at SVP); was 0.0218360 */
 #define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
@@ -33,11 +33,11 @@
 #define BUBBLE_TEMP 100.0 /* Gas temperature inside the bubble (K) */
 #define BUBBLE_SIZE 20.0 /* initial bubble size */
 
-#define TEMP 1.6
-#define VISCOSITY (1.306E-6 * 0.162)
+//#define TEMP 1.6
+//#define VISCOSITY (1.306E-6 * 0.162)
 
 /* velocity components */
-#define KX	(10.0 * 2.0 * M_PI / (NX * STEP))
+#define KX	(20.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_momentum(KX, KY, KZ);
 
   /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN, 1, 0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
+  dft_driver_setup_model(DFT_GP, 1, 0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
 
   /* viscosity */
 #ifdef VISOSITY
