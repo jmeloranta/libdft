@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
   grid_timer timer;
 
   if(argc != 1 && argc != 3) {
-    printf("Usage: added_mass4 <helium_wf electron_wf>\n");
+    printf("Usage: added_mass4 <helium_wf> <electron_wf>\n");
     exit(1);
   }
   

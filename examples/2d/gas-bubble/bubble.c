@@ -19,12 +19,12 @@
 #define TIME_STEP 10.0	/* Time step in fs (5 for real, 10 for imag) */
 #define STARTING_ITER 1 /* Starting iteration - be careful if set to zero */
 #define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
-#define OUTPUT     10	/* output every this iteration */
+#define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NZ 256        	/* # of grid points along z */
-#define NR 256       	/* # of grid points along r */
-#define STEP 2.0        /* spatial step length (Bohr) */
-// #define DENSITY (0.0220 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default at SVP); was 0.0218360 */
+#define NZ 512        	/* # of grid points along z */
+#define NR 512       	/* # of grid points along r */
+#define STEP 1.0        /* spatial step length (Bohr) */
+#define DENSITY (0.0218 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default at SVP); was 0.0218360 */
 #define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
@@ -32,13 +32,13 @@
 #define BUBBLE_TEMP 100.0 /* Gas temperature inside the bubble (K) */
 #define BUBBLE_SIZE 20.0 /* initial bubble size */
 
-#define TEMP 1.6
+//#define TEMP 1.6
 /* viscosity * RHON */
-#define VISCOSITY (1.306E-6 * 0.162)
+//#define VISCOSITY (1.306E-6 * 0.162)
 
 /* velocity components */
 #if 0
-#define KX	(40.0 * 2.0 * M_PI / (NX * STEP))
+#define KX	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
@@ -80,6 +80,7 @@ int main(int argc, char *argv[]) {
   printf("Using precomputed alpha. with T = %le\n", TEMP);
   dft_driver_setup_viscosity_2d(VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));
 #endif
+  dft_driver_setup_normal_density_2d(DENSITY);
   
   /* Regular boundaries */
   dft_driver_setup_boundaries_2d(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
@@ -125,10 +126,10 @@ int main(int argc, char *argv[]) {
 #if 1
   /* Constant density (initial guess) */
   //cgrid3d_constant(gwf->grid, sqrt(rho0));
-  cgrid2d_map(gwf->grid, bubble_func, NULL);
+  cgrid2d_map_cyl(gwf->grid, bubble_func, NULL);
   /* Gaussian for impurity (initial guess) */
   double inv_width = 1.0 / BUBBLE_SIZE;
-  cgrid2d_map(impwf->grid, dft_common_cgaussian_2d, &inv_width);
+  cgrid2d_map_cyl(impwf->grid, dft_common_cgaussian_2d, &inv_width);
 #else
   /* Read liquid wavefunction from file */ 
   dft_driver_read_grid_2d(gwf->grid, "liquid_input");
@@ -143,12 +144,13 @@ int main(int argc, char *argv[]) {
   cgrid2d_copy(impwfp->grid, impwf->grid);                /* make current and predicted wf's equal */
   
   /* Map Lennard-Jones He - He potential */
-#define MINDIST (1.5 / GRID_AUTOANG)
+#define MINDIST (2.0 / GRID_AUTOANG)
   lj_params.epsilon = 10.22 / GRID_AUTOK;
   lj_params.sigma = 2.556 / GRID_AUTOANG;
   lj_params.h = MINDIST;
   lj_params.cval = dft_common_lj_func(MINDIST * MINDIST, lj_params.sigma, lj_params.epsilon);
-  rgrid2d_adaptive_map(pair_pot, dft_common_lennard_jones_2d, &lj_params, 4, 32, 0.01 / GRID_AUTOK);
+  //rgrid2d_adaptive_map_cyl(pair_pot, dft_common_lennard_jones_2d, &lj_params, 4, 32, 0.01 / GRID_AUTOK);
+  rgrid2d_map_cyl(pair_pot, dft_common_lennard_jones_2d, &lj_params);
   dft_driver_convolution_prepare_2d(pair_pot, NULL);
 
   for(iter = STARTING_ITER; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
@@ -177,7 +179,7 @@ int main(int argc, char *argv[]) {
       /* Impurity energy */
       grid2d_wf_density(impwf, density);
       kin = grid2d_wf_energy(impwf, NULL, cworkspace);     /*kinetic*/ 
-      pot = rgrid2d_integral_of_product(ext_pot, density); /*potential*/
+      pot = rgrid2d_integral_of_product_cyl(ext_pot, density); /*potential*/
       printf("Iteration %ld impurity kinetic   = %.30lf\n", iter, kin * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld impurity potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld impurity energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
@@ -216,7 +218,6 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld helium potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld helium energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       fflush(stdout);
-
 #if 0
       /* Helium density */
       if(VX != 0.0)

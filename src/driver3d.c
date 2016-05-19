@@ -322,6 +322,8 @@ EXPORT void dft_driver_setup_momentum(double kx0, double ky0, double kz0) {
 
 EXPORT void dft_driver_setup_viscosity(double visc, double alpha) {
 
+  check_mode();
+
   viscosity = (visc / GRID_AUTOPAS);
   viscosity_alpha = alpha;
   fprintf(stderr, "libdft: Effective viscosity set to %le a.u, alpha = %le.\n", visc / GRID_AUTOPAS, alpha);
@@ -346,6 +348,7 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
 
   driver_dft_model = dft_model;
   driver_iter_mode = iter_mode;
+  fprintf(stderr, "libdft: %s time calculation.\n", dft_model?"imaginary":"real");
   if(been_here) fprintf(stderr,"libdft: WARNING -- Overwritting driver_rho0 to %le\n", rho0) ;
   driver_rho0 = rho0;
 }

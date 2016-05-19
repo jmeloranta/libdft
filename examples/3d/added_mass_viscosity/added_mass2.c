@@ -16,16 +16,19 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 10.0	/* Time step in fs (5 for real, 10 for imag) */
+#define TIME_STEP 100.0	/* Time step in fs (5 for real, 10 for imag) */
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration (was 1000) */
-#define THREADS 0	/* # of parallel threads to use */
-#define NX 256      	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128      	/* # of grid points along z */
-#define STEP 1.5        /* spatial step length (Bohr) */
+#define THREADS 32	/* # of parallel threads to use */
+#define NX 1024      	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 256      	/* # of grid points along z */
+#define STEP 0.75        /* spatial step length (Bohr) */
 
-/* #define ALPHA 1.0 /**/
+#define ALPHA 2.80 /**/
+#define T2000MK
+
+/* #define INITIAL_GUESS_FROM_DENSITY /* initial (file) guess from density or wf? */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
@@ -37,8 +40,6 @@
 #define VY	(KY * HBAR / HELIUM_MASS)
 #define VZ	(KZ * HBAR / HELIUM_MASS)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
-
-#define T2100MK
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs - gives 0.096 (well conv. kc+bf 0.087) */
@@ -135,7 +136,7 @@
 #define A4 0.0
 #define A5 0.0
 #define RMIN 2.0
-#define RADD (-1.0)
+#define RADD (-12.0)
 #endif
 
 /* Ca+ */
@@ -290,6 +291,11 @@ int main(int argc, char *argv[]) {
   double kin, pot;
   double rho0, mu0, n;
 
+  if(argc != 1 && argc != 2) {
+    printf("Usage: added_mass2 <helium_wf>\n");
+    exit(1);
+  }
+  
   printf("RADD = %le\n", RADD);
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
@@ -308,7 +314,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_viscosity(VISCOSITY * RHON, ALPHA);
 #else
   printf("Using precomputed alpha. with T = %le\n", TEMP);
-  dft_driver_setup_viscosity(RHON * VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));  
+  dft_driver_setup_viscosity(RHON * VISCOSITY, 1.73 + 2.32E-10*exp(11.15*TEMP));  
 #endif
   
   /* Initialize */
@@ -334,6 +340,26 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (m/s)\n", 
 	  VX * GRID_AUTOMPS, VY * GRID_AUTOMPS, VZ * GRID_AUTOMPS);
   
+  if(argc < 2) {
+    printf("Standard initial guess.\n");
+    /* Initial wavefunctions. Read from file or set to initial guess */
+    /* Constant density (initial guess) */
+    if(rho0 == 0.0) rho0 = DENSITY;  /* for GP testing */    
+    cgrid3d_constant(gwf->grid, sqrt(rho0));
+  } else if (argc == 2) {   /* restarting */
+    printf("Initial guess read from a file.\n");
+#ifndef INITIAL_GUESS_FROM_DENSITY
+    printf("Helium WF from %s.\n", argv[1]);
+    dft_driver_read_grid(gwf->grid, argv[1]);      
+    cgrid3d_multiply(gwf->grid, sqrt(rho0) / gwf->grid->value[0]);
+#else
+    printf("Helium DENSITY from %s.\n", argv[1]);
+    dft_driver_read_density(density, argv[1]);
+    rgrid3d_power(density, density, 0.5);
+    grid3d_real_to_complex_re(gwf->grid, density);
+#endif
+  }
+  
   /* Read pair potential from file and do FFT */
 #if 1
   rgrid3d_map(ext_pot, pot_func, NULL);
@@ -342,7 +368,7 @@ int main(int argc, char *argv[]) {
 #endif
   rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
   
-  for(iter = 0; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
+  for(iter = 1; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
 
     /*2. Predict + correct */
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
@@ -395,6 +421,7 @@ int main(int argc, char *argv[]) {
       printf("Mobility = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
       printf("Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
 
+#if 0
       dft_driver_veloc_field_x(gwf, current);
       rgrid3d_add(current, -VX);
       dft_driver_clear_core(current, density, rho0 * 0.03);  /* clear velocity inside the bubble */
@@ -411,7 +438,11 @@ int main(int argc, char *argv[]) {
       
       sprintf(filename, "liquid-%ld", iter);              
       dft_driver_write_density(density, filename);
-
+#else
+      sprintf(filename, "wf-%ld", iter);
+      dft_driver_write_grid(gwf->grid, filename);
+#endif
+      
       fflush(stdout);
     }
   }

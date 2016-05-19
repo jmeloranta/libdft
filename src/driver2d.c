@@ -50,10 +50,11 @@ static rgrid2d *workspace8 = 0;
 static rgrid2d *workspace9 = 0;
 static cgrid2d *cworkspace = 0;
 static grid_timer timer;
-static double damp = 0.2, viscosity = 0.0, viscosity_epsilon = 5E-5;
+static double damp = 0.2, viscosity = 0.0, viscosity_alpha = 0.0;
 
 int dft_internal_using_2d = 0;
 extern int dft_internal_using_3d, dft_internal_using_cyl;
+extern int dft_driver_temp_disable_other_normalization;
 
 static inline void check_mode() {
 
@@ -94,7 +95,7 @@ static inline void scale_wf(long what, wf2d *gwf) {
   double complex norm;
 
   if(what == DFT_DRIVER_PROPAGATE_OTHER) { /* impurity */
-    grid2d_wf_normalize_cyl(gwf);
+    if(!dft_driver_temp_disable_other_normalization) grid2d_wf_normalize_cyl(gwf);
     return;
   }
   
@@ -273,40 +274,24 @@ EXPORT void dft_driver_setup_momentum_2d(double kz0, double kr0) {
 }
 
 /*
- * Set the epsilon parameter for viscous response (similar to Millikan-Cunningham correction).
- *
- * eps = Epsilon value (typically 1 x 10^-5 to 5 x 10^-5).
- *
- * No return value.
- *
- */
-
-EXPORT void dft_driver_setup_viscosity_epsilon_2d(double eps) {
-
-  if(eps < 0.0 || eps > 1E-3) {
-    fprintf(stderr, "libdft: Illegal epsilon value.\n");
-    exit(1);
-  }
-  viscosity_epsilon = eps;
-  fprintf(stderr, "libdft: Viscosity epsilon = %le.\n", eps);
-}
-
-/*
  * Set effective visocisty.
  *
- * visc = effective Viscosity in Pa s (SI) units. This is typically the normal fraction x normal fluid viscosity.
- *        (default value 0.0)
+ * visc  = Viscosity of bulk liquid in Pa s (SI) units. This is typically the normal fraction x normal fluid viscosity.
+ *         (default value 0.0)
+ * alpha = exponent for visc * (rho/rho0)^alpha  for calculating the interfacial viscosity.
  *
  * NOTE: Viscous response is set along the x-axis only!
  *
  */
 
-EXPORT void dft_driver_setup_viscosity_2d(double visc) {
+EXPORT void dft_driver_setup_viscosity_2d(double visc, double alpha) {
+
+  check_mode();
 
   viscosity = (visc / GRID_AUTOPAS);
-  fprintf(stderr, "libdft: Effective viscosity set to %le a.u.\n", visc / GRID_AUTOPAS);
+  viscosity_alpha = alpha;
+  fprintf(stderr, "libdft: Effective viscosity set to %le a.u, alpha = %le.\n", visc / GRID_AUTOPAS, alpha);
 }
-
 
 /*
  * Set up the DFT calculation model.
@@ -527,6 +512,10 @@ EXPORT void dft_driver_viscous_potential_2d(wf2d *gwf, cgrid2d *pot) {
 
   double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
 
+  fprintf(stderr, "libdft: 2D viscous potential not implemented.\n");
+  exit(1);
+#if 0
+  
   dft_driver_veloc_field_eps_2d(gwf, workspace2, workspace3, viscosity_epsilon); // Watch out! workspace1 used by veloc_field!
 
   rgrid2d_zero(workspace7);
@@ -542,6 +531,7 @@ EXPORT void dft_driver_viscous_potential_2d(wf2d *gwf, cgrid2d *pot) {
   rgrid2d_sum(workspace7, workspace7, workspace5);
 
   grid2d_add_real_to_complex_re(pot, workspace7);
+#endif
 }
 
 /*
