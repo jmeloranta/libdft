@@ -13,7 +13,7 @@
  * Energy density in uniform bulk.
  *
  * otf = OT functional (dft_ot_functional *; input).
- * rho = Bulk densiyt (double; input).
+ * rho = Bulk density (double; input).
  *
  * Returns bulk liquid energy density (i.e., energy / volume).
  *
@@ -69,13 +69,9 @@ EXPORT double dft_ot_bulk_dEdRho(dft_ot_functional *otf, double rho) {
 
 EXPORT double dft_ot_bulk_density(dft_ot_functional *otf) {
 
-  //double Bo2A = otf->c2/(2.0 * otf->c3);
-  //double Co2A = otf->b/(2.0 * otf->c3);
-  
   if(otf->model & DFT_ZERO) return 0.0;
   if(otf->model & DFT_GP) return otf->rho0;
 
-  //return sqrt(Bo2A * Bo2A - Co2A) - Bo2A;
   return dft_ot_bulk_density_pressurized(otf, 0.0);
 }
 
@@ -87,7 +83,7 @@ EXPORT double dft_ot_bulk_density(dft_ot_functional *otf) {
  *
  * otf = OT functional (dft_ot_functional *; input).
  *
- * Returns the chemical potential at bulk density.
+ * Returns the chemical potential at bulk density (P = 0).
  *
  */
 
@@ -117,8 +113,7 @@ EXPORT double dft_ot_bulk_chempot2(dft_ot_functional *otf) {
 }
 
 /*
- * Pressure of uniform bulk at given certain density. To use this
- * as control parameter, the correct chemical potential must be computed.
+ * Pressure of uniform bulk at given certain density.
  *
  * otf = OT functional (dft_ot_functional *; input).
  * rho = Bulk density (double; input).
@@ -162,7 +157,6 @@ EXPORT double dft_ot_bulk_dPdRho(dft_ot_functional *otf, double rho) {
 
 EXPORT double dft_ot_bulk_density_pressurized(dft_ot_functional *otf, double pressure) {
 
-  //  double rho0 = dft_ot_bulk_density(otf);
   double rho0 = 1.0;
   double misP = dft_ot_bulk_pressure(otf, rho0) - pressure;
   double tol2 = 1.0E-12;
@@ -172,8 +166,6 @@ EXPORT double dft_ot_bulk_density_pressurized(dft_ot_functional *otf, double pre
 
   if(otf->model & DFT_GP) return otf->rho0;  // no density dep.
   
-  //  if(pressure==0.0) return dft_ot_bulk_density(otf);
-
   /*
    * Newton-Rapson to solve for rho:
    * Pressure = bulk_dEdRho * rho - bulk_ener

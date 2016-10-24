@@ -39,7 +39,7 @@
 #define GAUSSIAN
 
 #define WIDTH 4.0
-#define AMP ( 1.5 * dft_driver_otf->rho0)
+#define AMP (1.5 * dft_driver_otf->rho0)
 
 double wall_pot(void *arg, double x, double y, double z) {
 
@@ -47,8 +47,6 @@ double wall_pot(void *arg, double x, double y, double z) {
   
 #ifdef GAUSSIAN
   return 0.0;
-#else
-  return A0 * exp(-A1 * (fabs(z) - offset)); 
 #endif
 }
 
@@ -57,8 +55,11 @@ double complex gauss(void *arg, double x, double y, double z) {
   double inv_width = *((double *) arg);
   double norm = 0.5 * M_2_SQRTPI * inv_width;
 
-  norm = norm;
-  return norm * cexp(-z * z * inv_width * inv_width);
+  if(fabs(z) <= WIDTH) return AMP; 
+  else return 0.0;
+
+  //norm = norm;
+  //return norm * cexp(-z * z * inv_width * inv_width);
 }
 
 int main(int argc, char **argv) {
@@ -71,7 +72,7 @@ int main(int argc, char **argv) {
   char buf[512];
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 0 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 32 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(FUNC, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */

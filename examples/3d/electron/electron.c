@@ -33,9 +33,9 @@ double complex bubble(void *NA, double x, double y, double z) {
 int main(int argc, char *argv[]) {
 
   FILE *fp;
-  long l, nx, ny, nz, iterations, threads, NST;
+  long l, nx, ny, nz, iterations, threads;
   long itp = 0, dump_nth, model;
-  double step, time_step, mu0;
+  double step, time_step, mu0, time_step_el;
   char chk[256];
   long restart = 0;
   wf3d *gwf = 0;
@@ -78,6 +78,13 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
+  if(fscanf(fp, " timestep_el = %le%*[^\n]", &time_step_el) < 1) {
+    fprintf(stderr, "Invalid time step.\n");
+    exit(1);
+  }
+
+  fprintf(stderr, "Liquid time step = %le fs, electron time step = %le fs.\n", time_step, time_step_el);
+  
   if(fscanf(fp, " iter = %ld%*[^\n]", &iterations) < 1) {
     fprintf(stderr, "Invalid number of iterations.\n");
     exit(1);
@@ -87,7 +94,6 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Invalid iteration mode (0 = real time, 1 = imaginary time).\n");
     exit(1);
   }
-  if(itp == 1) NST = 1000; else NST = 1;
 
   if(fscanf(fp, " dump = %ld%*[^\n]", &dump_nth) < 1) {
     fprintf(stderr, "Invalid dump iteration specification.\n");
@@ -102,7 +108,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   rho0 *= GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG;
-  printf("rho0 = %le a.u.\n", rho0);
+  fprintf(stderr,"rho0 = %le a.u.\n", rho0);
   if(fscanf(fp, " restart = %ld%*[^\n]", &restart) < 1) {
     fprintf(stderr, "Invalid restart data.\n");
     exit(1);
@@ -111,11 +117,11 @@ int main(int argc, char *argv[]) {
   fclose(fp);
 
   /* allocate memory (3 x grid dimension, */
-  printf("Model = %ld.\n", model);
+  fprintf(stderr,"Model = %ld.\n", model);
   dft_driver_setup_grid(nx, ny, nz, step, threads);
   dft_driver_setup_model(model, itp, rho0);
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
-  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 0, 0.0, 0);
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   /* Neumann boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
   dft_driver_initialize();
@@ -150,19 +156,21 @@ int main(int argc, char *argv[]) {
   } else l = 0;
 
 #ifdef INCLUDE_ELECTRON  
-  printf("Electron included.\n");
+  fprintf(stderr,"Electron included.\n");
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "jortner.dat", "jortner.dat", "jortner.dat", pseudo);
   dft_driver_convolution_prepare(pseudo, NULL);
 #else
   rgrid3d_zero(pseudo);
 #endif
 
+  fprintf(stderr,"Specified rho0 = %le Angs^-3\n", rho0);
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
-  printf("mu0 = %le K.\n", mu0 * GRID_AUTOK);
-
+  fprintf(stderr,"mu0 = %le K.\n", mu0 * GRID_AUTOK);
+  fprintf(stderr,"Applied P = %le MPa.\n", dft_ot_bulk_pressure(dft_driver_otf, rho0) * GRID_AUTOPA / 1E6);
+  
   /* Include vortex line initial guess along Z */
 #ifdef INCLUDE_VORTEX
-  printf("Vortex included.\n");
+  fprintf(stderr,"Vortex included.\n");
   dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
 #endif
 
@@ -183,9 +191,9 @@ int main(int argc, char *argv[]) {
       energy += rgrid3d_integral(density);      /* Liquid - impurity interaction energy */
 #endif      
       natoms = dft_driver_natoms(gwf);
-      printf("Energy with respect to bulk = %le K.\n", (energy - dft_ot_bulk_energy(dft_driver_otf, rho0) * natoms / rho0) * GRID_AUTOK);
-      printf("Number of He atoms = %lf.\n", natoms);
-      printf("mu0 = %le K, energy/natoms = %le K\n", mu0 * GRID_AUTOK,  GRID_AUTOK * energy / natoms);
+      fprintf(stderr,"Energy with respect to bulk = %le K.\n", (energy - dft_ot_bulk_energy(dft_driver_otf, rho0) * natoms / rho0) * GRID_AUTOK);
+      fprintf(stderr,"Number of He atoms = %lf.\n", natoms);
+      fprintf(stderr,"mu0 = %le K, energy/natoms = %le K\n", mu0 * GRID_AUTOK,  GRID_AUTOK * energy / natoms);
 
       /* Dump helium density */
       grid3d_wf_density(gwf, density);
@@ -211,8 +219,8 @@ int main(int argc, char *argv[]) {
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(density, density, pseudo);
     /* It is OK to run just one step - in imaginary time but not in real time. */
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, l);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step/NST, l);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step_el, l);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step_el, l);
 #else
     cgrid3d_zero(egwf->grid);
 #endif

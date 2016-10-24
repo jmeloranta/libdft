@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
 
   dft_driver_setup_model(MODEL, DFT_DRIVER_REAL_TIME, RHO0);
   rgrid3d_free(ext_pot);
-  ext_pot = dft_driver_spectrum_init(REITER, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z);
+  ext_pot = dft_driver_spectrum_init(NULL, REITER, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z);
   rgrid3d_add(ext_pot, -mu0);
   for (iter = 0; iter < REITER; iter++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
@@ -115,7 +115,8 @@ int main(int argc, char **argv) {
     exit(1);
   }
   for (iter = 0, en = -0.5 * spectrum->step * spectrum->nx; iter < spectrum->nx; iter++, en += spectrum->step)
-    fprintf(fp, "%le %le\n", en, creal(cgrid1d_value_at_index(spectrum, iter)));
+    //    fprintf(fp, "%le %le\n", en, creal(cgrid1d_value_at_index(spectrum, iter)));
+    fprintf(fp, "%le %le\n", en, pow(creal(cgrid1d_value_at_index(spectrum, iter)), 2.0) + pow(cimag(cgrid1d_value_at_index(spectrum, iter)), 2.0));
   fclose(fp);
   printf("Spectrum written to spectrum.dat\n");
   exit(0);

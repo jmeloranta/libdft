@@ -944,7 +944,7 @@ EXPORT cgrid3d *dft_driver_alloc_cgrid() {
 EXPORT rgrid3d *dft_driver_alloc_rgrid() {
 
   double (*grid_type)(const rgrid3d *, long, long, long);
-  rgrid3d *tmp ;
+  rgrid3d *tmp;
 
   check_mode();
 
@@ -1532,7 +1532,6 @@ EXPORT void dft_driver_write_grid(cgrid3d *grid, char *base) {
   fclose(fp);
 }
 
-
 /*
  * Return the self-consistent potential (no external potential).
  *
@@ -1553,7 +1552,7 @@ EXPORT void dft_driver_potential(wf3d *gwf, rgrid3d *potential) {
   if(!cworkspace) cworkspace = dft_driver_alloc_cgrid();
 
   grid3d_wf_density(gwf, density);
-  cgrid3d_zero(cworkspace) ;
+  cgrid3d_zero(cworkspace);
   dft_ot3d_potential(dft_driver_otf, cworkspace, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
   grid3d_complex_re_to_real( potential, cworkspace ) ;
 }
@@ -1942,6 +1941,7 @@ EXPORT cgrid1d *dft_driver_spectrum_zp(rgrid3d *density, rgrid3d *imdensity, dou
 /*
  * Collect the time dependent difference energy data.
  * 
+ * idensity = NULL: no averaging of pair potentials, rgrid3d *: impurity density for convoluting with pair potential.
  * nt       = Maximum number of time steps to be collected (long).
  * zerofill = How many zeros to fill in before FFT (int).
  * upperave = Averaging on the upper state (see dft_driver_potential_map()) (int).
@@ -1961,7 +1961,7 @@ static rgrid3d *xxdiff = NULL, *xxave = NULL;
 static cgrid1d *tdpot = NULL;
 static long ntime, cur_time, zerofill;
 
-EXPORT rgrid3d *dft_driver_spectrum_init(long nt, long zf, int upperave, char *upperx, char *uppery, char *upperz, int lowerave, char *lowerx, char *lowery, char *lowerz) {
+EXPORT rgrid3d *dft_driver_spectrum_init(rgrid3d *idensity, long nt, long zf, int upperave, char *upperx, char *uppery, char *upperz, int lowerave, char *lowerx, char *lowery, char *lowerz) {
 
   check_mode();
 
@@ -1980,8 +1980,18 @@ EXPORT rgrid3d *dft_driver_spectrum_init(long nt, long zf, int upperave, char *u
   fprintf(stderr, "libdft: Lower level potential.\n");
   dft_common_potential_map(lowerave, lowerx, lowery, lowerz, workspace2);
   fprintf(stderr, "libdft: spectrum init complete.\n");
-  rgrid3d_difference(xxdiff, workspace1, workspace2);
-  rgrid3d_sum(xxave, workspace1, workspace2);
+  if(idensity) {
+    dft_driver_convolution_prepare(idensity, workspace1);
+    dft_driver_convolution_eval(workspace3, workspace1, idensity);
+    dft_driver_convolution_prepare(NULL, workspace2);
+    dft_driver_convolution_eval(workspace4, workspace2, idensity);    
+  } else {
+    rgrid3d_copy(workspace3, workspace1);
+    rgrid3d_copy(workspace4, workspace2);
+  }
+
+  rgrid3d_difference(xxdiff, workspace3, workspace4);
+  rgrid3d_sum(xxave, workspace3, workspace4);
   rgrid3d_multiply(xxave, 0.5);
   return xxave;
 }
@@ -2062,34 +2072,6 @@ EXPORT void dft_driver_spectrum_collect(wf3d *gwf) {
 }
 
 /*
- * Collect the difference energy data (with impurity zero-point). 
- *
- * gwf     = the current wavefunction (used for calculating the liquid density) (wf3d *).
- * igwf    = the current wavefunction (used for calculating the impurity density) (wf3d *).
- *
- */
-
-EXPORT void dft_driver_spectrum_collect_zp(wf3d *gwf, wf3d *igwf) {
-
-  check_mode();
-
-  if(cur_time > ntime) {
-    fprintf(stderr, "libdft: initialized with too few points (spectrum collect).\n");
-    exit(1);
-  }
-  grid3d_wf_density(gwf, workspace1);
-  rgrid3d_copy(workspace2, xxdiff);
-  dft_driver_convolution_prepare(workspace2, workspace1);
-  dft_driver_convolution_eval(workspace3, workspace1, workspace2);
-  grid3d_wf_density(igwf, workspace1);
-  rgrid3d_product(workspace1, workspace3, workspace1);
-  tdpot->value[cur_time] = rgrid3d_integral(workspace1);
-
-  fprintf(stderr, "libdft: spectrum collect complete (point = %ld, value = %le K).\n", cur_time, creal(tdpot->value[cur_time]) * GRID_AUTOK);
-  cur_time++;
-}
-
-/*
  * Evaluate the spectrum.
  *
  * tstep       = Time step length at which the energy difference data was collected
@@ -2119,7 +2101,7 @@ EXPORT cgrid1d *dft_driver_spectrum_evaluate(double tstep, double tc) {
   if(!spectrum)
     spectrum = cgrid1d_alloc(npts, GRID_HZTOCM1 / (tstep * GRID_AUTOFS * 1E-15 * ((double) npts)), CGRID1D_PERIODIC_BOUNDARY, 0);
 
-/* #define SEMICLASSICAL /* */
+#define SEMICLASSICAL /* */
   
 #ifndef SEMICLASSICAL
   /* P(t) - full expression - see the Eloranta/Apkarian CPL paper on lineshapes */

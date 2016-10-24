@@ -16,17 +16,17 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 100.0	/* Time step in fs (5 for real, 10 for imag) */
+#define TIME_STEP 10.0	/* Time step in fs (5 for real, 10 for imag) */
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration (was 1000) */
-#define THREADS 32	/* # of parallel threads to use */
+#define THREADS 0	/* # of parallel threads to use */
 #define NX 1024      	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256      	/* # of grid points along z */
-#define STEP 0.75        /* spatial step length (Bohr) */
+#define NY 512          /* # of grid points along y */
+#define NZ 512      	/* # of grid points along z */
+#define STEP 0.15        /* spatial step length (Bohr) */
 
-#define ALPHA 2.80 /**/
-#define T2000MK
+#define ALPHA 2.00 /**/
+#define T1200MK
 
 /* #define INITIAL_GUESS_FROM_DENSITY /* initial (file) guess from density or wf? */
 
@@ -114,7 +114,8 @@
 #define SBC     4.0         /* boundary condition: 4 = electron, 6 = + ion (for Stokes) */
   
 /* Ion */
-#define EXP_P
+// #define EXP_P
+#define K_P
 
 #ifdef ZERO_P
 #define A0 0.0
@@ -136,7 +137,7 @@
 #define A4 0.0
 #define A5 0.0
 #define RMIN 2.0
-#define RADD (-12.0)
+#define RADD (-6.0)
 #endif
 
 /* Ca+ */
@@ -303,7 +304,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_momentum(KX, KY, KZ);
 
   /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(FUNCTIONAL, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
+  dft_driver_setup_model(FUNCTIONAL | DFT_OT_HD, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
 
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
