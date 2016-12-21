@@ -348,7 +348,7 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
 
   driver_dft_model = dft_model;
   driver_iter_mode = iter_mode;
-  fprintf(stderr, "libdft: %s time calculation.\n", dft_model?"imaginary":"real");
+  fprintf(stderr, "libdft: %s time calculation.\n", iter_mode?"imaginary":"real");
   if(been_here) fprintf(stderr,"libdft: WARNING -- Overwritting driver_rho0 to %le\n", rho0) ;
   driver_rho0 = rho0;
 }

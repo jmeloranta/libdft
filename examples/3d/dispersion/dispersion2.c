@@ -15,9 +15,9 @@
 
 #define N 128
 #define STEP 0.2 /* Bohr */
-#define TS 10.0 /* fs */
+#define TS 1.0 /* fs */
 
-#define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
+#define RHO0 (0.036 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
@@ -48,10 +48,8 @@ int main(int argc, char **argv) {
   fprintf(stderr, "Maxmimum n corresponds to %le Angs^-1.\n", atof(argv[2]) * 2.0 * M_PI / (GRID_AUTOANG * N * STEP));
   dft_driver_setup_grid(N, N, N, STEP, 16); /* 6 threads */
 
-  //dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
-  // dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
   model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
-  dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, 0.0);
+  dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, RHO0);
 
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
@@ -64,6 +62,9 @@ int main(int argc, char **argv) {
   pot = dft_driver_alloc_rgrid();
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
   rgrid3d_constant(pot, -mu0);
+  //  fprintf(stderr,"Specified rho0 = %le Angs^-3\n", dft_ot_bulk_density(dft_driver_otf) / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+  fprintf(stderr,"mu0 = %le K.\n", mu0 * GRID_AUTOK);
+  fprintf(stderr,"Applied P = %le MPa.\n", dft_ot_bulk_pressure(dft_driver_otf, RHO0) * GRID_AUTOPA / 1E6);
 
   printf("# Dispersion relation for functional %ld.\n", model);
   printf("0 0\n");
@@ -72,7 +73,7 @@ int main(int argc, char **argv) {
     wave_params.ky = 0.0;
     wave_params.kz = 0.0;
     wave_params.a = 1.0E-3;
-    wave_params.rho = dft_ot_bulk_density(dft_driver_otf);
+    wave_params.rho = RHO0;
     grid3d_wf_map(gwf, wave, &wave_params);
     prev_val = 1E99;
     for(l = 0; ; l++) {

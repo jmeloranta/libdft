@@ -17,31 +17,32 @@
 
 /* Only imaginary time */
 #define TIME_STEP 50.0	/* Time step in fs (5 for real, 10 for imag) */
-#define ITER_MODE 1     /* 0 = real time, 1 = imag time */
-#define STARTING_ITER 1 /* Starting iteration - be careful if set to zero */
+#define FUNCTIONAL (DFT_OT_PLAIN) /* Functional to be used (DFT_OT_PLAIN or DFT_GP) */
+/* #define KEEP_IMAG        /* keep in imag time mode during normal time iter */
+#define STARTING_ITER 100 /* Starting real time iterations (was 100) */
 #define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
-#define THREADS 0	/* # of parallel threads to use */
-#define NX 256       	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256        	/* # of grid points along z */
+#define THREADS 24	/* # of parallel threads to use */
+#define NX 1024       	/* # of grid points along x */
+#define NY 128          /* # of grid points along y */
+#define NZ 128        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 #define DENSITY (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)     /* bulk liquid density (0.0 = default at SVP); was 0.0218360 */
 #define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
+/* #define BUBBLE_SKIP   /* Skip bubble propagation */
 #define BUBBLE_NHE 5  /* Number of He (gas) atoms in the bubble */
 #define BUBBLE_TEMP 100.0 /* Gas temperature inside the bubble (K) */
-#define BUBBLE_SIZE 20.0 /* initial bubble size */
+#define BUBBLE_SIZE_X 20.0 /* initial bubble size (along X) */
+#define BUBBLE_SIZE_YZ 20.0 /* initial bubble size (along Y and Z) */
 
-#define NP_STEP ((0.0 / GRID_AUTOMPS) * (TIME_STEP / GRID_AUTOFS))       /* NP velocity (m/s) */
-  
-//#define TEMP 1.6
+#define TEMP 1.6
 /* viscosity * RHON */
-//#define VISCOSITY (1.306E-6 * 0.162)
+#define VISCOSITY (1.306E-6 * 0.162)
 
-/* velocity components for the gas */
-#define KX	(45.0 * 2.0 * M_PI / (NX * STEP))
+/* velocity components for the gas (55 is close to sp of sound) */
+#define KX	(160.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
@@ -53,8 +54,19 @@ double global_time, rho0;
 
 double complex bubble_func(void *na, double x, double y, double z) {
 
-  if(sqrt(x*x + y*y + z*z) < BUBBLE_SIZE) return 0.0;
+  if(x*x/(BUBBLE_SIZE_X*BUBBLE_SIZE_X) + (y*y + z*z)/(BUBBLE_SIZE_YZ*BUBBLE_SIZE_YZ) < 1.0) return 0.0;
   else return sqrt(rho0);
+}
+
+double force(wf3d *gwf, wf3d *impwf, rgrid3d *pair_pot, rgrid3d *workspace1, rgrid3d *workspace2) {
+
+  grid3d_wf_density(impwf, workspace1);
+  dft_driver_convolution_prepare(workspace1, NULL);
+  dft_driver_convolution_eval(workspace2, pair_pot, workspace1);
+  rgrid3d_fd_gradient_x(workspace2, workspace1);
+  grid3d_wf_density(gwf, workspace2);
+  rgrid3d_product(workspace1, workspace1, workspace2);
+  return rgrid3d_integral(workspace1);   /* minus -> plus */
 }
 
 int main(int argc, char *argv[]) {
@@ -62,20 +74,20 @@ int main(int argc, char *argv[]) {
   wf3d *gwf, *gwfp;
   wf3d *impwf, *impwfp; /* impurity wavefunction */
   cgrid3d *cworkspace;
-  rgrid3d *pair_pot, *ext_pot, *density, *current, *np_pot;
+  rgrid3d *pair_pot, *ext_pot, *density, *current;
   long iter;
   char filename[2048];
-  double kin, pot, np_pos = 0.0;
+  double kin, pot;
   double mu0, n;
   dft_common_lj lj_params;
   
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
   /* Setup frame of reference momentum */
-  dft_driver_setup_momentum(KX, KY, KZ);
+  dft_driver_setup_momentum(0.0, 0.0, 0.0);
 
   /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN, ITER_MODE, DENSITY);
+  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, DENSITY);
 
   /* viscosity */
 #ifdef VISOSITY
@@ -92,7 +104,7 @@ int main(int argc, char *argv[]) {
   /* Initialize */
   dft_driver_initialize();
 
-  /* bulk normalization */
+  /* bulk normalization (TODO: why normalize ?) */
   //dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
   dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
   
@@ -118,7 +130,6 @@ int main(int argc, char *argv[]) {
   ext_pot = dft_driver_alloc_rgrid();                /* allocate real external potential grid */
   density = dft_driver_alloc_rgrid();                /* allocate real density grid */
   current = dft_driver_alloc_rgrid();                /* allocate real density grid */
-  np_pot = dft_driver_alloc_rgrid();                 /* NP - He potential */
   
   fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (A/ps)\n", 
@@ -132,9 +143,8 @@ int main(int argc, char *argv[]) {
     /* Constant density (initial guess) */
     cgrid3d_map(gwf->grid, bubble_func, NULL);
     /* Gaussian for impurity (initial guess) */
-    double inv_width = 1.0 / BUBBLE_SIZE;
+    double inv_width = 1.0 / ((BUBBLE_SIZE_X + BUBBLE_SIZE_YZ + BUBBLE_SIZE_YZ) / 3.0);
     cgrid3d_map(impwf->grid, dft_common_cgaussian, &inv_width);
-
   } else {
     if(argc != 3) {
       fprintf(stderr, "Usage: bubble <liquid> <gas>\n");
@@ -162,20 +172,35 @@ int main(int argc, char *argv[]) {
   lj_params.cval = dft_common_lj_func(MINDIST * MINDIST, lj_params.sigma, lj_params.epsilon);
   rgrid3d_adaptive_map(pair_pot, dft_common_lennard_jones, &lj_params, 4, 32, 0.01 / GRID_AUTOK);
   dft_driver_convolution_prepare(pair_pot, NULL);
-
-  /* Impurity - He potential */
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "He-star-He.dat", "He-star-He.dat", "He-star-He.dat", np_pot);
-  //rgrid3d_zero(np_pot);  // just gas bubble
   
-  for(iter = STARTING_ITER; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
+  for(iter = 1; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
 
-#if ITER_MODE == 0
-    np_pos += NP_STEP; printf("NP position = %le\n", np_pos);
-#else
-    np_pos = 20.0;
-#endif
+    double time_step;
     
-    /*** IMPURITY ***/
+    if(iter < STARTING_ITER) {
+      dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, DENSITY);  /* imag time */
+      fprintf(stderr, "Imag time mode.\n");
+      time_step = TIME_STEP;
+    } else {
+      dft_driver_setup_momentum(KX, KY, KZ);
+      cgrid3d_set_momentum(gwf->grid, KX, KY, KZ);
+      cgrid3d_set_momentum(gwfp->grid, KX, KY, KZ);
+      cgrid3d_set_momentum(cworkspace, KX, KY, KZ);
+      cgrid3d_set_momentum(cworkspace, KX, KY, KZ);
+      cgrid3d_set_momentum(impwf->grid, 0.0, 0.0, 0.0);
+      cgrid3d_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
+#ifndef KEEP_IMAG
+      dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_ABSORB, 30.0);
+      dft_driver_setup_boundaries_damp(0.2);
+      dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, DENSITY);  /* real time */
+      time_step = TIME_STEP/10.0;
+      fprintf(stderr, "Real time mode.\n");
+#else
+      fprintf(stderr, "Imag time mode.\n");      
+#endif
+    }
+      
+    /*** GAS BUBBLE ***/
     /* 1. update potential */
     /* gas He - liquid He LJ */
     grid3d_wf_density(gwf, density);
@@ -185,16 +210,16 @@ int main(int argc, char *argv[]) {
     grid3d_wf_density(impwf, density);
     dft_common_idealgas_params(BUBBLE_TEMP, HELIUM_MASS, 1.0);
 #if 0
-    rgrid3d_operate_one(current, density, dft_common_idealgas_op);
+    rgrid3d_operate_one(current, density, dft_common_idealgas_op);   /* bose gas */
 #else
-    rgrid3d_operate_one(current, density, dft_common_classical_idealgas_op);
+    rgrid3d_operate_one(current, density, dft_common_classical_idealgas_op); /* classical gas */
 #endif
     rgrid3d_sum(ext_pot, ext_pot, current);
-    rgrid3d_shift(current, np_pot, np_pos, 0.0, 0.0);
-    rgrid3d_sum(ext_pot, ext_pot, current);
+#ifndef BUBBLE_SKIP
     /* 2. Predict + correct */
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, TIME_STEP, iter); /* CORRECT */
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, time_step, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, time_step, iter); /* CORRECT */
+#endif
     /*3. if OUTPUT, compute energy*/
     if(!(iter % OUTPUT)){	
       double P, V;
@@ -222,13 +247,12 @@ int main(int argc, char *argv[]) {
     dft_driver_convolution_prepare(NULL, density);
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
     rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
-    rgrid3d_shift(current, np_pot, np_pos, 0.0, 0.0);
-    rgrid3d_sum(ext_pot, ext_pot, current);
     /*2. Predict + correct */
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, gwf, gwfp, cworkspace, time_step, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, gwf, gwfp, cworkspace, time_step, iter); /* CORRECT */ 
     
     if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
+      double tmp;
       /* Helium energy */
       kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
       pot = dft_driver_potential_energy(gwf, ext_pot); /* Potential energy for gwf */
@@ -259,6 +283,9 @@ int main(int argc, char *argv[]) {
       grid3d_wf_density(gwf, density);                     /* Density from gwf */
       sprintf(filename, "liquid-%ld", iter);              
       dft_driver_write_density(density, filename);
+      tmp = force(gwf, impwf, pair_pot, density, current);
+      printf("Force = %le (au).\n", tmp);
+      printf("C_d * A = %le m^2\n", GRID_AUTOM * GRID_AUTOM * 2.0 * fabs(tmp) / (DFT_HELIUM_MASS * rho0 * VX * VX));
     }
   }
   return 0;
