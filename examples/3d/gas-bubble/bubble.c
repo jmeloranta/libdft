@@ -16,16 +16,16 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 50.0	/* Time step in fs (5 for real, 10 for imag) */
+#define TIME_STEP 5.0	/* Time step in fs (5 for real, 10 for imag) */
 #define FUNCTIONAL (DFT_OT_PLAIN) /* Functional to be used (DFT_OT_PLAIN or DFT_GP) */
 /* #define KEEP_IMAG        /* keep in imag time mode during normal time iter */
 #define STARTING_ITER 100 /* Starting real time iterations (was 100) */
 #define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
-#define THREADS 24	/* # of parallel threads to use */
+#define THREADS 0	/* # of parallel threads to use */
 #define NX 1024       	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128        	/* # of grid points along z */
+#define NY 256          /* # of grid points along y */
+#define NZ 256        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 #define DENSITY (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)     /* bulk liquid density (0.0 = default at SVP); was 0.0218360 */
 #define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, DENSITY);
 
   /* viscosity */
-#ifdef VISOSITY
+#ifdef VISCOSITY
   printf("Using precomputed alpha. with T = %le\n", TEMP);
   dft_driver_setup_viscosity(VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));
 #endif
@@ -132,6 +132,7 @@ int main(int argc, char *argv[]) {
   current = dft_driver_alloc_rgrid();                /* allocate real density grid */
   
   fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
+  fprintf(stderr, "Relative velocity = (%le, %le, %le) (au)\n", VX, VY, VZ);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (A/ps)\n", 
 		  VX * 1000.0 * GRID_AUTOANG / GRID_AUTOFS,
 		  VY * 1000.0 * GRID_AUTOANG / GRID_AUTOFS,
@@ -190,7 +191,7 @@ int main(int argc, char *argv[]) {
       cgrid3d_set_momentum(impwf->grid, 0.0, 0.0, 0.0);
       cgrid3d_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
 #ifndef KEEP_IMAG
-      dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_ABSORB, 30.0);
+      dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_ABSORB, 20.0);
       dft_driver_setup_boundaries_damp(0.2);
       dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, DENSITY);  /* real time */
       time_step = TIME_STEP/10.0;
@@ -231,10 +232,9 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld impurity potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
       printf("Iteration %ld impurity energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       fflush(stdout);
-      /* Gas density */
+      /* Write out gas wavefunction */
       sprintf(filename, "gas-%ld", iter);
-      //dft_driver_write_2d_density(density, filename);  /* Write 2D density slices to file */
-      dft_driver_write_density(density, filename);      /* Write wavefunction to file */
+      dft_driver_write_grid(impwf->grid, filename);
       rgrid3d_multiply(density, 1.0 / rgrid3d_value(density, 0.0, 0.0, 0.0));
       V = rgrid3d_integral(density);
       P = BUBBLE_NHE * GRID_AUKB * BUBBLE_TEMP / V;
@@ -265,27 +265,16 @@ int main(int argc, char *argv[]) {
       printf("Iteration %ld helium energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       fflush(stdout);
 
-#if 0
       /* Helium density */
-      if(VX != 0.0)
-	grid3d_wf_probability_flux_x(gwf, current);
-      else if(VY != 0.0)
-	grid3d_wf_probability_flux_y(gwf, current);
-      else
-	grid3d_wf_probability_flux_z(gwf, current);
-
-      if(VX != 0.0)
-	printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(current) / VX); 
-      else
-	printf("VX = 0, no added mass.\n");
-#endif
-      fflush(stdout);
-      grid3d_wf_density(gwf, density);                     /* Density from gwf */
+      grid3d_wf_probability_flux_x(gwf, current);
+      printf("Iteration %ld added mass = %.30lf\n", iter, rgrid3d_integral(current) / VX); 
       sprintf(filename, "liquid-%ld", iter);              
-      dft_driver_write_density(density, filename);
+      dft_driver_write_grid(gwf->grid, filename);
+      grid3d_wf_density(gwf, density);                     /* Density from gwf */
       tmp = force(gwf, impwf, pair_pot, density, current);
       printf("Force = %le (au).\n", tmp);
       printf("C_d * A = %le m^2\n", GRID_AUTOM * GRID_AUTOM * 2.0 * fabs(tmp) / (DFT_HELIUM_MASS * rho0 * VX * VX));
+      fflush(stdout);
     }
   }
   return 0;
