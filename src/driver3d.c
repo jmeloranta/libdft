@@ -370,7 +370,7 @@ EXPORT void dft_driver_setup_normal_density(double rho0) {
 /*
  * Set up absorbing boundaries.
  *
- * type    = boundary type: 0 = regular, 1 = absorbing (long).
+ * type    = boundary type: 0 = regular, 1 = absorbing (imag potential), 2 = absorbing (wf damping), 3 = absorbing (imag time) (long).
  * absb    = width of absorbing boundary (double; bohr).
  *           In this region the density tends towards driver_rho0.
  * 
@@ -456,6 +456,38 @@ EXPORT void dft_driver_setup_rotation_omega(double omega) {
 }
 
 /*
+ * Impose imaginary time on the absorbing boundary.
+ *
+ * Called back from grid3d_wf_propagate_kinetic_cn_nbc2() and grid3d_wf_propagate_potential() routines.
+ *
+ */
+
+static double dft_driver_timestep_tmp; /* argh... should be a parameter ... (time step) */
+static double dft_driver_timestep_tmp2; /* argh... should be a parameter ...(1/2 for kinetic, 1 fo potential) */
+
+double complex dft_driver_itime_abs(cgrid3d *grid, long i, long j, long k) {
+
+  double x, y, z;
+  double ulx = (driver_nx/2.0) * driver_step - driver_abs, uly = (driver_ny/2.0) * driver_step - driver_abs, ulz = (driver_nz/2.0) * driver_step - driver_abs;
+  double d = 0.0;
+  double complex val;
+  
+  x = (i - driver_nx/2.0) * driver_step;
+  x = fabs(x);
+  y = (j - driver_ny/2.0) * driver_step;
+  y = fabs(y);
+  z = (k - driver_nz/2.0) * driver_step;  
+  z = fabs(z);
+
+  if(x >= ulx) d += (x - ulx) / driver_abs;
+  if(y >= uly) d += (y - uly) / driver_abs;
+  if(z >= ulz) d += (z - ulz) / driver_abs;
+  val = 1.0 - I * damp * d / 3.0;
+  val /= cabs(val);
+  return val * dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
+}
+
+/*
  * Propagate kinetic (1st half).
  *
  * what = normal super or other (long; input).
@@ -472,7 +504,12 @@ EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tste
 
   if(driver_iter_mode == DFT_DRIVER_REAL_TIME) htime = tstep / 2.0;
   else htime = -I * tstep / 2.0;
-  
+
+  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME) {
+    fprintf(stderr, "libdft: ITIME absorbing boundary implies CN_NBC propagator.\n");
+    dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
+  }
+
   /* 1/2 x kinetic */
   switch(dft_driver_kinetic) {
   case DFT_DRIVER_KINETIC_FFT:
@@ -486,7 +523,11 @@ EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tste
   case DFT_DRIVER_KINETIC_CN_NBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
-    grid3d_wf_propagate_kinetic_cn_nbc(gwf, htime, cworkspace);
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
+      dft_driver_timestep_tmp = tstep;
+      dft_driver_timestep_tmp2 = 0.5;
+      grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_itime_abs, cworkspace);
+    } else grid3d_wf_propagate_kinetic_cn_nbc(gwf, htime, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
     if(!cworkspace)
@@ -700,7 +741,11 @@ EXPORT void dft_driver_propagate_potential(long what, wf3d *gwf, cgrid3d *pot, d
     fprintf(stderr, "libdft: Predict - absorbing boundary for helium; imaginary potential.\n");
     grid3d_wf_absorb(pot, density, driver_rho0, region_func, workspace1, 1.0);
   }
-  grid3d_wf_propagate_potential(gwf, pot, time);
+  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
+    dft_driver_timestep_tmp = tstep;
+    dft_driver_timestep_tmp2 = 1.0;
+    grid3d_wf_propagate_potential2(gwf, pot, dft_driver_itime_abs);
+  } else grid3d_wf_propagate_potential(gwf, pot, time);
   if(driver_iter_mode == DFT_DRIVER_IMAG_TIME) scale_wf(what, gwf);
 }
 

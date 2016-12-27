@@ -16,16 +16,16 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 5.0	/* Time step in fs (5 for real, 10 for imag) */
+#define TIME_STEP 50.0	/* Time step in fs (5 for real, 10 for imag) */
 #define FUNCTIONAL (DFT_OT_PLAIN) /* Functional to be used (DFT_OT_PLAIN or DFT_GP) */
 /* #define KEEP_IMAG        /* keep in imag time mode during normal time iter */
-#define STARTING_ITER 100 /* Starting real time iterations (was 100) */
+#define STARTING_ITER 10 /* Starting real time iterations (was 100) */
 #define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 1024       	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256        	/* # of grid points along z */
+#define NX 512       	/* # of grid points along x */
+#define NY 128          /* # of grid points along y */
+#define NZ 128        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 #define DENSITY (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)     /* bulk liquid density (0.0 = default at SVP); was 0.0218360 */
 #define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
@@ -37,9 +37,9 @@
 #define BUBBLE_SIZE_X 20.0 /* initial bubble size (along X) */
 #define BUBBLE_SIZE_YZ 20.0 /* initial bubble size (along Y and Z) */
 
-#define TEMP 1.6
 /* viscosity * RHON */
-#define VISCOSITY (1.306E-6 * 0.162)
+//#define VISCOSITY (1.306E-6 * 0.162)
+//#define TEMP 1.6
 
 /* velocity components for the gas (55 is close to sp of sound) */
 #define KX	(160.0 * 2.0 * M_PI / (NX * STEP))
@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
   
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
-  dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */
+  dft_driver_setup_boundaries_damp(1.00);                          /* damping coeff., only needed for absorbing boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   
   /* Initialize */
@@ -139,6 +139,10 @@ int main(int argc, char *argv[]) {
 		  VZ * 1000.0 * GRID_AUTOANG / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (m/s)\n", VX * GRID_AUTOMPS, VY * GRID_AUTOMPS, VZ * GRID_AUTOMPS);
 
+#ifdef VISCOSITY
+  fprintf(stderr, "Reynolds # = %le\n", rho0 * VX * 20E-10 / (VISCOSITY / GRID_AUTOPAS));
+#endif
+  
   /* Initial wavefunctions. Read from file or set to initial guess */
   if(argc == 1) {
     /* Constant density (initial guess) */
@@ -191,8 +195,8 @@ int main(int argc, char *argv[]) {
       cgrid3d_set_momentum(impwf->grid, 0.0, 0.0, 0.0);
       cgrid3d_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
 #ifndef KEEP_IMAG
-      dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_ABSORB, 20.0);
-      dft_driver_setup_boundaries_damp(0.2);
+      dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_ITIME, 40.0);
+      dft_driver_setup_boundaries_damp(0.0);
       dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, DENSITY);  /* real time */
       time_step = TIME_STEP/10.0;
       fprintf(stderr, "Real time mode.\n");
