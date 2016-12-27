@@ -19,13 +19,13 @@
 #define TIME_STEP 50.0	/* Time step in fs (5 for real, 10 for imag) */
 #define FUNCTIONAL (DFT_OT_PLAIN) /* Functional to be used (DFT_OT_PLAIN or DFT_GP) */
 /* #define KEEP_IMAG        /* keep in imag time mode during normal time iter */
-#define STARTING_ITER 10 /* Starting real time iterations (was 100) */
-#define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
+#define STARTING_ITER 200 /* Starting real time iterations (was 100) */
+#define MAXITER (40000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 512       	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128        	/* # of grid points along z */
+#define NX 1024       	/* # of grid points along x */
+#define NY 512          /* # of grid points along y */
+#define NZ 512        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 #define DENSITY (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)     /* bulk liquid density (0.0 = default at SVP); was 0.0218360 */
 #define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
@@ -42,7 +42,7 @@
 //#define TEMP 1.6
 
 /* velocity components for the gas (55 is close to sp of sound) */
-#define KX	(160.0 * 2.0 * M_PI / (NX * STEP))
+#define KX	(320.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
@@ -98,15 +98,15 @@ int main(int argc, char *argv[]) {
   
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
-  dft_driver_setup_boundaries_damp(1.00);                          /* damping coeff., only needed for absorbing boundaries */
+  dft_driver_setup_boundaries_damp(0.0);                          /* damping coeff., only needed for absorbing boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   
   /* Initialize */
   dft_driver_initialize();
 
   /* bulk normalization (TODO: why normalize ?) */
-  //dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
-  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
+  //dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -195,8 +195,8 @@ int main(int argc, char *argv[]) {
       cgrid3d_set_momentum(impwf->grid, 0.0, 0.0, 0.0);
       cgrid3d_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
 #ifndef KEEP_IMAG
-      dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_ITIME, 40.0);
-      dft_driver_setup_boundaries_damp(0.0);
+      dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_ITIME, 50.0);
+      dft_driver_setup_boundaries_damp(1.0);
       dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, DENSITY);  /* real time */
       time_step = TIME_STEP/10.0;
       fprintf(stderr, "Real time mode.\n");
