@@ -33,7 +33,7 @@ static long driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_threads = 0, dri
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc = 0;
 static long driver_rels = 0;
 static double driver_frad = 0.0, driver_omega = 0.0;
-static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0, driver_rho0_normal = 0.0, driver_halfbox_length = 0.0;
+static double driver_step = 0.0, driver_abs_x = 0.0, driver_abs_y = 0.0, driver_abs_z = 0.0, driver_rho0 = 0.0, driver_rho0_normal = 0.0, driver_halfbox_length = 0.0;
 static double driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0;
 static double driver_kx0 = 0.0, driver_ky0 = 0.0,driver_kz0 = 0.0;
 static rgrid3d *density = 0;
@@ -64,16 +64,16 @@ static inline void check_mode() {
 
 static double region_func(void *gr, double x, double y, double z) {
 
-  double ulx = (driver_nx/2.0) * driver_step - driver_abs, uly = (driver_ny/2.0) * driver_step - driver_abs, ulz = (driver_nz/2.0) * driver_step - driver_abs;
+  double ulx = (driver_nx/2.0) * driver_step - driver_abs_x, uly = (driver_ny/2.0) * driver_step - driver_abs_y, ulz = (driver_nz/2.0) * driver_step - driver_abs_z;
   double d = 0.0;
   
   x = fabs(x);
   y = fabs(y);
   z = fabs(z);
 
-  if(x >= ulx) d += damp * (x - ulx) / driver_abs;
-  if(y >= uly) d += damp * (y - uly) / driver_abs;
-  if(z >= ulz) d += damp * (z - ulz) / driver_abs;
+  if(x >= ulx) d += damp * (x - ulx) / driver_abs_x;
+  if(y >= uly) d += damp * (y - uly) / driver_abs_y;
+  if(z >= ulz) d += damp * (z - ulz) / driver_abs_z;
   return d / 3.0;
 }
 
@@ -86,7 +86,7 @@ static double region_func(void *gr, double x, double y, double z) {
 static double complex cregion_func(void *gr, double x, double y, double z) {
 
   double r = sqrt(x*x + y*y + z*z);
-  return 1.0 + tanh(4.0 * (r - driver_halfbox_length) / driver_abs);
+  return 1.0 + tanh(4.0 * (r - driver_halfbox_length) / driver_abs_z);
 }
 
 int dft_driver_temp_disable_other_normalization = 0;
@@ -383,7 +383,40 @@ EXPORT void dft_driver_setup_boundaries(long boundary_type, double absb) {
   check_mode();
 
   driver_boundary_type = boundary_type;
-  driver_abs = absb;
+  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME) {
+    fprintf(stderr, "libdft: ITIME absorbing boundary implies CN_NBC or CN_NBC_ROT propagator.\n");
+    if(dft_driver_kinetic != DFT_DRIVER_KINETIC_CN_NBC_ROT)
+      dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
+  }
+  driver_abs_x = driver_abs_y = driver_abs_z = absb;
+}
+
+/*
+ * Set up absorbing boundaries.
+ *
+ * type    = boundary type: 0 = regular, 1 = absorbing (imag potential), 2 = absorbing (wf damping), 3 = absorbing (imag time) (long).
+ * absb_x  = width of absorbing boundary (double; bohr). ALong X.
+ * absb_y  = width of absorbing boundary (double; bohr). ALong Y.
+ * absb_z  = width of absorbing boundary (double; bohr). ALong Z.
+ *           In this region the density tends towards driver_rho0.
+ * 
+ * No return value.
+ *
+ */
+
+EXPORT void dft_driver_setup_boundaries_xyz(long boundary_type, double absb_x, double absb_y, double absb_z) {
+
+  check_mode();
+
+  driver_boundary_type = boundary_type;
+  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME) {
+    fprintf(stderr, "libdft: ITIME absorbing boundary implies CN_NBC or CN_NBC_ROT propagator.\n");
+    if(dft_driver_kinetic != DFT_DRIVER_KINETIC_CN_NBC_ROT)
+      dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
+  }
+  driver_abs_x = absb_x;
+  driver_abs_y = absb_y;
+  driver_abs_z = absb_z;
 }
 
 /*
@@ -468,7 +501,7 @@ static double dft_driver_timestep_tmp2; /* argh... should be a parameter ...(1/2
 double complex dft_driver_itime_abs(cgrid3d *grid, long i, long j, long k) {
 
   double x, y, z;
-  double ulx = (driver_nx/2.0) * driver_step - driver_abs, uly = (driver_ny/2.0) * driver_step - driver_abs, ulz = (driver_nz/2.0) * driver_step - driver_abs;
+  double ulx = (driver_nx/2.0) * driver_step - driver_abs_x, uly = (driver_ny/2.0) * driver_step - driver_abs_y, ulz = (driver_nz/2.0) * driver_step - driver_abs_z;
   double d = 0.0;
   double complex val;
   
@@ -476,12 +509,12 @@ double complex dft_driver_itime_abs(cgrid3d *grid, long i, long j, long k) {
   x = fabs(x);
   y = (j - driver_ny/2.0) * driver_step;
   y = fabs(y);
-  z = (k - driver_nz/2.0) * driver_step;  
+  z = (k - driver_nz/2.0) * driver_step;
   z = fabs(z);
 
-  if(x >= ulx) d += (x - ulx) / driver_abs;
-  if(y >= uly) d += (y - uly) / driver_abs;
-  if(z >= ulz) d += (z - ulz) / driver_abs;
+  if(x >= ulx) d += (x - ulx) / driver_abs_x;
+  if(y >= uly) d += (y - uly) / driver_abs_y;
+  if(z >= ulz) d += (z - ulz) / driver_abs_z;
   val = 1.0 - I * damp * d / 3.0;
   val /= cabs(val);
   return val * dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
@@ -504,11 +537,6 @@ EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tste
 
   if(driver_iter_mode == DFT_DRIVER_REAL_TIME) htime = tstep / 2.0;
   else htime = -I * tstep / 2.0;
-
-  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME) {
-    fprintf(stderr, "libdft: ITIME absorbing boundary implies CN_NBC propagator.\n");
-    dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
-  }
 
   /* 1/2 x kinetic */
   switch(dft_driver_kinetic) {
