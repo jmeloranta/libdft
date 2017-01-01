@@ -23,9 +23,9 @@
 #define MAXITER (40000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 1024       	/* # of grid points along x */
-#define NY 512          /* # of grid points along y */
-#define NZ 512        	/* # of grid points along z */
+#define NX 512       	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 256        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 #define DENSITY (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)     /* bulk liquid density (0.0 = default at SVP); was 0.0218360 */
 #define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
@@ -38,11 +38,11 @@
 #define BUBBLE_SIZE_YZ 20.0 /* initial bubble size (along Y and Z) */
 
 /* viscosity * RHON */
-//#define VISCOSITY (1.306E-6 * 0.162)
-//#define TEMP 1.6
+#define VISCOSITY (1.306E-6 * 0.162)
+#define TEMP 1.6
 
 /* velocity components for the gas (55 is close to sp of sound) */
-#define KX	(320.0 * 2.0 * M_PI / (NX * STEP))
+#define KX	(160.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
@@ -88,12 +88,6 @@ int main(int argc, char *argv[]) {
 
   /* Plain Orsay-Trento in real or imaginary time */
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, DENSITY);
-
-  /* viscosity */
-#ifdef VISCOSITY
-  printf("Using precomputed alpha. with T = %le\n", TEMP);
-  dft_driver_setup_viscosity(VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));
-#endif
   
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
@@ -105,6 +99,7 @@ int main(int argc, char *argv[]) {
 
   /* bulk normalization (TODO: why normalize ?) */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
+  //dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -179,30 +174,39 @@ int main(int argc, char *argv[]) {
   for(iter = 1; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
 
     double time_step;
+    int been_here = 0;
     
     if(iter < STARTING_ITER) {
       dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, DENSITY);  /* imag time */
       fprintf(stderr, "Imag time mode.\n");
       time_step = TIME_STEP;
     } else {
-      dft_driver_setup_momentum(KX, KY, KZ);
-      cgrid3d_set_momentum(gwf->grid, KX, KY, KZ);
-      cgrid3d_set_momentum(gwfp->grid, KX, KY, KZ);
-      cgrid3d_set_momentum(cworkspace, KX, KY, KZ);
-      cgrid3d_set_momentum(cworkspace, KX, KY, KZ);
-      cgrid3d_set_momentum(impwf->grid, 0.0, 0.0, 0.0);
-      cgrid3d_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
+      if(!been_here) {
+	been_here = 1;
+	dft_driver_setup_momentum(KX, KY, KZ);
+	cgrid3d_set_momentum(gwf->grid, KX, KY, KZ);
+	cgrid3d_set_momentum(gwfp->grid, KX, KY, KZ);
+	cgrid3d_set_momentum(cworkspace, KX, KY, KZ);
+	cgrid3d_set_momentum(cworkspace, KX, KY, KZ);
+	cgrid3d_set_momentum(impwf->grid, 0.0, 0.0, 0.0);
+	cgrid3d_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
 #ifndef KEEP_IMAG
-      dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_ITIME, 50.0);
-      dft_driver_setup_boundaries_damp(1.0);
-      dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, DENSITY);  /* real time */
-      time_step = TIME_STEP/10.0;
-      fprintf(stderr, "Real time mode.\n");
+	dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_ITIME, 20.0);
+	dft_driver_setup_boundaries_damp(1.0);
+	dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, DENSITY);  /* real time */
+	time_step = TIME_STEP/10.0;
+	fprintf(stderr, "Real time mode.\n");
 #else
-      fprintf(stderr, "Imag time mode.\n");      
+	fprintf(stderr, "Imag time mode.\n");      
 #endif
+	/* viscosity */
+#ifdef VISCOSITY
+	fprintf(stderr,"Viscosity using precomputed alpha. with T = %le\n", TEMP);
+	dft_driver_setup_viscosity(VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));
+#endif
+      }
     }
-      
+    
     /*** GAS BUBBLE ***/
     /* 1. update potential */
     /* gas He - liquid He LJ */
