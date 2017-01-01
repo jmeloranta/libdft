@@ -191,7 +191,8 @@ int main(int argc, char *argv[]) {
 	cgrid3d_set_momentum(impwf->grid, 0.0, 0.0, 0.0);
 	cgrid3d_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
 #ifndef KEEP_IMAG
-	dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_ITIME, 20.0);
+	dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_ITIME, STEP * ((double) NY / 25));
+	fprintf(stderr, "Absorbbing begin absorption at %le Bohr from the boundary\n",  STEP * ((double) NY / 25));
 	dft_driver_setup_boundaries_damp(1.0);
 	dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, DENSITY);  /* real time */
 	time_step = TIME_STEP/10.0;

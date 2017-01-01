@@ -168,9 +168,11 @@ inline static void scale_wf(long what, wf3d *gwf) {
 /*
  * FFTW Wisdom interface - import wisdom.
  *
+ * file = file name for reading wisdom data (input; char *).
+ *
  */
 
-void dft_driver_read_wisdom(char *file) {
+EXPORT void dft_driver_read_wisdom(char *file) {
 
   /* Attempt to use wisdom (FFTW) from previous runs */
   if(fftw_import_wisdom_from_filename(file) == 1)
@@ -182,9 +184,11 @@ void dft_driver_read_wisdom(char *file) {
 /*
  * FFTW Wisdom interface - export wisdom.
  *
+ * file = file name for saving wisdom data (input, char *).
+ *
  */
 
-void dft_driver_write_wisdom(char *file) {
+EXPORT void dft_driver_write_wisdom(char *file) {
 
   fftw_export_wisdom_to_filename(file);
 }
@@ -273,7 +277,12 @@ EXPORT void dft_driver_setup_grid(long nx, long ny, long nz, double step, long t
  * Set up the origin of coordinates for the grids.
  * Can be overwritten for a particular grid calling (r/c)grid3d_set_origin
  *
+ * x0 = X coordinate for the new origin (input, double).
+ * y0 = Y coordinate for the new origin (input, double).
+ * z0 = Z coordinate for the new origin (input, double).
+ *
  */
+
 EXPORT void dft_driver_setup_origin(double x0, double y0, double z0) {
 
   driver_x0 = x0;
@@ -286,7 +295,12 @@ EXPORT void dft_driver_setup_origin(double x0, double y0, double z0) {
  * Set up the momentum of the frame of reference, i.e. a background velocity for the grids.
  * Can be overwritten for a particular grid calling (r/c)grid3d_set_momentum
  *
+ * kx0 = kx for new momentum frame (input, double).
+ * ky0 = ky for new momentum frame (input, double).
+ * kz0 = kz for new momentum frame (input, double).
+ *
  */
+
 EXPORT void dft_driver_setup_momentum(double kx0, double ky0, double kz0) {
 
   driver_kx0 = kx0;
@@ -299,10 +313,8 @@ EXPORT void dft_driver_setup_momentum(double kx0, double ky0, double kz0) {
  * Set effective visocisty.
  *
  * visc  = Viscosity of bulk liquid in Pa s (SI) units. This is typically the normal fraction x normal fluid viscosity.
- *         (default value 0.0)
- * alpha = exponent for visc * (rho/rho0)^alpha  for calculating the interfacial viscosity.
- *
- * NOTE: Viscous response is set along the x-axis only!
+ *         (default value 0.0; input, double)
+ * alpha = exponent for visc * (rho/rho0)^alpha  for calculating the interfacial viscosity (input, double).
  *
  */
 
@@ -318,9 +330,9 @@ EXPORT void dft_driver_setup_viscosity(double visc, double alpha) {
 /*
  * Set up the DFT calculation model.
  *
- * dft_model = specify the DFT Hamiltonian to use (see ot.h).
- * iter_mode = iteration mode: 1 = imaginary time, 0 = real time.
- * rho0      = equilibrium density for the liquid (in a.u.; double).
+ * dft_model = specify the DFT Hamiltonian to use (see ot.h) (input, long).
+ * iter_mode = iteration mode: 1 = imaginary time, 0 = real time (input, long).
+ * rho0      = equilibrium density for the liquid (in a.u.; input, double).
  *             if 0.0, the equilibrium density will be used
  *             when dft_driver_initialize is called.
  *
@@ -342,8 +354,9 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
 /*
  * Set up absorbing boundaries.
  *
- * type    = boundary type: 0 = regular, 1 = absorbing (imag potential), 2 = absorbing (wf damping), 3 = absorbing (imag time) (long).
- * absb    = width of absorbing boundary (double; bohr).
+ * type    = boundary type: 0 = regular, 1 = absorbing (imag potential), 2 = absorbing (wf damping), 3 = absorbing (imag time) 
+ *           (input, long).
+ * absb    = width of absorbing boundary in bohr (input, double).
  *           In this region the density tends towards driver_rho0.
  * 
  * No return value.
@@ -364,13 +377,12 @@ EXPORT void dft_driver_setup_boundaries(long boundary_type, double absb) {
 }
 
 /*
- * Set up absorbing boundaries.
+ * Set up absorbing boundaries. In this region the density tends towards driver_rho0.
  *
  * type    = boundary type: 0 = regular, 1 = absorbing (imag potential), 2 = absorbing (wf damping), 3 = absorbing (imag time) (long).
- * absb_x  = width of absorbing boundary (double; bohr). Along X.
- * absb_y  = width of absorbing boundary (double; bohr). Along Y.
- * absb_z  = width of absorbing boundary (double; bohr). Along Z.
- *           In this region the density tends towards driver_rho0.
+ * absb_x  = width of absorbing boundary in bohr along X (input, double).
+ * absb_y  = width of absorbing boundary in bohr along Y (input, double).
+ * absb_z  = width of absorbing boundary in bohr along Z (input, double).
  * 
  * No return value.
  *
@@ -383,8 +395,7 @@ EXPORT void dft_driver_setup_boundaries_xyz(long boundary_type, double absb_x, d
   driver_boundary_type = boundary_type;
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME) {
     fprintf(stderr, "libdft: ITIME absorbing boundary implies CN_NBC or CN_NBC_ROT propagator.\n");
-    if(dft_driver_kinetic != DFT_DRIVER_KINETIC_CN_NBC_ROT)
-      dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
+    if(dft_driver_kinetic != DFT_DRIVER_KINETIC_CN_NBC_ROT) dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
   }
   driver_abs_x = absb_x;
   driver_abs_y = absb_y;
@@ -395,11 +406,12 @@ EXPORT void dft_driver_setup_boundaries_xyz(long boundary_type, double absb_x, d
  * Impose normal or vortex compatible boundaries.
  *
  * bc = Boundary type:
- *           Normal (0), Vortex along X (1), Vortex along Y (2), Vortex along Z (3), Neumann (4) (int).
+ *           Normal (DFT_DRIVER_BC_NORMAL), Vortex along X (DFT_DRIVER_BC_X), Vortex along Y (DFT_DRIVER_BC_Y), 
+ *           Vortex along Z (DFT_DRIVER_BC_Z), Neumann (DFT_DRIVER_BC_NEUMANN) (input, int).
  *
  */
 
-EXPORT void dft_driver_setup_boundary_condition(int bc) {
+EXPORT void dft_driver_setup_boundary_condition(long bc) {
 
   check_mode();
 
@@ -409,7 +421,7 @@ EXPORT void dft_driver_setup_boundary_condition(int bc) {
 /*
  * Modify the value of the damping constant for absorbing boundary.
  *
- * dmp = damping constant (default 0.2).
+ * dmp = damping constant (input, double). Default value 0.2.
  *
  */
 
@@ -423,12 +435,13 @@ EXPORT void dft_driver_setup_boundaries_damp(double dmp) {
 /*
  * Set up normalization method for imaginary time propagation.
  *
- * type = how to renormalize the wavefunction: 0 = bulk; 1 = droplet
- *        placed at the origin; 2 = column placed at x = 0.
- * nhe  = desired # of He atoms for types 1 & 2 above (long).
+ * type = how to renormalize the wavefunction: DFT_DRIVER_NORMALIZE_BULK = bulk; DFT_DRIVER_NORMALIZE_DROPLET = droplet
+ *        placed at the origin; DFT_DRIVER_NORMALIZE_COLUMN = column placed at x = 0 (input, long); DFT_DRIVER_DONT_NORMALIZE
+ *        = no normalization (must use the correct chemical potential).
+ * nhe  = desired # of He atoms for types 1 & 2 above (input, long).
  * frad = fixed volume radius (double). Liquid within this radius
- *        willl be fixed to rho0 to converge to droplet or column.
- * rels = iteration after which the fixing condition will be released.
+ *        will be fixed to rho0 to converge to droplet or column (input double).
+ * rels = iteration after which the fixing condition will be released (input long).
  *        This should be done for the last few iterations to avoid
  *        artifacts arising from the fixing constraint. Set to zero to disable.
  * 
@@ -447,7 +460,7 @@ EXPORT void dft_driver_setup_normalization(long norm_type, long nhe, double frad
 /*
  * Modify the value of the angular velocity omega (rotating liquid).
  *
- * omega = angular velocity (double);
+ * omega = angular velocity (input, double);
  *
  */
 
@@ -495,7 +508,7 @@ double complex dft_driver_itime_abs(cgrid3d *grid, long i, long j, long k) {
 /*
  * Propagate kinetic (1st half).
  *
- * what = helium or other (long; input).
+ * what = DFT_DRIVER_PROPAGATE_HELIUM  or DFT_DRIVER_PROPAGATE_OTHER (long; input).
  * gwf = wavefunction (wf3d *; input).
  * tstep = time step (double; input).
  *
@@ -558,7 +571,7 @@ EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tste
 /*
  * Propagate kinetic (2nd half).
  *
- * what = helium or other (long; input).
+ * what = DFT_DRIVER_PROPAGATE_HELIUM or DFT_DRIVER_PROPAGATE_OTHER (long; input).
  * gwf = wavefunction (wf3d *; input/output).
  * tstep = time step (double; input).
  *
@@ -607,7 +620,7 @@ EXPORT void dft_driver_ot_potential(wf3d *gwf, cgrid3d *pot) {
  *
  */
 
-#define POISSON /**/
+#define POISSON /* Solve Poisson eq for the viscous potential */
 
 static double visc_func(double rho) {
 
@@ -726,8 +739,10 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 /*
  * Propagate potential.
  *
- * gwf = wavefunction (wf3d *; input/output).
- * pot = potential (cgrid3d *; input).
+ * what  = DFT_DRIVER_PROPAGATE_HELIUM  or DFT_DRIVER_PROPAGATE_OTHER (long; input).
+ * gwf   = wavefunction (wf3d *; input/output).
+ * pot   = potential (cgrid3d *; input).
+ * tstep = time step (double, input).
  *
  */
 
@@ -752,9 +767,9 @@ EXPORT void dft_driver_propagate_potential(long what, wf3d *gwf, cgrid3d *pot, d
 }
 
 /*
- * Predict: propagate the given wf in time.
+ * Predict step: propagate the given wf in time.
  *
- * what      = what is propagated: 0 = L-He, 1 = other.
+ * what      = DFT_DRIVER_PROPAGATE_HELIUM  or DFT_DRIVER_PROPAGATE_OTHER (long; input).
  * ext_pot   = present external potential grid (rgrid3d *; input) (NULL = no ext. pot).
  * gwf       = liquid wavefunction to propagate (wf3d *; input).
  *             Note that gwf is NOT changed by this routine.
@@ -820,9 +835,9 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
 }
 
 /*
- * Correct: propagate the given wf in time.
+ * Correct step: propagate the given wf in time.
  *
- * what      = what is propagated: 0 = L-He, 1 = other.
+ * what      = DFT_DRIVER_PROPAGATE_HELIUM  or DFT_DRIVER_PROPAGATE_OTHER (long; input).
  * ext_pot   = present external potential grid (rgrid3d *) (NULL = no ext. pot).
  * gwf       = liquid wavefunction to propagate (wf3d *).
  *             Note that gwf is NOT changed by this routine.
@@ -869,8 +884,8 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
 /*
  * Prepare for convoluting potential and density.
  *
- * pot  = potential to be convoluted with (rgrid3d *).
- * dens = denisity to be convoluted with (rgrid3d *).
+ * pot  = potential to be convoluted with (kernel) (input/output. rgrid3d *).
+ * dens = denisity to be convoluted with (function) (input/output, rgrid3d *).
  *
  * This must be called before cgrid3d_driver_convolute_eval().
  * Both pot and dens are overwritten with their FFTs.
@@ -891,9 +906,9 @@ EXPORT void dft_driver_convolution_prepare(rgrid3d *pot, rgrid3d *dens) {
 /*
  * Convolute density and potential.
  *
- * out  = output from convolution (cgrid3d *).
- * pot  = potential grid that has been prepared with cgrid3d_driver_convolute_prepare().
- * dens = density against which has been prepared with cgrid3d_driver_convolute_prepare().
+ * out  = output from convolution (output, cgrid3d *).
+ * pot  = potential grid that has been prepared with cgrid3d_driver_convolute_prepare() (input, rgrid3d *).
+ * dens = density against which has been prepared with cgrid3d_driver_convolute_prepare() (input, rgrid3d *).
  *
  * No return value.
  *
@@ -910,7 +925,7 @@ EXPORT void dft_driver_convolution_eval(rgrid3d *out, rgrid3d *pot, rgrid3d *den
 /*
  * Allocate a complex grid.
  *
- * Returns a pointer to the allocated grid.
+ * Returns a pointer to new grid.
  *
  */
 
@@ -955,7 +970,7 @@ EXPORT cgrid3d *dft_driver_alloc_cgrid() {
 /*
  * Allocate a real grid.
  *
- * Returns a pointer to the allocated grid.
+ * Returns a pointer to new allocated grid.
  *
  * Note: either if the condition is Neumann b.c. or vortex b.c. for the
  * wavefunction, the real grids such as density always have Neumann b.c.
@@ -999,7 +1014,7 @@ EXPORT rgrid3d *dft_driver_alloc_rgrid() {
 /*
  * Allocate a wavefunction (initialized to sqrt(rho0)).
  *
- * mass = particle mass in a.u. (double).
+ * mass = particle mass in a.u. (input, double).
  *
  * Returns pointer to the wavefunction.
  *
@@ -1049,7 +1064,7 @@ EXPORT wf3d *dft_driver_alloc_wavefunction(double mass) {
  * Initialize a wavefunction to sqrt of a gaussian function.
  * Useful function for generating an initial guess for impurities.
  *
- * dft   = Wavefunction to be initialized (cgrid3d *; input/output).
+ * dst   = Wavefunction to be initialized (cgrid3d *; output).
  * cx    = Gaussian center alogn x (double; input).
  * cy    = Gaussian center alogn y (double; input).
  * cz    = Gaussian center alogn z (double; input).
@@ -1062,7 +1077,6 @@ struct asd {
   double zp;
 };
   
-
 static double complex dft_gauss(void *ptr, double x, double y, double z) {
 
   struct asd *lp = (struct asd *) ptr;
@@ -1085,8 +1099,8 @@ EXPORT void dft_driver_gaussian_wavefunction(wf3d *dst, double cx, double cy, do
 /*
  * Read in density from a binary file (.grd).
  *
- * grid = place to store the read density (rgrid3d *).
- * file = filename for the file (char *). Note: the .grd extension must NOT be given.
+ * grid = place to store the read density (output, rgrid3d *).
+ * file = filename for the file (char *). Note: the .grd extension must NOT be given (input, char *).
  *
  * No return value.
  *
@@ -1117,8 +1131,8 @@ EXPORT void dft_driver_read_density(rgrid3d *grid, char *file) {
  * .y ASCII file cut along (0.0, y, 0.0)
  * .z ASCII file cut along (0.0, 0.0, z)
  *
- * grid = density grid (rgrid3d *).
- * base = Basename for the output file (char *).
+ * grid = density grid (input, rgrid3d *).
+ * base = Basename for the output file (input, char *).
  *
  * No return value.
  *
@@ -1190,8 +1204,8 @@ EXPORT void dft_driver_write_density(rgrid3d *grid, char *base) {
  * .y ASCII file cut along (0.0, y, 0.0)
  * .z ASCII file cut along (0.0, 0.0, z)
  *
- * wf = wf with the pase (rgrid3d *).
- * base = Basename for the output file (char *).
+ * wf = wf with the pase (input, grid3d *).
+ * base = Basename for the output file (input, char *).
  *
  * No return value.
  *
@@ -1271,16 +1285,14 @@ EXPORT void dft_driver_write_phase(wf3d *wf, char *base) {
   rgrid3d_free(phase);
 }
 
-
-
 /*
  * Write two-dimensional slices of a grid
  * .xy ASCII file cut along z=0.
  * .yz ASCII file cut along x=0.
  * .zx ASCII file cut along y=0.
  *
- * grid = density grid (rgrid3d *).
- * base = Basename for the output file (char *).
+ * grid = density grid (input, rgrid3d *).
+ * base = Basename for the output file (input, char *).
  *
  * No return value.
  *
@@ -1350,11 +1362,11 @@ EXPORT void dft_driver_write_2d_density(rgrid3d *grid, char *base) {
  * .yz ASCII file cut along x=0.
  * .zx ASCII file cut along y=0.
  *
- * px = x-component of vector grid (rgrid3d *).
- * py = y-component of vector grid (rgrid3d *).
- * pz = z-component of vector grid (rgrid3d *).
+ * px = x-component of vector grid (input, rgrid3d *).
+ * py = y-component of vector grid (input, rgrid3d *).
+ * pz = z-component of vector grid (input, rgrid3d *).
  *
- * base = Basename for the output file (char *).
+ * base = Basename for the output file (input, char *).
  *
  * No return value.
  *
@@ -1421,7 +1433,6 @@ EXPORT void dft_driver_write_vectorfield(rgrid3d *px, rgrid3d *py, rgrid3d *pz, 
   
 }
 
-
 /*
  * Write two-dimensional vector slices of a probability current 
  * .xy ASCII file cut along z=0.
@@ -1429,7 +1440,7 @@ EXPORT void dft_driver_write_vectorfield(rgrid3d *px, rgrid3d *py, rgrid3d *pz, 
  * .zx ASCII file cut along y=0.
  *
  * wf = wavefunction (wf3d, input)
- * base = Basename for the output file (char *).
+ * base = Basename for the output file (char *, input).
  *
  * No return value.
  *
@@ -1449,11 +1460,12 @@ EXPORT void dft_driver_write_current(wf3d *wf, char *base) {
  * .zx ASCII file cut along y=0.
  *
  * wf = wavefunction (wf3d, input)
- * base = Basename for the output file (char *).
+ * base = Basename for the output file (char *, input).
  *
  * No return value.
  *
  * Uses workspace 1-3
+ * 
  */
 
 EXPORT void dft_driver_write_velocity(wf3d *wf, char *base) {
@@ -1466,8 +1478,8 @@ EXPORT void dft_driver_write_velocity(wf3d *wf, char *base) {
 /*
  * Read in a grid from a binary file (.grd).
  *
- * grid = grid where the data is placed (cgrid3d *).
- * file = filename for the file (char *). Note: the .grd extension must be given.
+ * grid = grid where the data is placed (cgrid3d *, output).
+ * file = filename for the file (char *, input). Note: the .grd extension must be given.
  *
  * No return value.
  *
@@ -1494,8 +1506,8 @@ EXPORT void dft_driver_read_grid(cgrid3d *grid, char *file) {
  * .y ASCII file cut along (0.0, y, 0.0)
  * .z ASCII file cut along (0.0, 0.0, z)
  *
- * grid = grid to be written (cgrid3d *).
- * base = Basename for the output file (char *).
+ * grid = grid to be written (cgrid3d *, input).
+ * base = Basename for the output file (char *, input).
  *
  * No return value.
  *
@@ -1559,7 +1571,7 @@ EXPORT void dft_driver_write_grid(cgrid3d *grid, char *base) {
 }
 
 /*
- * Return the self-consistent potential (no external potential).
+ * Return the self-consistent OT potential (no external potential).
  *
  * gwf       = wavefunction for the system (wf3d *; input).
  * potential = potential grid (rgrid3d *; output).
@@ -1663,9 +1675,9 @@ EXPORT double dft_driver_kinetic_energy(wf3d *gwf) {
  * ie -<omega*L>.
  *
  * gwf     = wavefunction for the system (wf3d *; input).
- * omega_x = angular frequency in a.u., x-axis (double)
- * omega_y = angular frequency in a.u., y-axis (double)
- * omega_z = angular frequency in a.u., z-axis (double)
+ * omega_x = angular frequency in a.u., x-axis (double, input)
+ * omega_y = angular frequency in a.u., y-axis (double, input)
+ * omega_z = angular frequency in a.u., z-axis (double, input)
  *
  */
 
@@ -1682,12 +1694,12 @@ EXPORT double dft_driver_rotation_energy(wf3d *wf, double omega_x, double omega_
  *
  * gwf     = wavefunction for the system (wf3d *; input).
  * ext_pot = external potential grid (rgrid3d *; input).
- * xl   = lower limit for x (double).
- * xu   = upper limit for x (double).
- * yl   = lower limit for y (double).
- * yu   = upper limit for y (double).
- * zl   = lower limit for z (double).
- * zu   = upper limit for z (double).
+ * xl   = lower limit for x (double, input).
+ * xu   = upper limit for x (double, input).
+ * yl   = lower limit for y (double, input).
+ * yu   = upper limit for y (double, input).
+ * zl   = lower limit for z (double, input).
+ * zu   = upper limit for z (double, input).
  *
  * Return value = energy for the box (in a.u.).
  *
@@ -1970,17 +1982,17 @@ EXPORT cgrid1d *dft_driver_spectrum_zp(rgrid3d *density, rgrid3d *imdensity, dou
 /*
  * Collect the time dependent difference energy data.
  * 
- * idensity = NULL: no averaging of pair potentials, rgrid3d *: impurity density for convoluting with pair potential.
- * nt       = Maximum number of time steps to be collected (long).
- * zerofill = How many zeros to fill in before FFT (int).
- * upperave = Averaging on the upper state (see dft_driver_potential_map()) (int).
- * upperx   = Upper potential file name along-x (char *).
- * uppery   = Upper potential file name along-y (char *).
- * upperz   = Upper potential file name along-z (char *).
- * lowerave = Averaging on the lower state (see dft_driver_potential_map()) (int).
- * lowerx   = Lower potential file name along-x (char *).
- * lowery   = Lower potential file name along-y (char *).
- * lowerz   = Lower potential file name along-z (char *).
+ * idensity = NULL: no averaging of pair potentials, rgrid3d *: impurity density for convoluting with pair potential. (input)
+ * nt       = Maximum number of time steps to be collected (long, input).
+ * zerofill = How many zeros to fill in before FFT (int, input).
+ * upperave = Averaging on the upper state (see dft_driver_potential_map()) (int, input).
+ * upperx   = Upper potential file name along-x (char *, input).
+ * uppery   = Upper potential file name along-y (char *, input).
+ * upperz   = Upper potential file name along-z (char *, input).
+ * lowerave = Averaging on the lower state (see dft_driver_potential_map()) (int, input).
+ * lowerx   = Lower potential file name along-x (char *, input).
+ * lowery   = Lower potential file name along-y (char *, input).
+ * lowerz   = Lower potential file name along-z (char *, input).
  *
  * Returns difference potential for dynamics.
  *
@@ -2029,11 +2041,12 @@ EXPORT rgrid3d *dft_driver_spectrum_init(rgrid3d *idensity, long nt, long zf, in
  * Collect the time dependent difference energy data. Same as above but with direct
  * grid input for potentials.
  * 
- * nt       = Maximum number of time steps to be collected (long).
- * zerofill = How many zeros to fill in before FFT (int).
- * upper    = upper state potential grid (rgrid3d *).
- * lower    = lower state potential grdi (rgrid3d *).
+ * nt       = Maximum number of time steps to be collected (long, input).
+ * zerofill = How many zeros to fill in before FFT (int, input).
+ * upper    = upper state potential grid (rgrid3d *, input).
+ * lower    = lower state potential grdi (rgrid3d *, input).
  *
+ * Returns difference potential for dynamics.
  */
 
 EXPORT rgrid3d *dft_driver_spectrum_init2(long nt, long zf, rgrid3d *upper, rgrid3d *lower) {
@@ -2059,7 +2072,7 @@ EXPORT rgrid3d *dft_driver_spectrum_init2(long nt, long zf, rgrid3d *upper, rgri
 /*
  * Collect the difference energy data (user calculated).
  *
- * val = difference energy value to be inserted.
+ * val = difference energy value to be inserted (input, double).
  *
  */
 
@@ -2080,7 +2093,7 @@ EXPORT void dft_driver_spectrum_collect_user(double val) {
 /*
  * Collect the difference energy data. 
  *
- * gwf     = the current wavefunction (used for calculating the liquid density) (wf3d *).
+ * gwf     = the current wavefunction (used for calculating the liquid density) (wf3d *, input).
  *
  */
 
@@ -2104,8 +2117,8 @@ EXPORT void dft_driver_spectrum_collect(wf3d *gwf) {
  * Evaluate the spectrum.
  *
  * tstep       = Time step length at which the energy difference data was collected
- *               (fs; usually the simulation time step) (double).
- * tc          = Exponential decay time constant (fs; double).
+ *               (fs; usually the simulation time step) (double, input).
+ * tc          = Exponential decay time constant (fs; double, input).
  *
  * Returns a pointer to the calculated spectrum (grid1d *). X-axis in cm$^{-1}$.
  *
@@ -2497,7 +2510,7 @@ EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
 
 /*
  * Produce radially averaged density from a 3-D grid.
- 
+ * 
  * radial = Radial density (rgrid1d *; output).
  * grid   = Source grid (rgrid3d *; input).
  * dtheta = Integration step size along theta in radians (double; input).
@@ -2641,7 +2654,6 @@ EXPORT double dft_driver_norm(rgrid3d *density) {
   return mx;
 }
 
-
 /*
  * Force spherical symmetry by spherical averaging.
  *
@@ -2694,8 +2706,8 @@ EXPORT void dft_driver_force_spherical(wf3d *wf, double xc, double yc, double zc
  * Read in a 2-D cylindrical grid as a 3-D grid.
  * Useful for getting the initial guess from a 2-D calculation.
  *
- * in  = File descriptor for reading the 2-D grid (FILE *).
- * out = Grid for output (rgrid3d *).
+ * in  = File descriptor for reading the 2-D grid (FILE *, input).
+ * out = Grid for output (rgrid3d *, output).
  *
  */
 
@@ -2796,8 +2808,8 @@ static double complex vortex_z_n2(void *na, double x, double y, double z) {
 /*
  * Modify a given wavefunction to have vorticity around a specified axis.
  *
- * gwf    = Wavefunction for the operation (gwf3d *).
- * n      = Quantum number (1 or 2) (int).
+ * gwf    = Wavefunction for the operation (input/output, gwf3d *).
+ * n      = Quantum number (1 or 2) (input, int).
  * 
  */
 
