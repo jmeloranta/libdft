@@ -94,7 +94,6 @@ int main(int argc, char *argv[]) {
   printf("Using precomputed alpha. with T = %le\n", TEMP);
   dft_driver_setup_viscosity(VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));
 #endif
-  dft_driver_setup_normal_density(DENSITY);
   
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
@@ -106,7 +105,6 @@ int main(int argc, char *argv[]) {
 
   /* bulk normalization (TODO: why normalize ?) */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
-  //dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -222,8 +220,8 @@ int main(int argc, char *argv[]) {
     rgrid3d_sum(ext_pot, ext_pot, current);
 #ifndef BUBBLE_SKIP
     /* 2. Predict + correct */
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, time_step, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, time_step, iter); /* CORRECT */
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT, ext_pot, impwf, impwfp, cworkspace, time_step, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT, ext_pot, impwf, impwfp, cworkspace, time_step, iter); /* CORRECT */
 #endif
     /*3. if OUTPUT, compute energy*/
     if(!(iter % OUTPUT)){	
@@ -252,8 +250,8 @@ int main(int argc, char *argv[]) {
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
     rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
     /*2. Predict + correct */
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, gwf, gwfp, cworkspace, time_step, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_NORMAL, ext_pot, gwf, gwfp, cworkspace, time_step, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, time_step, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, time_step, iter); /* CORRECT */ 
     
     if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       double tmp;

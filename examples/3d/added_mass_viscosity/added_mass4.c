@@ -312,7 +312,7 @@ int main(int argc, char *argv[]) {
 
     /* FIRST HALF OF KINETIC ENERGY */
     dft_driver_propagate_kinetic_first(DFT_DRIVER_PROPAGATE_OTHER, impwf, IMP_STEP);
-    dft_driver_propagate_kinetic_first(DFT_DRIVER_PROPAGATE_NORMAL, gwf, TIME_STEP);
+    dft_driver_propagate_kinetic_first(DFT_DRIVER_PROPAGATE_HELIUM, gwf, TIME_STEP);
 
     /* PREDICT */
 
@@ -334,7 +334,7 @@ int main(int argc, char *argv[]) {
     rgrid3d_add(ext_pot, -mu0); // chemical potential (same for super & normal)
     grid3d_add_real_to_complex_re(cpot, ext_pot);
     cgrid3d_copy(gwfp->grid, gwf->grid);
-    dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_NORMAL, gwfp, cpot, TIME_STEP);
+    dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_HELIUM, gwfp, cpot, TIME_STEP);
 
     /* CORRECT */
 
@@ -355,11 +355,11 @@ int main(int argc, char *argv[]) {
     rgrid3d_add(ext_pot, -mu0);
     grid3d_add_real_to_complex_re(cpot, ext_pot);
     cgrid3d_multiply(cpot, 0.5);
-    dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_NORMAL, gwf, cpot, TIME_STEP);
+    dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_HELIUM, gwf, cpot, TIME_STEP);
     
     /* SECOND HALF OF KINETIC */
     dft_driver_propagate_kinetic_second(DFT_DRIVER_PROPAGATE_OTHER, impwf, IMP_STEP);
-    dft_driver_propagate_kinetic_second(DFT_DRIVER_PROPAGATE_NORMAL, gwf, TIME_STEP);
+    dft_driver_propagate_kinetic_second(DFT_DRIVER_PROPAGATE_HELIUM, gwf, TIME_STEP);
     
     printf("%lf wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
     fflush(stdout);

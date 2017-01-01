@@ -37,7 +37,7 @@ static long driver_nz = 0, driver_nr = 0, driver_threads = 0, driver_dft_model =
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0;
 static long driver_rels = 0, driver_bc = 0;
 static double driver_frad = 0.0, driver_halfbox_length, driver_kz0 = 0.0, driver_kr0 = 0.0;
-static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0, driver_rho0_normal = 0.0;
+static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0;
 static rgrid2d *density = 0;
 static rgrid2d *workspace1 = 0;
 static rgrid2d *workspace2 = 0;
@@ -102,22 +102,19 @@ static inline void scale_wf(long what, wf2d *gwf) {
   /* liquid helium */
   switch(driver_norm_type) {
   case DFT_DRIVER_NORMALIZE_BULK: /* bulk normalization */
-    if(what == DFT_DRIVER_PROPAGATE_NORMAL) norm = sqrt(driver_rho0_normal) / cabs(gwf->grid->value[0]);
-    else norm = sqrt(driver_rho0) / cabs(gwf->grid->value[0]);
+    norm = sqrt(driver_rho0) / cabs(gwf->grid->value[0]);
     cgrid2d_multiply(gwf->grid, norm);
     break;
   case DFT_DRIVER_NORMALIZE_ZEROB:
     i = driver_nz / driver_nhe;
     j = driver_nr / driver_nhe;
-    if(what == DFT_DRIVER_PROPAGATE_NORMAL) norm = sqrt(driver_rho0_normal) / cabs(gwf->grid->value[i * driver_nr + j]);
-    else norm = sqrt(driver_rho0) / cabs(gwf->grid->value[i * driver_nr + j]);
+    norm = sqrt(driver_rho0) / cabs(gwf->grid->value[i * driver_nr + j]);
     cgrid2d_multiply(gwf->grid, norm);
     break;
   case DFT_DRIVER_NORMALIZE_DROPLET: /* helium droplet */
     if(!center_release) {
       double sq;
-      if(what == DFT_DRIVER_PROPAGATE_NORMAL) sq = sqrt(3.0*driver_rho0_normal/4.0);
-      else sq = sqrt(3.0*driver_rho0/4.0);
+      sq = sqrt(3.0*driver_rho0/4.0);
       for (i = 0; i < driver_nz; i++) {
 	z = (i - driver_nz/2.0) * driver_step;
 	for (j = 0; j < driver_nr; j++) {
@@ -315,21 +312,6 @@ EXPORT void dft_driver_setup_model_2d(long dft_model, long iter_mode, double rho
   driver_rho0 = rho0;
 }
 
-
-/*
- * Set up the normal liquid density.
- *
- * rho0 = normal liquid density.
- *
- */
-
-EXPORT void dft_driver_setup_normal_density_2d(double rho0) {
-
-  check_mode();
-
-  driver_rho0_normal = rho0;
-}
-
 /*
  * Set up boundaries.
  *
@@ -430,7 +412,7 @@ EXPORT void dft_driver_setup_rotation_omega_2d(double omega) {
 /*
  * Propagate kinetic (1st half).
  *
- * what = normal super or other (long; input).
+ * what = helium or other (long; input).
  * gwf = wavefunction (wf2d *; input).
  * tstep = time step (double; input).
  *
@@ -510,7 +492,7 @@ static double one_over_r(void *NA, double z, double r) {
 
 EXPORT void dft_driver_viscous_potential_2d(wf2d *gwf, cgrid2d *pot) {
 
-  double tot = -2.0 * viscosity / (driver_rho0 + driver_rho0_normal);
+  double tot = -2.0 * viscosity / driver_rho0;
 
   fprintf(stderr, "libdft: 2D viscous potential not implemented.\n");
   exit(1);
@@ -606,10 +588,10 @@ EXPORT inline void dft_driver_propagate_predict_2d(long what, rgrid2d *ext_pot, 
   switch(what) {
   case DFT_DRIVER_PROPAGATE_HELIUM:
     dft_driver_ot_potential_2d(gwf, potential);
-    break;
-  case DFT_DRIVER_PROPAGATE_NORMAL:
-    dft_driver_ot_potential_2d(gwf, potential);
-    dft_driver_viscous_potential_2d(gwf, potential);
+    if(viscosity != 0.0) {
+      fprintf(stderr, "libdft: Including viscous potential.\n");
+      dft_driver_viscous_potential_2d(gwf, potential);
+    }
     break;
   case DFT_DRIVER_PROPAGATE_OTHER:
     break;
@@ -651,10 +633,10 @@ EXPORT inline void dft_driver_propagate_correct_2d(long what, rgrid2d *ext_pot, 
   switch(what) {
   case DFT_DRIVER_PROPAGATE_HELIUM:
     dft_driver_ot_potential_2d(gwfp, potential);
-    break;
-  case DFT_DRIVER_PROPAGATE_NORMAL:
-    dft_driver_ot_potential_2d(gwfp, potential);
-    dft_driver_viscous_potential_2d(gwfp, potential);
+    if(viscosity != 0.0) {
+      fprintf(stderr, "libdft: Including viscous potential.\n");
+      dft_driver_viscous_potential_2d(gwfp, potential);
+    }
     break;
   case DFT_DRIVER_PROPAGATE_OTHER:
     break;
