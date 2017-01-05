@@ -631,7 +631,7 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
 #ifdef POISSON
   // was 1e-8   (crashes, 5E-8 done, test 1E-7)
-#define POISSON_EPS 5E-9
+#define POISSON_EPS 1E-7
   if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
 
   /* Stress tensor elements (without viscosity) */
@@ -724,9 +724,11 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
   
   // Solve the Poisson equation to get the viscous potential
   rgrid3d_poisson(workspace8);
-  //dft_driver_clear_pot(workspace8, 800.0 / GRID_AUTOK, -800.0 / GRID_AUTOK);
+  // test
+  dft_driver_clear_pot(workspace8, 300.0 / GRID_AUTOK, -300.0 / GRID_AUTOK);
   grid3d_add_real_to_complex_re(pot, workspace8);
 #else
+  // NOT IN USE
   double tot = -(4.0 / 3.0) * viscosity / driver_rho0;
   
   dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, DFT_BF_EPS); // Watch out! workspace1 used by veloc_field
@@ -2470,8 +2472,6 @@ static double mult_z(void *xx, double x, double y, double z) {
  * ly = Y component of angular momentum * mass (double *).
  * lz = Z component of angular momentum * mass (double *).
  *
- * TODO: Why was L_{x,y,z} multiplied by the mass? (used in imag_time_rot)
- *
  */
  
 EXPORT void dft_driver_L(wf3d *wf, double *lx, double *ly, double *lz) {
@@ -2877,9 +2877,10 @@ EXPORT void dft_driver_vortex_initial(wf3d *gwf, int n, int axis) {
 /*
  * Add vortex potential (Feynman-Onsager ansatz) along a specified axis.
  *
- * potential = Potential grid where the vortex potential is added (rgrid3d *).
- * direction = Along which axis the vortex potential is added:
+ * potential = Potential grid where the vortex potential is added (rgrid3d *, input/output).
+ * direction = Along which axis the vortex potential is added (int, input):
  *             DFT_DRIVER_VORTEX_{X,Y,Z}.
+ *
  */
 
 static double vortex_x(void *na, double x, double y, double z) {

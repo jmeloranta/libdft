@@ -16,52 +16,29 @@
 #include <dft/ot.h>
 
 #define MAXITER 160000
-#define TS 5.0 /* fs */
+#define TS 10.0 /* fs */
 #define OUTPUT 100
 
 #define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
-#define NX 64
-#define NY 64
-#define NZ (1024)
-#define STEP 0.25
-
-// #define FUNC (DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_BACKFLOW)
 #define FUNC (DFT_OT_PLAIN)
-//#define FUNC DFT_GP
+#define NX 32
+#define NY 32
+#define NZ 4096
+#define STEP 1.0
 
-#define A0 (3.8003E5 / GRID_AUTOK)
-#define A1 (4.6245 * GRID_AUTOANG)
-#define OFFSET 0.1
-
-#define IMAG_ITER 1000
-
-#define GAUSSIAN
-
-#define WIDTH 4.0
-#define AMP 1.5
-
-double wall_pot(void *arg, double x, double y, double z) {
-
-  double offset = *((double *) arg);
-  
-#ifdef GAUSSIAN
-  return 0.0;
-#endif
-}
+#define WIDTH 20.0
+#define AMP 0.2
 
 double complex gauss(void *arg, double x, double y, double z) {
 
   double inv_width = *((double *) arg);
   double norm = 0.5 * M_2_SQRTPI * inv_width;
 
-  if(fabs(z) <= WIDTH) return AMP; 
-  else return 0.0;
-
-  //norm = norm;
-  //return norm * cexp(-z * z * inv_width * inv_width);
+  // remove norm *  -- AMP * rho0 gives directly the amplitude
+  return cexp(-z * z * inv_width * inv_width);
 }
 
 int main(int argc, char **argv) {
@@ -70,18 +47,19 @@ int main(int argc, char **argv) {
   cgrid3d *potential_store;
   wf3d *gwf, *gwfp;
   long iter;
-  double energy, natoms, offset, inv_width, rho0, mu0;
+  double inv_width, rho0, mu0;
   char buf[512];
 
+  fprintf(stderr, "Time step = %le fs.\n", TS);
+  fprintf(stderr, "Gaussian width = %le, amplitude = %le.\n", WIDTH, AMP);
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 32 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 0 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(FUNC, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
-  dft_driver_setup_boundaries_xyz(DFT_DRIVER_BOUNDARY_ITIME, 1.0, 1.0, 50.0);
-  dft_driver_setup_boundaries_damp(0.2);
+  dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);
   /* Normalization condition */
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 3.0, 10);
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
 
   /* Initialize the DFT driver */
   dft_driver_initialize();
@@ -91,45 +69,24 @@ int main(int argc, char **argv) {
   rworkspace = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
   /* Read initial external potential from file */
-  offset = 0.0;
-  rgrid3d_map(ext_pot, wall_pot, &offset);
-  rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
 
   /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
   rho0 = dft_driver_otf->rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
   mu0  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
-#ifdef GAUSSIAN
+  rgrid3d_zero(ext_pot);
+  rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
+
   inv_width = 1.0 / WIDTH;
   cgrid3d_map(gwf->grid, gauss, &inv_width);  
   cgrid3d_multiply(gwf->grid, AMP * rho0);
   cgrid3d_add(gwf->grid, rho0);
+  printf("Gaussian max density = %le Angs^-3.\n", (rho0 + AMP * rho0) / (0.520 * 0.529 * 0.529));
   cgrid3d_power(gwf->grid, gwf->grid, 0.5);
-#else
-  cgrid3d_constant(gwf->grid, sqrt(rho0));
-#endif
-  
-#ifndef GAUSSIAN
-  /* Step #1: Run 200 iterations using imaginary time for the initial state */
-  for (iter = 0; iter < IMAG_ITER; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
-  }
-  /* At this point gwf contains the converged wavefunction */
-  grid3d_wf_density(gwf, rworkspace);
-  dft_driver_write_density(rworkspace, "initial");
-#endif
   
   /* Step #2: Run real time simulation using the final state potential */
   dft_driver_setup_model(FUNC, DFT_DRIVER_REAL_TIME, 0.0);
-
-#ifndef GAUSSIAN
-  // Excited potential
-  offset += OFFSET;
-  rgrid3d_map(ext_pot, wall_pot, &offset);
-  rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
-#endif
   
   for (iter = 0; iter < MAXITER; iter++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
@@ -140,4 +97,5 @@ int main(int argc, char **argv) {
       dft_driver_write_density(rworkspace, buf);
     }
   }
+  return 0;
 }
