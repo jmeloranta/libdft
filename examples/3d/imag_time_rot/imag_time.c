@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
   dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD2, DFT_DRIVER_IMAG_TIME, 0.0);
   //dft_driver_setup_model(DFT_DR, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
-  dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
   /* Normalization condition */
   if(argc != 2) {
     fprintf(stderr, "Usage: imag_time N\n");

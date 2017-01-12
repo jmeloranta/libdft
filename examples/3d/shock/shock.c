@@ -19,26 +19,31 @@
 #define TS 10.0 /* fs */
 #define OUTPUT 100
 
-#define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
+#define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
 #define FUNC (DFT_OT_PLAIN)
-#define NX 32
-#define NY 32
-#define NZ 4096
-#define STEP 1.0
+//#define FUNC (DFT_OT_PLAIN | DFT_OT_KC)
+#define NX 64
+#define NY 64
+#define NZ 2048
+#define STEP 0.5
 
-#define WIDTH 20.0
-#define AMP 0.2
+#define WIDTH (1.0 / 0.529)
+#define AMP (0.03 * 0.529 * 0.529 * 0.529)
+#define SLAB 50.0
 
 double complex gauss(void *arg, double x, double y, double z) {
 
-  double inv_width = *((double *) arg);
+  double inv_width = *((double *) arg), c = 0.0;
   double norm = 0.5 * M_2_SQRTPI * inv_width;
 
   // remove norm *  -- AMP * rho0 gives directly the amplitude
-  return cexp(-z * z * inv_width * inv_width);
+  if(z > SLAB) c = 10.0;
+  else if(z < -SLAB) c = -10.0;
+  else return 1.0;
+  return cexp(-(z - c) * (z - c) * inv_width * inv_width);
 }
 
 int main(int argc, char **argv) {
@@ -55,9 +60,9 @@ int main(int argc, char **argv) {
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 0 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(FUNC, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(FUNC, DFT_DRIVER_REAL_TIME, 0.0);
   /* No absorbing boundary */
-  dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
 
@@ -80,14 +85,13 @@ int main(int argc, char **argv) {
 
   inv_width = 1.0 / WIDTH;
   cgrid3d_map(gwf->grid, gauss, &inv_width);  
-  cgrid3d_multiply(gwf->grid, AMP * rho0);
+  cgrid3d_multiply(gwf->grid, AMP - rho0);
   cgrid3d_add(gwf->grid, rho0);
-  printf("Gaussian max density = %le Angs^-3.\n", (rho0 + AMP * rho0) / (0.520 * 0.529 * 0.529));
+  printf("Gaussian max density = %le Angs^-3.\n", AMP / (0.520 * 0.529 * 0.529));
   cgrid3d_power(gwf->grid, gwf->grid, 0.5);
   
-  /* Step #2: Run real time simulation using the final state potential */
-  dft_driver_setup_model(FUNC, DFT_DRIVER_REAL_TIME, 0.0);
-  
+  //dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
+
   for (iter = 0; iter < MAXITER; iter++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);

@@ -37,7 +37,7 @@ static long driver_nz = 0, driver_nr = 0, driver_threads = 0, driver_dft_model =
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0;
 static long driver_rels = 0, driver_bc = 0;
 static double driver_frad = 0.0, driver_halfbox_length, driver_kz0 = 0.0, driver_kr0 = 0.0;
-static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0;
+static double driver_step = 0.0, driver_rho0 = 0.0;
 static rgrid2d *density = 0;
 static rgrid2d *workspace1 = 0;
 static rgrid2d *workspace2 = 0;
@@ -62,30 +62,6 @@ static inline void check_mode() {
     fprintf(stderr, "libdft: Cartesian 3D or Cylindrical 3D routine called in 2D Cylindrical code.\n");
     exit(1);
   } else dft_internal_using_2d = 1;
-}
-
-static double region_func(void *gr, double z, double r) {
-
-  double ulz = (driver_nz/2.0) * driver_step - driver_abs, ulr = driver_nr * driver_step - driver_abs;
-  double d = 0.0;
-
-  z = fabs(z);
-  
-  if(z >= ulz) d += damp * (z - ulz) / driver_abs;
-  if(r >= ulr) d += damp * (r - ulr) / driver_abs;
-  return d / 2.0;
-}
-
-/*
- * Spherical region going from 0 to 1 radially, increasing as tanh(r).
- * It has a value of ~0 (6.e-4) when r = driver_abs, and goes up to 1 
- * when r = driver_halfbox_length (i.e. the smallest end of the box).
- *
- */
-static double complex cregion_func(void *gr, double z, double r) {
-
-  double rp = sqrt(r*r + z*z);
-  return 1.0 + tanh(4.0 * (rp - driver_halfbox_length) / driver_abs);
 }
 
 static inline void scale_wf(long what, wf2d *gwf) {
@@ -315,20 +291,25 @@ EXPORT void dft_driver_setup_model_2d(long dft_model, long iter_mode, double rho
 /*
  * Set up boundaries.
  *
- * type    = boundary type: 0 = regular, 1 = absorbing (long).
- * absb    = width of absorbing boundary (double; bohr).
- *           In this region the density tends towards driver_rho0.
+ * type    = boundary type: 0 = regular, 1 = absorbing (imag time; implies CN propagator) 
+ *           (input, long).
+ * absb    = distance of the absorbing boundary from origin (input, double). Only when type = 1.
+ * damp    = Daping constant (input, double). Usually between 0.1 and 1.0. Only when type = 1.
+ * width   = Width (or curvature) of the absorption. Only when type = 1.
  * 
  * No return value.
  *
  */
 
-EXPORT void dft_driver_setup_boundaries_2d(long boundary_type, double absb) {
+EXPORT void dft_driver_setup_boundary_type_2d(long boundary_type, double absb, double damp, double width) {
 
   check_mode();
 
   driver_boundary_type = boundary_type;
-  driver_abs = absb;
+  if(boundary_type == 1) {
+    fprintf(stderr, "libdft: Absorbing boundary not implemented in 2D.\n");
+    exit(1);
+  }
 }
 
 /*
@@ -348,20 +329,6 @@ EXPORT void dft_driver_setup_boundary_condition_2d(int bc) {
     exit(1);
   }
   driver_bc = bc;
-}
-
-/*
- * Modify the value of the damping constant for absorbing boundary.
- *
- * dmp = damping constant (default 0.03).
- *
- */
-
-EXPORT void dft_driver_setup_boundaries_damp_2d(double dmp) {
-
-  check_mode();
-
-  damp = fabs(dmp);
 }
 
 /*
@@ -446,13 +413,6 @@ EXPORT void dft_driver_propagate_kinetic_second_2d(long what, wf2d *gwf, double 
   static long local_been_here = 0;
   
   dft_driver_propagate_kinetic_first_2d(what, gwf, tstep);
-  /* wavefunction damping  */
-  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_DAMPING && what != DFT_DRIVER_PROPAGATE_OTHER && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
-    fprintf(stderr, "libdft: Predict - absorbing boundary for helium; wavefunction damping.\n");
-    if(!cworkspace)
-      cworkspace = dft_driver_alloc_cgrid_2d();
-    grid2d_damp_wf(gwf, driver_rho0, damp, cregion_func, cworkspace, NULL);  // TODO: works in 2d?
-  }
 
   if(!local_been_here) {
     local_been_here = 1;
@@ -531,11 +491,6 @@ EXPORT void dft_driver_propagate_potential_2d(long what, wf2d *gwf, cgrid2d *pot
   tstep /= GRID_AUTOFS;
   if(driver_iter_mode == DFT_DRIVER_REAL_TIME) time = tstep;
   else time = -I * tstep;
-  /* absorbing boundary - imaginary potential */
-  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ABSORB && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
-    fprintf(stderr, "libdft: Predict - absorbing boundary for helium; imaginary potential.\n");
-    grid2d_wf_absorb(pot, density, driver_rho0, region_func, workspace1, 1.0); // TODO: must be _cyl !!
-  }
   grid2d_wf_propagate_potential(gwf, pot, time);
   if(driver_iter_mode == DFT_DRIVER_IMAG_TIME) scale_wf(what, gwf);
 }

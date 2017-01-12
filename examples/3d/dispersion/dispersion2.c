@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
   model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
   dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, RHO0);
 
-  dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   dft_driver_initialize();

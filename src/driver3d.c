@@ -25,14 +25,14 @@
 
 /* End of tunable parameters */
 
-/* Global user accessible variables */
+/* Global user accessible variables - way too many! TODO: reduce */
 dft_ot_functional *dft_driver_otf = 0;
 int dft_driver_init_wavefunction = 1;
 
 static long driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc = 0, driver_rels = 0;
-static double driver_frad = 0.0, driver_omega = 0.0, damp = 0.2, viscosity = 0.0, viscosity_alpha = 1.0;
-static double driver_step = 0.0, driver_abs_x = 0.0, driver_abs_y = 0.0, driver_abs_z = 0.0, driver_rho0 = 0.0, driver_halfbox_length = 0.0;
+static double driver_frad = 0.0, driver_omega = 0.0, driver_damp = 0.2, driver_width = 1.0, viscosity = 0.0, viscosity_alpha = 1.0;
+static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0;
 static double driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0;
 static double driver_kx0 = 0.0, driver_ky0 = 0.0,driver_kz0 = 0.0;
 static rgrid3d *density = 0, *workspace1 = 0, *workspace2 = 0, *workspace3 = 0, *workspace4 = 0, *workspace5 = 0, *workspace6 = 0;
@@ -44,6 +44,11 @@ int dft_internal_using_3d = 0;
 extern int dft_internal_using_2d, dft_internal_using_cyl;
 int dft_driver_kinetic = 0; /* default FFT propagation for kinetic, TODO: FFT gives some numerical hash - bug? */
 
+/*
+ * Check if in 3D mode.
+ *
+ */
+
 static inline void check_mode() {
 
   if(dft_internal_using_2d || dft_internal_using_cyl) {
@@ -52,32 +57,10 @@ static inline void check_mode() {
   } else dft_internal_using_3d = 1;
 }
 
-static double region_func(void *gr, double x, double y, double z) {
-
-  double ulx = (driver_nx/2.0) * driver_step - driver_abs_x, uly = (driver_ny/2.0) * driver_step - driver_abs_y, ulz = (driver_nz/2.0) * driver_step - driver_abs_z;
-  double d = 0.0;
-  
-  x = fabs(x);
-  y = fabs(y);
-  z = fabs(z);
-
-  if(x >= ulx) d += damp * (x - ulx) / driver_abs_x;
-  if(y >= uly) d += damp * (y - uly) / driver_abs_y;
-  if(z >= ulz) d += damp * (z - ulz) / driver_abs_z;
-  return d / 3.0;
-}
-
 /*
- * Spherical region going from 0 to 1 radially, increasing as tanh(r).
- * It has a value of ~0 (6.e-4) when r = driver_abs, and goes up to 1 
- * when r = driver_halfbox_length (i.e. the smallest end of the box).
+ * Wave function normalization (for imaginary time).
  *
  */
-static double complex cregion_func(void *gr, double x, double y, double z) {
-
-  double r = sqrt(x*x + y*y + z*z);
-  return 1.0 + tanh(4.0 * (r - driver_halfbox_length) / driver_abs_z);
-}
 
 int dft_driver_temp_disable_other_normalization = 0;
 
@@ -267,14 +250,13 @@ EXPORT void dft_driver_setup_grid(long nx, long ny, long nz, double step, long t
   driver_ny = ny;
   driver_nz = nz;
   driver_step = step;
-  driver_halfbox_length = 0.5 * (nx<ny?(nx<nz?nx:nz):(ny<nz?ny:nz)) * step;
   // Set the origin to its default value if it is not defined
   fprintf(stderr, "libdft: Grid size = (%ld,%ld,%ld) with step = %le.\n", nx, ny, nz, step);
   driver_threads = threads;
 }
 
 /*
- * Set up the origin of coordinates for the grids.
+ * Set up grid origin.
  * Can be overwritten for a particular grid calling (r/c)grid3d_set_origin
  *
  * x0 = X coordinate for the new origin (input, double).
@@ -292,7 +274,7 @@ EXPORT void dft_driver_setup_origin(double x0, double y0, double z0) {
 }
 
 /*
- * Set up the momentum of the frame of reference, i.e. a background velocity for the grids.
+ * Set up grid momentum frame of reference, i.e. a background velocity.
  * Can be overwritten for a particular grid calling (r/c)grid3d_set_momentum
  *
  * kx0 = kx for new momentum frame (input, double).
@@ -352,18 +334,19 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
 }
 
 /*
- * Set up absorbing boundaries.
+ * Define boundary type..
  *
- * type    = boundary type: 0 = regular, 1 = absorbing (imag potential), 2 = absorbing (wf damping), 3 = absorbing (imag time) 
+ * type    = Boundary type: 0 = regular, 1 = absorbing (imag time; implies the CN propagator) 
  *           (input, long).
- * absb    = width of absorbing boundary in bohr (input, double).
- *           In this region the density tends towards driver_rho0.
+ * absb    = Distance of the absorbing boundary from origin (input, double). Only when type = 1.
+ * damp    = Daping constant (input, double). Usually between 0.1 and 1.0. Only when type = 1.
+ * width   = Width (or curvature) of the absorption. Only when type = 1.
  * 
  * No return value.
  *
  */
 
-EXPORT void dft_driver_setup_boundaries(long boundary_type, double absb) {
+EXPORT void dft_driver_setup_boundary_type(long boundary_type, double absb, double damp, double width) {
 
   check_mode();
 
@@ -373,33 +356,9 @@ EXPORT void dft_driver_setup_boundaries(long boundary_type, double absb) {
     if(dft_driver_kinetic != DFT_DRIVER_KINETIC_CN_NBC_ROT)
       dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
   }
-  driver_abs_x = driver_abs_y = driver_abs_z = absb;
-}
-
-/*
- * Set up absorbing boundaries. In this region the density tends towards driver_rho0.
- *
- * type    = boundary type: 0 = regular, 1 = absorbing (imag potential), 2 = absorbing (wf damping), 3 = absorbing (imag time) (long).
- * absb_x  = width of absorbing boundary in bohr along X (input, double).
- * absb_y  = width of absorbing boundary in bohr along Y (input, double).
- * absb_z  = width of absorbing boundary in bohr along Z (input, double).
- * 
- * No return value.
- *
- */
-
-EXPORT void dft_driver_setup_boundaries_xyz(long boundary_type, double absb_x, double absb_y, double absb_z) {
-
-  check_mode();
-
-  driver_boundary_type = boundary_type;
-  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME) {
-    fprintf(stderr, "libdft: ITIME absorbing boundary implies CN_NBC or CN_NBC_ROT propagator.\n");
-    if(dft_driver_kinetic != DFT_DRIVER_KINETIC_CN_NBC_ROT) dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
-  }
-  driver_abs_x = absb_x;
-  driver_abs_y = absb_y;
-  driver_abs_z = absb_z;
+  driver_abs = absb;
+  driver_damp = damp;
+  driver_width = width;
 }
 
 /*
@@ -416,20 +375,6 @@ EXPORT void dft_driver_setup_boundary_condition(long bc) {
   check_mode();
 
   driver_bc = bc;
-}
-
-/*
- * Modify the value of the damping constant for absorbing boundary.
- *
- * dmp = damping constant (input, double). Default value 0.2.
- *
- */
-
-EXPORT void dft_driver_setup_boundaries_damp(double dmp) {
-
-  check_mode();
-
-  damp = fabs(dmp);
 }
 
 /*
@@ -462,7 +407,7 @@ EXPORT void dft_driver_setup_normalization(long norm_type, long nhe, double frad
  *
  * omega = angular velocity (input, double);
  *
- */
+z */
 
 EXPORT void dft_driver_setup_rotation_omega(double omega) {
 
@@ -474,35 +419,25 @@ EXPORT void dft_driver_setup_rotation_omega(double omega) {
 }
 
 /*
- * Impose imaginary time on the absorbing boundary.
+ * Impose imaginary time within the absorbing boundary region.
  *
  * Called back from grid3d_wf_propagate_kinetic_cn_nbc2() and grid3d_wf_propagate_potential() routines.
  *
  */
 
+// TODO: Ugly hack - fix
 static double dft_driver_timestep_tmp; /* argh... should be a parameter ... (time step) */
 static double dft_driver_timestep_tmp2; /* argh... should be a parameter ...(1/2 for kinetic, 1 fo potential) */
 
 double complex dft_driver_itime_abs(cgrid3d *grid, long i, long j, long k) {
 
-  double x, y, z;
-  double ulx = (driver_nx/2.0) * driver_step - driver_abs_x, uly = (driver_ny/2.0) * driver_step - driver_abs_y, ulz = (driver_nz/2.0) * driver_step - driver_abs_z;
-  double d = 0.0;
-  double complex val;
-  
-  x = (i - driver_nx/2.0) * driver_step;
-  x = fabs(x);
-  y = (j - driver_ny/2.0) * driver_step;
-  y = fabs(y);
-  z = (k - driver_nz/2.0) * driver_step;
-  z = fabs(z);
+  double x, y, z, r;
 
-  if(x >= ulx) d += (x - ulx) / driver_abs_x;
-  if(y >= uly) d += (y - uly) / driver_abs_y;
-  if(z >= ulz) d += (z - ulz) / driver_abs_z;
-  val = 1.0 - I * damp * d / 3.0;
-  val /= cabs(val);
-  return val * dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
+  x = (i - driver_nx/2.0) * driver_step;
+  y = (j - driver_ny/2.0) * driver_step;
+  z = (k - driver_nz/2.0) * driver_step;
+  r = sqrt(x*x + y*y + z*z);
+  return (1.0 - I * driver_damp * (1.0 + tanh((r - driver_abs) / driver_width))) * dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
 }
 
 /*
@@ -584,13 +519,6 @@ EXPORT void dft_driver_propagate_kinetic_second(long what, wf3d *gwf, double tst
   if(what == DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT) return;   /* skip kinetic */
 
   dft_driver_propagate_kinetic_first(what, gwf, tstep);
-  /* wavefunction damping  */
-  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_DAMPING && what != DFT_DRIVER_PROPAGATE_OTHER && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
-    fprintf(stderr, "libdft: Predict - absorbing boundary for helium; wavefunction damping.\n");
-    if(!cworkspace)
-      cworkspace = dft_driver_alloc_cgrid();
-    grid3d_damp_wf(gwf, driver_rho0, damp, cregion_func, cworkspace, NULL); 
-  }
 
   if(!local_been_here) {
     local_been_here = 1;
@@ -613,7 +541,7 @@ EXPORT void dft_driver_ot_potential(wf3d *gwf, cgrid3d *pot) {
 }
 
 /*
- * Viscous potential.
+ * Compute the viscous potential (Navier-Stokes).
  *
  * gwf = wavefunction (wf3d *; input).
  * pot = potential (cgrid3d *; output).
@@ -631,6 +559,7 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
 #ifdef POISSON
   // was 1e-8   (crashes, 5E-8 done, test 1E-7)
+  // we have to worry about 1 / rho....
 #define POISSON_EPS 1E-7
   if(!workspace8) workspace8 = dft_driver_alloc_rgrid();
 
@@ -755,11 +684,6 @@ EXPORT void dft_driver_propagate_potential(long what, wf3d *gwf, cgrid3d *pot, d
   tstep /= GRID_AUTOFS;
   if(driver_iter_mode == DFT_DRIVER_REAL_TIME) time = tstep;
   else time = -I * tstep;
-  /* absorbing boundary - imaginary potential */
-  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ABSORB && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
-    fprintf(stderr, "libdft: Predict - absorbing boundary for helium; imaginary potential.\n");
-    grid3d_wf_absorb(pot, density, driver_rho0, region_func, workspace1, 1.0);
-  }
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
     dft_driver_timestep_tmp = tstep;
     dft_driver_timestep_tmp2 = 1.0;

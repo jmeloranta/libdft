@@ -16,6 +16,10 @@
 #include <dft/ot.h>
 
 #define TS 50.0 /* fs */
+#define NX 256
+#define NY 256
+#define NZ 256
+#define STEP 0.5
 
 #define INITIAL_POT_X "initial_pot.x"
 #define INITIAL_POT_Y "initial_pot.y"
@@ -37,11 +41,11 @@ int main(int argc, char **argv) {
   char buf[512];
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(256, 256, 256, 0.5 /* Bohr */, 16 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP, 0);
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
-  dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 2.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 0, 3.0, 10);
 
@@ -71,7 +75,7 @@ int main(int argc, char **argv) {
 
   /* Step #2: Run real time simulation using the final state potential */
   dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_BACKFLOW, DFT_DRIVER_REAL_TIME, 0.0);
-  dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_ABSORB, 30.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, STEP * (double) (NX/2 - 20), 0.1, 0.1);
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, FINAL_POT_X, FINAL_POT_Y, FINAL_POT_Z, ext_pot);
 
   for (iter = 0; iter < 8000; iter++) {

@@ -307,8 +307,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_model(FUNCTIONAL | DFT_OT_HD, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
 
   /* Regular boundaries */
-  dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
-  dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
 #ifdef ALPHA  
   printf("Using preset alpha.\n");
