@@ -22,7 +22,7 @@
 #define STARTING_ITER 200 /* Starting real time iterations (was 100) */
 #define MAXITER (40000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
-#define THREADS 0	/* # of parallel threads to use */
+#define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define NX 512       	/* # of grid points along x */
 #define NY 256          /* # of grid points along y */
 #define NZ 256        	/* # of grid points along z */
@@ -38,16 +38,16 @@
 #define BUBBLE_SIZE_YZ 20.0 /* initial bubble size (along Y and Z) */
 
 /* viscosity * RHON */
-#define VISCOSITY (1.306E-6 * 0.162)
+//#define VISCOSITY (1.306E-6 * 0.162)
 #define TEMP 1.6
 
-/* velocity components for the gas (55 is close to sp of sound) */
-#define KX	(160.0 * 2.0 * M_PI / (NX * STEP))
-#define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
-#define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
-#define VX	(KX * HBAR / HELIUM_MASS)
-#define VY	(KY * HBAR / HELIUM_MASS)
-#define VZ	(KZ * HBAR / HELIUM_MASS)
+/* velocity components for the gas (m/s) */
+#define VX	(55.0 / GRID_AUTOMPS)
+#define VY	(0.0 / GRID_AUTOMPS)
+#define VZ	(0.0 / GRID_AUTOMPS)
+#define KX	(HELIUM_MASS * VX / HBAR)
+#define KY	(HELIUM_MASS * VY / HBAR)
+#define KZ	(HELIUM_MASS * VZ / HBAR)
 #define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
 double global_time, rho0;
