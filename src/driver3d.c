@@ -32,7 +32,7 @@ int dft_driver_init_wavefunction = 1;
 static long driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc = 0, driver_rels = 0;
 static double driver_frad = 0.0, driver_omega = 0.0, driver_damp = 0.2, driver_width = 1.0, viscosity = 0.0, viscosity_alpha = 1.0;
-static double driver_step = 0.0, driver_abs = 0.0, driver_rho0 = 0.0;
+static double driver_step = 0.0, driver_rho0 = 0.0;
 static double driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0;
 static double driver_kx0 = 0.0, driver_ky0 = 0.0,driver_kz0 = 0.0;
 static rgrid3d *density = 0, *workspace1 = 0, *workspace2 = 0, *workspace3 = 0, *workspace4 = 0, *workspace5 = 0, *workspace6 = 0;
@@ -338,15 +338,14 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
  *
  * type    = Boundary type: 0 = regular, 1 = absorbing (imag time; implies the CN propagator) 
  *           (input, long).
- * absb    = Distance of the absorbing boundary from origin (input, double). Only when type = 1.
  * damp    = Daping constant (input, double). Usually between 0.1 and 1.0. Only when type = 1.
- * width   = Width (or curvature) of the absorption. Only when type = 1.
+ * width   = Width of the absorbing region. Only when type = 1.
  * 
  * No return value.
  *
  */
 
-EXPORT void dft_driver_setup_boundary_type(long boundary_type, double absb, double damp, double width) {
+EXPORT void dft_driver_setup_boundary_type(long boundary_type, double damp, double width) {
 
   check_mode();
 
@@ -356,7 +355,6 @@ EXPORT void dft_driver_setup_boundary_type(long boundary_type, double absb, doub
     if(dft_driver_kinetic != DFT_DRIVER_KINETIC_CN_NBC_ROT)
       dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
   }
-  driver_abs = absb;
   driver_damp = damp;
   driver_width = width;
 }
@@ -431,13 +429,26 @@ static double dft_driver_timestep_tmp2; /* argh... should be a parameter ...(1/2
 
 double complex dft_driver_itime_abs(cgrid3d *grid, long i, long j, long k) {
 
-  double x, y, z, r;
+  double x, y, z, tmp, bx, by, bz;
 
-  x = (i - driver_nx/2.0) * driver_step;
-  y = (j - driver_ny/2.0) * driver_step;
-  z = (k - driver_nz/2.0) * driver_step;
-  r = sqrt(x*x + y*y + z*z);
-  return (1.0 - I * driver_damp * (1.0 + tanh((r - driver_abs) / driver_width))) * dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
+  // boundary position
+  bx = driver_step * (driver_nx / 2) - driver_width;
+  by = driver_step * (driver_ny / 2) - driver_width;
+  bz = driver_step * (driver_nz / 2) - driver_width;
+
+  // current position
+  x = fabs((i - driver_nx / 2) * driver_step);
+  y = fabs((j - driver_ny / 2) * driver_step);
+  z = fabs((k - driver_nz / 2) * driver_step);
+
+  if(x < bx && y < by && z < bz) return dft_driver_timestep_tmp * dft_driver_timestep_tmp2;;
+
+  tmp = 0.0;
+  if(x >= bx) tmp += x - bx;
+  if(y >= by) tmp += y - by;
+  if(z >= bz) tmp += z - bz;
+  tmp /= driver_width;
+  return (1.0 - I * driver_damp * tanh(tmp)) * dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
 }
 
 /*

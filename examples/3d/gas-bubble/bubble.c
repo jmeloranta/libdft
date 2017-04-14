@@ -22,16 +22,17 @@
 #define STARTING_ITER 200 /* Starting real time iterations (was 100) */
 #define MAXITER (40000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
+#define ABS_WIDTH  30.0 /* Width of the absorbing boundary */
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define NX 512       	/* # of grid points along x */
 #define NY 256          /* # of grid points along y */
 #define NZ 256        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
-#define DENSITY (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)     /* bulk liquid density (0.0 = default at SVP); was 0.0218360 */
 #define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
 /* #define BUBBLE_SKIP   /* Skip bubble propagation */
+/* #define BUBBLE_BOSE     /* Bose gas bubble */
 #define BUBBLE_NHE 5  /* Number of He (gas) atoms in the bubble */
 #define BUBBLE_TEMP 100.0 /* Gas temperature inside the bubble (K) */
 #define BUBBLE_SIZE_X 20.0 /* initial bubble size (along X) */
@@ -42,7 +43,7 @@
 #define TEMP 1.6
 
 /* velocity components for the gas (m/s) */
-#define VX	(55.0 / GRID_AUTOMPS)
+#define VX	(150.0 / GRID_AUTOMPS)
 #define VY	(0.0 / GRID_AUTOMPS)
 #define VZ	(0.0 / GRID_AUTOMPS)
 #define KX	(HELIUM_MASS * VX / HBAR)
@@ -87,18 +88,17 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_momentum(0.0, 0.0, 0.0);
 
   /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, DENSITY);
+  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, 0.0);
   
   /* Regular boundaries */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   
   /* Initialize */
   dft_driver_initialize();
 
-  /* bulk normalization (TODO: why normalize ?) */
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
-  //dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
+  /* bulk normalization (requires the correct chem. pot.) */
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -148,13 +148,9 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
     /* Read liquid wavefunction from file */ 
-    dft_driver_read_density(current, argv[1]);
-    rgrid3d_power(current, current, 0.5);
-    grid3d_real_to_complex_re(gwf->grid, current);
+    dft_driver_read_grid(gwf->grid, argv[1]);
     /* Read gas wavefunction from file */ 
-    dft_driver_read_density(current, argv[2]);
-    rgrid3d_power(current, current, 0.5);
-    grid3d_real_to_complex_re(impwf->grid, current);
+    dft_driver_read_grid(impwf->grid, argv[2]);
   }
 
   /* Set the electron velocity to zero */
@@ -176,7 +172,7 @@ int main(int argc, char *argv[]) {
     int been_here = 0;
     
     if(iter < STARTING_ITER) {
-      dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, DENSITY);  /* imag time */
+      dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, rho0);  /* imag time */
       fprintf(stderr, "Imag time mode.\n");
       time_step = TIME_STEP;
     } else {
@@ -190,9 +186,9 @@ int main(int argc, char *argv[]) {
 	cgrid3d_set_momentum(impwf->grid, 0.0, 0.0, 0.0);
 	cgrid3d_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
 #ifndef KEEP_IMAG
-	dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, STEP * ((double) (NY/2-20)), 0.2, 1.0);
-	fprintf(stderr, "Absorbbing begin absorption at %le Bohr from the boundary\n",  STEP * ((double) NY / 25));
-	dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, DENSITY);  /* real time */
+	dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH);
+	fprintf(stderr, "Absorption begins at %le Bohr from the boundary\n",  ABS_WIDTH);
+	dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* real time */
 	time_step = TIME_STEP/10.0;
 	fprintf(stderr, "Real time mode.\n");
 #else
@@ -215,9 +211,11 @@ int main(int argc, char *argv[]) {
     /* add ideal bose gas contribution */
     grid3d_wf_density(impwf, density);
     dft_common_idealgas_params(BUBBLE_TEMP, HELIUM_MASS, 1.0);
-#if 0
+#ifdef BUBBLE_BOSE
+    fprintf(stderr, "Bose gas.\n");
     rgrid3d_operate_one(current, density, dft_common_idealgas_op);   /* bose gas */
 #else
+    fprintf(stderr, "Ideal gas.\n");
     rgrid3d_operate_one(current, density, dft_common_classical_idealgas_op); /* classical gas */
 #endif
     rgrid3d_sum(ext_pot, ext_pot, current);
