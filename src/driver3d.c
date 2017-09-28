@@ -334,13 +334,17 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
 }
 
 /*
- * Define boundary type..
+ * Define boundary type.
  *
  * type    = Boundary type: 0 = regular, 1 = absorbing (imag time; implies the CN propagator) 
  *           (input, long).
  * damp    = Daping constant (input, double). Usually between 0.1 and 1.0. Only when type = 1.
  * width   = Width of the absorbing region. Only when type = 1.
  * 
+ * NOTE: For the absorbing BC to work, one MUST use DFT_DRIVER_DONT_NORMALIZE and include the chemical potential!
+ *       (in both imaginary & real time propagation). Otherwise, you will find issues at the boundary (due to the 
+ *       constraint no longer present in RT simulations).
+ *
  * No return value.
  *
  */
@@ -429,7 +433,7 @@ static double dft_driver_timestep_tmp2; /* argh... should be a parameter ...(1/2
 
 double complex dft_driver_itime_abs(cgrid3d *grid, long i, long j, long k) {
 
-  double x, y, z, tmp, bx, by, bz;
+  double x, y, z, tmp, bx, by, bz, c;
 
   // boundary position
   bx = driver_step * (driver_nx / 2) - driver_width;
@@ -441,14 +445,16 @@ double complex dft_driver_itime_abs(cgrid3d *grid, long i, long j, long k) {
   y = fabs((j - driver_ny / 2) * driver_step);
   z = fabs((k - driver_nz / 2) * driver_step);
 
-  if(x < bx && y < by && z < bz) return dft_driver_timestep_tmp * dft_driver_timestep_tmp2;;
+  if(x < bx && y < by && z < bz)
+    return dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
 
   tmp = 0.0;
   if(x >= bx) tmp += x - bx;
   if(y >= by) tmp += y - by;
   if(z >= bz) tmp += z - bz;
   tmp /= driver_width;
-  return (1.0 - I * driver_damp * tanh(tmp)) * dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
+  tmp = tanh(tmp) * driver_damp;
+  return (1.0 - I * tmp) * dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
 }
 
 /*
@@ -486,7 +492,7 @@ EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tste
       cworkspace = dft_driver_alloc_cgrid();
     if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
       dft_driver_timestep_tmp = tstep;
-      dft_driver_timestep_tmp2 = 0.5;
+      dft_driver_timestep_tmp2 = 0.5;    /* htime (half-time step) */
       grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_itime_abs, cworkspace);
     } else grid3d_wf_propagate_kinetic_cn_nbc(gwf, htime, cworkspace);
     break;

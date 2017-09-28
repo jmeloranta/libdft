@@ -16,20 +16,46 @@
 #include <dft/ot.h>
 
 #define TS 50.0 /* fs */
-#define NX 256
-#define NY 256
-#define NZ 256
-#define STEP 0.5
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 2.0
+#define NTH 100
 
-#define INITIAL_POT_X "initial_pot.x"
-#define INITIAL_POT_Y "initial_pot.y"
-#define INITIAL_POT_Z "initial_pot.z"
+#define PRESSURE (1.0 / GRID_AUTOBAR)
 
-#define FINAL_POT_X "final_pot.x"
-#define FINAL_POT_Y "final_pot.y"
-#define FINAL_POT_Z "final_pot.z"
+#define THREADS 16
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
+
+#define A0 (3.8003E5 / GRID_AUTOK)
+#define A1 (1.6245 * GRID_AUTOANG)
+#define A2 0.0
+#define A3 0.0
+#define A4 0.0
+#define A5 0.0
+#define RMIN 2.0
+#define RADD (-6.0)
+
+#define EXCITED_OFFSET 5.0
+
+double pot_func(void *asd, double x, double y, double z) {
+
+  double r, r2, r4, r6, r8, r10, tmp, offset;
+
+  offset = *((double *) asd);
+  r = sqrt(x * x + y * y + z * z);
+  if(r < RMIN) r = RMIN;
+  r += RADD + offset;
+
+  r2 = r * r;
+  r4 = r2 * r2;
+  r6 = r4 * r2;
+  r8 = r6 * r2;
+  r10 = r8 * r2;
+  tmp = A0 * exp(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
+  return tmp;
+}
 
 int main(int argc, char **argv) {
 
@@ -37,27 +63,35 @@ int main(int argc, char **argv) {
   cgrid3d *potential_store;
   wf3d *gwf, *gwfp;
   long iter;
-  double energy, natoms;
+  double energy, natoms, offset, mu0, rho0;
   char buf[512];
 
-  /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP, 0);
+  /* Setup DFT driver parameters (grid) */
+  dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0);
   /* Normalization condition */
-  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 0, 3.0, 10);
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 3.0, 10);
 
   /* Initialize the DFT driver */
   dft_driver_initialize();
+
+  /* density */
+  rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
+  dft_driver_otf->rho0 = rho0;
+  /* chemical potential */
+  mu0 = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
 
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid();
   rworkspace = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
-  /* Read initial external potential from file */
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, INITIAL_POT_X, INITIAL_POT_Y, INITIAL_POT_Z, ext_pot);
+  /* Generate the initial potential */
+  offset = 0.0;
+  rgrid3d_map(ext_pot, pot_func, (void *) &offset);
+  rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
 
   /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
@@ -74,14 +108,17 @@ int main(int argc, char **argv) {
   dft_driver_write_density(rworkspace, "initial");
 
   /* Step #2: Run real time simulation using the final state potential */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_BACKFLOW, DFT_DRIVER_REAL_TIME, 0.0);
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, STEP * (double) (NX/2 - 20), 0.1, 0.1);
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, FINAL_POT_X, FINAL_POT_Y, FINAL_POT_Z, ext_pot);
+  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.5, 10.0);
+  /* Generate the excited potential */
+  offset = EXCITED_OFFSET;
+  rgrid3d_map(ext_pot, pot_func, (void *) &offset);
+  rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
 
-  for (iter = 0; iter < 8000; iter++) {
+  for (iter = 0; iter < 80000; iter++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS/10.0, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS/10.0, iter);
-    if(!(iter % 10)) {
+    if(!(iter % NTH)) {
       sprintf(buf, "final-%ld", iter);
       grid3d_wf_density(gwf, rworkspace);
       dft_driver_write_density(rworkspace, buf);
