@@ -12,9 +12,9 @@
 #include <grid/grid.h>
 #include <dft/dft.h>
 
-#define NX 256
-#define NY 256
-#define NZ 256
+#define NX 128
+#define NY 128
+#define NZ 128
 #define STEP 0.5
 
 int main(int argc, char **argv) {

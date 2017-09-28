@@ -17,7 +17,7 @@
 
 #define MAXITER 160000
 #define TS 10.0 /* fs */
-#define OUTPUT 100
+#define OUTPUT 1000
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar */
 
@@ -27,11 +27,11 @@
 //#define FUNC (DFT_OT_PLAIN | DFT_OT_KC)
 #define NX 64
 #define NY 64
-#define NZ 2048
-#define STEP 0.5
+#define NZ 4096
+#define STEP 1.0
 
-#define WIDTH (1.0 / 0.529)
-#define AMP (0.03 * 0.529 * 0.529 * 0.529)
+#define WIDTH (10.0 / 0.529)
+#define AMP (0.0219 * 0.529 * 0.529 * 0.529)
 #define SLAB 50.0
 
 double complex gauss(void *arg, double x, double y, double z) {
@@ -40,10 +40,10 @@ double complex gauss(void *arg, double x, double y, double z) {
   double norm = 0.5 * M_2_SQRTPI * inv_width;
 
   // remove norm *  -- AMP * rho0 gives directly the amplitude
-  if(z > SLAB) c = 10.0;
-  else if(z < -SLAB) c = -10.0;
-  else return 1.0;
-  return cexp(-(z - c) * (z - c) * inv_width * inv_width);
+  //  if(z > SLAB) c = 10.0;
+  //else if(z < -SLAB) c = -10.0;
+  //else return 1.0;
+  return norm * cexp(-(z - c) * (z - c) * inv_width * inv_width);
 }
 
 int main(int argc, char **argv) {
@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(FUNC, DFT_DRIVER_REAL_TIME, 0.0);
   /* No absorbing boundary */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0);
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
 

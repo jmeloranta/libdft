@@ -13,11 +13,15 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define N 128
-#define STEP 0.2 /* Bohr */
-#define TS 1.0 /* fs */
+#define NX 128
+#define NY 64
+#define NZ 64
+#define STEP 0.4 /* Bohr */
+#define TS 10.0 /* fs */
 
-#define RHO0 (0.036 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
+#define THREADS 16
+
+#define RHO0 (0.03 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
@@ -44,14 +48,14 @@ int main(int argc, char **argv) {
     return 1;
   }
   
-  fprintf(stderr, "Minimum n corresponds to %le Angs^-1.\n", atof(argv[1]) * 2.0 * M_PI / (GRID_AUTOANG * N * STEP));
-  fprintf(stderr, "Maxmimum n corresponds to %le Angs^-1.\n", atof(argv[2]) * 2.0 * M_PI / (GRID_AUTOANG * N * STEP));
-  dft_driver_setup_grid(N, N, N, STEP, 16); /* 6 threads */
+  fprintf(stderr, "Minimum n corresponds to %le Angs^-1.\n", atof(argv[1]) * 2.0 * M_PI / (GRID_AUTOANG * NX * STEP));
+  fprintf(stderr, "Maxmimum n corresponds to %le Angs^-1.\n", atof(argv[2]) * 2.0 * M_PI / (GRID_AUTOANG * NX * STEP));
+  dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
 
   model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
   dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, RHO0);
 
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0);
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   dft_driver_initialize();
@@ -69,7 +73,7 @@ int main(int argc, char **argv) {
   printf("# Dispersion relation for functional %ld.\n", model);
   printf("0 0\n");
   for (n = atof(argv[1]); n <= atof(argv[2]); n++) {
-    wave_params.kx = n * 2.0 * M_PI / (N * STEP);   /* TODO: should be able to choose x, y or z */
+    wave_params.kx = n * 2.0 * M_PI / (NX * STEP);
     wave_params.ky = 0.0;
     wave_params.kz = 0.0;
     wave_params.a = 1.0E-3;
@@ -81,11 +85,11 @@ int main(int argc, char **argv) {
       dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
       dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
       grid3d_wf_density(gwf, density);
-      if(rgrid3d_value_at_index(density, N/2, N/2, N/2) > prev_val) {
+      if(rgrid3d_value_at_index(density, NX/2, NY/2, NZ/2) > prev_val) {
 	l--;
 	break;
       }
-      prev_val = rgrid3d_value_at_index(density, N/2, N/2, N/2);
+      prev_val = rgrid3d_value_at_index(density, NX/2, NY/2, NZ/2);
       fprintf(stderr, "One iteration = %lf wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
     }
     printf("%le %le\n", wave_params.kx / GRID_AUTOANG, (1.0 / ((2.0 * l * TS) * 1E-15)) * 3.335E-11 * 1.439);
