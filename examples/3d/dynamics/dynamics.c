@@ -22,9 +22,11 @@
 #define STEP 2.0
 #define NTH 100
 
+#define ABS_WIDTH 45.0      /* Absorbing boundary width */
+
 #define PRESSURE (1.0 / GRID_AUTOBAR)
 
-#define THREADS 16
+#define THREADS 0
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
@@ -109,7 +111,7 @@ int main(int argc, char **argv) {
 
   /* Step #2: Run real time simulation using the final state potential */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.5, 10.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 1.0, ABS_WIDTH);
   /* Generate the excited potential */
   offset = EXCITED_OFFSET;
   rgrid3d_map(ext_pot, pot_func, (void *) &offset);
