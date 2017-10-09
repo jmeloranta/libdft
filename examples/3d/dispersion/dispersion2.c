@@ -13,15 +13,15 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 128
-#define NY 64
-#define NZ 64
-#define STEP 0.4 /* Bohr */
+#define NX 512
+#define NY 128
+#define NZ 128
+#define STEP 0.2 /* Bohr */
 #define TS 10.0 /* fs */
 
-#define THREADS 16
+#define THREADS 0
 
-#define RHO0 (0.03 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
+#define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 

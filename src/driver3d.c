@@ -433,7 +433,7 @@ static double dft_driver_timestep_tmp2; /* argh... should be a parameter ...(1/2
 
 double complex dft_driver_itime_abs(cgrid3d *grid, long i, long j, long k) {
 
-  double x, y, z, tmp, bx, by, bz, c;
+  double x, y, z, tmp, bx, by, bz;
 
   // boundary position
   bx = driver_step * (driver_nx / 2) - driver_width;
@@ -2925,4 +2925,54 @@ EXPORT void dft_driver_clear_core(rgrid3d *grid, rgrid3d *density, double thr) {
 #pragma omp parallel for firstprivate(grid, density, thr) private(i) default(none) schedule(runtime)
   for(i = 0; i < grid->nx * grid->ny * grid->nz; i++)
     if(density->value[i] < thr) grid->value[i] = 0.0;
+}
+
+/*
+ * Calculate running average to smooth unwanted high freq. components.
+ *
+ * dest   = destination grid (rgrid3d *).
+ * source = source grid (rgrid3d *).
+ * npts   = number of points used in running average (int). This smooths over +-npts points (effectively 2 X npts).
+ *
+ * No return value.
+ *
+ * Note: dest and source cannot be the same array.
+ * 
+ */
+
+EXPORT void dft_driver_npoint_smooth(rgrid3d *dest, rgrid3d *source, int npts) {
+
+  long i, ip, j, jp, k, kp, nx = source->nx, ny = source->ny, nz = source->nz, pts, nynz = ny * nz;
+  long li, ui, lj, uj, lk, uk;
+  double ave;
+
+  if(npts < 2) {
+    rgrid3d_copy(dest, source);
+    return; /* nothing to do */
+  }
+  if(dest == source) {
+    fprintf(stderr, "libdft: dft_driver_npoint_smooth() - dest and source cannot be equal.\n");
+    exit(1);
+  }
+#pragma omp parallel for firstprivate(npts,nx,ny,nz,nynz,dest,source) private(i,j,k,ave,pts,li,lj,lk,ui,uj,uk,ip,jp,kp) default(none) schedule(runtime)
+  for (i = 0; i < nx; i++) 
+    for (j = 0; j < ny; j++) 
+      for (k = 0; k < nz; k++) {
+        ave = 0.0;
+        pts = 0;
+        if(i - npts < 0) li = 0; else li = i - npts;
+        if(j - npts < 0) lj = 0; else lj = j - npts;
+        if(k - npts < 0) lk = 0; else lk = k - npts;
+        if(i + npts > nx) ui = nx; else ui = i + npts;
+        if(j + npts > ny) uj = ny; else uj = j + npts;
+        if(k + npts > nz) uk = nz; else uk = k + npts;
+        for(ip = li; ip < ui; ip++)
+          for(jp = lj; jp < uj; jp++)
+            for(kp = lk; kp < uk; kp++) {
+              pts++;
+              ave += rgrid3d_value_at_index(source, ip, jp, kp);
+            }
+        ave /= (double) pts;
+        dest->value[i * nynz + j * nz + k] = ave;
+      }
 }
