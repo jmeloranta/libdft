@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS/10.0, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS/10.0, iter);
     if(!(iter % NTH)) {
-      sprintf(buf, "final-%ld", iter);
+      sprintf(buf, "soliton-%ld", iter);
       grid3d_wf_density(gwf, rworkspace);
 #ifdef SMOOTH
       dft_driver_npoint_smooth(rworkspace2, rworkspace, (int) (2.0 * LAMBDA_C / STEP));
