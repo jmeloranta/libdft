@@ -10,4 +10,4 @@ soliton.o: soliton.c
 	$(CC) $(CFLAGS) -c soliton.c
 
 clean:
-	-rm *.o soliton soliton.o output* *~
+	-rm *.o soliton soliton.o soliton-* *~

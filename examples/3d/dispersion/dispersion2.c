@@ -98,7 +98,6 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-
 double complex wave(void *arg, double x, double y, double z) {
 
   double kx = ((sWaveParams *) arg)->kx;

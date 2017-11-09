@@ -13,19 +13,19 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 20.0 /* fs */
-#define NX 4096
-#define NY 32
-#define NZ 32
-#define STEP 1.0
-#define NTH 1000
+#define TS 5.0 /* fs */
+#define NX 256
+#define NY 128
+#define NZ 128
+#define STEP 2.0
+#define NTH 100
 
 #define PRESSURE (1.0 / GRID_AUTOBAR)
 
-#define SMOOTH    /* by +-2 x LAMBDA_C */
+/* #define SMOOTH    /* by +-2 x LAMBDA_C */
 
 #define SOLITON_AMP (0.02)   /* 10% of bulk */
-#define SOLITON_N  30       /* width (in N * LAMBDA_C) */
+#define SOLITON_N  5       /* width (in N * LAMBDA_C) */
 #define LAMBDA_C (3.58 / GRID_AUTOANG)
 
 #define THREADS 0
@@ -91,8 +91,8 @@ int main(int argc, char **argv) {
   rgrid3d_constant(ext_pot, -mu0); /* Add the chemical potential */
 
   for (iter = 0; iter < 80000; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS/10.0, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS/10.0, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
     if(!(iter % NTH)) {
       sprintf(buf, "soliton-%ld", iter);
       grid3d_wf_density(gwf, rworkspace);

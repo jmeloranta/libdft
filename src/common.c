@@ -47,7 +47,7 @@ EXPORT inline double dft_common_lj_func(double r2, double sig, double eps) {
 }
 
 /*
- * Lennard-Jones potential to be used with grid map() routines (3D)x
+ * Lennard-Jones potential to be used with grid map() routines (3D)
  * Note that the LJ potential has zero core when r < h.
  *
  * The potential paramegers are passed in arg (ot_common_lh data type).
@@ -245,6 +245,10 @@ EXPORT inline double dft_common_gaussian_2d(void *arg, double z, double r) {
  *
  */
 
+/* Use brute force evaluation of the series or polynomial fits? */
+#define BRUTE_FORCE
+
+#ifndef BRUTE_FORCE
 /* Li_{1/2}(z) fit parameters */
 #define LENA 9
 static double A[LENA] = {-0.110646, 5.75395, 37.2433, 123.411, 228.972, 241.484, 143.839, 45.0107, 5.74587};
@@ -260,6 +264,7 @@ static double C[LENC] = {-0.00022908, 1.0032, 0.18414, 0.03958, -0.0024563, 0.05
 /* parameters for g_{3/2}(z) = \rho\lambda^3 */
 #define LEND 5
 static double D[LEND] = {5.913E-5, 0.99913, -0.35069, 0.053981, -0.0038613};
+#endif
 
 /*
  * Return thermal wavelength for a particle with mass "mass" at temperature
@@ -281,8 +286,26 @@ EXPORT inline double dft_common_lwl3(double mass, double temp) {
  *
  */
 
+#ifdef BRUTE_FORCE
+#define NTERMS 256
+static inline double dft_common_g(double z, double s) { /* Brute force approach - the polynomial fits are not very accurate... */
+
+  double val = 0.0, zk = 1.0;
+  int k;
+
+  for (k = 1; k <= NTERMS; k++) {
+    zk *= z;
+    val += zk / pow(k, s);
+  }
+  return val;
+}
+#endif
+
 EXPORT inline double dft_common_fit_g12(double z) {
 
+#ifdef BRUTE_FORCE
+  return dft_common_g(z, 1.0/2.0);
+#else
   int i;
   double rv = 0.0, e = 1.0;
 
@@ -296,6 +319,7 @@ EXPORT inline double dft_common_fit_g12(double z) {
   }
   if(z + 1.0 > 0.0 && rv < 0.0) rv = 0.0; /* small values may give wrong sign (is this still neded?) */
   return rv;
+#endif
 }
 
 /*
@@ -305,6 +329,9 @@ EXPORT inline double dft_common_fit_g12(double z) {
 
 EXPORT inline double dft_common_fit_g32(double z) {
 
+#ifdef BRUTE_FORCE
+  return dft_common_g(z, 3.0/2.0);
+#else
   int i;
   double rv = 0.0, e = 1.0;
 
@@ -314,6 +341,7 @@ EXPORT inline double dft_common_fit_g32(double z) {
     e *= z;
   }
   return rv;
+#endif
 }
 
 /*
@@ -323,6 +351,9 @@ EXPORT inline double dft_common_fit_g32(double z) {
 
 EXPORT inline double dft_common_fit_g52(double z) {
 
+#ifdef BRUTE_FORCE
+  return dft_common_g(z, 5.0/2.0);
+#else
   int i;
   double rv = 0.0, e = 1.0;
 
@@ -333,16 +364,44 @@ EXPORT inline double dft_common_fit_g52(double z) {
   }
   if(z < 1E-3) return 0.0;
   return rv;
+#endif
 }
-
 
 /*
  * Evaluate z(rho, T) (polylog). Invert g_{3/2}.
  *
  */
 
+#define STOP 1E-6
+#define GOLDEN ((sqrt(5.0) + 1.0) / 2.0)
+
 EXPORT inline double dft_common_fit_z(double val) {
 
+#ifdef BRUTE_FORCE
+  if(val >= dft_common_fit_g32(1.0)) return 1.0; /* g_{3/2}(1) */
+  /* Golden sectioning */
+  double a, b, c, d, fc, fd, tmp;
+
+  a = 0.0;
+  b = 1.0;
+
+  c = b - (b - a) / GOLDEN;
+  d = a + (b - a) / GOLDEN;
+
+  while (fabs(c - d) > STOP) {
+
+    tmp = val - dft_common_fit_g32(c);
+    fc = tmp * tmp;
+    tmp = val - dft_common_fit_g32(d);
+    fd = tmp * tmp;
+
+    if(fc < fd) b = d; else a = c;
+
+    c = b - (b - a) / GOLDEN;
+    d = a + (b - a) / GOLDEN;
+  }
+  return (b + a) / 2.0;       
+#else
   int i;
   double rv = 0.0, e = 1.0;
 
@@ -353,6 +412,7 @@ EXPORT inline double dft_common_fit_z(double val) {
   }
   if(rv <= 0.0) rv = 1E-6;
   return rv;
+#endif
 }
 
 /*
@@ -372,11 +432,11 @@ EXPORT void dft_common_idealgas_params(double temp, double mass, double c4) {
 }
 
 /*
- * Classical ideal gas. NVT free energy / volume (i.e., A/V, A = U - TS).
+ * Classical ideal gas. Free energy / volume derivative with respect to rho: d(A/V) / drho
  *
  */
 
-EXPORT double dft_common_classical_idealgas_op(double rhop) {   /* derivative of the energy */
+EXPORT double dft_common_classical_idealgas_dEdRho(double rhop) {
 
   double l3, val;
 
@@ -386,7 +446,12 @@ EXPORT double dft_common_classical_idealgas_op(double rhop) {   /* derivative of
   return val;
 }
 
-EXPORT double dft_common_classical_idealgas_energy_op(double rhop) {
+/*
+ * Classical ideal gas. NVT free energy / volume (i.e., A/V, A = U - TS).
+ *
+ */
+
+EXPORT double dft_common_classical_idealgas_energy(double rhop) {
 
   double l3;
 
@@ -394,9 +459,12 @@ EXPORT double dft_common_classical_idealgas_energy_op(double rhop) {
   return -rhop * GRID_AUKB * XXX_temp * (1.0 - log(rhop*l3 + 1E-6*EPS));
 }
 
-/* These routines are for bose gas with cutoff (1) */
+/*
+ * Ideal bose gas. NVT free energy / volume (i.e., A/V, A = U - TS).
+ *
+ */
 
-EXPORT double dft_common_idealgas_energy_op(double rhop) {
+EXPORT double dft_common_bose_idealgas_energy(double rhop) {
 
   double z, l3;
 
@@ -405,32 +473,32 @@ EXPORT double dft_common_idealgas_energy_op(double rhop) {
   return (XXX_c4 * GRID_AUKB * XXX_temp * (rhop * log(z) - dft_common_fit_g52(z) / l3));
 }
 
+/*
+ * Ideal bose gas. Derivative of energy / volume with respect to rho.
+ *
+ */
+
 /* Matches the difference of dft_common_idealgas_energy_op() */
 // #define USE_DIFFERENCE
 
-EXPORT double dft_common_idealgas_op(double rhop) {
+EXPORT double dft_common_bose_idealgas_dEdRho(double rhop) {
 
 #ifdef USE_DIFFERENCE
-#define DIFF_EPS 1E-4
-  return (dft_common_idealgas_energy_op(rhop + DIFF_EPS) - dft_common_idealgas_energy_op(rhop - DIFF_EPS)) / (2.0 * DIFF_EPS);
+#define DIFF_EPS 1E-12
+  return (dft_common_bose_idealgas_energy(rhop + DIFF_EPS) - dft_common_bose_idealgas_energy(rhop - DIFF_EPS)) / (2.0 * DIFF_EPS);
 #else
   double l3, z0, rl3, g12, g32;
   double tmp;
 
   l3 = dft_common_lwl3(XXX_mass, XXX_temp);
   rl3 = rhop * l3;
-  if(rl3 >= dft_common_fit_g32(1.0)) return 0.0;
+  tmp = dft_common_fit_g32(1.0);
+  if(rl3 >= tmp) return -XXX_c4 * GRID_AUKB * (XXX_temp / l3) * tmp;
   z0 = dft_common_fit_z(rl3);    /* check these fits */
   g12 = dft_common_fit_g12(z0);
   g32 = dft_common_fit_g32(z0);
 
-  /* note g12 may be zero too - avoid NaNs... */
-  tmp = XXX_c4 * GRID_AUKB * XXX_temp * (log(z0 + EPS) + rl3 / (g12 + EPS) - g32 / (g12 + EPS));
-  /* The above term is ill behaved at low densities */
-  if(fabs(tmp) > CUTOFF) {
-    if(tmp < 0.0) return -CUTOFF;
-    else return CUTOFF;
-  } else return tmp;
+  return XXX_c4 * GRID_AUKB * XXX_temp * (log(z0) + rl3 / g12 - g32 / g12);
 #endif
 }
 

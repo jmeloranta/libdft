@@ -455,11 +455,11 @@ static void dft_ot2d_add_nonlocal_correlation_potential_r(dft_ot_functional_2d *
   grid2d_add_real_to_complex_re(potential, workspace2);
 }
 
-/* local function */
+/* local function (potential) */
 static void dft_ot2d_add_ancilotto(dft_ot_functional_2d *otf, cgrid2d *potential, const rgrid2d *rho, rgrid2d *workspace1) {
 
   dft_common_idealgas_params(otf->temp, otf->mass, otf->c4);
-  rgrid2d_operate_one(workspace1, rho, dft_common_idealgas_op);
+  rgrid2d_operate_one(workspace1, rho, dft_common_bose_idealgas_dEdRho);
   grid2d_add_real_to_complex_re(potential, workspace1);
 }
 
@@ -544,7 +544,7 @@ EXPORT void dft_ot2d_energy_density(dft_ot_functional_2d *otf, rgrid2d *energy_d
   /* Ancilotto's contribution (thermal) */
   if(otf->model >= DFT_OT_T400MK) {
     dft_common_idealgas_params(otf->temp, otf->mass, otf->c4);
-    rgrid2d_operate_one(workspace1, density, dft_common_idealgas_energy_op);
+    rgrid2d_operate_one(workspace1, density, dft_common_bose_idealgas_energy);
     rgrid2d_sum(energy_density, energy_density, workspace1);
   }
   

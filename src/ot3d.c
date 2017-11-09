@@ -60,7 +60,7 @@ static inline double dft_ot3d_barranco_energy_op(double rhop) {
   return (XXX_C * (1.0 + tanh(XXX_beta * (rhop - XXX_rhom))) * rhop);
 }
 
-static inline double dft_ot_backflow_pot(void *arg, double x, double y, double z) {
+EXPORT double dft_ot_backflow_pot(void *arg, double x, double y, double z) {
 
   double g11 = ((dft_ot_bf *) arg)->g11;
   double g12 = ((dft_ot_bf *) arg)->g12;
@@ -561,11 +561,11 @@ static void dft_ot3d_add_nonlocal_correlation_potential_z(dft_ot_functional *otf
   grid3d_add_real_to_complex_re(potential, workspace2);
 }
 
-/* local function */
+/* local function (potential) */
 static void dft_ot3d_add_ancilotto(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *workspace1) {
 
   dft_common_idealgas_params(otf->temp, otf->mass, otf->c4);
-  rgrid3d_operate_one(workspace1, rho, dft_common_idealgas_op);
+  rgrid3d_operate_one(workspace1, rho, dft_common_bose_idealgas_dEdRho);
   grid3d_add_real_to_complex_re(potential, workspace1);
 }
 
@@ -654,7 +654,7 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
   /* Ideal gas contribution (thermal) */
   if(otf->model >= DFT_OT_T400MK && otf->model < DFT_GP) { /* do not add this for DR */
     dft_common_idealgas_params(otf->temp, otf->mass, otf->c4);
-    rgrid3d_operate_one(workspace1, density, dft_common_idealgas_energy_op);
+    rgrid3d_operate_one(workspace1, density, dft_common_bose_idealgas_energy);
     rgrid3d_sum(energy_density, energy_density, workspace1);
   }
   
@@ -963,7 +963,7 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, long model) {
     otf->c3_exp = 1.0;
     otf->c4 = 0.0;
     otf->temp = 0.0;
-    otf->rho0 = 0.0218360;
+    otf->rho0 = 0.0218360;    /* Angs^-3 */
     otf->lj_params.h = 2.377;    /* Angs */
   }
 
@@ -975,8 +975,8 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, long model) {
     otf->c3_exp = 3.0;
     otf->c4 = 0.0;
     otf->temp = 0.0;
-    otf->rho0 = 0.0218360;
-    otf->lj_params.h = 2.1903;
+    otf->rho0 = 0.0218360;     /* Angs^-3 */
+    otf->lj_params.h = 2.1903; /* Angs */
   }
 
   if(model & DFT_OT_T0MK) { /* 1 */

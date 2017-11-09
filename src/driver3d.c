@@ -39,6 +39,7 @@ static rgrid3d *density = 0, *workspace1 = 0, *workspace2 = 0, *workspace3 = 0, 
 static rgrid3d *workspace7 = 0, *workspace8 = 0, *workspace9 = 0;
 static cgrid3d *cworkspace = 0;
 static grid_timer timer;
+int dft_driver_verbose = 1;   /* set to zero to eliminate informative print outs */
 
 int dft_internal_using_3d = 0;
 extern int dft_internal_using_2d, dft_internal_using_cyl;
@@ -140,6 +141,10 @@ inline static void scale_wf(long what, wf3d *gwf) {
     grid3d_wf_normalize(gwf);
     cgrid3d_multiply(gwf->grid, sqrt((double) driver_nhe));
     break;
+  case DFT_DRIVER_NORMALIZE_N:
+    grid3d_wf_normalize(gwf);
+    cgrid3d_multiply(gwf->grid, sqrt((double) driver_nhe));
+    break;    
   case DFT_DRIVER_DONT_NORMALIZE:
     break;
   default:
@@ -158,10 +163,11 @@ inline static void scale_wf(long what, wf3d *gwf) {
 EXPORT void dft_driver_read_wisdom(char *file) {
 
   /* Attempt to use wisdom (FFTW) from previous runs */
-  if(fftw_import_wisdom_from_filename(file) == 1)
-    fprintf(stderr, "libdft: Using wisdom stored in %s.\n", file);
-  else
-    fprintf(stderr, "libdft: No existing wisdom file.\n");
+  if(fftw_import_wisdom_from_filename(file) == 1) {
+    if(dft_driver_verbose) fprintf(stderr, "libdft: Using wisdom stored in %s.\n", file);
+  } else {
+    if(dft_driver_verbose) fprintf(stderr, "libdft: No existing wisdom file.\n");
+  }
 }
 
 /*
@@ -184,44 +190,52 @@ EXPORT void dft_driver_write_wisdom(char *file) {
  *
  */
 
-static int been_here = 0;
-
 EXPORT void dft_driver_initialize() {
 
   check_mode();
 
-  if(!been_here) {
-    if(driver_nx == 0) {
-      fprintf(stderr, "libdft: dft_driver not properly initialized.\n");
-      exit(1);
-    }
-    grid_timer_start(&timer);
-    grid_threads_init(driver_threads);
-    dft_driver_read_wisdom("fftw.wis");
-    workspace1 = dft_driver_alloc_rgrid();
-    workspace2 = dft_driver_alloc_rgrid();
-    workspace3 = dft_driver_alloc_rgrid();
-    workspace4 = dft_driver_alloc_rgrid();
-    workspace5 = dft_driver_alloc_rgrid();
-    workspace6 = dft_driver_alloc_rgrid();
-    workspace7 = dft_driver_alloc_rgrid();
-    if(driver_dft_model & DFT_OT_BACKFLOW) {
-      workspace8 = dft_driver_alloc_rgrid();
-      workspace9 = dft_driver_alloc_rgrid();
-    }
-    density = dft_driver_alloc_rgrid();
-    dft_driver_otf = dft_ot3d_alloc(driver_dft_model, driver_nx, driver_ny, driver_nz, driver_step, driver_bc, MIN_SUBSTEPS, MAX_SUBSTEPS);
-    if(driver_rho0 == 0.0) {
-      fprintf(stderr, "libdft: Setting driver_rho0 to %le\n", dft_driver_otf->rho0);
-      driver_rho0 = dft_driver_otf->rho0;
-    } else {
-      fprintf(stderr, "libdft: Overwritting dft_driver_otf->rho0 to %le\n", driver_rho0);
-      dft_driver_otf->rho0 = driver_rho0;
-    }
-    fprintf(stderr, "libdft: rho0 = %le Angs^-3.\n", driver_rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
-    been_here = 1;
-    fprintf(stderr, "libdft: %lf wall clock seconds for initialization.\n", grid_timer_wall_clock_time(&timer));
+  if(driver_nx == 0) {
+    fprintf(stderr, "libdft: dft_driver not properly initialized.\n");
+    exit(1);
   }
+
+  if(workspace1) rgrid3d_free(workspace1);
+  if(workspace2) rgrid3d_free(workspace2);
+  if(workspace3) rgrid3d_free(workspace3);
+  if(workspace4) rgrid3d_free(workspace4);
+  if(workspace5) rgrid3d_free(workspace5);
+  if(workspace6) rgrid3d_free(workspace6);
+  if(workspace7) rgrid3d_free(workspace7);
+  if(workspace8) rgrid3d_free(workspace8);
+  if(workspace9) rgrid3d_free(workspace9);
+  if(density) rgrid3d_free(density);
+  if(dft_driver_otf) dft_ot3d_free(dft_driver_otf);
+
+  grid_timer_start(&timer);
+  grid_threads_init(driver_threads);
+  dft_driver_read_wisdom("fftw.wis");
+  workspace1 = dft_driver_alloc_rgrid();
+  workspace2 = dft_driver_alloc_rgrid();
+  workspace3 = dft_driver_alloc_rgrid();
+  workspace4 = dft_driver_alloc_rgrid();
+  workspace5 = dft_driver_alloc_rgrid();
+  workspace6 = dft_driver_alloc_rgrid();
+  workspace7 = dft_driver_alloc_rgrid();
+  if(driver_dft_model & DFT_OT_BACKFLOW) {
+    workspace8 = dft_driver_alloc_rgrid();
+    workspace9 = dft_driver_alloc_rgrid();
+  }
+  density = dft_driver_alloc_rgrid();
+  dft_driver_otf = dft_ot3d_alloc(driver_dft_model, driver_nx, driver_ny, driver_nz, driver_step, driver_bc, MIN_SUBSTEPS, MAX_SUBSTEPS);
+  if(driver_rho0 == 0.0) {
+    if(dft_driver_verbose) fprintf(stderr, "libdft: Setting driver_rho0 to %le\n", dft_driver_otf->rho0);
+    driver_rho0 = dft_driver_otf->rho0;
+  } else {
+    if(dft_driver_verbose) fprintf(stderr, "libdft: Overwritting dft_driver_otf->rho0 to %le\n", driver_rho0);
+    dft_driver_otf->rho0 = driver_rho0;
+  }
+  if(dft_driver_verbose) fprintf(stderr, "libdft: rho0 = %le Angs^-3.\n", driver_rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+  if(dft_driver_verbose) fprintf(stderr, "libdft: %lf wall clock seconds for initialization.\n", grid_timer_wall_clock_time(&timer));
 }
 
 /*
@@ -251,7 +265,7 @@ EXPORT void dft_driver_setup_grid(long nx, long ny, long nz, double step, long t
   driver_nz = nz;
   driver_step = step;
   // Set the origin to its default value if it is not defined
-  fprintf(stderr, "libdft: Grid size = (%ld,%ld,%ld) with step = %le.\n", nx, ny, nz, step);
+  if(dft_driver_verbose) fprintf(stderr, "libdft: Grid size = (%ld,%ld,%ld) with step = %le.\n", nx, ny, nz, step);
   driver_threads = threads;
 }
 
@@ -270,7 +284,7 @@ EXPORT void dft_driver_setup_origin(double x0, double y0, double z0) {
   driver_x0 = x0;
   driver_y0 = y0;
   driver_z0 = z0;
-  fprintf(stderr, "libdft: Origin of coordinates set at (%le,%le,%le)\n", x0, y0, z0);
+  if(dft_driver_verbose) fprintf(stderr, "libdft: Origin of coordinates set at (%le,%le,%le)\n", x0, y0, z0);
 }
 
 /*
@@ -288,7 +302,7 @@ EXPORT void dft_driver_setup_momentum(double kx0, double ky0, double kz0) {
   driver_kx0 = kx0;
   driver_ky0 = ky0;
   driver_kz0 = kz0;
-  fprintf(stderr, "libdft: Frame of reference momentum = (%le,%le,%le)\n", kx0, ky0, kz0);
+  if(dft_driver_verbose) fprintf(stderr, "libdft: Frame of reference momentum = (%le,%le,%le)\n", kx0, ky0, kz0);
 }
 
 /*
@@ -306,7 +320,7 @@ EXPORT void dft_driver_setup_viscosity(double visc, double alpha) {
 
   viscosity = (visc / GRID_AUTOPAS);
   viscosity_alpha = alpha;
-  fprintf(stderr, "libdft: Effective viscosity set to %le a.u, alpha = %le.\n", visc / GRID_AUTOPAS, alpha);
+  if(dft_driver_verbose) fprintf(stderr, "libdft: Effective viscosity set to %le a.u, alpha = %le.\n", visc / GRID_AUTOPAS, alpha);
 }
 
 /*
@@ -322,15 +336,18 @@ EXPORT void dft_driver_setup_viscosity(double visc, double alpha) {
  *
  */
 
+static int bh = 0;
+
 EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) {
 
   check_mode();
 
   driver_dft_model = dft_model;
   driver_iter_mode = iter_mode;
-  fprintf(stderr, "libdft: %s time calculation.\n", iter_mode?"imaginary":"real");
-  if(been_here) fprintf(stderr,"libdft: WARNING -- Overwritting driver_rho0 to %le\n", rho0);
+  if(dft_driver_verbose) fprintf(stderr, "libdft: %s time calculation.\n", iter_mode?"imaginary":"real");
+  if(bh && dft_driver_verbose) fprintf(stderr,"libdft: WARNING -- Overwritting driver_rho0 to %le\n", rho0);
   driver_rho0 = rho0;
+  bh = 1;
 }
 
 /*
@@ -355,7 +372,7 @@ EXPORT void dft_driver_setup_boundary_type(long boundary_type, double damp, doub
 
   driver_boundary_type = boundary_type;
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME) {
-    fprintf(stderr, "libdft: ITIME absorbing boundary implies CN_NBC or CN_NBC_ROT propagator.\n");
+    if(dft_driver_verbose) fprintf(stderr, "libdft: ITIME absorbing boundary implies CN_NBC or CN_NBC_ROT propagator.\n");
     if(dft_driver_kinetic != DFT_DRIVER_KINETIC_CN_NBC_ROT)
       dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
   }
@@ -417,7 +434,7 @@ EXPORT void dft_driver_setup_rotation_omega(double omega) {
 
   driver_omega = omega;
   dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC_ROT;
-  fprintf(stderr, "libdft: Using CN for kinetic energy propagation. Set BC to Neumann to also evaluate kinetic energy using CN.\n");
+  if(dft_driver_verbose) fprintf(stderr, "libdft: Using CN for kinetic energy propagation. Set BC to Neumann to also evaluate kinetic energy using CN.\n");
 }
 
 /*
@@ -742,13 +759,13 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
   }
 
   if(!iter && driver_iter_mode == DFT_DRIVER_IMAG_TIME && what < DFT_DRIVER_PROPAGATE_OTHER && dft_driver_init_wavefunction == 1) {
-    fprintf(stderr, "libdft: first imag. time iteration - initializing the wavefunction.\n");
+    if(dft_driver_verbose) fprintf(stderr, "libdft: first imag. time iteration - initializing the wavefunction.\n");
     grid3d_wf_constant(gwf, sqrt(dft_driver_otf->rho0));
   }
 
   /* droplet & column center release */
   if(driver_rels && iter > driver_rels && driver_norm_type > 0 && what < DFT_DRIVER_PROPAGATE_OTHER) {
-    if(!center_release) fprintf(stderr, "libdft: center release activated.\n");
+    if(!center_release && dft_driver_verbose) fprintf(stderr, "libdft: center release activated.\n");
     center_release = 1;
   } else center_release = 0;
 
@@ -758,7 +775,7 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
   case DFT_DRIVER_PROPAGATE_HELIUM:
     dft_driver_ot_potential(gwf, potential);
     if(viscosity != 0.0) {
-      fprintf(stderr, "libdft: Including viscous potential.\n");
+      if(dft_driver_verbose) fprintf(stderr, "libdft: Including viscous potential.\n");
       dft_driver_viscous_potential(gwf, potential);
     }
     break;
@@ -773,7 +790,7 @@ EXPORT inline void dft_driver_propagate_predict(long what, rgrid3d *ext_pot, wf3
 
   cgrid3d_copy(gwfp->grid, gwf->grid);
   dft_driver_propagate_potential(what, gwfp, potential, tstep);
-  fprintf(stderr, "libdft: Predict step %le wall clock seconds (iter = %ld).\n", grid_timer_wall_clock_time(&timer), iter);
+  if(dft_driver_verbose) fprintf(stderr, "libdft: Predict step %le wall clock seconds (iter = %ld).\n", grid_timer_wall_clock_time(&timer), iter);
   fflush(stderr);
 }
 
@@ -805,7 +822,7 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
   case DFT_DRIVER_PROPAGATE_HELIUM:
     dft_driver_ot_potential(gwfp, potential);
     if(viscosity != 0.0) {
-      fprintf(stderr, "libdft: Including viscous potential.\n");
+      if(dft_driver_verbose) fprintf(stderr, "libdft: Including viscous potential.\n");
       dft_driver_viscous_potential(gwfp, potential);
     }
     break;
@@ -820,7 +837,7 @@ EXPORT inline void dft_driver_propagate_correct(long what, rgrid3d *ext_pot, wf3
   cgrid3d_multiply(potential, 0.5);
   dft_driver_propagate_potential(what, gwf, potential, tstep);
   dft_driver_propagate_kinetic_second(what, gwf, tstep);
-  fprintf(stderr, "libdft: Correct step %le wall clock seconds (iter = %ld).\n", grid_timer_wall_clock_time(&timer), iter);
+  if(dft_driver_verbose) fprintf(stderr, "libdft: Correct step %le wall clock seconds (iter = %ld).\n", grid_timer_wall_clock_time(&timer), iter);
   fflush(stderr);
 }
 
@@ -1137,7 +1154,7 @@ EXPORT void dft_driver_write_density(rgrid3d *grid, char *base) {
     fprintf(fp, "%le %le\n", z, rgrid3d_value_at_index(grid, i, j, k));
   }
   fclose(fp);
-  fprintf(stderr, "libdft: Density written to %s.\n", file);
+  if(dft_driver_verbose) fprintf(stderr, "libdft: Density written to %s.\n", file);
 }
 
 /*
@@ -1224,7 +1241,7 @@ EXPORT void dft_driver_write_phase(wf3d *wf, char *base) {
     fprintf(fp, "%le %le\n", z, rgrid3d_value_at_index(phase, i, j, k));
   }
   fclose(fp);
-  fprintf(stderr, "libdft: Density written to %s.\n", file);
+  if(dft_driver_verbose) fprintf(stderr, "libdft: Density written to %s.\n", file);
   rgrid3d_free(phase);
 }
 
@@ -1372,8 +1389,7 @@ EXPORT void dft_driver_write_vectorfield(rgrid3d *px, rgrid3d *py, rgrid3d *pz, 
   }
   fclose(fp);
   
-  fprintf(stderr, "libdft: vector 2D slices of density written to %s.\n", file);
-  
+  if(dft_driver_verbose) fprintf(stderr, "libdft: vector 2D slices of density written to %s.\n", file);
 }
 
 /*
@@ -2975,4 +2991,39 @@ EXPORT void dft_driver_npoint_smooth(rgrid3d *dest, rgrid3d *source, int npts) {
         ave /= (double) pts;
         dest->value[i * nynz + j * nz + k] = ave;
       }
+}
+
+/*
+ * Allow outside access to workspaces.
+ *
+ * w = workspace # requested (int; input).
+ *
+ * Return value: Pointer to the workspace (rgrid3d *) or NULL if invalid workspace number requested.
+ *
+ */
+
+EXPORT rgrid3d *dft_driver_get_workspace(int w) {
+
+  if (w < 1 || w > 10) return NULL;
+  switch(w) {
+    case 1:
+      return workspace1;
+    case 2:
+      return workspace2;
+    case 3:
+      return workspace3;
+    case 4:
+      return workspace4;
+    case 5:
+      return workspace5;
+    case 6:
+      return workspace6;
+    case 7:
+      return workspace7;
+    case 8:
+      return workspace8;
+    case 9:
+      return workspace9;
+   }
+   return NULL;
 }
