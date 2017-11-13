@@ -443,9 +443,9 @@ EXPORT double dft_ot_bulk_dispersion(dft_ot_functional *otf, double *k, double r
   pi = ft_pi(otf, tk);
 
   tmp = HBAR * HBAR * tk * tk / otf->mass;
-  ikai = fabs(tmp / 4.0 + rho0 * lj 
+  ikai = tmp / 4.0 + rho0 * lj 
     + otf->c2 * (2.0 * pi + pi * pi) * rho0 * rho0 
-    + 2.0 * otf->c3 * (pi + pi * pi) * rho0 * rho0 * rho0);   // absolute value -> discard minus
+    + 2.0 * otf->c3 * (pi + pi * pi) * rho0 * rho0 * rho0;
   if(otf->model & DFT_OT_KC)
     ikai += -(tmp/2.0) * otf->alpha_s * rho0 * (1.0 - rho0 / otf->rho_0s) * (1.0 - rho0 / otf->rho_0s) 
            * exp(-tk * tk * otf->l_g * otf->l_g / 4.0);
@@ -465,19 +465,26 @@ EXPORT double dft_ot_bulk_dispersion(dft_ot_functional *otf, double *k, double r
  *
  * Returns -1/X(q)
  * 
- * TODO
  */
 
-#define BNX 256
-#define BSTEP 0.2
+EXPORT double dft_ot_bulk_istatic(dft_ot_functional *otf, double *k, double rho0) {
 
-EXPORT double dft_ot_bulk_istatic(dft_ot_functional *otf, double q) {
+  double lj, pi, ikai, tk;
 
-  rgrid1d *Vq, *Piq;
+  if(rho0 < 0.0) return 0.0;
+  tk = *k;
+  if(tk < 1E-2) return tk = 1E-2;
+  lj = ft_lj(otf, tk);
+  pi = ft_pi(otf, tk);
 
-  Vq = rgrid1d_alloc(BNX, BSTEP, RGRID1D_PERIODIC_BOUNDARY, NULL);
-  Piq = rgrid1d_alloc(BNX, BSTEP, RGRID1D_PERIODIC_BOUNDARY, NULL);
+  ikai = HBAR * HBAR * tk * tk / (4.0 * otf->mass) + rho0 * lj 
+    + otf->c2 * (2.0 * pi + pi * pi) * rho0 * rho0 
+    + 2.0 * otf->c3 * (pi + pi * pi) * rho0 * rho0 * rho0;
+  if(otf->model & DFT_OT_KC)
+    ikai += -(HBAR * HBAR / (2.0 * otf->mass)) * otf->alpha_s * rho0 * (1.0 - rho0 / otf->rho_0s) * (1.0 - rho0 / otf->rho_0s) 
+           * exp(-tk * tk * otf->l_g * otf->l_g / 4.0);
 
+  return ikai;
 }
 
 /*

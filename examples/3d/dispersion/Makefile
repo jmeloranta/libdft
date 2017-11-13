@@ -1,6 +1,6 @@
 include ../../../make.conf
 
-all: dispersion dispersion2 dispersion3
+all: dispersion dispersion2 dispersion3 static-resp
 
 dispersion: dispersion.o
 	$(CC) $(CFLAGS) -o dispersion dispersion.o $(LDFLAGS)
@@ -20,6 +20,11 @@ dispersion3: dispersion3.o
 dispersion3.o: dispersion3.c
 	$(CC) $(CFLAGS) -c dispersion3.c
 
+static-resp.o: static-resp.c
+	$(CC) $(CFLAGS) -c static-resp.c
+
+static-resp: static-resp.o
+	$(CC) $(CFLAGS) -o static-resp static-resp.o $(LDFLAGS)
 
 clean:
-	-rm *.o dispersion dispersion.o dispersion2 dispersion2.o *~
+	-rm *.o dispersion dispersion.o dispersion2 dispersion2.o static-resp static-resp.o *~
