@@ -213,10 +213,10 @@ int main(int argc, char *argv[]) {
     dft_common_idealgas_params(BUBBLE_TEMP, HELIUM_MASS, 1.0);
 #ifdef BUBBLE_BOSE
     fprintf(stderr, "Bose gas.\n");
-    rgrid3d_operate_one(current, density, dft_common_idealgas_op);   /* bose gas */
+    rgrid3d_operate_one(current, density, dft_common_bose_idealgas_dEdRho);   /* bose gas */
 #else
     fprintf(stderr, "Ideal gas.\n");
-    rgrid3d_operate_one(current, density, dft_common_classical_idealgas_op); /* classical gas */
+    rgrid3d_operate_one(current, density, dft_common_classical_idealgas_dEdRho); /* classical gas */
 #endif
     rgrid3d_sum(ext_pot, ext_pot, current);
 #ifndef BUBBLE_SKIP

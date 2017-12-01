@@ -1,10 +1,16 @@
 /*
- * Impurity atom in superfluid helium (no zero-point).
- * Optimize the liquid structure around a given initial
- * potential and then run dynamics on a given final potential.
+ * Shock wave propagation in superfluid helium.
  *
  * All input in a.u. except the time step, which is fs.
  *
+ * The initial condition for the shock is given by:
+ *
+ * \psi(z, 0) = \sqrt(\rho_0) if |z| > w
+ * or
+ * \psi(z, 0) = \sqrt(\rho_0 + \Delta)\exp(-(v_z/m_He)(z + w) / \hbar)
+ *
+ * where \Delta is the shock amplitude and v_z is the shock velocity
+ * (discontinuity in both density and velocity)
  */
 
 #include <stdlib.h>
@@ -17,49 +23,58 @@
 
 #define MAXITER 160000
 #define TS 10.0 /* fs */
-#define OUTPUT 1000
+#define OUTPUT 100
+
+#define DELTA (0.05 * rho0)
+#define W 30.0
+#define VZ (230.0 / GRID_AUTOMPS)
+#define KZ (HELIUM_MASS * VZ / HBAR)
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar */
-
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
 #define FUNC (DFT_OT_PLAIN)
 //#define FUNC (DFT_OT_PLAIN | DFT_OT_KC)
 #define NX 64
 #define NY 64
-#define NZ 4096
+#define NZ 1024
 #define STEP 1.0
 
-#define WIDTH (10.0 / 0.529)
-#define AMP (0.0219 * 0.529 * 0.529 * 0.529)
-#define SLAB 50.0
+struct params {
+  double delta;
+  double rho0;
+  double w;
+  double vz;
+};
 
 double complex gauss(void *arg, double x, double y, double z) {
 
-  double inv_width = *((double *) arg), c = 0.0;
-  double norm = 0.5 * M_2_SQRTPI * inv_width;
+  double delta = ((struct params *) arg)->delta;
+  double rho0 = ((struct params *) arg)->rho0;
+  double w = ((struct params *) arg)->w;
+  double vz = ((struct params *) arg)->vz;
 
-  // remove norm *  -- AMP * rho0 gives directly the amplitude
-  //  if(z > SLAB) c = 10.0;
-  //else if(z < -SLAB) c = -10.0;
-  //else return 1.0;
-  return norm * cexp(-(z - c) * (z - c) * inv_width * inv_width);
+//  if(fabs(z) < w) return sqrt(rho0 + delta) * cexp(I * (vz / HELIUM_MASS) * (z + w) / HBAR);
+  if(fabs(z) < w) return sqrt(rho0 + delta);
+  else return sqrt(rho0);
 }
 
 int main(int argc, char **argv) {
 
+  struct params sparams;
   rgrid3d *ext_pot, *rworkspace;
   cgrid3d *potential_store;
   wf3d *gwf, *gwfp;
   long iter;
-  double inv_width, rho0, mu0;
+  double rho0, mu0;
   char buf[512];
 
   fprintf(stderr, "Time step = %le fs.\n", TS);
-  fprintf(stderr, "Gaussian width = %le, amplitude = %le.\n", WIDTH, AMP);
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 0 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
+  /* Setup frame of reference momentum */
+  dft_driver_setup_momentum(0.0, 0.0, KZ);
   dft_driver_setup_model(FUNC, DFT_DRIVER_REAL_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0);
@@ -83,12 +98,11 @@ int main(int argc, char **argv) {
   rgrid3d_zero(ext_pot);
   rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
 
-  inv_width = 1.0 / WIDTH;
-  cgrid3d_map(gwf->grid, gauss, &inv_width);  
-  cgrid3d_multiply(gwf->grid, AMP - rho0);
-  cgrid3d_add(gwf->grid, rho0);
-  printf("Gaussian max density = %le Angs^-3.\n", AMP / (0.520 * 0.529 * 0.529));
-  cgrid3d_power(gwf->grid, gwf->grid, 0.5);
+  sparams.delta = DELTA;
+  sparams.rho0 = rho0;
+  sparams.w = W;
+  sparams.vz = VZ;
+  cgrid3d_map(gwf->grid, gauss, (void *) &sparams);  
   
   //dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
 
