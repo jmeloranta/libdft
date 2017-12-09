@@ -2342,6 +2342,66 @@ EXPORT void dft_driver_P(wf3d *wf, double *px, double *py, double *pz) {
 }
 
 /*
+ * Evaluate liquid momentum according to:
+ * $\int\rho\v_idr$ where $i = x$.
+ *
+ * wf = Order parameter for evaluation (wf3d *; input).
+ *
+ * Returns px (momentum along x).
+ *
+ */
+
+EXPORT double dft_driver_Px(wf3d *wf) {
+
+  check_mode();
+
+  grid3d_wf_probability_flux_x(wf, workspace1);
+  rgrid3d_multiply(workspace1, wf->mass);
+
+  return rgrid3d_integral(workspace1);
+}
+
+/*
+ * Evaluate liquid momentum according to:
+ * $\int\rho\v_idr$ where $i = y$.
+ *
+ * wf = Order parameter for evaluation (wf3d *; input).
+ *
+ * Returns py (momentum along y).
+ *
+ */
+
+EXPORT double dft_driver_Py(wf3d *wf) {
+
+  check_mode();
+
+  grid3d_wf_probability_flux_y(wf, workspace1);
+  rgrid3d_multiply(workspace1, wf->mass);
+
+  return rgrid3d_integral(workspace1);
+}
+
+/*
+ * Evaluate liquid momentum according to:
+ * $\int\rho\v_idr$ where $i = z$.
+ *
+ * wf = Order parameter for evaluation (wf3d *; input).
+ *
+ * Returns pz (momentum along z).
+ *
+ */
+
+EXPORT double dft_driver_Pz(wf3d *wf) {
+
+  check_mode();
+
+  grid3d_wf_probability_flux_z(wf, workspace1);
+  rgrid3d_multiply(workspace1, wf->mass);
+
+  return rgrid3d_integral(workspace1);
+}
+
+/*
  * Evaluate liquid kinetic energy according to:
  * $\frac{1}{2}m_{He}\int\rho v^2dr$
  *

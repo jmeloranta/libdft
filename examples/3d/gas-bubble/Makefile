@@ -1,12 +1,19 @@
 include ../../../make.conf
 
-all: bubble
+all: bubble bubble2
 
 bubble: bubble.o
 	        $(CC) $(CFLAGS) -o bubble bubble.o $(LDFLAGS) 
 
 bubble.o: bubble.c
 	        $(CC) $(CFLAGS) -c bubble.c
+
+bubble2: bubble2.o
+	        $(CC) $(CFLAGS) -o bubble2 bubble2.o $(LDFLAGS) 
+
+bubble2.o: bubble2.c
+	        $(CC) $(CFLAGS) -c bubble2.c
+
 clean:
-	-rm bubble *.[oxyz] *.grd *.xy *.zx *.yz
+	-rm bubble bubble2 *.[oxyz] *.grd *.x *.y *.z
 
