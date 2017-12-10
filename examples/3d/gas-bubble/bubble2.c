@@ -49,7 +49,7 @@
 
 /* velocity components for the gas (m/s) */
 #define VX	(0.1 / GRID_AUTOMPS)
-#define ACC     ((150.0 / GRID_AUTOMPS) / (1E-11 / GRID_AUTOS))
+#define ACC     ((150.0 / GRID_AUTOMPS) / (1E-12 / GRID_AUTOS))
 
 double global_time, rho0;
 
@@ -183,14 +183,14 @@ int main(int argc, char *argv[]) {
 #endif
     }
     
-    if(iter & !(iter % OUTPUT)) prev_mom = dft_driver_Px(gwf);
+    if(!(iter % OUTPUT)) prev_mom = dft_driver_Px(gwf);
 
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, time_step, iter); /* PREDICT */ 
     (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, time_step, iter); /* CORRECT */ 
     
-    if(iter & !(iter % OUTPUT)) cur_mom = dft_driver_Px(gwf);
+    if(!(iter % OUTPUT)) cur_mom = dft_driver_Px(gwf);
 
-    if(iter & !(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
+    if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       double vx = velocity(time_step * (double) (iter - STARTING_ITER + 1));
       /* Helium energy */
       kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
@@ -212,7 +212,7 @@ int main(int argc, char *argv[]) {
       sprintf(filename, "liquid-%ld", iter);              
       dft_driver_write_grid(gwf->grid, filename);
       grid3d_wf_density(gwf, density);                     /* Density from gwf */
-      Fd1 = rgrid3d_weighted_integral(density, dpot_func, NULL);
+      Fd1 = -rgrid3d_weighted_integral(density, dpot_func, NULL);
       Fd2 = (cur_mom - prev_mom) / (time_step / GRID_AUTOFS);
       printf("Drag force1 = %le (au).\n", Fd1);
       printf("Drag force2 = %le (au).\n", Fd2);
