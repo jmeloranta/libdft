@@ -2356,9 +2356,8 @@ EXPORT double dft_driver_Px(wf3d *wf) {
   check_mode();
 
   grid3d_wf_probability_flux_x(wf, workspace1);
-  rgrid3d_multiply(workspace1, wf->mass);
 
-  return rgrid3d_integral(workspace1);
+  return wf->mass * rgrid3d_integral(workspace1);
 }
 
 /*
