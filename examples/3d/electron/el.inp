@@ -1,6 +1,6 @@
 threads = 0
-grid = 512 512 512
-gstep = 0.5
+grid = 256 256 256
+gstep = 1.0
 timestep = 100
 timestep_el = 0.01
 iter = 10000
