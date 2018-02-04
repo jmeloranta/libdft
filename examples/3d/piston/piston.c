@@ -14,16 +14,17 @@
 #include <dft/ot.h>
 
 #define TS 5.0 /* fs */
-#define NX 256       /* simulation box size */
-#define NY 128
-#define NZ 128
-#define STEP 2.0     /* spatial grid step */
+#define NX 1024       /* simulation box size */
+#define NY 256
+#define NZ 256
+#define STEP 1.0     /* spatial grid step */
 #define MAXITER 80000 /* maximum iterations */
 #define INITIAL 400   /* Initial imaginary iterations */
 #define NTH 100      /* output every NTH real time iterations */
 #define THREADS 0    /* 0 = use all cores */
 
-#define PISTON_VELOC (400.0 / GRID_AUTOMPS)
+#define PISTON_VELOC (230.0 / GRID_AUTOMPS)   /* m/s */
+#define PISTON_DIST  20.0     /* Bohr */
 
 #define PRESSURE (1.0 / GRID_AUTOBAR)
 
@@ -133,10 +134,12 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
     /* Move potential */
-    piston_pos = piston(iter * TS / GRID_AUTOFS);
-    rgrid3d_map(ext_pot, pot_func, NULL);
-    rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
-    /* end move */
+    if(piston_pos < PISTON_DIST) {
+      piston_pos = piston(iter * TS / GRID_AUTOFS);
+      rgrid3d_map(ext_pot, pot_func, NULL);
+      rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
+      /* end move */
+    }
     if(!(iter % NTH)) {
       sprintf(buf, "piston-%ld", iter);
       grid3d_wf_density(gwf, rworkspace);

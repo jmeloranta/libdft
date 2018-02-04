@@ -48,7 +48,7 @@
 #define RADD 6.0
 
 /* velocity components for the gas (m/s) */
-#define VX	(200.0 / GRID_AUTOMPS)
+#define VX	(80.0 / GRID_AUTOMPS)
 
 double global_time, rho0;
 
@@ -108,10 +108,10 @@ int main(int argc, char *argv[]) {
 
   wf3d *gwf, *gwfp;
   cgrid3d *cworkspace;
-  rgrid3d *ext_pot, *density;
+  rgrid3d *ext_pot;
   long iter;
   char filename[2048];
-  double vx, mu0;
+  double vx, mu0, kx;
   FILE *fp;
   
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
@@ -148,7 +148,6 @@ int main(int argc, char *argv[]) {
 
   cworkspace = dft_driver_alloc_cgrid();             /* allocate complex workspace */
   ext_pot = dft_driver_alloc_rgrid();                /* allocate real external potential grid */
-  density = dft_driver_alloc_rgrid();                /* allocate real density grid */
   
   fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (au)\n", vx, 0.0, 0.0);
@@ -180,38 +179,37 @@ int main(int argc, char *argv[]) {
   fprintf(fp, "%le\n", RADD);
   fclose(fp);
 
-  for(iter = 0; iter < MAXITER; iter++) {
-    double time_step;
-    
-    if(iter < STARTING_ITER) {
-      dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, rho0);  /* imag time */
-      fprintf(stderr, "Imag time mode.\n");
-      time_step = TIME_STEP;
-    } else {
-      double kx = momentum(vx);
-      dft_driver_setup_momentum(kx, 0.0, 0.0);
-      cgrid3d_set_momentum(gwf->grid, kx, 0.0, 0.0);
-      cgrid3d_set_momentum(gwfp->grid, kx, 0.0, 0.0);
-      cgrid3d_set_momentum(cworkspace, kx, 0.0, 0.0);
-      dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH);
-      fprintf(stderr, "Absorption begins at %le Bohr from the boundary\n",  ABS_WIDTH);
-      dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* real time */
-      time_step = TIME_STEP / 5.0;
-      fprintf(stderr, "Real time mode.\n");
-      /* viscosity */
+  /* Imaginary iterations */
+  fprintf(stderr, "Imag time mode.\n");
+  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, rho0);  /* imag time */
+  for(iter = 0; iter < STARTING_ITER; iter++) {
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+  }
+
+  /* Real time iterations */
+  kx = momentum(vx);
+  dft_driver_setup_momentum(kx, 0.0, 0.0);
+  cgrid3d_set_momentum(gwf->grid, kx, 0.0, 0.0);
+  cgrid3d_set_momentum(gwfp->grid, kx, 0.0, 0.0);
+  cgrid3d_set_momentum(cworkspace, kx, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH);
+  fprintf(stderr, "Absorption begins at %le Bohr from the boundary\n",  ABS_WIDTH);
+  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* real time */
+  fprintf(stderr, "Real time mode with time step %le fs.\n", TIME_STEP / 5.0);
+  /* viscosity */
 #ifdef VISCOSITY
-      fprintf(stderr,"Viscosity using precomputed alpha. with T = %le\n", TEMP);
-      dft_driver_setup_viscosity(VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));
+  fprintf(stderr,"Viscosity using precomputed alpha. with T = %le\n", TEMP);
+  dft_driver_setup_viscosity(VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));
 #endif
-    }
+  for(iter = STARTING_ITER; iter < MAXITER; iter++) {
     
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, time_step, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, time_step, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP/5.0, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP/5.0, iter); /* CORRECT */ 
     
     if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       sprintf(filename, "liquid-%ld", iter);
       dft_driver_write_grid(gwf->grid, filename);
-      grid3d_wf_density(gwf, density);                     /* Density from gwf */
       fflush(stdout);
     }
   }

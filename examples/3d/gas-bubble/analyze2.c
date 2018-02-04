@@ -13,6 +13,14 @@
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
+#define NBINS 512
+#define BIN_MAX 4.0
+#define BIN_STEP (BIN_MAX / NBINS)
+#define OUT_INTERVAL 1000
+
+double bins[NBINS];
+long nvals[NBINS];
+
 #define NN 2.0
 
 double A0, A1, A2, A3, A4, A5, RMIN, RADD;
@@ -52,6 +60,32 @@ double pot_func(void *NA, double x, double y, double z) {
   return A0 * exp(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
 }
 
+void output_k(cgrid3d *grid) {
+
+  double re, im, step = grid->step, kx, ky, kz, kk;
+  long i, j, k, nx = grid->nx, ny = grid->ny, nz = grid->nz, ind, nynz = ny * nz;
+
+  for (i = 0; i < nx; i++) {
+    if (i < nx / 2) kx = 2.0 * M_PI * i / (nx * step);
+    else kx = 2.0 * M_PI * (i - nx) / (nx * step);
+    for (j = 0; j < ny; j++) {
+      if (j < ny / 2) ky = 2.0 * M_PI * j / (ny * step);
+      else ky = 2.0 * M_PI * (j - ny) / (ny * step);
+      for (k = 0; k < nz; k++) {
+        kz = 2.0 * M_PI * k / (nz * step);
+        re = creal(grid->value[i * nynz + j * nz + k]);
+        im = creal(grid->value[i * nynz + j * nz + k]);
+        kk = sqrt(kx*kx + ky*ky + kz*kz);
+        ind = (long) (kk / BIN_STEP);
+        if(ind < NBINS) {
+          bins[ind] += (re*re + im*im);
+          nvals[ind] += 1;
+        } else fprintf(stderr, "Warning: access outside bins.\n");
+      }
+    }
+  }
+}
+
 int main(int argc, char *argv[]) {
 
   long nx, ny, nz, iter, iter_step;
@@ -85,6 +119,12 @@ int main(int argc, char *argv[]) {
   fscanf(fp, " %le", &RMIN);
   fscanf(fp, " %le", &RADD);
   fclose(fp);
+
+  grid_threads_init(0);
+  for(iter = 0; iter < NBINS; iter++) {
+    bins[iter] = 0.0;
+    nvals[iter] = 0;
+  }
 
   for(iter = 0; ; iter += iter_step) {
     printf("Current time = %le fs.\n", ((double) iter) * time_step * GRID_AUTOFS);
@@ -134,6 +174,21 @@ int main(int argc, char *argv[]) {
     rgrid3d_abs_rot(circ, cur_x, cur_y, cur_z);
     rgrid3d_power(circ, circ, NN);
     printf("Total circulation = %le (au; NN = %le).\n", rgrid3d_integral(circ), NN);
+    fflush(stdout);    
+    if(!(iter % OUT_INTERVAL)) {
+      long j;
+      rgrid3d_fft(circ);
+      sprintf(filename, "tmp/momentum-%ld", iter);
+      if(!(fp = fopen(filename, "w"))) {
+        fprintf(stderr, "Can't open momentum.dat.\n");
+        exit(1);
+      }
+      output_k(circ->cint);
+      for(j = 0; j < NBINS; j++)
+        if(nvals[j]) fprintf(fp, "%le %le\n", BIN_STEP * (double) j, GRID_AUTOK * bins[j] / (double) nvals[j]); /* Y-axis scale?*/
+        else fprintf(fp, "%le 0.0\n", BIN_STEP * (double) j);
+      fclose(fp);
+    }
   }
   exit(0); /* not reached */
 }  
