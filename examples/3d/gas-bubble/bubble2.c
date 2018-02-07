@@ -16,26 +16,28 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-/* Only imaginary time */
-#define TIME_STEP 50.0	/* Time step in fs (5 for real, 10 for imag) */
-#define FUNCTIONAL (DFT_OT_PLAIN) /* Functional to be used (DFT_OT_PLAIN or DFT_GP) */
-#define STARTING_ITER 200 /* Starting real time iterations (was 200) */
-#define MAXITER (800000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
-#define OUTPUT     250	/* output every this iteration (was 250) */
-#define ABS_WIDTH  20.0 /* Width of the absorbing boundary */
+#define TIME_STEP_IMAG 50.0             /* Time step in imag iterations (fs) */
+#define TIME_STEP_REAL 10.0             /* Time step for real time iterations (fs) */
+#define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
+#define STARTING_TIME 10000.0           /* Start real time simulation at this time (fs) - 10 ps */
+#define STARTING_ITER ((long) (STARTING_TIME / TIME_STEP_IMAG))
+#define MAXITER 8000000                 /* Maximum number of real time iterations */
+#define OUTPUT_TIME 2500.0              /* Output interval time (fs) */
+#define OUTPUT_ITER ((long) (OUTPUT_TIME / TIME_STEP_REAL))
+#define ABS_WIDTH  20.0                 /* Width of the absorbing boundary */
+#define VX (80.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
+#define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
-#define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 512       	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128        	/* # of grid points along z */
-#define STEP 2.0        /* spatial step length (Bohr) */
-
-#define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
-#define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
-
+/* Include viscosity ? (probably does not work) */
 /* VISCOSITY * RHON */
 //#define VISCOSITY (1.306E-6 * 0.162)
 #define TEMP 1.6
+
+#define THREADS 0	/* # of parallel threads to use (0 = all) */
+#define NX 512       	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 256        	/* # of grid points along z */
+#define STEP 2.0        /* spatial step length (Bohr) */
 
 /* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
@@ -47,8 +49,7 @@
 #define RMIN 2.0
 #define RADD 6.0
 
-/* velocity components for the gas (m/s) */
-#define VX	(80.0 / GRID_AUTOMPS)
+#define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 
 double global_time, rho0;
 
@@ -149,7 +150,8 @@ int main(int argc, char *argv[]) {
   cworkspace = dft_driver_alloc_cgrid();             /* allocate complex workspace */
   ext_pot = dft_driver_alloc_rgrid();                /* allocate real external potential grid */
   
-  fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
+  fprintf(stderr, "Imaginary time step in a.u. = %le\n", TIME_STEP_IMAG / GRID_AUTOFS);
+  fprintf(stderr, "Real time step in a.u. = %le\n", TIME_STEP_REAL / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (au)\n", vx, 0.0, 0.0);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (A/ps)\n", 
 		  vx * 1000.0 * GRID_AUTOANG / GRID_AUTOFS, 0.0, 0.0);
@@ -166,9 +168,9 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Can't open parameter file for writing.\n");
     exit(1);
   }
-  fprintf(fp, "%le\n", TIME_STEP / 5.0);   /* real time simulation time step */
+  fprintf(fp, "%le\n", TIME_STEP_REAL);   /* real time simulation time step */
   fprintf(fp, "%le\n", vx * GRID_AUTOMPS); /* velocity */
-  fprintf(fp, "%d\n", OUTPUT);            /* output interval */
+  fprintf(fp, "%ld\n", OUTPUT_ITER);            /* output interval */
   fprintf(fp, "%le\n", A0);                /* potential params */
   fprintf(fp, "%le\n", A1);                
   fprintf(fp, "%le\n", A2);                
@@ -183,8 +185,8 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Imag time mode.\n");
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, rho0);  /* imag time */
   for(iter = 0; iter < STARTING_ITER; iter++) {
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_IMAG, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_IMAG, iter); /* CORRECT */ 
   }
 
   /* Real time iterations */
@@ -196,18 +198,18 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH);
   fprintf(stderr, "Absorption begins at %le Bohr from the boundary\n",  ABS_WIDTH);
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* real time */
-  fprintf(stderr, "Real time mode with time step %le fs.\n", TIME_STEP / 5.0);
+  fprintf(stderr, "Real time mode with time step %le fs.\n", TIME_STEP_REAL);
   /* viscosity */
 #ifdef VISCOSITY
   fprintf(stderr,"Viscosity using precomputed alpha. with T = %le\n", TEMP);
   dft_driver_setup_viscosity(VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));
 #endif
-  for(iter = STARTING_ITER; iter < MAXITER; iter++) {
+  for(iter = 0; iter < MAXITER; iter++) {
     
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP/5.0, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP/5.0, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_REAL, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_REAL, iter); /* CORRECT */ 
     
-    if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
+    if(!(iter % OUTPUT_ITER)) {   /* every OUTPUT iterations, write output */
       sprintf(filename, "liquid-%ld", iter);
       dft_driver_write_grid(gwf->grid, filename);
       fflush(stdout);

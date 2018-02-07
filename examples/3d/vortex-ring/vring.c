@@ -13,15 +13,15 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 50.0 /* fs */
-#define NX 128
-#define NY 128
-#define NZ 128
-#define STEP 0.5
+#define TS 30.0 /* fs */
+#define NX 256
+#define NY 256
+#define NZ 256
+#define STEP 1.0
 #define NTH 1000
-#define THREADS 4
+#define THREADS 0
 
-#define RING_RADIUS 5.3
+#define RING_RADIUS 40.0
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
@@ -37,7 +37,8 @@ double complex vring(void *asd, double x, double y, double z) {
   double angle = atan2(ys,xs), r = sqrt(xs*xs + ys*ys);
 
 //  return sqrt(rho0);
-  return (1.0 - exp(-r * r / 2.0)) * sqrt(rho0) * cexp(I * angle);
+  // was -r^2 / 2.0. -r gives better vortex density profile
+  return (1.0 - exp(-r)) * sqrt(rho0) * cexp(I * angle);
 }
 
 int main(int argc, char **argv) {
@@ -52,7 +53,7 @@ int main(int argc, char **argv) {
   /* Setup DFT driver parameters (grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0);
   /* Normalization condition */
@@ -81,7 +82,7 @@ int main(int argc, char **argv) {
   /* Generate the excited potential */
   rgrid3d_constant(ext_pot, -mu0); /* Add the chemical potential */
 
-  for (iter = 1; iter < 80000; iter++) {
+  for (iter = 1; iter < 800000; iter++) {
     if(iter == 1 || !(iter % NTH)) {
       sprintf(buf, "vring-%ld", iter);
       dft_driver_write_grid(gwf->grid, buf);
