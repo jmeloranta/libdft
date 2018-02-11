@@ -18,7 +18,7 @@
 
 #define TIME_STEP_IMAG 30.0             /* Time step in imag iterations (fs) */
 #define TIME_STEP_REAL 30.0             /* Time step for real time iterations (fs) */
-#define FUNCTIONAL (DFT_GP)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
+#define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 #define STARTING_TIME 10000.0           /* Start real time simulation at this time (fs) - 10 ps (10,000) */
 #define STARTING_ITER ((long) (STARTING_TIME / TIME_STEP_IMAG))
 #define MAXITER 8000000                 /* Maximum number of real time iterations */
@@ -33,12 +33,13 @@
 #define TEMP 1.6
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 128       	/* # of grid points along x */
-#define NY 64          /* # of grid points along y */
-#define NZ 64        	/* # of grid points along z */
-#define STEP 4.0        /* spatial step length (Bohr) */
-#define FAST_ABS         /* New absorbing boundaries ? */
-#define ABS_WIDTH 40.0  /* Width of the absorbing boundary */
+#define NX 512       	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 256        	/* # of grid points along z */
+#define STEP 2.0        /* spatial step length (Bohr) */
+/* #define FAST_ABS        /* Fast absorbing boundaries (30% faster but not */
+                        /* as efficient as imaginary time */
+#define ABS_WIDTH 30.0  /* Width of the absorbing boundary */
 
 /* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
@@ -107,11 +108,8 @@ double pot_func(void *NA, double x, double y, double z) {
 }
 
 #ifdef FAST_ABS
-
 #define AMP 1.0E-4
-#ifdef FAST_ABS
 static double tmpxx;
-#endif
 double complex damp_wf(void *arg, double x, double y, double z) {
 
   cgrid3d *grid = (cgrid3d *) arg;
