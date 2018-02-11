@@ -79,7 +79,7 @@ EXPORT double dft_ot_backflow_pot(void *arg, double x, double y, double z) {
  * model = which OT functional variant to use:
  *         DFT_OT_KC       Include the non-local kinetic energy correlation.
  *         DFT_OT_HD       Include Barranco's high density correction (original h for sp. ave).
- *         DFT_OT_HD2       Include Barranco's high density correction (new h for sp. ave).
+ *         DFT_OT_HD2      Include Barranco's high density correction (new h for sp. ave).
  *         DFT_OT_BACKFLOW Include the backflow potential (dynamics).
  *         DFT_OT_T0MK     Thermal model 0.0 K (i.e. just new parametrization)
  *         DFT_OT_T400MK   Thermal model 0.4 K

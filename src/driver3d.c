@@ -372,7 +372,7 @@ EXPORT void dft_driver_setup_boundary_type(long boundary_type, double damp, doub
 
   driver_boundary_type = boundary_type;
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME) {
-    if(dft_driver_verbose) fprintf(stderr, "libdft: ITIME absorbing boundary implies CN_NBC or CN_NBC_ROT propagator.\n");
+    if(dft_driver_verbose) fprintf(stderr, "libdft: ITIME absorbing boundary implies CN_NBC or CN_NBC_ROT propagator (SLOW).\n");
     if(dft_driver_kinetic != DFT_DRIVER_KINETIC_CN_NBC_ROT)
       dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
   }
