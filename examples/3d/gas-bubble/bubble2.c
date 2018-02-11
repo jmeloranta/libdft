@@ -18,13 +18,13 @@
 
 #define TIME_STEP_IMAG 30.0             /* Time step in imag iterations (fs) */
 #define TIME_STEP_REAL 30.0             /* Time step for real time iterations (fs) */
-#define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
+#define FUNCTIONAL (DFT_GP)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 #define STARTING_TIME 10000.0           /* Start real time simulation at this time (fs) - 10 ps (10,000) */
 #define STARTING_ITER ((long) (STARTING_TIME / TIME_STEP_IMAG))
 #define MAXITER 8000000                 /* Maximum number of real time iterations */
 #define OUTPUT_TIME 2500.0               /* Output interval time (fs) (2500) */
 #define OUTPUT_ITER ((long) (OUTPUT_TIME / TIME_STEP_REAL))
-#define VX (40.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
+#define VX (60.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 /* Include viscosity ? (probably does not work) */
@@ -33,13 +33,12 @@
 #define TEMP 1.6
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 512       	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256        	/* # of grid points along z */
-#define STEP 2.0        /* spatial step length (Bohr) */
-#define FAST_ABS        /* Fast absorbing boundaries (30% faster code */
-                        /* but does not absorb as well */
-#define ABS_WIDTH 20.0  /* Width of the absorbing boundary */
+#define NX 128       	/* # of grid points along x */
+#define NY 64          /* # of grid points along y */
+#define NZ 64        	/* # of grid points along z */
+#define STEP 4.0        /* spatial step length (Bohr) */
+#define FAST_ABS         /* New absorbing boundaries ? */
+#define ABS_WIDTH 40.0  /* Width of the absorbing boundary */
 
 /* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
@@ -109,23 +108,25 @@ double pot_func(void *NA, double x, double y, double z) {
 
 #ifdef FAST_ABS
 
-#define AMP (TIME_STEP_REAL / 30.0)
+#define AMP 1.0E-4
+#ifdef FAST_ABS
+static double tmpxx;
+#endif
 double complex damp_wf(void *arg, double x, double y, double z) {
 
   cgrid3d *grid = (cgrid3d *) arg;
   double complex value = cgrid3d_value(grid, x, y, z);
-  double value2;
-  static double tmp = -1.0;
+  double rho = creal(value) * creal(value) + cimag(value) * cimag(value), px, py, pz, amp;
  
-  if(fabs(x) < NX * STEP / 2.0 - ABS_WIDTH && fabs(y) < NY * STEP / 2.0 - ABS_WIDTH && fabs(z) < NZ * STEP / 2.0 - ABS_WIDTH)
-    return value;
-
-  if(tmp == -1.0) {  // use the first value (if anything leaks into to the corner, things could get messed up otherwise)
-    tmp = cabs(grid->value[0]); 
-    tmp *= tmp;
-  }
-  value2 = (value * conj(value) - tmp);
-  return value * exp(-value2 * AMP);
+  px = fabs(x) - (NX * STEP / 2.0 - ABS_WIDTH);
+  py = fabs(y) - (NY * STEP / 2.0 - ABS_WIDTH);
+  pz = fabs(z) - (NZ * STEP / 2.0 - ABS_WIDTH);
+  if(px < 0.0 && py < 0.0 && pz < 0.0) return value;
+  amp = 0.0;
+  if(px > 0.0) amp += px;
+  if(py > 0.0) amp += py;
+  if(pz > 0.0) amp += pz;
+  return value * exp(-AMP * (rho - tmpxx) * TIME_STEP_REAL / GRID_AUTOFS);
 }
 
 void update_wf(cgrid3d *grid) {
@@ -231,6 +232,11 @@ int main(int argc, char *argv[]) {
 #ifdef VISCOSITY
   fprintf(stderr,"Viscosity using precomputed alpha. with T = %le\n", TEMP);
   dft_driver_setup_viscosity(VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));
+#endif
+
+#ifdef FAST_ABS
+  tmpxx = cabs(gwf->grid->value[0]); 
+  tmpxx *= tmpxx;
 #endif
 
   for(iter = 0; iter < MAXITER; iter++) {
