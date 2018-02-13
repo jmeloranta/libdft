@@ -372,9 +372,11 @@ EXPORT void dft_driver_setup_boundary_type(long boundary_type, double damp, doub
 
   driver_boundary_type = boundary_type;
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME) {
-    if(dft_driver_verbose) fprintf(stderr, "libdft: ITIME absorbing boundary implies CN_NBC or CN_NBC_ROT propagator (SLOW).\n");
-    if(dft_driver_kinetic != DFT_DRIVER_KINETIC_CN_NBC_ROT)
-      dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
+    if(dft_driver_verbose) fprintf(stderr, "libdft: ITIME absorbing boundary.\n");
+    if(dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC_ROT) {
+      fprintf(stderr, "libdft: Absorbing boundaries with rotating liquid (not implemented).\n");
+      exit(1);
+    }
   }
   driver_damp = damp;
   driver_width = width;
@@ -448,7 +450,7 @@ EXPORT void dft_driver_setup_rotation_omega(double omega) {
 static double dft_driver_timestep_tmp; /* argh... should be a parameter ... (time step) */
 static double dft_driver_timestep_tmp2; /* argh... should be a parameter ...(1/2 for kinetic, 1 fo potential) */
 
-double complex dft_driver_itime_abs(cgrid3d *grid, long i, long j, long k) {
+double complex dft_driver_itime_abs(long i, long j, long k) {
 
   double x, y, z, tmp, bx, by, bz;
 
@@ -496,7 +498,7 @@ EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tste
 
   /* 1/2 x kinetic */
   switch(dft_driver_kinetic) {
-  case DFT_DRIVER_KINETIC_FFT:
+  case DFT_DRIVER_KINETIC_FFT: /* this works for absorbing boundaries too ! -- even it is real time there! */
     grid3d_wf_propagate_kinetic_fft(gwf, htime);
     break;
   case DFT_DRIVER_KINETIC_CN_DBC:

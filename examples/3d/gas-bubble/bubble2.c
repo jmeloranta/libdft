@@ -18,7 +18,7 @@
 
 #define TIME_STEP_IMAG 30.0             /* Time step in imag iterations (fs) */
 #define TIME_STEP_REAL 30.0             /* Time step for real time iterations (fs) */
-#define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
+#define FUNCTIONAL (DFT_GP)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 #define STARTING_TIME 10000.0           /* Start real time simulation at this time (fs) - 10 ps (10,000) */
 #define STARTING_ITER ((long) (STARTING_TIME / TIME_STEP_IMAG))
 #define MAXITER 8000000                 /* Maximum number of real time iterations */
@@ -27,18 +27,11 @@
 #define VX (60.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
-/* Include viscosity ? (probably does not work) */
-/* VISCOSITY * RHON */
-//#define VISCOSITY (1.306E-6 * 0.162)
-#define TEMP 1.6
-
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 512       	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256        	/* # of grid points along z */
-#define STEP 2.0        /* spatial step length (Bohr) */
-/* #define FAST_ABS        /* Fast absorbing boundaries (30% faster but not */
-                        /* as efficient as imaginary time */
+#define NX 256       	/* # of grid points along x */
+#define NY 128          /* # of grid points along y */
+#define NZ 128        	/* # of grid points along z */
+#define STEP 4.0        /* spatial step length (Bohr) */
 #define ABS_WIDTH 30.0  /* Width of the absorbing boundary */
 
 /* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
@@ -107,32 +100,6 @@ double pot_func(void *NA, double x, double y, double z) {
   return A0 * exp(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
 }
 
-#ifdef FAST_ABS
-#define AMP 1.0E-4
-static double tmpxx;
-double complex damp_wf(void *arg, double x, double y, double z) {
-
-  cgrid3d *grid = (cgrid3d *) arg;
-  double complex value = cgrid3d_value(grid, x, y, z);
-  double rho = creal(value) * creal(value) + cimag(value) * cimag(value), px, py, pz, amp;
- 
-  px = fabs(x) - (NX * STEP / 2.0 - ABS_WIDTH);
-  py = fabs(y) - (NY * STEP / 2.0 - ABS_WIDTH);
-  pz = fabs(z) - (NZ * STEP / 2.0 - ABS_WIDTH);
-  if(px < 0.0 && py < 0.0 && pz < 0.0) return value;
-  amp = 0.0;
-  if(px > 0.0) amp += px;
-  if(py > 0.0) amp += py;
-  if(pz > 0.0) amp += pz;
-  return value * exp(-AMP * (rho - tmpxx) * TIME_STEP_REAL / GRID_AUTOFS);
-}
-
-void update_wf(cgrid3d *grid) {
-
-  cgrid3d_map(grid, damp_wf, (void *) grid);
-}
-#endif
-
 int main(int argc, char *argv[]) {
 
   wf3d *gwf, *gwfp;
@@ -157,7 +124,9 @@ int main(int argc, char *argv[]) {
   dft_driver_initialize();
 
   /* bulk normalization (requires the correct chem. pot.) */
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
+  /* TODO: when vx != 0, mu0 is affected. For now just use bulk renormalization */
+//  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
+  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -187,10 +156,6 @@ int main(int argc, char *argv[]) {
 		  vx * 1000.0 * GRID_AUTOANG / GRID_AUTOFS, 0.0, 0.0);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (m/s)\n", vx * GRID_AUTOMPS, 0.0, 0.0);
 
-#ifdef VISCOSITY
-  fprintf(stderr, "Reynolds # = %le\n", rho0 * vx * 20E-10 / (VISCOSITY / GRID_AUTOPAS));
-#endif
-  
   rgrid3d_map(ext_pot, pot_func, NULL); /* External potential */
   rgrid3d_add(ext_pot, -mu0);
 
@@ -220,35 +185,18 @@ int main(int argc, char *argv[]) {
   }
 
   /* Real time iterations */
-#ifndef FAST_ABS
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH);
-#endif
   fprintf(stderr, "Absorption begins at %le Bohr from the boundary\n",  ABS_WIDTH);
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* real time iterations */
 
-  /* viscosity (probably does not work) */
-#ifdef VISCOSITY
-  fprintf(stderr,"Viscosity using precomputed alpha. with T = %le\n", TEMP);
-  dft_driver_setup_viscosity(VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));
-#endif
-
-#ifdef FAST_ABS
-  tmpxx = cabs(gwf->grid->value[0]); 
-  tmpxx *= tmpxx;
-#endif
-
   for(iter = 0; iter < MAXITER; iter++) {
-    
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_REAL, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_REAL, iter); /* CORRECT */ 
-#ifdef FAST_ABS
-    update_wf(gwf->grid);    
-#endif
     if(!(iter % OUTPUT_ITER)) {   /* every OUTPUT_ITER iterations, write output */
       sprintf(filename, "liquid-%ld", iter);
       dft_driver_write_grid(gwf->grid, filename);
       fflush(stdout);
     }
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_REAL, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_REAL, iter); /* CORRECT */ 
   }
   return 0;
 }
