@@ -18,7 +18,7 @@
 
 #define TIME_STEP_IMAG 30.0             /* Time step in imag iterations (fs) */
 #define TIME_STEP_REAL 30.0             /* Time step for real time iterations (fs) */
-#define FUNCTIONAL (DFT_GP)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
+#define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 #define STARTING_TIME 10000.0           /* Start real time simulation at this time (fs) - 10 ps (10,000) */
 #define STARTING_ITER ((long) (STARTING_TIME / TIME_STEP_IMAG))
 #define MAXITER 8000000                 /* Maximum number of real time iterations */
@@ -28,11 +28,13 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 256       	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128        	/* # of grid points along z */
-#define STEP 4.0        /* spatial step length (Bohr) */
-#define ABS_WIDTH 30.0  /* Width of the absorbing boundary */
+#define NX 512       	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 256        	/* # of grid points along z */
+#define STEP 2.0        /* spatial step length (Bohr) */
+#define ABS_WIDTH_X 60.0  /* Width of the absorbing boundary */
+#define ABS_WIDTH_Y 30.0  /* Width of the absorbing boundary */
+#define ABS_WIDTH_Z 30.0  /* Width of the absorbing boundary */
 
 /* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
@@ -117,14 +119,14 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, 0.0);
   
   /* Regular boundaries */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   
   /* Initialize */
   dft_driver_initialize();
 
   /* bulk normalization (requires the correct chem. pot.) */
-  /* TODO: when vx != 0, mu0 is affected. For now just use bulk renormalization */
+  /* TODO: when vx != 0, mu0 is affected. For now just use bulk renormalization - v contributes to mu0? */
 //  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
   dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);
   
@@ -185,8 +187,8 @@ int main(int argc, char *argv[]) {
   }
 
   /* Real time iterations */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH);
-  fprintf(stderr, "Absorption begins at %le Bohr from the boundary\n",  ABS_WIDTH);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
+  fprintf(stderr, "Absorption begins at (%le,%le,%le) Bohr from the boundary\n",  ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* real time iterations */
 
   for(iter = 0; iter < MAXITER; iter++) {

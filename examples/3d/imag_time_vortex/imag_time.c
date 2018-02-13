@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   /* Neumann boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
 

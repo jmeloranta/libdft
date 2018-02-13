@@ -31,7 +31,8 @@ int dft_driver_init_wavefunction = 1;
 
 static long driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc = 0, driver_rels = 0;
-static double driver_frad = 0.0, driver_omega = 0.0, driver_damp = 0.2, driver_width = 1.0, viscosity = 0.0, viscosity_alpha = 1.0;
+static double driver_frad = 0.0, driver_omega = 0.0, driver_damp = 0.2, driver_width_x = 1.0, driver_width_y = 1.0, driver_width_z = 1.0;
+static double viscosity = 0.0, viscosity_alpha = 1.0;
 static double driver_step = 0.0, driver_rho0 = 0.0;
 static double driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0;
 static double driver_kx0 = 0.0, driver_ky0 = 0.0,driver_kz0 = 0.0;
@@ -353,10 +354,12 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
 /*
  * Define boundary type.
  *
- * type    = Boundary type: 0 = regular, 1 = absorbing (imag time; implies the CN propagator) 
+ * type    = Boundary type: 0 = regular, 1 = absorbing (imag time) 
  *           (input, long).
  * damp    = Daping constant (input, double). Usually between 0.1 and 1.0. Only when type = 1.
- * width   = Width of the absorbing region. Only when type = 1.
+ * width_x = Width of the absorbing region along x. Only when type = 1.
+ * width_y = Width of the absorbing region along y. Only when type = 1.
+ * width_z = Width of the absorbing region along z. Only when type = 1.
  * 
  * NOTE: For the absorbing BC to work, one MUST use DFT_DRIVER_DONT_NORMALIZE and include the chemical potential!
  *       (in both imaginary & real time propagation). Otherwise, you will find issues at the boundary (due to the 
@@ -366,7 +369,7 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
  *
  */
 
-EXPORT void dft_driver_setup_boundary_type(long boundary_type, double damp, double width) {
+EXPORT void dft_driver_setup_boundary_type(long boundary_type, double damp, double width_x, double width_y, double width_z) {
 
   check_mode();
 
@@ -379,7 +382,9 @@ EXPORT void dft_driver_setup_boundary_type(long boundary_type, double damp, doub
     }
   }
   driver_damp = damp;
-  driver_width = width;
+  driver_width_x = width_x;
+  driver_width_y = width_y;
+  driver_width_z = width_z;
 }
 
 /*
@@ -455,9 +460,9 @@ double complex dft_driver_itime_abs(long i, long j, long k) {
   double x, y, z, tmp, bx, by, bz;
 
   // boundary position
-  bx = driver_step * (driver_nx / 2) - driver_width;
-  by = driver_step * (driver_ny / 2) - driver_width;
-  bz = driver_step * (driver_nz / 2) - driver_width;
+  bx = driver_step * (driver_nx / 2) - driver_width_x;
+  by = driver_step * (driver_ny / 2) - driver_width_y;
+  bz = driver_step * (driver_nz / 2) - driver_width_z;
 
   // current position
   x = fabs((i - driver_nx / 2) * driver_step);
@@ -468,10 +473,9 @@ double complex dft_driver_itime_abs(long i, long j, long k) {
     return dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
 
   tmp = 0.0;
-  if(x >= bx) tmp += x - bx;
-  if(y >= by) tmp += y - by;
-  if(z >= bz) tmp += z - bz;
-  tmp /= driver_width;
+  if(x >= bx) tmp += (x - bx) / driver_width_x;
+  if(y >= by) tmp += (y - by) / driver_width_y;
+  if(z >= bz) tmp += (z - bz) / driver_width_z;
   tmp = tanh(tmp) * driver_damp;
   return (1.0 - I * tmp) * dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
 }

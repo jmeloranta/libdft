@@ -22,7 +22,9 @@
 #define STARTING_ITER 200 /* Starting real time iterations (was 100) */
 #define MAXITER (40000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration */
-#define ABS_WIDTH  30.0 /* Width of the absorbing boundary */
+#define ABS_WIDTH_X  30.0 /* Width of the absorbing boundary */
+#define ABS_WIDTH_Y  30.0 /* Width of the absorbing boundary */
+#define ABS_WIDTH_Z  30.0 /* Width of the absorbing boundary */
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define NX 512       	/* # of grid points along x */
 #define NY 256          /* # of grid points along y */
@@ -91,7 +93,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, 0.0);
   
   /* Regular boundaries */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   
   /* Initialize */
@@ -186,8 +188,8 @@ int main(int argc, char *argv[]) {
 	cgrid3d_set_momentum(impwf->grid, 0.0, 0.0, 0.0);
 	cgrid3d_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
 #ifndef KEEP_IMAG
-	dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH);
-	fprintf(stderr, "Absorption begins at %le Bohr from the boundary\n",  ABS_WIDTH);
+	dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
+	fprintf(stderr, "Absorption begins at (%le,%le,%le) Bohr from the boundary\n",  ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
 	dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* real time */
 	time_step = TIME_STEP/10.0;
 	fprintf(stderr, "Real time mode.\n");
