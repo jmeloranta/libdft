@@ -47,6 +47,26 @@ extern int dft_internal_using_2d, dft_internal_using_cyl;
 int dft_driver_kinetic = 0; /* default FFT propagation for kinetic, TODO: FFT gives some numerical hash - bug? */
 
 /*
+ * Return default wisdom file name.
+ *
+ */
+
+static char *dft_driver_wisfile() {
+
+  char hn[128];
+  static char *buf = NULL;
+
+  if(buf == NULL && !(buf = (char *) malloc(128))) {
+    fprintf(stderr, "libdft: memory allocation failure (wisfile).\n");
+    exit(1);
+  }
+  gethostname(hn, sizeof(hn));
+  sprintf(buf, "fftw-%s.wis", hn);  
+  fprintf(stderr, "libdft: Wisdom file = %s.\n", buf);
+  return buf;
+}
+
+/*
  * Check if in 3D mode.
  *
  */
@@ -214,7 +234,7 @@ EXPORT void dft_driver_initialize() {
 
   grid_timer_start(&timer);
   grid_threads_init(driver_threads);
-  dft_driver_read_wisdom("fftw.wis");
+  dft_driver_read_wisdom(dft_driver_wisfile());
   workspace1 = dft_driver_alloc_rgrid();
   workspace2 = dft_driver_alloc_rgrid();
   workspace3 = dft_driver_alloc_rgrid();
@@ -457,17 +477,23 @@ static double dft_driver_timestep_tmp2; /* argh... should be a parameter ...(1/2
 
 double complex dft_driver_itime_abs(long i, long j, long k) {
 
-  double x, y, z, tmp, bx, by, bz;
+  double x, y, z, tmp;
+  static double bx = -1.0, by = -1.0, bz = -1.0;
+  static long nx2 = -1, ny2 = -1, nz2 = -1;
 
-  // boundary position
-  bx = driver_step * (driver_nx / 2) - driver_width_x;
-  by = driver_step * (driver_ny / 2) - driver_width_y;
-  bz = driver_step * (driver_nz / 2) - driver_width_z;
+  if(bx == -1.0) {
+    bx = driver_step * (driver_nx / 2) - driver_width_x;
+    by = driver_step * (driver_ny / 2) - driver_width_y,    
+    bz = driver_step * (driver_nz / 2) - driver_width_z;
+    nx2 = driver_nx / 2;
+    ny2 = driver_ny / 2;
+    nz2 = driver_nz / 2;
+  }
 
   // current position
-  x = fabs((i - driver_nx / 2) * driver_step);
-  y = fabs((j - driver_ny / 2) * driver_step);
-  z = fabs((k - driver_nz / 2) * driver_step);
+  x = fabs((i - nx2) * driver_step);
+  y = fabs((j - ny2) * driver_step);
+  z = fabs((k - nz2) * driver_step);
 
   if(x < bx && y < by && z < bz)
     return dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
@@ -508,6 +534,8 @@ EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tste
   case DFT_DRIVER_KINETIC_CN_DBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
+      fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
     grid3d_wf_propagate_kinetic_cn_dbc(gwf, htime, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC:
@@ -522,11 +550,15 @@ EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tste
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
+      fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
     grid3d_wf_propagate_kinetic_cn_nbc_rot(gwf, htime, driver_omega, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_PBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
+      fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
     grid3d_wf_propagate_kinetic_cn_pbc(gwf, htime, cworkspace);
     break;
 #if 0
@@ -562,7 +594,7 @@ EXPORT void dft_driver_propagate_kinetic_second(long what, wf3d *gwf, double tst
 
   if(!local_been_here) {
     local_been_here = 1;
-    dft_driver_write_wisdom("fftw.wis"); // we have done many FFTs at this point
+    dft_driver_write_wisdom(dft_driver_wisfile()); // we have done many FFTs at this point
   }
 }
 

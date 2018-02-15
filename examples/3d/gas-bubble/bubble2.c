@@ -16,8 +16,8 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TIME_STEP_IMAG 30.0             /* Time step in imag iterations (fs) */
-#define TIME_STEP_REAL 30.0             /* Time step for real time iterations (fs) */
+#define TIME_STEP_IMAG 60.0             /* Time step in imag iterations (fs) */
+#define TIME_STEP_REAL 60.0             /* Time step for real time iterations (fs) */
 #define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 #define STARTING_TIME 10000.0           /* Start real time simulation at this time (fs) - 10 ps (10,000) */
 #define STARTING_ITER ((long) (STARTING_TIME / TIME_STEP_IMAG))
@@ -32,9 +32,14 @@
 #define NY 256          /* # of grid points along y */
 #define NZ 256        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
-#define ABS_WIDTH_X 60.0  /* Width of the absorbing boundary */
-#define ABS_WIDTH_Y 30.0  /* Width of the absorbing boundary */
-#define ABS_WIDTH_Z 30.0  /* Width of the absorbing boundary */
+#define ABS_WIDTH_X 40.0  /* Width of the absorbing boundary */
+#define ABS_WIDTH_Y 20.0  /* Width of the absorbing boundary */
+#define ABS_WIDTH_Z 20.0  /* Width of the absorbing boundary */
+
+/* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT */
+#define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson */
+
+#define FFTW_PLANNER 1 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
 
 /* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
@@ -57,33 +62,14 @@ double round_veloc(double veloc) {   // Round to fit the simulation box
 
   n = (long) (0.5 + (NX * STEP * HELIUM_MASS * VX) / (HBAR * 2.0 * M_PI));
   v = ((double) n) * HBAR * 2.0 * M_PI / (NX * STEP * HELIUM_MASS);
-  printf("Requested velocity = %le m/s.\n", veloc * GRID_AUTOMPS);
-  printf("Nearest velocity compatible with PBC = %le m/s.\n", v * GRID_AUTOMPS);
+  fprintf(stderr, "Requested velocity = %le m/s.\n", veloc * GRID_AUTOMPS);
+  fprintf(stderr, "Nearest velocity compatible with PBC = %le m/s.\n", v * GRID_AUTOMPS);
   return v;
 }
 
 double momentum(double vx) {
 
   return HELIUM_MASS * vx / HBAR;
-}
-
-/* Impurity must always be at the origin (dU/dx) */
-double dpot_func(void *NA, double x, double y, double z) {
-
-  double r, rp, r2, r3, r5, r7, r9, r11;
-
-  rp = sqrt(x * x + y * y + z * z);
-  r = rp - RADD;
-  if(r < RMIN) return 0.0;
-
-  r2 = r * r;
-  r3 = r2 * r;
-  r5 = r2 * r3;
-  r7 = r5 * r2;
-  r9 = r7 * r2;
-  r11 = r9 * r2;
-  
-  return (x / rp) * (-A0 * A1 * exp(-A1 * r) + 4.0 * A2 / r5 + 6.0 * A3 / r7 + 8.0 * A4 / r9 + 10.0 * A5 / r11);
 }
 
 double pot_func(void *NA, double x, double y, double z) {
@@ -115,6 +101,9 @@ int main(int argc, char *argv[]) {
   /* Setup DFT driver parameters */
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
 
+  /* FFTW planner flags */
+  grid_set_fftw_flags(FFTW_PLANNER);
+
   /* Plain Orsay-Trento in real or imaginary time */
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, 0.0);
   
@@ -125,6 +114,10 @@ int main(int argc, char *argv[]) {
   /* Initialize */
   dft_driver_initialize();
 
+  dft_driver_kinetic = KINETIC_PROPAGATOR;
+  if(dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC) fprintf(stderr, "Kinetic propagator = Crank-Nicolson\n");
+  if(dft_driver_kinetic == DFT_DRIVER_KINETIC_FFT) fprintf(stderr, "Kinetic propagator = FFT\n"); 
+
   /* bulk normalization (requires the correct chem. pot.) */
   /* TODO: when vx != 0, mu0 is affected. For now just use bulk renormalization - v contributes to mu0? */
 //  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
@@ -134,7 +127,7 @@ int main(int argc, char *argv[]) {
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
   dft_driver_otf->rho0 = rho0;
   mu0  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
-  printf("rho0 = %le Angs^-3, mu0 = %le K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
+  fprintf(stderr, "rho0 = %le Angs^-3, mu0 = %le K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
   
   /* Allocate wavefunctions and grids */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);  /* order parameter for current time (He liquid) */
@@ -181,13 +174,13 @@ int main(int argc, char *argv[]) {
   /* Imaginary iterations */
   fprintf(stderr, "Imag time mode.\n");
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, rho0);  /* imaginary time iterations */
-  for(iter = 0; iter < STARTING_ITER; iter++) {
+  for(iter = 1; iter < STARTING_ITER; iter++) {
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_IMAG, iter); /* PREDICT */ 
     (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_IMAG, iter); /* CORRECT */ 
   }
 
   /* Real time iterations */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.4, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);  // 0.2
   fprintf(stderr, "Absorption begins at (%le,%le,%le) Bohr from the boundary\n",  ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* real time iterations */
 
@@ -200,5 +193,6 @@ int main(int argc, char *argv[]) {
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_REAL, iter); /* PREDICT */ 
     (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_REAL, iter); /* CORRECT */ 
   }
+
   return 0;
 }
