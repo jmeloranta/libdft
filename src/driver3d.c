@@ -725,8 +725,6 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
   
   // Solve the Poisson equation to get the viscous potential
   rgrid3d_poisson(workspace8);
-  // test
-  dft_driver_clear_pot(workspace8, 300.0 / GRID_AUTOK, -300.0 / GRID_AUTOK);
   grid3d_add_real_to_complex_re(pot, workspace8);
 #else
   // NOT IN USE

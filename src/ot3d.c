@@ -799,13 +799,13 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
 
 EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potential, rgrid3d *density, rgrid3d *veloc_x, rgrid3d *veloc_y, rgrid3d *veloc_z, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4, rgrid3d *workspace5, rgrid3d *workspace6) {
 
-  /* Original BF code (without the density cutoff) */
   /* Calculate A (workspace1) [scalar] */
 #ifdef MM_BACKFLOW
   XXX_xi = 1E4 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
   XXX_rhobf = 0.033 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
   rgrid3d_operate_one(workspace1, density, dft_ot3d_bf_pi_energy_op); /* g rho */
 #else
+  /* Original BF code (without the MM density cutoff) */
   rgrid3d_copy(workspace1, density);   /* just rho */
 #endif
   rgrid3d_fft(workspace1);
