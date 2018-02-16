@@ -16,15 +16,15 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TIME_STEP_IMAG 60.0             /* Time step in imag iterations (fs) */
-#define TIME_STEP_REAL 60.0             /* Time step for real time iterations (fs) */
+#define TIME_STEP_IMAG 30.0             /* Time step in imag iterations (fs) */
+#define TIME_STEP_REAL 30.0             /* Time step for real time iterations (fs) */
 #define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 #define STARTING_TIME 10000.0           /* Start real time simulation at this time (fs) - 10 ps (10,000) */
 #define STARTING_ITER ((long) (STARTING_TIME / TIME_STEP_IMAG))
 #define MAXITER 8000000                 /* Maximum number of real time iterations */
 #define OUTPUT_TIME 2500.0               /* Output interval time (fs) (2500) */
 #define OUTPUT_ITER ((long) (OUTPUT_TIME / TIME_STEP_REAL))
-#define VX (60.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
+#define VX (80.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
@@ -39,7 +39,7 @@
 /* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT */
 #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson */
 
-#define FFTW_PLANNER 1 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
+#define FFTW_PLANNER 2 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
 
 /* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
@@ -174,13 +174,13 @@ int main(int argc, char *argv[]) {
   /* Imaginary iterations */
   fprintf(stderr, "Imag time mode.\n");
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, rho0);  /* imaginary time iterations */
-  for(iter = 1; iter < STARTING_ITER; iter++) {
+  for(iter = 0; iter < STARTING_ITER; iter++) {
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_IMAG, iter); /* PREDICT */ 
     (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_IMAG, iter); /* CORRECT */ 
   }
 
   /* Real time iterations */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.4, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);  // 0.2
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
   fprintf(stderr, "Absorption begins at (%le,%le,%le) Bohr from the boundary\n",  ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* real time iterations */
 
