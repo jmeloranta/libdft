@@ -165,6 +165,7 @@ extern dft_ot_functional_2d *dft_driver_otf_2d;
 extern int dft_driver_init_wavefunction;
 extern long dft_ot2d_hankel_pad;
 extern int dft_driver_kinetic;
+extern double complex (*dft_driver_bc_functi;5Con)(long, long, long) ;
 
 /* Prototypes (in wrong place; TODO separate common and OT specific prototypes) */
 #include "proto.h"
