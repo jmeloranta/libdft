@@ -25,13 +25,17 @@
 
 /* End of tunable parameters */
 
-/* Global user accessible variables - way too many! TODO: reduce */
+/* Global user accessible variables */
+int dft_driver_verbose = 1;   /* set to zero to eliminate informative print outs */
 dft_ot_functional *dft_driver_otf = 0;
 int dft_driver_init_wavefunction = 1;
+int dft_driver_kinetic = 0; /* default FFT propagation for kinetic, TODO: FFT gives some numerical hash - bug? */
+double complex (*dft_driver_bc_function)(double complex, long, long, long) = NULL; /* User specified function for absorbing boundaries */
 
 static long driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc = 0, driver_rels = 0;
-static double driver_frad = 0.0, driver_omega = 0.0, driver_damp = 0.2, driver_width = 1.0, viscosity = 0.0, viscosity_alpha = 1.0;
+static double driver_frad = 0.0, driver_omega = 0.0, driver_damp = 0.2, driver_width_x = 1.0, driver_width_y = 1.0, driver_width_z = 1.0;
+static double viscosity = 0.0, viscosity_alpha = 1.0;
 static double driver_step = 0.0, driver_rho0 = 0.0;
 static double driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0;
 static double driver_kx0 = 0.0, driver_ky0 = 0.0,driver_kz0 = 0.0;
@@ -39,11 +43,29 @@ static rgrid3d *density = 0, *workspace1 = 0, *workspace2 = 0, *workspace3 = 0, 
 static rgrid3d *workspace7 = 0, *workspace8 = 0, *workspace9 = 0;
 static cgrid3d *cworkspace = 0;
 static grid_timer timer;
-int dft_driver_verbose = 1;   /* set to zero to eliminate informative print outs */
 
 int dft_internal_using_3d = 0;
 extern int dft_internal_using_2d, dft_internal_using_cyl;
-int dft_driver_kinetic = 0; /* default FFT propagation for kinetic, TODO: FFT gives some numerical hash - bug? */
+
+/*
+ * Return default wisdom file name.
+ *
+ */
+
+static char *dft_driver_wisfile() {
+
+  char hn[128];
+  static char *buf = NULL;
+
+  if(buf == NULL && !(buf = (char *) malloc(128))) {
+    fprintf(stderr, "libdft: memory allocation failure (wisfile).\n");
+    exit(1);
+  }
+  gethostname(hn, sizeof(hn));
+  sprintf(buf, "fftw-%s.wis", hn);  
+  fprintf(stderr, "libdft: Wisdom file = %s.\n", buf);
+  return buf;
+}
 
 /*
  * Check if in 3D mode.
@@ -213,7 +235,7 @@ EXPORT void dft_driver_initialize() {
 
   grid_timer_start(&timer);
   grid_threads_init(driver_threads);
-  dft_driver_read_wisdom("fftw.wis");
+  dft_driver_read_wisdom(dft_driver_wisfile());
   workspace1 = dft_driver_alloc_rgrid();
   workspace2 = dft_driver_alloc_rgrid();
   workspace3 = dft_driver_alloc_rgrid();
@@ -353,10 +375,12 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
 /*
  * Define boundary type.
  *
- * type    = Boundary type: 0 = regular, 1 = absorbing (imag time; implies the CN propagator) 
+ * type    = Boundary type: 0 = regular, 1 = absorbing (imag time) 
  *           (input, long).
  * damp    = Daping constant (input, double). Usually between 0.1 and 1.0. Only when type = 1.
- * width   = Width of the absorbing region. Only when type = 1.
+ * width_x = Width of the absorbing region along x. Only when type = 1.
+ * width_y = Width of the absorbing region along y. Only when type = 1.
+ * width_z = Width of the absorbing region along z. Only when type = 1.
  * 
  * NOTE: For the absorbing BC to work, one MUST use DFT_DRIVER_DONT_NORMALIZE and include the chemical potential!
  *       (in both imaginary & real time propagation). Otherwise, you will find issues at the boundary (due to the 
@@ -366,18 +390,22 @@ EXPORT void dft_driver_setup_model(long dft_model, long iter_mode, double rho0) 
  *
  */
 
-EXPORT void dft_driver_setup_boundary_type(long boundary_type, double damp, double width) {
+EXPORT void dft_driver_setup_boundary_type(long boundary_type, double damp, double width_x, double width_y, double width_z) {
 
   check_mode();
 
   driver_boundary_type = boundary_type;
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME) {
-    if(dft_driver_verbose) fprintf(stderr, "libdft: ITIME absorbing boundary implies CN_NBC or CN_NBC_ROT propagator.\n");
-    if(dft_driver_kinetic != DFT_DRIVER_KINETIC_CN_NBC_ROT)
-      dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
+    if(dft_driver_verbose) fprintf(stderr, "libdft: ITIME absorbing boundary.\n");
+    if(dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC_ROT) {
+      fprintf(stderr, "libdft: Absorbing boundaries with rotating liquid (not implemented).\n");
+      exit(1);
+    }
   }
   driver_damp = damp;
-  driver_width = width;
+  driver_width_x = width_x;
+  driver_width_y = width_y;
+  driver_width_z = width_z;
 }
 
 /*
@@ -444,34 +472,34 @@ EXPORT void dft_driver_setup_rotation_omega(double omega) {
  *
  */
 
-// TODO: Ugly hack - fix
-static double dft_driver_timestep_tmp; /* argh... should be a parameter ... (time step) */
-static double dft_driver_timestep_tmp2; /* argh... should be a parameter ...(1/2 for kinetic, 1 fo potential) */
+double complex dft_driver_itime_abs(double complex tstep, long i, long j, long k) {
 
-double complex dft_driver_itime_abs(cgrid3d *grid, long i, long j, long k) {
+  double x, y, z, tmp;
+  static double bx = -1.0, by = -1.0, bz = -1.0;
+  static long nx2 = -1, ny2 = -1, nz2 = -1;
 
-  double x, y, z, tmp, bx, by, bz;
-
-  // boundary position
-  bx = driver_step * (driver_nx / 2) - driver_width;
-  by = driver_step * (driver_ny / 2) - driver_width;
-  bz = driver_step * (driver_nz / 2) - driver_width;
+  if(bx == -1.0) {
+    bx = driver_step * (driver_nx / 2) - driver_width_x;
+    by = driver_step * (driver_ny / 2) - driver_width_y,    
+    bz = driver_step * (driver_nz / 2) - driver_width_z;
+    nx2 = driver_nx / 2;
+    ny2 = driver_ny / 2;
+    nz2 = driver_nz / 2;
+  }
 
   // current position
-  x = fabs((i - driver_nx / 2) * driver_step);
-  y = fabs((j - driver_ny / 2) * driver_step);
-  z = fabs((k - driver_nz / 2) * driver_step);
+  x = fabs((i - nx2) * driver_step);
+  y = fabs((j - ny2) * driver_step);
+  z = fabs((k - nz2) * driver_step);
 
-  if(x < bx && y < by && z < bz)
-    return dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
+  if(x < bx && y < by && z < bz) return tstep;
 
   tmp = 0.0;
-  if(x >= bx) tmp += x - bx;
-  if(y >= by) tmp += y - by;
-  if(z >= bz) tmp += z - bz;
-  tmp /= driver_width;
+  if(x >= bx) tmp += (x - bx) / driver_width_x;
+  if(y >= by) tmp += (y - by) / driver_width_y;
+  if(z >= bz) tmp += (z - bz) / driver_width_z;
   tmp = tanh(tmp) * driver_damp;
-  return (1.0 - I * tmp) * dft_driver_timestep_tmp * dft_driver_timestep_tmp2;
+  return (1.0 - I * tmp) * cabs(tstep);
 }
 
 /*
@@ -496,31 +524,38 @@ EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tste
 
   /* 1/2 x kinetic */
   switch(dft_driver_kinetic) {
-  case DFT_DRIVER_KINETIC_FFT:
+  case DFT_DRIVER_KINETIC_FFT: /* this works for absorbing boundaries too ! -- even it is real time there! */
     grid3d_wf_propagate_kinetic_fft(gwf, htime);
     break;
   case DFT_DRIVER_KINETIC_CN_DBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
+      fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
     grid3d_wf_propagate_kinetic_cn_dbc(gwf, htime, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
-      dft_driver_timestep_tmp = tstep;
-      dft_driver_timestep_tmp2 = 0.5;    /* htime (half-time step) */
-      grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_itime_abs, cworkspace);
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) { // do not apply in imag time
+      if(dft_driver_bc_function)
+        grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_bc_function, htime, cworkspace);
+      else
+        grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_itime_abs, htime, cworkspace);
     } else grid3d_wf_propagate_kinetic_cn_nbc(gwf, htime, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
+      fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
     grid3d_wf_propagate_kinetic_cn_nbc_rot(gwf, htime, driver_omega, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_PBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
+      fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
     grid3d_wf_propagate_kinetic_cn_pbc(gwf, htime, cworkspace);
     break;
 #if 0
@@ -556,7 +591,7 @@ EXPORT void dft_driver_propagate_kinetic_second(long what, wf3d *gwf, double tst
 
   if(!local_been_here) {
     local_been_here = 1;
-    dft_driver_write_wisdom("fftw.wis"); // we have done many FFTs at this point
+    dft_driver_write_wisdom(dft_driver_wisfile()); // we have done many FFTs at this point
   }
 }
 
@@ -687,8 +722,6 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
   
   // Solve the Poisson equation to get the viscous potential
   rgrid3d_poisson(workspace8);
-  // test
-  dft_driver_clear_pot(workspace8, 300.0 / GRID_AUTOK, -300.0 / GRID_AUTOK);
   grid3d_add_real_to_complex_re(pot, workspace8);
 #else
   // NOT IN USE
@@ -718,11 +751,14 @@ EXPORT void dft_driver_propagate_potential(long what, wf3d *gwf, cgrid3d *pot, d
   tstep /= GRID_AUTOFS;
   if(driver_iter_mode == DFT_DRIVER_REAL_TIME) time = tstep;
   else time = -I * tstep;
+
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
-    dft_driver_timestep_tmp = tstep;
-    dft_driver_timestep_tmp2 = 1.0;
-    grid3d_wf_propagate_potential2(gwf, pot, dft_driver_itime_abs);
+    if(dft_driver_bc_function)
+      grid3d_wf_propagate_potential2(gwf, pot, dft_driver_bc_function, time);
+    else
+      grid3d_wf_propagate_potential2(gwf, pot, dft_driver_itime_abs, time);
   } else grid3d_wf_propagate_potential(gwf, pot, time);
+
   if(driver_iter_mode == DFT_DRIVER_IMAG_TIME) scale_wf(what, gwf);
 }
 

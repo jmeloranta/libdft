@@ -1,5 +1,8 @@
-
-include ../../../make.conf 
+ifeq ($(shell test -e ../../../make.conf),yes)
+  include ../../../make.conf
+else
+  include /usr/include/dft/make.conf
+endif
 
 all: piston
 

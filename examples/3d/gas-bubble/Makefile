@@ -1,4 +1,8 @@
-include ../../../make.conf
+ifeq ($(shell test -e ../../../make.conf),yes)
+  include ../../../make.conf
+else
+  include /usr/include/dft/make.conf
+endif
 
 all: bubble bubble2 analyze2
 
@@ -21,5 +25,5 @@ analyze2.o: analyze2.c
 	        $(CC) $(CFLAGS) -c analyze2.c
 
 clean:
-	-rm bubble bubble2 *.[oxyz] *.grd *.x *.y *.z
+	-rm bubble bubble2 analyze2 *.[oxyz] *.grd *.x *.y *.z liquid.dat
 

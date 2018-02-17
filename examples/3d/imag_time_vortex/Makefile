@@ -1,4 +1,8 @@
-include ../../../make.conf
+ifeq ($(shell test -e ../../../make.conf),yes)
+  include ../../../make.conf
+else
+  include /usr/include/dft/make.conf
+endif
 
 all: imag_time imag_time_pes imag_time_pes_zp he3+ imag_time_zp
 

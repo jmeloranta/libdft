@@ -1,8 +1,8 @@
 /*
- * Dynamics of a gas bubble (formed by external potential) travelling at
- * constant velocity in liquid helium. 
+ * Dynamics of a bubble (formed by external potential) travelling at
+ * constant velocity in liquid helium (moving background). 
  * 
- * All input in a.u. except the time step, which is fs.
+ * All input in a.u. except the time step, which is in fs.
  *
  */
 
@@ -16,26 +16,30 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-/* Only imaginary time */
-#define TIME_STEP 50.0	/* Time step in fs (5 for real, 10 for imag) */
-#define FUNCTIONAL (DFT_OT_PLAIN) /* Functional to be used (DFT_OT_PLAIN or DFT_GP) */
-#define STARTING_ITER 200 /* Starting real time iterations (was 200) */
-#define MAXITER (800000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
-#define OUTPUT     250	/* output every this iteration (was 250) */
-#define ABS_WIDTH  20.0 /* Width of the absorbing boundary */
+#define TIME_STEP_IMAG 30.0             /* Time step in imag iterations (fs) */
+#define TIME_STEP_REAL 30.0             /* Time step for real time iterations (fs) */
+#define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
+#define STARTING_TIME 10000.0           /* Start real time simulation at this time (fs) - 10 ps (10,000) */
+#define STARTING_ITER ((long) (STARTING_TIME / TIME_STEP_IMAG))
+#define MAXITER 8000000                 /* Maximum number of real time iterations */
+#define OUTPUT_TIME 2500.0               /* Output interval time (fs) (2500) */
+#define OUTPUT_ITER ((long) (OUTPUT_TIME / TIME_STEP_REAL))
+#define VX (60.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
+#define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 512       	/* # of grid points along x */
+#define NX 256       	/* # of grid points along x */
 #define NY 128          /* # of grid points along y */
 #define NZ 128        	/* # of grid points along z */
-#define STEP 2.0        /* spatial step length (Bohr) */
+#define STEP 4.0        /* spatial step length (Bohr) */
+#define ABS_WIDTH_X 40.0  /* Width of the absorbing boundary */
+#define ABS_WIDTH_Y 20.0  /* Width of the absorbing boundary */
+#define ABS_WIDTH_Z 20.0  /* Width of the absorbing boundary */
 
-#define PRESSURE (1.0 / GRID_AUTOBAR)   /* External pressure in bar */
-#define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
+/* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT */
+#define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson */
 
-/* VISCOSITY * RHON */
-//#define VISCOSITY (1.306E-6 * 0.162)
-#define TEMP 1.6
+#define FFTW_PLANNER 1 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
 
 /* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
@@ -47,10 +51,10 @@
 #define RMIN 2.0
 #define RADD 6.0
 
-/* velocity components for the gas (m/s) */
-#define VX	(80.0 / GRID_AUTOMPS)
+#define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass in AMU */
 
 double global_time, rho0;
+long iter;
 
 double round_veloc(double veloc) {   // Round to fit the simulation box
 
@@ -59,33 +63,14 @@ double round_veloc(double veloc) {   // Round to fit the simulation box
 
   n = (long) (0.5 + (NX * STEP * HELIUM_MASS * VX) / (HBAR * 2.0 * M_PI));
   v = ((double) n) * HBAR * 2.0 * M_PI / (NX * STEP * HELIUM_MASS);
-  printf("Requested velocity = %le m/s.\n", veloc * GRID_AUTOMPS);
-  printf("Nearest velocity compatible with PBC = %le m/s.\n", v * GRID_AUTOMPS);
+  fprintf(stderr, "Requested velocity = %le m/s.\n", veloc * GRID_AUTOMPS);
+  fprintf(stderr, "Nearest velocity compatible with PBC = %le m/s.\n", v * GRID_AUTOMPS);
   return v;
 }
 
 double momentum(double vx) {
 
   return HELIUM_MASS * vx / HBAR;
-}
-
-/* Impurity must always be at the origin (dU/dx) */
-double dpot_func(void *NA, double x, double y, double z) {
-
-  double r, rp, r2, r3, r5, r7, r9, r11;
-
-  rp = sqrt(x * x + y * y + z * z);
-  r = rp - RADD;
-  if(r < RMIN) return 0.0;
-
-  r2 = r * r;
-  r3 = r2 * r;
-  r5 = r2 * r3;
-  r7 = r5 * r2;
-  r9 = r7 * r2;
-  r11 = r9 * r2;
-  
-  return (x / rp) * (-A0 * A1 * exp(-A1 * r) + 4.0 * A2 / r5 + 6.0 * A3 / r7 + 8.0 * A4 / r9 + 10.0 * A5 / r11);
 }
 
 double pot_func(void *NA, double x, double y, double z) {
@@ -104,43 +89,53 @@ double pot_func(void *NA, double x, double y, double z) {
   return A0 * exp(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
 }
 
+/* -I * cabs(tstep) = full imag time, cabs(tstep) = full real time */
+double complex tstep_func(double complex tstep, long i, long j, long k) {
+ 
+  double x = ((double) iter) / (double) STARTING_ITER;
+
+  return (-I * (1.0 - x) + x) * cabs(tstep);
+}
+
 int main(int argc, char *argv[]) {
 
   wf3d *gwf, *gwfp;
   cgrid3d *cworkspace;
   rgrid3d *ext_pot;
-  long iter;
   char filename[2048];
   double vx, mu0, kx;
   FILE *fp;
   
-  /* Setup DFT driver parameters (256 x 256 x 256 grid) */
+  /* Setup DFT driver parameters */
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
 
-  /* Setup frame of reference momentum */
-  dft_driver_setup_momentum(0.0, 0.0, 0.0);
+  /* FFTW planner flags */
+  grid_set_fftw_flags(FFTW_PLANNER);
 
   /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, 0.0);  // will be changed later
   
   /* Regular boundaries */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   
   /* Initialize */
   dft_driver_initialize();
 
+  dft_driver_kinetic = KINETIC_PROPAGATOR;
+  if(dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC) fprintf(stderr, "Kinetic propagator = Crank-Nicolson\n");
+  if(dft_driver_kinetic == DFT_DRIVER_KINETIC_FFT) fprintf(stderr, "Kinetic propagator = FFT\n"); 
+
   /* bulk normalization (requires the correct chem. pot.) */
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
+  /* TODO: when vx != 0, mu0 is affected. For now just use bulk renormalization - v contributes to mu0? */
+//  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
+  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
   dft_driver_otf->rho0 = rho0;
   mu0  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
-  printf("rho0 = %le Angs^-3, mu0 = %le K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
-
-  /* Round velocity to fit the spatial grid */
-  vx = round_veloc(VX);
+  fprintf(stderr, "rho0 = %le Angs^-3, mu0 = %le K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
   
   /* Allocate wavefunctions and grids */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);  /* order parameter for current time (He liquid) */
@@ -149,16 +144,21 @@ int main(int argc, char *argv[]) {
   cworkspace = dft_driver_alloc_cgrid();             /* allocate complex workspace */
   ext_pot = dft_driver_alloc_rgrid();                /* allocate real external potential grid */
   
-  fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
+  /* Setup frame of reference momentum (for both imaginary & real time) */
+  vx = round_veloc(VX);     /* Round velocity to fit the spatial grid */
+  kx = momentum(vx);
+  dft_driver_setup_momentum(kx, 0.0, 0.0);
+  cgrid3d_set_momentum(gwf->grid, kx, 0.0, 0.0);
+  cgrid3d_set_momentum(gwfp->grid, kx, 0.0, 0.0);
+  cgrid3d_set_momentum(cworkspace, kx, 0.0, 0.0);
+
+  fprintf(stderr, "Imaginary time step in a.u. = %le\n", TIME_STEP_IMAG / GRID_AUTOFS);
+  fprintf(stderr, "Real time step in a.u. = %le\n", TIME_STEP_REAL / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (au)\n", vx, 0.0, 0.0);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (A/ps)\n", 
 		  vx * 1000.0 * GRID_AUTOANG / GRID_AUTOFS, 0.0, 0.0);
   fprintf(stderr, "Relative velocity = (%le, %le, %le) (m/s)\n", vx * GRID_AUTOMPS, 0.0, 0.0);
 
-#ifdef VISCOSITY
-  fprintf(stderr, "Reynolds # = %le\n", rho0 * vx * 20E-10 / (VISCOSITY / GRID_AUTOPAS));
-#endif
-  
   rgrid3d_map(ext_pot, pot_func, NULL); /* External potential */
   rgrid3d_add(ext_pot, -mu0);
 
@@ -166,9 +166,9 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Can't open parameter file for writing.\n");
     exit(1);
   }
-  fprintf(fp, "%le\n", TIME_STEP / 5.0);   /* real time simulation time step */
+  fprintf(fp, "%le\n", TIME_STEP_REAL);    /* real time simulation time step */
   fprintf(fp, "%le\n", vx * GRID_AUTOMPS); /* velocity */
-  fprintf(fp, "%d\n", OUTPUT);            /* output interval */
+  fprintf(fp, "%ld\n", OUTPUT_ITER);       /* output interval */
   fprintf(fp, "%le\n", A0);                /* potential params */
   fprintf(fp, "%le\n", A1);                
   fprintf(fp, "%le\n", A2);                
@@ -180,38 +180,31 @@ int main(int argc, char *argv[]) {
   fclose(fp);
 
   /* Imaginary iterations */
-  fprintf(stderr, "Imag time mode.\n");
-  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_IMAG_TIME, rho0);  /* imag time */
+  fprintf(stderr, "Warm up iterations.\n");
+  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* mixed real & imag time iterations for warm up */
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
+  dft_driver_bc_function = &tstep_func;  /* User specified boundary function: Start imag and then gradually switch over to real */
+                                         /* This applies over the whole cell - not just boundaries. */
+  fprintf(stderr, "Absorption begins at (%le,%le,%le) Bohr from the boundary\n",  ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
   for(iter = 0; iter < STARTING_ITER; iter++) {
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_IMAG, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_IMAG, iter); /* CORRECT */ 
   }
 
   /* Real time iterations */
-  kx = momentum(vx);
-  dft_driver_setup_momentum(kx, 0.0, 0.0);
-  cgrid3d_set_momentum(gwf->grid, kx, 0.0, 0.0);
-  cgrid3d_set_momentum(gwfp->grid, kx, 0.0, 0.0);
-  cgrid3d_set_momentum(cworkspace, kx, 0.0, 0.0);
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH);
-  fprintf(stderr, "Absorption begins at %le Bohr from the boundary\n",  ABS_WIDTH);
-  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* real time */
-  fprintf(stderr, "Real time mode with time step %le fs.\n", TIME_STEP / 5.0);
-  /* viscosity */
-#ifdef VISCOSITY
-  fprintf(stderr,"Viscosity using precomputed alpha. with T = %le\n", TEMP);
-  dft_driver_setup_viscosity(VISCOSITY, 1.72 + 2.32E-10*exp(11.15*TEMP));
-#endif
-  for(iter = STARTING_ITER; iter < MAXITER; iter++) {
-    
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP/5.0, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP/5.0, iter); /* CORRECT */ 
-    
-    if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
+  dft_driver_bc_function = NULL;  /* switch back to standard built-in absorbing boundary code */
+  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* real time iterations */
+
+  fprintf(stderr, "Real time propagation.\n");
+  for(iter = 0; iter < MAXITER; iter++) {
+    if(!(iter % OUTPUT_ITER)) {   /* every OUTPUT_ITER iterations, write output */
       sprintf(filename, "liquid-%ld", iter);
       dft_driver_write_grid(gwf->grid, filename);
       fflush(stdout);
     }
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_REAL, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_REAL, iter); /* CORRECT */ 
   }
+
   return 0;
 }

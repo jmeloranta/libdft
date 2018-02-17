@@ -175,6 +175,7 @@ int main(int argc, char *argv[]) {
     rgrid3d_power(circ, circ, NN);
     printf("Total circulation = %le (au; NN = %le).\n", rgrid3d_integral(circ), NN);
     fflush(stdout);    
+#if 0
     if(!(iter % OUT_INTERVAL)) {
       long j;
       rgrid3d_fft(circ);
@@ -189,6 +190,7 @@ int main(int argc, char *argv[]) {
         else fprintf(fp, "%le 0.0\n", BIN_STEP * (double) j);
       fclose(fp);
     }
+#endif
   }
   exit(0); /* not reached */
 }  
