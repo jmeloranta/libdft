@@ -32,12 +32,12 @@ int dft_driver_init_wavefunction = 1;
 int dft_driver_kinetic = 0; /* default FFT propagation for kinetic, TODO: FFT gives some numerical hash - bug? */
 double complex (*dft_driver_bc_function)(double complex, long, long, long) = NULL; /* User specified function for absorbing boundaries */
 
-static long driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
+static long driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_nx2 = 0, driver_ny2 = 0, driver_nz2 = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc = 0, driver_rels = 0;
 static double driver_frad = 0.0, driver_omega = 0.0, driver_damp = 0.2, driver_width_x = 1.0, driver_width_y = 1.0, driver_width_z = 1.0;
 static double viscosity = 0.0, viscosity_alpha = 1.0;
 static double driver_step = 0.0, driver_rho0 = 0.0;
-static double driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0;
+static double driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0, driver_bx = 0.0, driver_by = 0.0, driver_bz = 0.0;
 static double driver_kx0 = 0.0, driver_ky0 = 0.0,driver_kz0 = 0.0;
 static rgrid3d *density = 0, *workspace1 = 0, *workspace2 = 0, *workspace3 = 0, *workspace4 = 0, *workspace5 = 0, *workspace6 = 0;
 static rgrid3d *workspace7 = 0, *workspace8 = 0, *workspace9 = 0;
@@ -116,11 +116,11 @@ inline static void scale_wf(long what, wf3d *gwf) {
       double sq;
       sq = sqrt(3.0*driver_rho0/4.0);
       for (i = 0; i < driver_nx; i++) {
-	x = (i - driver_nx/2.0) * driver_step;
+	x = (i - driver_nx2) * driver_step;
 	for (j = 0; j < driver_ny; j++) {
-	  y = (j - driver_ny/2.0) * driver_step;
+	  y = (j - driver_ny2) * driver_step;
 	  for (k = 0; k < driver_nz; k++) {
-	    z = (k - driver_nz/2.0) * driver_step;
+	    z = (k - driver_nz2) * driver_step;
 	    if(sqrt(x*x + y*y + z*z) < driver_frad && cabs(gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k]) < sq)
 	      gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k] = sq;
 	  }
@@ -136,11 +136,11 @@ inline static void scale_wf(long what, wf3d *gwf) {
       sq = sqrt(3.0*driver_rho0/4.0);
       long nyz = driver_ny * driver_nz;
       for (i = 0; i < driver_nx; i++) {
-	x = (i - driver_nx/2.0) * driver_step;
+	x = (i - driver_nx2) * driver_step;
 	for (j = 0; j < driver_ny; j++) {
-	  y = (j - driver_ny/2.0) * driver_step;
+	  y = (j - driver_ny2) * driver_step;
 	  for (k = 0; k < driver_nz; k++) {
-	    z = (k - driver_nz/2.0) * driver_step;
+	    z = (k - driver_nz2) * driver_step;
 	    if(sqrt(x * x + z * z) < driver_frad && cabs(gwf->grid->value[i * nyz + j * driver_nz + k]) < sq)
 	      gwf->grid->value[i * nyz + j * driver_nz + k] = sq;
 	  }
@@ -282,9 +282,9 @@ EXPORT void dft_driver_setup_grid(long nx, long ny, long nz, double step, long t
   //    exit(1);
   //  }
 
-  driver_nx = nx;
-  driver_ny = ny;
-  driver_nz = nz;
+  driver_nx = nx; driver_nx2 = driver_nx / 2;
+  driver_ny = ny; driver_ny2 = driver_ny / 2;
+  driver_nz = nz; driver_nz2 = driver_nz / 2;
   driver_step = step;
   // Set the origin to its default value if it is not defined
   if(dft_driver_verbose) fprintf(stderr, "libdft: Grid size = (%ld,%ld,%ld) with step = %le.\n", nx, ny, nz, step);
@@ -406,6 +406,9 @@ EXPORT void dft_driver_setup_boundary_type(long boundary_type, double damp, doub
   driver_width_x = width_x;
   driver_width_y = width_y;
   driver_width_z = width_z;
+  driver_bx = driver_step * driver_nx2 - driver_width_x;
+  driver_by = driver_step * driver_ny2 - driver_width_y;
+  driver_bz = driver_step * driver_nz2 - driver_width_z;
 }
 
 /*
@@ -475,29 +478,18 @@ EXPORT void dft_driver_setup_rotation_omega(double omega) {
 double complex dft_driver_itime_abs(double complex tstep, long i, long j, long k) {
 
   double x, y, z, tmp;
-  static double bx = -1.0, by = -1.0, bz = -1.0;
-  static long nx2 = -1, ny2 = -1, nz2 = -1;
-
-  if(bx == -1.0) {
-    bx = driver_step * (driver_nx / 2) - driver_width_x;
-    by = driver_step * (driver_ny / 2) - driver_width_y,    
-    bz = driver_step * (driver_nz / 2) - driver_width_z;
-    nx2 = driver_nx / 2;
-    ny2 = driver_ny / 2;
-    nz2 = driver_nz / 2;
-  }
 
   // current position
-  x = fabs((i - nx2) * driver_step);
-  y = fabs((j - ny2) * driver_step);
-  z = fabs((k - nz2) * driver_step);
+  x = fabs((i - driver_nx2) * driver_step);
+  y = fabs((j - driver_ny2) * driver_step);
+  z = fabs((k - driver_nz2) * driver_step);
 
-  if(x < bx && y < by && z < bz) return tstep;
+  if(x < driver_bx && y < driver_by && z < driver_bz) return tstep;
 
   tmp = 0.0;
-  if(x >= bx) tmp += (x - bx) / driver_width_x;
-  if(y >= by) tmp += (y - by) / driver_width_y;
-  if(z >= bz) tmp += (z - bz) / driver_width_z;
+  if(x >= driver_bx) tmp += (x - driver_bx) / driver_width_x;
+  if(y >= driver_by) tmp += (y - driver_by) / driver_width_y;
+  if(z >= driver_bz) tmp += (z - driver_bz) / driver_width_z;
   tmp = tanh(tmp) * driver_damp;
   return (1.0 - I * tmp) * cabs(tstep);
 }
@@ -1532,10 +1524,10 @@ EXPORT void dft_driver_write_grid(cgrid3d *grid, char *base) {
     fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
     exit(1);
   }
-  j = driver_ny / 2;
-  k = driver_nz / 2;
+  j = driver_ny2;
+  k = driver_nz2;
   for(i = 0; i < driver_nx; i++) { 
-    x = (i - driver_nx/2.0) * driver_step;
+    x = (i - driver_nx2) * driver_step;
     fprintf(fp, "%le %le %le\n", x, creal(cgrid3d_value_at_index(grid, i, j, k)), cimag(cgrid3d_value_at_index(grid, i, j, k)));
   }
   fclose(fp);
@@ -1545,10 +1537,10 @@ EXPORT void dft_driver_write_grid(cgrid3d *grid, char *base) {
     fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
     exit(1);
   }
-  i = driver_nx / 2;
-  k = driver_nz / 2;
+  i = driver_nx2;
+  k = driver_nz2;
   for(j = 0; j < driver_ny; j++) {
-    y = (j - driver_ny/2.0) * driver_step;
+    y = (j - driver_ny2) * driver_step;
     fprintf(fp, "%le %le %le\n", y, creal(cgrid3d_value_at_index(grid, i, j, k)), cimag(cgrid3d_value_at_index(grid, i, j, k)));
   }
   fclose(fp);
@@ -1558,10 +1550,10 @@ EXPORT void dft_driver_write_grid(cgrid3d *grid, char *base) {
     fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
     exit(1);
   }
-  i = driver_nx / 2;
-  j = driver_ny / 2;
+  i = driver_nx2;
+  j = driver_ny2;
   for(k = 0; k < driver_nz; k++) {
-    z = (k - driver_nz/2.0) * driver_step;
+    z = (k - driver_nz2) * driver_step;
     fprintf(fp, "%le %le %le\n", z, creal(cgrid3d_value_at_index(grid, i, j, k)), cimag(cgrid3d_value_at_index(grid, i, j, k)));
   }
   fclose(fp);

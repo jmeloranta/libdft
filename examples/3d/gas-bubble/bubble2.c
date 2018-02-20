@@ -199,7 +199,7 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Absorption begins at (%le,%le,%le) Bohr from the boundary\n",  ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
 
   fprintf(stderr, "Real time propagation.\n");
-    dft_driver_bc_function = NULL;
+  dft_driver_bc_function = NULL;
   for(iter = 0; iter < MAXITER; iter++) {
     if(!(iter % OUTPUT_ITER)) {   /* every OUTPUT_ITER iterations, write output */
       sprintf(filename, "liquid-%ld", iter);
