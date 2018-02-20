@@ -2,7 +2,7 @@ include ../make.conf
 
 OBJS = ot2d.o ot3d.o common.o driver2d.o driver3d.o driver3d_cyl.o classical.o bulk3d.o bulk2d.o
 
-libdft.a: prototypes $(OBJS)
+libdft.a: prototypes | $(OBJS)
 	$(AR) cr libdft.a $(OBJS)
 
 prototypes:

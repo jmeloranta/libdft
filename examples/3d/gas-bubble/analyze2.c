@@ -167,8 +167,10 @@ int main(int argc, char *argv[]) {
     if(vx > 0.0) printf("Added mass = %le He atoms.\n", cur_mom / (wf->mass * vx));
     grid3d_wf_density(wf, circ);
     printf("Number of He atoms = %le\n", rgrid3d_integral(circ));
-    printf("Drag force1 = %le (au).\n", -rgrid3d_weighted_integral(circ, dpot_func, NULL)); // circ = density here
-    printf("Drag force2 = %le (au).\n",  (cur_mom - prev_mom) / (time_step * ((double) iter_step)));
+    if(iter > 0) {
+      printf("Drag force1 = %le (au).\n", -rgrid3d_weighted_integral(circ, dpot_func, NULL)); // circ = density here
+      printf("Drag force2 = %le (au).\n",  (cur_mom - prev_mom) / (time_step * ((double) iter_step)));
+    }
     prev_mom = cur_mom;
 
     rgrid3d_abs_rot(circ, cur_x, cur_y, cur_z);

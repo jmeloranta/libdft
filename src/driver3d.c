@@ -525,6 +525,8 @@ EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tste
   /* 1/2 x kinetic */
   switch(dft_driver_kinetic) {
   case DFT_DRIVER_KINETIC_FFT: /* this works for absorbing boundaries too ! -- even it is real time there! */
+    // NOTE: FFT takes the time step from the center of the grid only (allows time dependent real / imag switching)
+    if(dft_driver_bc_function) htime = (*dft_driver_bc_function)(tstep / 2.0, 0, 0, 0); // else use htime
     grid3d_wf_propagate_kinetic_fft(gwf, htime);
     break;
   case DFT_DRIVER_KINETIC_CN_DBC:

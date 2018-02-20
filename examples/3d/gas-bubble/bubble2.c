@@ -19,10 +19,10 @@
 #define TIME_STEP_IMAG 30.0             /* Time step in imag iterations (fs) */
 #define TIME_STEP_REAL 30.0             /* Time step for real time iterations (fs) */
 #define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
-#define STARTING_TIME 10000.0           /* Start real time simulation at this time (fs) - 10 ps (10,000) */
+#define STARTING_TIME 4000.0           /* Start real time simulation at this time (fs) - 10 ps (was 10,000) */
 #define STARTING_ITER ((long) (STARTING_TIME / TIME_STEP_IMAG))
-#define MAXITER 8000000                 /* Maximum number of real time iterations */
-#define OUTPUT_TIME 2500.0               /* Output interval time (fs) (2500) */
+#define MAXITER 80000000                /* Maximum number of real time iterations */
+#define OUTPUT_TIME 2500.0              /* Output interval time (fs) (2500) */
 #define OUTPUT_ITER ((long) (OUTPUT_TIME / TIME_STEP_REAL))
 #define VX (60.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
@@ -36,8 +36,8 @@
 #define ABS_WIDTH_Y 20.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Z 20.0  /* Width of the absorbing boundary */
 
-/* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT */
-#define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson */
+#define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT (unstable) */
+/* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson */
 
 #define FFTW_PLANNER 1 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
 
@@ -90,11 +90,11 @@ double pot_func(void *NA, double x, double y, double z) {
 }
 
 /* -I * cabs(tstep) = full imag time, cabs(tstep) = full real time */
-double complex tstep_func(double complex tstep, long i, long j, long k) {
+double complex tstep_func(double complex tstep) {
  
   double x = ((double) iter) / (double) STARTING_ITER;
 
-  return (-I * (1.0 - x) + x) * cabs(tstep);
+  return (-I * (1.0 - x) + x) * cabs(tstep);  // not called with x > 1
 }
 
 int main(int argc, char *argv[]) {
@@ -179,21 +179,25 @@ int main(int argc, char *argv[]) {
   fprintf(fp, "%le\n", RADD);
   fclose(fp);
 
-  /* Imaginary iterations */
-  fprintf(stderr, "Warm up iterations.\n");
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* mixed real & imag time iterations for warm up */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 0.2, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
-  dft_driver_bc_function = &tstep_func;  /* User specified boundary function: Start imag and then gradually switch over to real */
-                                         /* This applies over the whole cell - not just boundaries. */
-  fprintf(stderr, "Absorption begins at (%le,%le,%le) Bohr from the boundary\n",  ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
-  for(iter = 0; iter < STARTING_ITER; iter++) {
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_IMAG, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP_IMAG, iter); /* CORRECT */ 
+
+  if(argc == 1) {
+    double complex time_step;
+    /* Mixed Imaginary & Real time iterations */
+    fprintf(stderr, "Warm up iterations.\n");
+    for(iter = 0; iter < STARTING_ITER; iter++) {
+      time_step = tstep_func(TIME_STEP_IMAG);
+      (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, time_step, iter); /* PREDICT */ 
+      (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, time_step, iter); /* CORRECT */ 
+    }
+  } else { /* restart from a fie (.grd) */
+    fprintf(stderr, "Continuing from checkpoint file %s.\n", argv[1]);
+    dft_driver_read_grid(gwf->grid, argv[1]);
   }
 
   /* Real time iterations */
-  dft_driver_bc_function = NULL;  /* switch back to standard built-in absorbing boundary code */
-  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);  /* real time iterations */
+  fprintf(stderr, "Absorption begins at (%le,%le,%le) Bohr from the boundary\n",  ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
 
   fprintf(stderr, "Real time propagation.\n");
   for(iter = 0; iter < MAXITER; iter++) {

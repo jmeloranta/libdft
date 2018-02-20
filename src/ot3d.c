@@ -300,14 +300,12 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
     rgrid3d_copy(workspace1, density);
     rgrid3d_multiply(workspace1, otf->mu0 / otf->rho0);   // test - sign
     grid3d_add_real_to_complex_re(potential, workspace1);
-    // test
     if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
       /* Barranco's penalty term */
       rgrid3d_copy(workspace1, density);
       rgrid3d_fft(workspace1);
       dft_ot3d_add_barranco(otf, potential, density, workspace1);
     }
-    // end test
     return;
   }
 
