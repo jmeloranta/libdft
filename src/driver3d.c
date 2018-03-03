@@ -48,6 +48,15 @@ int dft_internal_using_3d = 0;
 extern int dft_internal_using_2d, dft_internal_using_cyl;
 
 /*
+ * OpenMP globals.
+ *
+ * TODO: Check if this solves the issue that absorbing BC code slows down the code.
+ *
+ */
+
+#pragma omp threadprivate(driver_nx2,driver_ny2,driver_nz2,driver_step,driver_bx,driver_by,driver_bz,driver_damp)
+
+/*
  * Return default wisdom file name.
  *
  */
