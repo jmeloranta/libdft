@@ -90,7 +90,7 @@ double pot_func(void *NA, double x, double y, double z) {
 }
 
 /* -I * cabs(tstep) = full imag time, cabs(tstep) = full real time */
-double complex tstep_func(double complex tstep, long i, long j, long k) {
+double complex tstep_func(void *asd, double complex tstep, long i, long j, long k) {
  
   double x = ((double) iter) / (double) STARTING_ITER;
 

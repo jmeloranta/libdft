@@ -30,7 +30,7 @@ int dft_driver_verbose = 1;   /* set to zero to eliminate informative print outs
 dft_ot_functional *dft_driver_otf = 0;
 int dft_driver_init_wavefunction = 1;
 int dft_driver_kinetic = 0; /* default FFT propagation for kinetic, TODO: FFT gives some numerical hash - bug? */
-double complex (*dft_driver_bc_function)(double complex, long, long, long) = NULL; /* User specified function for absorbing boundaries */
+double complex (*dft_driver_bc_function)(void *, double complex, long, long, long) = NULL; /* User specified function for absorbing boundaries */
 
 static long driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_nx2 = 0, driver_ny2 = 0, driver_nz2 = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
 static long driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_bc = 0, driver_rels = 0;
@@ -46,15 +46,6 @@ static grid_timer timer;
 
 int dft_internal_using_3d = 0;
 extern int dft_internal_using_2d, dft_internal_using_cyl;
-
-/*
- * OpenMP globals.
- *
- * TODO: Check if this solves the issue that absorbing BC code slows down the code.
- *
- */
-
-#pragma omp threadprivate(driver_nx2,driver_ny2,driver_nz2,driver_step,driver_bx,driver_by,driver_bz,driver_damp)
 
 /*
  * Return default wisdom file name.
@@ -484,22 +475,37 @@ EXPORT void dft_driver_setup_rotation_omega(double omega) {
  *
  */
 
-double complex dft_driver_itime_abs(double complex tstep, long i, long j, long k) {
+struct priv_data {
+  long nx2, ny2, nz2;
+  double step;
+  double width_x, width_y, width_z;
+  double bx, by, bz;
+  double damp;
+};
+
+double complex dft_driver_itime_abs(void *data, double complex tstep, long i, long j, long k) {
 
   double x, y, z, tmp;
+  struct priv_data *asd = (struct priv_data *) data;  
+  long nx2 = asd->nx2, ny2 = asd->ny2, nz2 = asd->nz2;
+  double step = asd->step, width_x = asd->width_x, width_y = asd->width_y, width_z = asd->width_z;
+  double bx = asd->bx, by = asd->by, bz = asd->bz;
+  double damp = asd->damp;
 
   // current position
-  x = fabs((i - driver_nx2) * driver_step);
-  y = fabs((j - driver_ny2) * driver_step);
-  z = fabs((k - driver_nz2) * driver_step);
+  x = fabs((i - nx2) * step);
+  y = fabs((j - ny2) * step);
+  z = fabs((k - nz2) * step);
 
-  if(x < driver_bx && y < driver_by && z < driver_bz) return tstep;
+  if(x < bx && y < by && z < bz) return tstep;
+
+  return tstep;  ////// DEBUG
 
   tmp = 0.0;
-  if(x >= driver_bx) tmp += (x - driver_bx) / driver_width_x;
-  if(y >= driver_by) tmp += (y - driver_by) / driver_width_y;
-  if(z >= driver_bz) tmp += (z - driver_bz) / driver_width_z;
-  tmp = tanh(tmp) * driver_damp;
+  if(x >= bx) tmp += (x - bx) / width_x;
+  if(y >= by) tmp += (y - by) / width_y;
+  if(z >= bz) tmp += (z - bz) / width_z;
+  tmp = tanh(tmp) * damp;
   return (1.0 - I * tmp) * cabs(tstep);
 }
 
@@ -515,7 +521,7 @@ double complex dft_driver_itime_abs(double complex tstep, long i, long j, long k
 EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tstep) {
 
   double complex htime;
-
+ 
   if(what == DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT) return;   /* skip kinetic */
 
   tstep /= GRID_AUTOFS;
@@ -527,7 +533,15 @@ EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tste
   switch(dft_driver_kinetic) {
   case DFT_DRIVER_KINETIC_FFT: /* this works for absorbing boundaries too ! -- even it is real time there! */
     // NOTE: FFT takes the time step from the center of the grid only (allows time dependent real / imag switching)
-    if(dft_driver_bc_function) htime = (*dft_driver_bc_function)(tstep / 2.0, 0, 0, 0); // else use htime
+    if(dft_driver_bc_function) {
+      struct priv_data data;
+      data.nx2 = driver_nx2; data.ny2 = driver_ny2; data.nz2 = driver_nz2;
+      data.step = driver_step;
+      data.width_x = driver_width_x; data.width_y = driver_width_y; data.width_z = driver_width_z;
+      data.bx = driver_bx; data.by = driver_by; data.bz = driver_bz;
+      data.damp = driver_damp;
+      htime = (*dft_driver_bc_function)((void *) &data, tstep / 2.0, 0, 0, 0); // else use htime
+    }
     grid3d_wf_propagate_kinetic_fft(gwf, htime);
     break;
   case DFT_DRIVER_KINETIC_CN_DBC:
@@ -541,10 +555,16 @@ EXPORT void dft_driver_propagate_kinetic_first(long what, wf3d *gwf, double tste
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid();
     if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) { // do not apply in imag time
+      struct priv_data data;
+      data.nx2 = driver_nx2; data.ny2 = driver_ny2; data.nz2 = driver_nz2;
+      data.step = driver_step;
+      data.width_x = driver_width_x; data.width_y = driver_width_y; data.width_z = driver_width_z;
+      data.bx = driver_bx; data.by = driver_by; data.bz = driver_bz;
+      data.damp = driver_damp;
       if(dft_driver_bc_function)
-        grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_bc_function, htime, cworkspace);
+        grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_bc_function, htime, (void *) &data, cworkspace);
       else
-        grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_itime_abs, htime, cworkspace);
+        grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_itime_abs, htime, (void *) &data, cworkspace);
     } else grid3d_wf_propagate_kinetic_cn_nbc(gwf, htime, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
@@ -756,10 +776,16 @@ EXPORT void dft_driver_propagate_potential(long what, wf3d *gwf, cgrid3d *pot, d
   else time = -I * tstep;
 
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
+    struct priv_data data;
+    data.nx2 = driver_nx2; data.ny2 = driver_ny2; data.nz2 = driver_nz2;
+    data.step = driver_step;
+    data.width_x = driver_width_x; data.width_y = driver_width_y; data.width_z = driver_width_z;
+    data.bx = driver_bx; data.by = driver_by; data.bz = driver_bz;
+    data.damp = driver_damp;
     if(dft_driver_bc_function)
-      grid3d_wf_propagate_potential2(gwf, pot, dft_driver_bc_function, time);
+      grid3d_wf_propagate_potential2(gwf, pot, dft_driver_bc_function, time, (void *) &data);
     else
-      grid3d_wf_propagate_potential2(gwf, pot, dft_driver_itime_abs, time);
+      grid3d_wf_propagate_potential2(gwf, pot, dft_driver_itime_abs, time, (void *) &data);
   } else grid3d_wf_propagate_potential(gwf, pot, time);
 
   if(driver_iter_mode == DFT_DRIVER_IMAG_TIME) scale_wf(what, gwf);
