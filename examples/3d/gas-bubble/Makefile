@@ -4,26 +4,21 @@ else
   include /usr/include/dft/make.conf
 endif
 
-all: bubble bubble2 analyze2
+all: bubble
 
-bubble: bubble.o
-	        $(CC) $(CFLAGS) -o bubble bubble.o $(LDFLAGS) 
+bubble: bubble.o pot.o analyze.o
+	        $(CC) $(CFLAGS) -o bubble bubble.o pot.o analyze.o $(LDFLAGS) 
 
 bubble.o: bubble.c
 	        $(CC) $(CFLAGS) -c bubble.c
 
-bubble2: bubble2.o
-	        $(CC) $(CFLAGS) -o bubble2 bubble2.o $(LDFLAGS) 
+pot.o: pot.c
+	        $(CC) $(CFLAGS) -c pot.c
 
-bubble2.o: bubble2.c
-	        $(CC) $(CFLAGS) -c bubble2.c
-
-analyze2: analyze2.o
-	        $(CC) $(CFLAGS) -o analyze2 analyze2.o $(LDFLAGS) 
-
-analyze2.o: analyze2.c
-	        $(CC) $(CFLAGS) -c analyze2.c
+analyze.o: analyze.c
+	        $(CC) $(CFLAGS) -c analyze.c
 
 clean:
-	-rm bubble bubble2 analyze2 *.[oxyz] *.grd *.x *.y *.z liquid.dat
+	-rm bubble *.[oxyz] *.grd *.x *.y *.z *~
+
 
