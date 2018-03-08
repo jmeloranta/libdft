@@ -27,18 +27,18 @@
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
-double rho0;
+REAL rho0;
 
 /* vortex ring initial guess */
-double complex vring(void *asd, double x, double y, double z) {
+REAL complex vring(void *asd, REAL x, REAL y, REAL z) {
 
-  double xs = sqrt(x * x + y * y) - RING_RADIUS;
-  double ys = z;
-  double angle = atan2(ys,xs), r = sqrt(xs*xs + ys*ys);
+  REAL xs = SQRT(x * x + y * y) - RING_RADIUS;
+  REAL ys = z;
+  REAL angle = ATAN2(ys,xs), r = SQRT(xs*xs + ys*ys);
 
-//  return sqrt(rho0);
+//  return SQRT(rho0);
   // was -r^2 / 2.0. -r gives better vortex density profile
-  return (1.0 - exp(-r)) * sqrt(rho0) * cexp(I * angle);
+  return (1.0 - EXP(-r)) * SQRT(rho0) * CEXP(I * angle);
 }
 
 int main(int argc, char **argv) {
@@ -46,8 +46,8 @@ int main(int argc, char **argv) {
   rgrid3d *ext_pot;
   cgrid3d *potential_store;
   wf3d *gwf, *gwfp;
-  long iter;
-  double mu0, kin, pot, n;
+  INT iter;
+  REAL mu0, kin, pot, n;
   char buf[512];
 
   /* Setup DFT driver parameters (grid) */
@@ -67,13 +67,13 @@ int main(int argc, char **argv) {
   dft_driver_otf->rho0 = rho0;
   /* chemical potential */
   mu0 = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
-  printf("rho0 = %le Angs^-3, mu0 = %le K.\n", rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG), mu0 * GRID_AUTOK);
+  printf("rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG), mu0 * GRID_AUTOK);
 
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
 
-  /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
   /* setup initial guess for vortex ring */
@@ -84,17 +84,17 @@ int main(int argc, char **argv) {
 
   for (iter = 1; iter < 800000; iter++) {
     if(iter == 1 || !(iter % NTH)) {
-      sprintf(buf, "vring-%ld", iter);
+      sprintf(buf, "vring-" FMT_I, iter);
       dft_driver_write_grid(gwf->grid, buf);
       dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
       dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
       kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
       pot = dft_driver_potential_energy(gwf, ext_pot); /* Potential energy for gwf */
       n = dft_driver_natoms(gwf);
-      printf("Iteration %ld helium natoms    = %le particles.\n", iter, n);   /* Energy / particle in K */
-      printf("Iteration %ld helium kinetic   = %.30lf\n", iter, kin * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration %ld helium potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration %ld helium energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration " FMT_I " helium natoms    = " FMT_R " particles.\n", iter, n);   /* Energy / particle in K */
+      printf("Iteration " FMT_I " helium kinetic   = " FMT_R "\n", iter, kin * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration " FMT_I " helium potential = " FMT_R "\n", iter, pot * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration " FMT_I " helium energy    = " FMT_R "\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       fflush(stdout);
     }
   }

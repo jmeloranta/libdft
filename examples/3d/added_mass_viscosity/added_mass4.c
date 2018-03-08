@@ -152,32 +152,32 @@
 
 #define SBC     4.0         /* boundary condition: 4 = electron, 6 = + ion (for Stokes) */
 
-double global_time;
+REAL global_time;
 
-double complex center_func(void *NA, double complex val, double x, double y, double z) {
-
-  return x;   /* (x - x_0) but x_0 = 0 */
-}
-
-double center_func2(void *NA, double x, double y, double z) {
+REAL complex center_func(void *NA, REAL complex val, REAL x, REAL y, REAL z) {
 
   return x;   /* (x - x_0) but x_0 = 0 */
 }
 
-double stddev_x(void *NA, double x, double y, double z) {
+REAL center_func2(void *NA, REAL x, REAL y, REAL z) {
+
+  return x;   /* (x - x_0) but x_0 = 0 */
+}
+
+REAL stddev_x(void *NA, REAL x, REAL y, REAL z) {
 
   return x * x;
 }
 
-double stddev_y(void *NA, double x, double y, double z) {
+REAL stddev_y(void *NA, REAL x, REAL y, REAL z) {
 
   return y * y;
 }
 
 /* Sign: - to + */
-double eval_force(wf3d *gwf, wf3d *impwf, rgrid3d *pair_pot, rgrid3d *dpair_pot, rgrid3d *workspace1, rgrid3d *workspace2) {
+REAL eval_force(wf3d *gwf, wf3d *impwf, rgrid3d *pair_pot, rgrid3d *dpair_pot, rgrid3d *workspace1, rgrid3d *workspace2) {
 
-  double tmp;
+  REAL tmp;
 
 #if 1
   grid3d_wf_density(impwf, workspace1);
@@ -206,12 +206,12 @@ int main(int argc, char *argv[]) {
   cgrid3d *cpot_el, *cpot;
   rgrid3d *pair_pot, *dpair_pot, *ext_pot, *density;
   rgrid3d *vx;
-  long iter;
+  INT iter;
   char filename[2048];
-  double kin, pot;
-  double rho0, mu0, n, tmp;
-  double force, mobility, last_mobility = 0.0;
-  double inv_width = 0.05;
+  REAL kin, pot;
+  REAL rho0, mu0, n, tmp;
+  REAL force, mobility, last_mobility = 0.0;
+  REAL inv_width = 0.05;
   grid_timer timer;
 
   if(argc != 1 && argc != 3) {
@@ -235,8 +235,8 @@ int main(int argc, char *argv[]) {
   printf("Using preset alpha.\n");
   dft_driver_setup_viscosity(RHON * VISCOSITY, ALPHA);
 #else
-  printf("Using precomputed alpha. with T = %le\n", T);
-  dft_driver_setup_viscosity(RHON * VISCOSITY, 1.72 + 2.32E-10*exp(11.15*T));  
+  printf("Using precomputed alpha. with T = " FMT_R "\n", T);
+  dft_driver_setup_viscosity(RHON * VISCOSITY, 1.72 + 2.32E-10*EXP(11.15*T));  
 #endif
   
   /* Regular boundaries */
@@ -253,8 +253,8 @@ int main(int argc, char *argv[]) {
   rho0 = dft_ot_bulk_density(dft_driver_otf);
   mu0  = dft_ot_bulk_chempot(dft_driver_otf);
 
-  printf("Bulk: rho0 = %le Angs^-3, mu0 = %le K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
-  printf("Exp: rho0 = %le Angs^-3.\n", DENSITY / (0.529 * 0.529 * 0.529));
+  printf("Bulk: rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
+  printf("Exp: rho0 = " FMT_R " Angs^-3.\n", DENSITY / (0.529 * 0.529 * 0.529));
   
   /* Allocate wavefunctions and grids */
   cpot_el = dft_driver_alloc_cgrid();            
@@ -273,28 +273,28 @@ int main(int argc, char *argv[]) {
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);  /* order parameter for current time */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS); /* order parameter for future (predict) */
   
-  fprintf(stderr, "Time step in a.u. = %le\n", TIME_STEP / GRID_AUTOFS);
-  fprintf(stderr, "Relative velocity = (%le, %le, %le) (a.u.)\n", VX, VY, VZ);
-  fprintf(stderr, "Relative velocity = (%le, %le, %le) (m/s)\n", VX * GRID_AUTOMPS, VY * GRID_AUTOMPS, VZ * GRID_AUTOMPS);
-  fprintf(stderr, "VISCOSITY = %le Pa s; RHON/RHO0 = %le.\n", VISCOSITY, RHON);
+  fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
+  fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (a.u.)\n", VX, VY, VZ);
+  fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (m/s)\n", VX * GRID_AUTOMPS, VY * GRID_AUTOMPS, VZ * GRID_AUTOMPS);
+  fprintf(stderr, "VISCOSITY = " FMT_R " Pa s; RHON/RHO0 = " FMT_R " .\n", VISCOSITY, RHON);
   
   if(argc < 2) {
     printf("Standard initial guess.\n");
     /* Initial wavefunctions. Read from file or set to initial guess */
     /* Constant density (initial guess) */
     if(rho0 == 0.0) rho0 = DENSITY;  /* for GP testing */    
-    cgrid3d_constant(gwf->grid, sqrt(rho0));
+    cgrid3d_constant(gwf->grid, SQRT(rho0));
     /* Gaussian for impurity (initial guess) */
     cgrid3d_map(impwf->grid, dft_common_cgaussian, &inv_width);
-    cgrid3d_multiply(impwf->grid, 1.0 / sqrt(grid3d_wf_norm(impwf)));
+    cgrid3d_multiply(impwf->grid, 1.0 / SQRT(grid3d_wf_norm(impwf)));
   } else if (argc == 3) {   /* restarting */
     printf("Initial guess read from a file.\n");
     printf("Helium WF from %s.\n", argv[1]);
     dft_driver_read_grid(gwf->grid, argv[1]);      
-    cgrid3d_multiply(gwf->grid, sqrt(rho0) / gwf->grid->value[0]);
+    cgrid3d_multiply(gwf->grid, SQRT(rho0) / gwf->grid->value[0]);
     printf("Electron WF from %s.\n", argv[2]);
     dft_driver_read_grid(impwf->grid, argv[2]);      
-    cgrid3d_multiply(impwf->grid, 1.0 / sqrt(grid3d_wf_norm(impwf)));
+    cgrid3d_multiply(impwf->grid, 1.0 / SQRT(grid3d_wf_norm(impwf)));
   } else {
     printf("Usage: added_mass4 <helium_wf electron_wf>\n");
     exit(1);
@@ -307,7 +307,7 @@ int main(int argc, char *argv[]) {
   
   for(iter = 1; iter < MAXITER; iter++) {
     grid_timer_start(&timer);
-    printf("Iteration %ld took ", iter);
+    printf("Iteration " FMT_I " took ", iter);
 
     /* FIRST HALF OF KINETIC ENERGY */
     dft_driver_propagate_kinetic_first(DFT_DRIVER_PROPAGATE_OTHER, impwf, IMP_STEP);
@@ -359,29 +359,32 @@ int main(int argc, char *argv[]) {
     /* SECOND HALF OF KINETIC */
     dft_driver_propagate_kinetic_second(DFT_DRIVER_PROPAGATE_OTHER, impwf, IMP_STEP);
     dft_driver_propagate_kinetic_second(DFT_DRIVER_PROPAGATE_HELIUM, gwf, TIME_STEP);
-    
-    printf("%lf wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
+
+    printf(FMT_R " wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
     fflush(stdout);
 
-    force = creal(cgrid3d_grid_expectation_value_func(NULL, center_func, impwf->grid)); // force is temp
-    printf("Expectation value of position (electron): %le\n", force * GRID_AUTOANG);
+    force = CREAL(cgrid3d_grid_expectation_value_func(NULL, center_func, impwf->grid)); // force is temp
+    printf("Expectation value of position (electron): " FMT_R "\n", force * GRID_AUTOANG);
+
     /* keep electron at origin */
     cgrid3d_shift(cpot, impwf->grid, -force, 0.0, 0.0);  // cpot_super is temp
     cgrid3d_copy(impwf->grid, cpot);
     
     if(iter && !(iter % OUTPUT)){	
-
+      printf("Iteration " FMT_I ":\n", iter);
       grid3d_wf_probability_flux_x(gwf, vx);
       tmp =  rgrid3d_integral(vx) / VX;
-      printf("Iteration %ld added mass = %.30lf\n", iter, tmp);
+      printf("Added mass = " FMT_R "\n", tmp);
 
       force = eval_force(gwf, impwf, pair_pot, dpair_pot, ext_pot, density);  /* ext_pot & density are temps */
-      printf("Drag force on ion = %le a.u.\n", force);
-      printf("E-field = %le V/m\n", -force * GRID_AUTOVPM);
+
+      printf("Drag force on ion = " FMT_R " a.u.\n", force);
+      printf("E-field = " FMT_R " V/m\n", -force * GRID_AUTOVPM);
       mobility = VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
-      printf("Mobility = %le [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
-      printf("Hydrodynamic radius (Stokes) = %le Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
-      printf("Mobility convergence = %le %%.\n", 100.0 * fabs(mobility - last_mobility) / mobility);
+      printf("Mobility = " FMT_R " [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
+      printf("Hydrodynamic radius (Stokes) = " FMT_R " Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
+      printf("Mobility convergence = " FMT_R " %%.\n", 100.0 * FABS(mobility - last_mobility) / mobility);
+
       last_mobility = mobility;
 
       if(!(iter % (OUTPUT2*OUTPUT))) {   /* 10XOUTPUT for writing files */
@@ -394,21 +397,22 @@ int main(int argc, char *argv[]) {
 	kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
 	pot = dft_driver_potential_energy(gwf, ext_pot); /* Potential energy for gwf */
 	n = dft_driver_natoms(gwf);
-	printf("Iteration %ld background kinetic = %.30lf\n", iter, n * EKIN * GRID_AUTOK);
-	printf("Iteration %ld helium natoms    = %le particles.\n", iter, n);   /* Energy / particle in K */
-	printf("Iteration %ld helium kinetic   = %.30lf\n", iter, kin * GRID_AUTOK);  /* Print result in K */
-	printf("Iteration %ld helium potential = %.30lf\n", iter, pot * GRID_AUTOK);  /* Print result in K */
-	printf("Iteration %ld helium energy    = %.30lf\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
+
+	printf("Background kinetic = " FMT_R "\n", n * EKIN * GRID_AUTOK);
+	printf("Helium natoms    = " FMT_R " particles.\n", n);
+	printf("Helium kinetic   = " FMT_R "\n", kin * GRID_AUTOK);
+	printf("Helium potential = " FMT_R "\n", pot * GRID_AUTOK);
+	printf("Helium energy    = " FMT_R "\n", (kin + pot) * GRID_AUTOK);
 
 	grid3d_wf_density(impwf, density);
 	printf("Electron asymmetry (stddev x/y) = %le\n", rgrid3d_weighted_integral(density, stddev_x, NULL) / rgrid3d_weighted_integral(density, stddev_y, NULL));
 
 	/* write out superfluid WF */
-	sprintf(filename, "wf_helium-%ld", iter);              
+	sprintf(filename, "wf_helium-" FMT_I, iter);
 	dft_driver_write_grid(gwf->grid, filename);
 	
 	/* write out impurity WF */
-	sprintf(filename, "wf_electron-%ld", iter);              
+	sprintf(filename, "wf_electron-" FMT_I, iter);
 	dft_driver_write_grid(impwf->grid, filename);
       }
     }

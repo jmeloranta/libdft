@@ -34,12 +34,9 @@ int main(int argc, char **argv) {
 
   rgrid3d *ext_pot, *ext_pot2, *density;
   cgrid3d *potential_store;
-  cgrid1d *spectrum;
   wf3d *gwf, *gwfp;
   wf3d *imwf, *imwfp;
-  long iter;
-  double energy, natoms, en;
-  FILE *fp;
+  INT iter;
   char buf[512];
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
@@ -64,7 +61,7 @@ int main(int argc, char **argv) {
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, INITIAL_POT_X, INITIAL_POT_Y, INITIAL_POT_Z, ext_pot);
   dft_driver_convolution_prepare(NULL, ext_pot);
 
-  /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
   imwf = dft_driver_alloc_wavefunction(IMP_MASS); /*  imp. wavefunction */
@@ -111,12 +108,11 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
     if(!(iter % 10)) {
-      sprintf(buf, "final1-%ld", iter);
+      sprintf(buf, "final1-" FMT_I, iter);
       dft_driver_write_grid(gwf->grid, buf);
-      sprintf(buf, "final2-%ld", iter);
+      sprintf(buf, "final2-" FMT_I, iter);
       dft_driver_write_grid(imwf->grid, buf);
-
     }
   }
-
+  return 0;
 }

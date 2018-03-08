@@ -38,17 +38,17 @@
 
 void zero_core(cgrid3d *grid) {
 
-  long i, j, k;
-  long nx = grid->nx, ny = grid->ny, nz = grid->nz;
-  double x, y, step = grid->step;
-  double complex *val = grid->value;
+  INT i, j, k;
+  INT nx = grid->nx, ny = grid->ny, nz = grid->nz;
+  REAL x, y, step = grid->step;
+  REAL complex *val = grid->value;
   
   for (i = 0; i < nx; i++)
     for (j = 0; j < ny; j++)
       for (k = 0; k < nz; k++) {
 	x = (i - nx/2) * step;
 	y = (j - ny/2) * step;
-	if(sqrt(x * x + y * y) < step/2.0)
+	if(SQRT(x * x + y * y) < step/2.0)
 	  val[i * ny * nz + j * nz + k] = 0.0;
       }
 }
@@ -58,8 +58,8 @@ int main(int argc, char **argv) {
   cgrid3d *potential_store;
   rgrid3d *ext_pot, *density, *px, *py, *pz;
   wf3d *gwf, *gwfp;
-  long iter, N;
-  double energy, natoms, mu0, rho0, width;
+  INT iter, N;
+  REAL energy, natoms, mu0, rho0, width;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 32 /* threads */);
@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
   else
     dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_DROPLET, N, 0.0, 1); // 1 = release center immediately
 
-  printf("N = %ld\n", N);
+  printf("N = " FMT_R "\n", N);
 
   /* Initialize the DFT driver */
   dft_driver_initialize();
@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
   py = dft_driver_alloc_rgrid();
   pz = dft_driver_alloc_rgrid();
 
-  /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
 
@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
   if(N != 0) {
     width = 1.0 / 20.0;
     cgrid3d_map(gwf->grid, dft_common_cgaussian, (void *) &width);
-  } else cgrid3d_constant(gwf->grid, sqrt(rho0));
+  } else cgrid3d_constant(gwf->grid, SQRT(rho0));
 
 #ifndef ONSAGER
 #if defined(VORTEX) || defined(BOTH)
@@ -149,31 +149,31 @@ int main(int argc, char **argv) {
     if(iter == 1 || !(iter % 200)) {
       char buf[512];
       grid3d_wf_density(gwf, density);
-      sprintf(buf, "output-%ld", iter);
+      sprintf(buf, "output-" FMT_I, iter);
       dft_driver_write_density(density, buf);
-      sprintf(buf, "output-wf-%ld", iter);
+      sprintf(buf, "output-wf-" FMT_I, iter);
       dft_driver_write_grid(gwf->grid, buf);
       energy = dft_driver_energy(gwf, ext_pot);
       natoms = dft_driver_natoms(gwf);
-      printf("Total energy is %le K\n", energy * GRID_AUTOK);
-      printf("Number of He atoms is %le.\n", natoms);
-      printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
+      printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
+      printf("Number of He atoms is " FMT_R ".\n", natoms);
+      printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
       grid3d_wf_probability_flux(gwf, px, py, pz);
-      sprintf(buf, "flux_x-%ld", iter);
+      sprintf(buf, "flux_x-" FMT_I, iter);
       dft_driver_write_density(px, buf);
-      sprintf(buf, "flux_y-%ld", iter);
+      sprintf(buf, "flux_y-" FMT_I, iter);
       dft_driver_write_density(py, buf);
-      sprintf(buf, "flux_z-%ld", iter);
+      sprintf(buf, "flux_z-" FMT_I, iter);
       dft_driver_write_density(pz, buf);
 #if 0
-      { long k;
+      { INT k;
 	dft_driver_veloc_field(gwf, px, py, pz);
 	grid3d_wf_density(gwf, density);
 	for (k = 0; k < px->nx * px->ny * px->nz; k++)
 	  px->value[k] = px->value[k] * px->value[k] + py->value[k] * py->value[k] + pz->value[k] * pz->value[k];
 	rgrid3d_product(px, px, density);
 	rgrid3d_multiply(px, 0.5);
-	sprintf(buf, "kinetic-%ld", iter);
+	sprintf(buf, "kinetic-" FMT_I, iter);
 	dft_driver_write_density(px, buf);
       }
 #endif

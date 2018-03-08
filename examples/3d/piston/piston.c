@@ -40,19 +40,19 @@
 #define RMIN 2.0
 #define RADD (6.0 + piston_pos)
 
-double piston_pos = 0.0;
+REAL piston_pos = 0.0;
 
-double piston(double time) {
+REAL piston(REAL time) {
 
   return PISTON_VELOC * time;
 }
 
 /* Impurity must always be at the origin (dU/dx) */
-double dpot_func(void *NA, double x, double y, double z) {
+REAL dpot_func(void *NA, REAL x, REAL y, REAL z) {
 
-  double r, rp, r2, r3, r5, r7, r9, r11;
+  REAL r, rp, r2, r3, r5, r7, r9, r11;
 
-  rp = sqrt(x * x + y * y + z * z);
+  rp = SQRT(x * x + y * y + z * z);
   r = rp - RADD;
   if(r < RMIN) return 0.0;
 
@@ -63,14 +63,14 @@ double dpot_func(void *NA, double x, double y, double z) {
   r9 = r7 * r2;
   r11 = r9 * r2;
   
-  return (x / rp) * (-A0 * A1 * exp(-A1 * r) + 4.0 * A2 / r5 + 6.0 * A3 / r7 + 8.0 * A4 / r9 + 10.0 * A5 / r11);
+  return (x / rp) * (-A0 * A1 * EXP(-A1 * r) + 4.0 * A2 / r5 + 6.0 * A3 / r7 + 8.0 * A4 / r9 + 10.0 * A5 / r11);
 }
 
-double pot_func(void *NA, double x, double y, double z) {
+REAL pot_func(void *NA, REAL x, REAL y, REAL z) {
 
-  double r, r2, r4, r6, r8, r10;
+  REAL r, r2, r4, r6, r8, r10;
 
-  r = sqrt(x * x + y * y + z * z);
+  r = SQRT(x * x + y * y + z * z);
   r -= RADD;
   if(r < RMIN) r = RMIN;
 
@@ -79,7 +79,7 @@ double pot_func(void *NA, double x, double y, double z) {
   r6 = r4 * r2;
   r8 = r6 * r2;
   r10 = r8 * r2;
-  return A0 * exp(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
+  return A0 * EXP(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
 }
 
 int main(int argc, char **argv) {
@@ -87,8 +87,8 @@ int main(int argc, char **argv) {
   rgrid3d *ext_pot, *rworkspace;
   cgrid3d *potential_store;
   wf3d *gwf, *gwfp;
-  long iter;
-  double mu0, rho0;
+  INT iter;
+  REAL mu0, rho0;
   char buf[512];
 
   /* Setup DFT driver parameters (grid) */
@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
   rworkspace = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
 
-  /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
 
@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
       /* end move */
     }
     if(!(iter % NTH)) {
-      sprintf(buf, "piston-%ld", iter);
+      sprintf(buf, "piston-" FMT_I, iter);
       grid3d_wf_density(gwf, rworkspace);
       dft_driver_write_density(rworkspace, buf);
     }

@@ -27,50 +27,51 @@ static void dft_ot3d_add_barranco(dft_ot_functional *otf, cgrid3d *potential, co
 static void dft_ot3d_add_ancilotto(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *workspace1);
 
 /* local functions */
-static double XXX_xi, XXX_rhobf;
-static inline double dft_ot3d_bf_pi_energy_op2(double rhop) {
+static REAL XXX_xi, XXX_rhobf;
+static inline REAL dft_ot3d_bf_pi_energy_op2(REAL rhop) {
 
-  return 0.5 * (1.0 - tanh(XXX_xi * (rhop - XXX_rhobf)));    /* G(rho) */
+  // TODO: there are indications that tanh() is really slow (possibly bug in glibc)
+  return 0.5 * (1.0 - TANH(XXX_xi * (rhop - XXX_rhobf)));    /* G(rho) */
 }
 
-static inline double dft_ot3d_bf_pi_energy_op(double rhop) {
+static inline REAL dft_ot3d_bf_pi_energy_op(REAL rhop) {
 
   return rhop * dft_ot3d_bf_pi_energy_op2(rhop);    /* rho * G(rho) */
 }
 
-static inline double dft_ot3d_bf_pi_op(double rhop) {   /* rho * dG/drho + G */
+static inline REAL dft_ot3d_bf_pi_op(REAL rhop) {   /* rho * dG/drho + G */
 
-  double tmp = 1.0 / (cosh((rhop - XXX_rhobf) * XXX_xi) + DFT_BF_EPS);
+  REAL tmp = 1.0 / (COSH((rhop - XXX_rhobf) * XXX_xi) + DFT_BF_EPS);
   
   return rhop * (-0.5 * XXX_xi * tmp * tmp) + dft_ot3d_bf_pi_energy_op2(rhop);
 }
 
 /* local function */
-static double XXX_beta, XXX_rhom, XXX_C;
-static inline double dft_ot3d_barranco_op(double rhop) {
+static REAL XXX_beta, XXX_rhom, XXX_C;
+static inline REAL dft_ot3d_barranco_op(REAL rhop) {
 
-  double stanh = tanh(XXX_beta * (rhop - XXX_rhom));
+  REAL stanh = TANH(XXX_beta * (rhop - XXX_rhom));
 
   return (XXX_C * ((1.0 + stanh) + XXX_beta * rhop * (1.0 - stanh * stanh)));
 }
 
 /* local function */
-static inline double dft_ot3d_barranco_energy_op(double rhop) {
+static inline REAL dft_ot3d_barranco_energy_op(REAL rhop) {
 
-  return (XXX_C * (1.0 + tanh(XXX_beta * (rhop - XXX_rhom))) * rhop);
+  return (XXX_C * (1.0 + TANH(XXX_beta * (rhop - XXX_rhom))) * rhop);
 }
 
-EXPORT double dft_ot_backflow_pot(void *arg, double x, double y, double z) {
+EXPORT REAL dft_ot_backflow_pot(void *arg, REAL x, REAL y, REAL z) {
 
-  double g11 = ((dft_ot_bf *) arg)->g11;
-  double g12 = ((dft_ot_bf *) arg)->g12;
-  double g21 = ((dft_ot_bf *) arg)->g21;
-  double g22 = ((dft_ot_bf *) arg)->g22;
-  double a1 = ((dft_ot_bf *) arg)->a1;
-  double a2 = ((dft_ot_bf *) arg)->a2;
-  double r2 = x * x + y * y + z * z;
+  REAL g11 = ((dft_ot_bf *) arg)->g11;
+  REAL g12 = ((dft_ot_bf *) arg)->g12;
+  REAL g21 = ((dft_ot_bf *) arg)->g21;
+  REAL g22 = ((dft_ot_bf *) arg)->g22;
+  REAL a1 = ((dft_ot_bf *) arg)->a1;
+  REAL a2 = ((dft_ot_bf *) arg)->a2;
+  REAL r2 = x * x + y * y + z * z;
   
-  return (g11 + g12 * r2) * exp(-a1 * r2) + (g21 + g22 * r2) * exp(-a2 * r2);
+  return (g11 + g12 * r2) * EXP(-a1 * r2) + (g21 + g22 * r2) * EXP(-a2 * r2);
 }
 
 /*
@@ -113,12 +114,12 @@ EXPORT double dft_ot_backflow_pot(void *arg, double x, double y, double z) {
  *
  */
 
-EXPORT dft_ot_functional *dft_ot3d_alloc(long model, long nx, long ny, long nz, double step, int bc, int min_substeps, int max_substeps) {
+EXPORT dft_ot_functional *dft_ot3d_alloc(INT model, INT nx, INT ny, INT nz, REAL step, char bc, INT min_substeps, INT max_substeps) {
 
-  double radius, inv_width;
+  REAL radius, inv_width;
   dft_ot_functional *otf;
-  double (*grid_type)(const rgrid3d *, long, long, long);
-  double x0, y0, z0;
+  REAL (*grid_type)(const rgrid3d *, INT, INT, INT);
+  REAL x0, y0, z0;
   
   otf = (dft_ot_functional *) malloc(sizeof(dft_ot_functional));
   otf->model = model;
@@ -398,7 +399,7 @@ static void dft_ot3d_add_nonlocal_correlation_potential(dft_ot_functional *otf, 
 /* local function */
 static void dft_ot3d_add_nonlocal_correlation_potential_x(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4) {
 
-  double c;
+  REAL c;
 
   c = otf->alpha_s / (2.0 * otf->mass);
 
@@ -452,7 +453,7 @@ static void dft_ot3d_add_nonlocal_correlation_potential_x(dft_ot_functional *otf
 /* local function */
 static void dft_ot3d_add_nonlocal_correlation_potential_y(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4) {
 
-  double c;
+  REAL c;
 
   c = otf->alpha_s / (2.0 * otf->mass);
 
@@ -507,7 +508,7 @@ static void dft_ot3d_add_nonlocal_correlation_potential_y(dft_ot_functional *otf
 /* local function */
 static void dft_ot3d_add_nonlocal_correlation_potential_z(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4) {
 
-  double c;
+  REAL c;
 
   c = otf->alpha_s / (2.0 * otf->mass);
 
@@ -940,9 +941,9 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
   grid3d_add_real_to_complex_im(potential, workspace6);
 }
 
-EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, long model) {
+EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
 
-  fprintf(stderr, "libdft: Model = %ld\n", model);
+  fprintf(stderr, "libdft: Model = " FMT_I "\n", model);
 
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { /* high density penalty */
     otf->beta = (40.0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
@@ -1165,11 +1166,11 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, long model) {
     /* most of the parameters are unused */
   }
 
-  fprintf(stderr,"libdft: Temperature = %le K.\n", otf->temp); 
+  fprintf(stderr,"libdft: Temperature = " FMT_R " K.\n", otf->temp); 
 
   otf->b /= GRID_AUTOK * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
-  otf->c2 /= GRID_AUTOK * pow(GRID_AUTOANG, 3.0 * otf->c2_exp);
-  otf->c3 /= GRID_AUTOK * pow(GRID_AUTOANG, 3.0 * otf->c3_exp);
+  otf->c2 /= GRID_AUTOK * POW(GRID_AUTOANG, 3.0 * otf->c2_exp);
+  otf->c3 /= GRID_AUTOK * POW(GRID_AUTOANG, 3.0 * otf->c3_exp);
   otf->rho0 *= GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG;
   otf->lj_params.h /= GRID_AUTOANG;
   otf->lj_params.sigma   = 2.556 / GRID_AUTOANG;
@@ -1187,11 +1188,11 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, long model) {
   otf->bf_params.g22 = 0.0312 * (GRID_AUTOANG*GRID_AUTOANG);
   otf->bf_params.a2  = 0.14912 * (GRID_AUTOANG*GRID_AUTOANG);
 
-  fprintf(stderr, "libdft: C2 = %le K Angs^%le\n", 
+  fprintf(stderr, "libdft: C2 = " FMT_R " K Angs^" FMT_R "\n",
 	  otf->c2 * GRID_AUTOK * pow(GRID_AUTOANG, 3.0 * otf->c2_exp),
 	  3.0 * otf->c2_exp);
   
-  fprintf(stderr, "libdft: C3 = %le K Angs^%le\n", 
+  fprintf(stderr, "libdft: C3 = " FMT_R " K Angs^" FMT_R "\n", 
 	  otf->c3 * GRID_AUTOK * pow(GRID_AUTOANG, 3.0 * otf->c3_exp),
 	  3.0 * otf->c3_exp);
   

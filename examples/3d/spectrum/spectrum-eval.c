@@ -21,20 +21,20 @@
 int main(int argc, char **argv) {
 
   cgrid1d *spectrum;
-  double val, en;
-  int iter = 0, i;
+  REAL val, en;
+  INT iter = 0, i;
   FILE *fp;
 
   grid_threads_init(6);
   if(!(fp = fopen(argv[1], "r"))) exit(1);
   while(!feof(stdin)) {
-    if(fscanf(fp, " %le", &val) != 1) break;
+    if(fscanf(fp, " " FMT_R, &val) != 1) break;
     iter++;
   }
   rewind(fp);
   dft_driver_spectrum_init(NDIV*iter, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, NULL, NULL, NULL, DFT_DRIVER_AVERAGE_NONE, NULL, NULL, NULL);
   while(!feof(stdin)) {
-    if(fscanf(fp, " %le", &val) != 1) break;
+    if(fscanf(fp, " " FMT_R, &val) != 1) break;
     for(i = 0; i < NDIV; i++)
       dft_driver_spectrum_collect_user(val / GRID_AUTOK);
   }
@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     exit(1);
   }
   for (iter = 0, en = -0.5 * spectrum->step * spectrum->nx; iter < spectrum->nx; iter++, en += spectrum->step)
-    fprintf(fp, "%le %le %le\n", en, creal(cgrid1d_value_at_index(spectrum, iter)), cimag(cgrid1d_value_at_index(spectrum, iter)));
+    fprintf(fp, FMT_R " " FMT_R " " FMT_R "\n", en, CREAL(cgrid1d_value_at_index(spectrum, iter)), CIMAG(cgrid1d_value_at_index(spectrum, iter)));
   fclose(fp);
   printf("Spectrum written to spectrum.dat\n");
   exit(0);

@@ -47,8 +47,8 @@ int main(int argc, char **argv) {
   rgrid3d *ext_pot, *density;
   cgrid1d *spectrum;
   wf3d *gwf, *gwfp;
-  long iter;
-  double energy, natoms, en, mu0;
+  INT iter;
+  REAL energy, natoms, en, mu0;
   FILE *fp;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
@@ -71,9 +71,9 @@ int main(int argc, char **argv) {
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z, ext_pot);
 
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
-  printf("mu0 = %le K.\n", mu0 * GRID_AUTOK);
+  printf("mu0 = " FMT_R " K.\n", mu0 * GRID_AUTOK);
   
-  /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
 
@@ -89,9 +89,9 @@ int main(int argc, char **argv) {
     
   energy = dft_driver_energy(gwf, ext_pot);
   natoms = dft_driver_natoms(gwf);
-  printf("Total energy is %le K\n", energy * GRID_AUTOK);
-  printf("Number of He atoms is %le.\n", natoms);
-  printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
+  printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
+  printf("Number of He atoms is " FMT_R ".\n", natoms);
+  printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
 
   dft_driver_setup_model(MODEL, DFT_DRIVER_REAL_TIME, RHO0);
   rgrid3d_free(ext_pot);
@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
     if(!(iter % 10)) {
       char buf[512];
       grid3d_wf_density(gwf, density);
-      sprintf(buf, "realtime-%ld", iter);
+      sprintf(buf, "realtime-" FMT_I, iter);
       dft_driver_write_density(density, buf);
     }
   }
@@ -115,8 +115,8 @@ int main(int argc, char **argv) {
     exit(1);
   }
   for (iter = 0, en = -0.5 * spectrum->step * spectrum->nx; iter < spectrum->nx; iter++, en += spectrum->step)
-    //    fprintf(fp, "%le %le\n", en, creal(cgrid1d_value_at_index(spectrum, iter)));
-    fprintf(fp, "%le %le\n", en, pow(creal(cgrid1d_value_at_index(spectrum, iter)), 2.0) + pow(cimag(cgrid1d_value_at_index(spectrum, iter)), 2.0));
+    //    fprintf(fp, FMT_R " " FMT_R "\n", en, CREAL(cgrid1d_value_at_index(spectrum, iter)));
+    fprintf(fp, FMT_R " " FMT_R "\n", en, POW(CREAL(cgrid1d_value_at_index(spectrum, iter)), 2.0) + POW(CIMAG(cgrid1d_value_at_index(spectrum, iter)), 2.0));
   fclose(fp);
   printf("Spectrum written to spectrum.dat\n");
   exit(0);

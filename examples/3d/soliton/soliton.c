@@ -34,24 +34,24 @@
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
 /* Francesco's soliton initial guess - plane along z*/
-double soliton(void *asd, double x, double y, double z) {
+REAL soliton(void *asd, REAL x, REAL y, REAL z) {
 
-  double tmp;
+  REAL tmp;
 
-  if(fabs(x) > SOLITON_N * LAMBDA_C) return 1.0;
+  if(FABS(x) > SOLITON_N * LAMBDA_C) return 1.0;
 
-  tmp = sin(M_PI * x / LAMBDA_C);
+  tmp = SIN(M_PI * x / LAMBDA_C);
 
   return 1.0 + SOLITON_AMP * tmp * tmp;
 }
 
 int main(int argc, char **argv) {
 
-  rgrid3d *ext_pot, *rworkspace, *rworkspace2;
+  rgrid3d *ext_pot, *rworkspace;
   cgrid3d *potential_store;
   wf3d *gwf, *gwfp;
-  long iter;
-  double energy, natoms, mu0, rho0;
+  INT iter;
+  REAL mu0, rho0;
   char buf[512];
 
   /* Setup DFT driver parameters (grid) */
@@ -75,10 +75,9 @@ int main(int argc, char **argv) {
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid();
   rworkspace = dft_driver_alloc_rgrid();
-  rworkspace2 = dft_driver_alloc_rgrid();
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
 
-  /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
   /* setup soliton (ext_pot is temp here) */
@@ -95,14 +94,15 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
     if(!(iter % NTH)) {
-      sprintf(buf, "soliton-%ld", iter);
+      sprintf(buf, "soliton-" FMT_I, iter);
       grid3d_wf_density(gwf, rworkspace);
 #ifdef SMOOTH
-      dft_driver_npoint_smooth(rworkspace2, rworkspace, (int) (2.0 * LAMBDA_C / STEP));
+      dft_driver_npoint_smooth(rworkspace2, rworkspace, (INT) (2.0 * LAMBDA_C / STEP));
       dft_driver_write_density(rworkspace2, buf);
 #else
       dft_driver_write_density(rworkspace, buf);
 #endif
     }
   }
+  return 0;
 }

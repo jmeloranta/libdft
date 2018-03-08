@@ -10,8 +10,7 @@
 #include <grid/au.h>
 #include "dft.h"
 
-EXPORT double dft_classical_thermal_radius(double temp, double *potential, long np) {
-
+EXPORT REAL dft_classical_thermal_radius(REAL temp, REAL *potential, INT np) {
   
   return 0.0;   // TODO
 }

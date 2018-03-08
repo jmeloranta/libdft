@@ -108,7 +108,7 @@
  */
 
 typedef struct bf_struct {
-  double g11, g12, g21, g22, a1, a2;
+  REAL g11, g12, g21, g22, a1, a2;
 } dft_ot_bf;
 
 /*
@@ -123,11 +123,11 @@ typedef struct bf_struct {
  */
 
 typedef struct dft_ot_functional_struct {
-  double b, c2, c3, c4, rho_0s, alpha_s, l_g, mass, rho_eps, rho0, temp;
-  double c2_exp, c3_exp;
+  REAL b, c2, c3, c4, rho_0s, alpha_s, l_g, mass, rho_eps, rho0, temp;
+  REAL c2_exp, c3_exp;
   dft_common_lj lj_params; /* Lennard-Jones parameters */
   dft_ot_bf bf_params; /* Backflow parameters */
-  int model;
+  INT model;
   rgrid3d *lennard_jones;
   rgrid3d *spherical_avg;
   rgrid3d *gaussian_tf;
@@ -135,37 +135,17 @@ typedef struct dft_ot_functional_struct {
   rgrid3d *gaussian_y_tf;
   rgrid3d *gaussian_z_tf;
   rgrid3d *backflow_pot;
-  double beta; /* Barranco */
-  double rhom; /* Barranco */
-  double C;    /* Barranco */
-  double mu0;  /* Gross-Pitaevskii single particle energy */
+  REAL beta; /* Barranco */
+  REAL rhom; /* Barranco */
+  REAL C;    /* Barranco */
+  REAL mu0;  /* Gross-Pitaevskii single particle energy */
 } dft_ot_functional;
-
-typedef struct dft_ot_functional_struct_2d {
-  double b, c2, c3, c4, rho_0s, alpha_s, l_g, mass, rho_eps, rho0, temp;
-  double c2_exp, c3_exp;
-  dft_common_lj lj_params; /* Lennard-Jones parameters */
-  dft_ot_bf bf_params; /* Backflow parameters */
-  int model;
-  rgrid2d *lennard_jones;
-  rgrid2d *spherical_avg;
-  rgrid2d *gaussian_tf;
-  rgrid2d *gaussian_z_tf;
-  rgrid2d *gaussian_r_tf;
-  rgrid2d *backflow_pot;
-  double beta; /* Barranco */
-  double rhom; /* Barranco */
-  double C;    /* Barranco */
-  double mu0;  /* Gross-Pitaevskii single particle energy */
-} dft_ot_functional_2d;
 
 /* Global user accessible variables */
 extern dft_ot_functional *dft_driver_otf;
-extern dft_ot_functional_2d *dft_driver_otf_2d;
-extern int dft_driver_init_wavefunction;
-extern long dft_ot2d_hankel_pad;
-extern int dft_driver_kinetic;
-extern double complex (*dft_driver_bc_function)(void *, double complex, long, long, long);
+extern char dft_driver_init_wavefunction;
+extern char dft_driver_kinetic;
+extern REAL complex (*dft_driver_bc_function)(void *, REAL complex, INT, INT, INT);
 
 /* Prototypes (in wrong place; TODO separate common and OT specific prototypes) */
 #include "proto.h"

@@ -21,7 +21,7 @@
 
 int main() {
 
-  double pressure, rho, mu;
+  REAL pressure, rho, mu;
 
   /*
    * This block of instructions is needed to initialize everything
@@ -44,7 +44,7 @@ int main() {
   for(pressure = MIN_PRES; pressure <= MAX_PRES; pressure += DELTA_PRES) {
     rho = dft_ot_bulk_density_pressurized(dft_driver_otf, pressure);
     mu  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, pressure);
-    printf("Pressure:\t%lf (bar)\t density:\t%lf (A**-3)\tchempot:\t%lf (K)\n",
+    printf("Pressure:\t" FMT_R " (bar)\t density:\t" FMT_R " (A**-3)\tchempot:\t" FMT_R " (K)\n",
 	   pressure * GRID_AUTOBAR,
 	   rho / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG),
 	   mu * GRID_AUTOK);

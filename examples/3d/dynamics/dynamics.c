@@ -41,12 +41,12 @@
 
 #define EXCITED_OFFSET 5.0
 
-double pot_func(void *asd, double x, double y, double z) {
+REAL pot_func(void *asd, REAL x, REAL y, REAL z) {
 
-  double r, r2, r4, r6, r8, r10, tmp, offset;
+  REAL r, r2, r4, r6, r8, r10, tmp, offset;
 
-  offset = *((double *) asd);
-  r = sqrt(x * x + y * y + z * z);
+  offset = *((REAL *) asd);
+  r = SQRT(x * x + y * y + z * z);
   if(r < RMIN) r = RMIN;
   r += RADD + offset;
 
@@ -55,7 +55,7 @@ double pot_func(void *asd, double x, double y, double z) {
   r6 = r4 * r2;
   r8 = r6 * r2;
   r10 = r8 * r2;
-  tmp = A0 * exp(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
+  tmp = A0 * EXP(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
   return tmp;
 }
 
@@ -64,8 +64,8 @@ int main(int argc, char **argv) {
   rgrid3d *ext_pot, *rworkspace;
   cgrid3d *potential_store;
   wf3d *gwf, *gwfp;
-  long iter;
-  double energy, natoms, offset, mu0, rho0;
+  INT iter;
+  REAL offset, mu0, rho0;
   char buf[512];
 
   /* Setup DFT driver parameters (grid) */
@@ -95,10 +95,10 @@ int main(int argc, char **argv) {
   rgrid3d_map(ext_pot, pot_func, (void *) &offset);
   rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
 
-  /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
-  cgrid3d_constant(gwf->grid, sqrt(dft_driver_otf->rho0));
+  cgrid3d_constant(gwf->grid, SQRT(dft_driver_otf->rho0));
 
   /* Step #1: Run 200 iterations using imaginary time for the initial state */
   for (iter = 0; iter < 200; iter++) {
@@ -121,9 +121,10 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS/10.0, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS/10.0, iter);
     if(!(iter % NTH)) {
-      sprintf(buf, "final-%ld", iter);
+      sprintf(buf, "final-" FMT_I, iter);
       grid3d_wf_density(gwf, rworkspace);
       dft_driver_write_density(rworkspace, buf);
     }
   }
+  return 0;
 }

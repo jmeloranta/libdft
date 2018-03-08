@@ -150,15 +150,15 @@
 #define RADD 0.0
 #endif
 
-double pot_func(void *asd, double x, double y, double z) {
+REAL pot_func(void *asd, REAL x, REAL y, REAL z) {
 
-  double r, r2, r4, r6, r8, r10, tmp, *asdf;
+  REAL r, r2, r4, r6, r8, r10, tmp, *asdf;
 
   if(asd) {
     asdf = asd;
     x -= *asdf;
   }
-  r = sqrt(x * x + y * y + z * z);
+  r = SQRT(x * x + y * y + z * z);
   if(r < RMIN) r = RMIN;
   r += RADD;
 
@@ -167,7 +167,7 @@ double pot_func(void *asd, double x, double y, double z) {
   r6 = r4 * r2;
   r8 = r6 * r2;
   r10 = r8 * r2;
-  tmp = A0 * exp(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
+  tmp = A0 * EXP(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
   return tmp;
 }
 
@@ -176,8 +176,8 @@ int main(int argc, char **argv) {
   cgrid3d *potential_store;
   rgrid3d *ext_pot, *density;
   wf3d *gwf, *gwfp;
-  long iter;
-  double energy, natoms, mu0, rho0;
+  INT iter;
+  REAL energy, natoms, mu0, rho0;
 
   /* Setup DFT driver parameters */
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
@@ -196,7 +196,7 @@ int main(int argc, char **argv) {
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
   density = dft_driver_alloc_rgrid();
 
-  /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
 
@@ -214,20 +214,21 @@ int main(int argc, char **argv) {
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS /* fs */, iter);
     if(!(iter % NTH)) {
       char buf[512];
-      sprintf(buf, "output-%ld", iter);
+      sprintf(buf, "output-" FMT_I, iter);
       grid3d_wf_density(gwf, density);
       dft_driver_write_density(density, buf);
-      sprintf(buf, "wf-output-%ld", iter);
+      sprintf(buf, "wf-output-" FMT_I, iter);
       dft_driver_write_grid(gwf->grid, buf);
     }
     energy = dft_driver_energy(gwf, ext_pot);
     natoms = dft_driver_natoms(gwf);
-    printf("Total energy is %le K\n", energy * GRID_AUTOK);
-    printf("Number of He atoms is %le.\n", natoms);
-    printf("Energy / atom is %le K\n", (energy/natoms) * GRID_AUTOK);
-    fflush(stdout); fflush(stderr);
+    printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
+    printf("Number of He atoms is " FMT_R ".\n", natoms);
+    printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
+    fflush(stdout);
   }
   /* At this point gwf contains the converged wavefunction */
   grid3d_wf_density(gwf, density);
   dft_driver_write_density(density, "output");
+  return 0;
 }

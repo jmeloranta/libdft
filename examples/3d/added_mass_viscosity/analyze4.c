@@ -32,7 +32,16 @@ int main(int argc, char **argv) {
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);
   impwf = dft_driver_alloc_wavefunction(IMP_MASS);
   
-  printf("Compiled with NX = %d, NY = %d, NZ = %d, STEP = %le, VX = %le\n", NX, NY, NZ, STEP, VX * GRID_AUTOMPS);
+#ifdef SHORT_INT
+  printf("Compiled with NX = %d, NY = %d, NZ = %d, "
+#else
+  printf("Compiled with NX = %ld, NY = %ld, NZ = %ld, "
+#endif
+#ifdef SINGLE_PREC
+ "STEP = %e, VX = %e\n", NX, NY, NZ, STEP, VX * GRID_AUTOMPS);
+#else
+ "STEP = %le, VX = %le\n", NX, NY, NZ, STEP, VX * GRID_AUTOMPS);
+#endif
   if(argc == 3) {
     dft_driver_read_grid(gwf->grid, argv[1]);
     dft_driver_read_grid(impwf->grid, argv[2]);

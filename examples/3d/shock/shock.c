@@ -41,22 +41,22 @@
 #define STEP 1.0
 
 struct params {
-  double delta;
-  double rho0;
-  double w;
-  double vz;
+  REAL delta;
+  REAL rho0;
+  REAL w;
+  REAL vz;
 };
 
-double complex gauss(void *arg, double x, double y, double z) {
+REAL complex gauss(void *arg, REAL x, REAL y, REAL z) {
 
-  double delta = ((struct params *) arg)->delta;
-  double rho0 = ((struct params *) arg)->rho0;
-  double w = ((struct params *) arg)->w;
-  double vz = ((struct params *) arg)->vz;
+  REAL delta = ((struct params *) arg)->delta;
+  REAL rho0 = ((struct params *) arg)->rho0;
+  REAL w = ((struct params *) arg)->w;
+  REAL vz = ((struct params *) arg)->vz;
 
-//  if(fabs(z) < w) return sqrt(rho0 + delta) * cexp(I * (vz / HELIUM_MASS) * (z + w) / HBAR);
-  if(fabs(z) < w) return sqrt(rho0 + delta);
-  else return sqrt(rho0);
+//  if(FABS(z) < w) return SQRT(rho0 + delta) * CEXP(I * (vz / HELIUM_MASS) * (z + w) / HBAR);
+  if(FABS(z) < w) return SQRT(rho0 + delta);
+  else return SQRT(rho0);
 }
 
 int main(int argc, char **argv) {
@@ -65,11 +65,11 @@ int main(int argc, char **argv) {
   rgrid3d *ext_pot, *rworkspace;
   cgrid3d *potential_store;
   wf3d *gwf, *gwfp;
-  long iter;
-  double rho0, mu0;
+  INT iter;
+  REAL rho0, mu0;
   char buf[512];
 
-  fprintf(stderr, "Time step = %le fs.\n", TS);
+  fprintf(stderr, "Time step = " FMT_R " fs.\n", TS);
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 0 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
   potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
   /* Read initial external potential from file */
 
-  /* Allocate space for wavefunctions (initialized to sqrt(rho0)) */
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
   rho0 = dft_driver_otf->rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
     if(!(iter % OUTPUT)) {
-      sprintf(buf, "final-%ld", iter);
+      sprintf(buf, "final-" FMT_I, iter);
       grid3d_wf_density(gwf, rworkspace);
       dft_driver_write_density(rworkspace, buf);
     }
