@@ -9,7 +9,7 @@ all: bubble
 bubble: bubble.o pot.o analyze.o
 	        $(CC) $(CFLAGS) -o bubble bubble.o pot.o analyze.o $(LDFLAGS) 
 
-bubble.o: bubble.c
+bubble.o: bubble.c bubble.h config.h
 	        $(CC) $(CFLAGS) -c bubble.c
 
 pot.o: pot.c

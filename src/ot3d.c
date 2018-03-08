@@ -1189,11 +1189,11 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   otf->bf_params.a2  = 0.14912 * (GRID_AUTOANG*GRID_AUTOANG);
 
   fprintf(stderr, "libdft: C2 = " FMT_R " K Angs^" FMT_R "\n",
-	  otf->c2 * GRID_AUTOK * pow(GRID_AUTOANG, 3.0 * otf->c2_exp),
+	  otf->c2 * GRID_AUTOK * POW(GRID_AUTOANG, 3.0 * otf->c2_exp),
 	  3.0 * otf->c2_exp);
   
   fprintf(stderr, "libdft: C3 = " FMT_R " K Angs^" FMT_R "\n", 
-	  otf->c3 * GRID_AUTOK * pow(GRID_AUTOANG, 3.0 * otf->c3_exp),
+	  otf->c3 * GRID_AUTOK * POW(GRID_AUTOANG, 3.0 * otf->c3_exp),
 	  3.0 * otf->c3_exp);
   
   otf->model = model;

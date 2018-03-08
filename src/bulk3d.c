@@ -361,7 +361,7 @@ EXPORT REAL dft_ot_dispersion(dft_ot_functional *otf, REAL *k, REAL rho0) {
   wave_params.a = dft_ot_bulk_AMP;
   wave_params.rho = rho0;
   grid3d_wf_map(Agwf, Awave, &wave_params);
-  pval = 1E99;
+  pval = 1E11;
   for(l = 0; ; l++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, l);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, l);
@@ -421,7 +421,7 @@ static REAL ft_vj(dft_ot_functional *otf, REAL k) {
 
   REAL g11 = otf->bf_params.g11, g12 = otf->bf_params.g12, g21 = otf->bf_params.g21, g22 = otf->bf_params.g22;
   REAL a1 = otf->bf_params.a1, a2 = otf->bf_params.a2;
-  REAL ea1, ea2, k2 = k * k, val, mpi32 = pow(M_PI, 3.0 / 2.0);
+  REAL ea1, ea2, k2 = k * k, val, mpi32 = POW(M_PI, 3.0 / 2.0);
 
   ea1 = EXP(-k2 / (4.0 * a1));
   ea2 = EXP(-k2 / (4.0 * a2));
@@ -540,7 +540,7 @@ EXPORT REAL dft_ot_bulk_surface_tension(dft_ot_functional *otf, REAL rho0) {
   bcopy(otf, dft_driver_otf, sizeof(dft_ot_functional));
   mu0 = dft_ot_bulk_chempot2(otf);
   rgrid3d_constant(Apot, -mu0);
-  prev_stens = 1E99;
+  prev_stens = 1E11;
   for(i = 1; ; i++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, i);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, i);

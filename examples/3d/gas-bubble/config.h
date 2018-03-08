@@ -17,7 +17,7 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 1024       	/* # of grid points along x */
+#define NX 512       	/* # of grid points along x */
 #define NY 512          /* # of grid points along y */
 #define NZ 512        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
@@ -28,7 +28,7 @@
 /* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT (unstable) */
 #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson (stable, but slower) */
 
-#define FFTW_PLANNER 2 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
+#define FFTW_PLANNER 1 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
 
 #define NN 2.0    /* Exponent for circulation (1, 2, 3...) */
 
