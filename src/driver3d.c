@@ -1784,11 +1784,10 @@ EXPORT cgrid1d *dft_driver_spectrum(rgrid3d *density, REAL tstep, REAL endtime, 
   rgrid3d_product(workspace1, dpot, density);
   fprintf(stderr, "libdft: Average shift = " FMT_R " cm-1.\n", rgrid3d_integral(workspace1) * GRID_AUTOCM1);
 
-#pragma omp parallel for firstprivate(stderr,tstep,ntime,density,dpot,corr,wrk) private(i,t) default(none) schedule(runtime)
+#pragma omp parallel for firstprivate(tstep,ntime,density,dpot,corr,wrk) private(i,t) default(none) schedule(runtime)
   for(i = 0; i < ntime; i++) {
     t = tstep * (REAL) i;
     corr->value[i] = CEXP(dft_do_int(density, dpot, t, wrk[omp_get_thread_num()])) * POW(-1.0, (REAL) i);
-    //    fprintf(stderr,"libdft: Corr(%le fs) = " FMT_R " " FMT_R "\n", t * GRID_AUTOFS, CREAL(corr->value[i]), CIMAG(corr->value[i]));
   }
   cgrid1d_fft(corr);
   for (i = 0; i < corr->nx; i++)
