@@ -3,8 +3,6 @@
  *
  * NOTE: This code uses FFT for evaluating all the integrals, which
  *       implies periodic boundary conditions!
- *       The 1D and 2D codes do not and any boundary conditions can be used.
- * 
  *
  */
 
@@ -18,7 +16,6 @@
 
 #define MM_BACKFLOW   /* Include Pi & Barranco cutoff correction to backflow at high densities (where BF is unstable otherwise) */
 
-static void dft_ot3d_add_local_correlation_potential(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, const rgrid3d *rho_tf, rgrid3d *workspace1, rgrid3d *workspace2);
 static void dft_ot3d_add_nonlocal_correlation_potential(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4, rgrid3d *workspace5);
 static void dft_ot3d_add_nonlocal_correlation_potential_x(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4);
 static void dft_ot3d_add_nonlocal_correlation_potential_y(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4);
@@ -98,7 +95,6 @@ EXPORT REAL dft_ot_backflow_pot(void *arg, REAL x, REAL y, REAL z) {
  *         DFT_OT_T2800MK  Thermal model 2.8 K
  *         DFT_OT_T3000MK  Thermal model 3.0 K
  *         DFT_GP          Gross-Pitaevskii equation
- *         DFT_DR          Dupont-Roc functional
  *         DFT_ZERO        No potential
  *
  *           If multiple options are needed, use and (&).
@@ -187,21 +183,13 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(INT model, INT nx, INT ny, INT nz, REAL
     } else otf->backflow_pot = NULL;
   
     /* pre-calculate */
-    if(model & DFT_DR) {
-      fprintf(stderr, "libdft: LJ according to DR - ");
-      rgrid3d_adaptive_map(otf->lennard_jones, dft_common_lennard_jones_smooth, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
-      rgrid3d_fft(otf->lennard_jones);
-      /* TODO: What is the value of b? Once this is known, scale this the same way as OT */
-      fprintf(stderr, "Done.\n");
-    } else {
-      fprintf(stderr, "libdft: LJ according to SD - ");
-      rgrid3d_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
-      rgrid3d_fft(otf->lennard_jones);
-      /* Scaling of LJ so that the integral is exactly b */
-      // TODO: Neumann BC may not work!? r2r fft
-      cgrid3d_multiply(otf->lennard_jones->cint, otf->b / ( step * step * step * otf->lennard_jones->cint->value[0]));
-      fprintf(stderr, "Done.\n");
-    }
+    fprintf(stderr, "libdft: LJ according to SD - ");
+    rgrid3d_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+    rgrid3d_fft(otf->lennard_jones);
+    /* Scaling of LJ so that the integral is exactly b */
+    // TODO: Neumann BC may not work!? r2r fft
+    cgrid3d_multiply(otf->lennard_jones->cint, otf->b / ( step * step * step * otf->lennard_jones->cint->value[0]));
+    fprintf(stderr, "Done.\n");
 
     if(otf->model & DFT_OT_HD2) {
       radius = otf->lj_params.h * 1.065; /* PRB 72, 214522 (2005) */
@@ -210,6 +198,7 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(INT model, INT nx, INT ny, INT nz, REAL
       radius = otf->lj_params.h;
       fprintf(stderr, "libdft: Spherical average (original) - ");
     }
+
     rgrid3d_adaptive_map(otf->spherical_avg, dft_common_spherical_avg, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     rgrid3d_fft(otf->spherical_avg);
     /* Scaling of sph. avg. so that the integral is exactly 1 */
@@ -310,26 +299,36 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
     return;
   }
 
-  /* transform of rho (wrk1) (TODO: this could be passed along further below to avoid transforming density again) */
-  rgrid3d_copy(workspace1, density);
-  rgrid3d_fft(workspace1);
-
   /* Lennard-Jones */  
   /* int rho(r') Vlj(r-r') dr' */
-  rgrid3d_fft_convolute(workspace2, workspace1, otf->lennard_jones);
-  rgrid3d_inverse_fft(workspace2);
-  grid3d_add_real_to_complex_re(potential, workspace2);
+#ifdef USE_CUDA
+  if(rgrid3d_get_fft_mode()) dft_ot3d_cuda_add_lennard_jones_potential(otf, potential, density, workspace1, workspace2);
+  else
+#endif
+    dft_ot3d_add_lennard_jones_potential(otf, potential, density, workspace1, workspace2);
+  /* workspace1 = FFT of density */
 
   /* Non-linear local correlation */
   /* note workspace1 = fft of \rho */
-  dft_ot3d_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3);
+#ifdef USE_CUDA
+  if(rgrid3d_get_fft_mode()) dft_ot3d_cuda_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4);
+  else 
+#endif
+    dft_ot3d_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4);
 
+  if(((otf->model & DFT_OT_KC) || (otf->model & DFT_OT_BACKFLOW)) && rgrid3d_get_fft_mode()) {
+    // The following non-cuda routines expect to have FFT of density in workspace1
+    // Remove this when cuda versions of KC & backflow have been implemented
+    rgrid3d_copy(workspace1, density);
+    rgrid3d_fft(workspace1);    
+  }
+
+  /* Non-local correlation for kinetic energy */
   if(otf->model & DFT_OT_KC)
-    /* Non-local correlation for kinetic energy */
     dft_ot3d_add_nonlocal_correlation_potential(otf, potential, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6);
 
+  /* Barranco's penalty term */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
-    /* Barranco's penalty term */
     dft_ot3d_add_barranco(otf, potential, density, workspace1);
 
   if(otf->model & DFT_OT_BACKFLOW) {
@@ -347,44 +346,51 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
     dft_ot3d_add_ancilotto(otf, potential, density, workspace1);
 }
 
-/* local function */
-static void dft_ot3d_add_local_correlation_potential(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, const rgrid3d *rho_tf, rgrid3d *workspace1, rgrid3d *workspace2) {
+EXPORT inline void dft_ot3d_add_lennard_jones_potential(dft_ot_functional *otf, cgrid3d *potential, rgrid3d *density, rgrid3d *workspace1, rgrid3d *workspace2) {
 
-  /* C2 */
-  /* wrk1 = \bar{\rho} */
+  rgrid3d_copy(workspace1, density);
+  rgrid3d_fft(workspace1);
+
+  rgrid3d_fft_convolute(workspace2, workspace1, otf->lennard_jones);  // Don't overwrite workspace1 - needed later
+  rgrid3d_inverse_fft(workspace2);
+  grid3d_add_real_to_complex_re(potential, workspace2);
+  /* leave FFT(rho) in workspace1 (used later in local correlation potential as rho_tf) */
+}
+
+EXPORT inline void dft_ot3d_add_local_correlation_potential(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, const rgrid3d *rho_tf, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3) {
+
+  /* workspace1 = \bar{\rho} */
   rgrid3d_fft_convolute(workspace1, rho_tf, otf->spherical_avg);
   rgrid3d_inverse_fft(workspace1); 
 
-  rgrid3d_abs_power(workspace2, workspace1, otf->c2_exp);
+  /* C2.1 */
+  rgrid3d_ipower(workspace2, workspace1, otf->c2_exp);
   rgrid3d_multiply(workspace2, otf->c2 / 2.0);
   grid3d_add_real_to_complex_re(potential, workspace2);
 
-  rgrid3d_abs_power(workspace2, workspace1, otf->c2_exp - 1.0);
-  rgrid3d_product(workspace2, workspace2, rho);
-  rgrid3d_fft(workspace2);
-  rgrid3d_fft_convolute(workspace2, workspace2, otf->spherical_avg);
-  rgrid3d_inverse_fft(workspace2);
-  rgrid3d_multiply(workspace2, otf->c2 * otf->c2_exp / 2.0);
-  grid3d_add_real_to_complex_re(potential, workspace2);
-
-  /* C3 */
-  rgrid3d_abs_power(workspace2, workspace1, otf->c3_exp);
+  /* C3.1 */
+  rgrid3d_ipower(workspace2, workspace1, otf->c3_exp);
   rgrid3d_multiply(workspace2, otf->c3 / 3.0);
   grid3d_add_real_to_complex_re(potential, workspace2);
-  
-  rgrid3d_abs_power(workspace2, workspace1, otf->c3_exp - 1.0);
+
+  /* C2.2 & C3.2 */
+  rgrid3d_ipower(workspace2, workspace1, otf->c2_exp - 1);
+  rgrid3d_ipower(workspace3, workspace1, otf->c3_exp - 1);
+  rgrid3d_multiply(workspace2, otf->c2 * otf->c2_exp / 2.0);  // For OT, c2_exp / 2 = 1
+  rgrid3d_multiply(workspace3, otf->c3 * otf->c3_exp / 3.0);  // For OT, c3_exp / 3 = 1
+  rgrid3d_sum(workspace2, workspace2, workspace3);
   rgrid3d_product(workspace2, workspace2, rho);
   rgrid3d_fft(workspace2);
   rgrid3d_fft_convolute(workspace2, workspace2, otf->spherical_avg);
   rgrid3d_inverse_fft(workspace2);
-  rgrid3d_multiply(workspace2, otf->c3 * otf->c3_exp / 3.0);
   grid3d_add_real_to_complex_re(potential, workspace2);
 }
 
 /* local function */
-static void dft_ot3d_add_nonlocal_correlation_potential(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4, rgrid3d *workspace5) {
+static inline void dft_ot3d_add_nonlocal_correlation_potential(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4, rgrid3d *workspace5) {
 
   /* rho^tilde(r) = int F(r-r') rho(r') dr' */
+  /* NOTE: rho_tf from LJ (workspace1 there). */
   rgrid3d_fft_convolute(workspace1, otf->gaussian_tf, rho_tf);
   rgrid3d_inverse_fft(workspace1);
   /* workspace1 = rho_st = 1 - 1/\tilde{\rho}/\rho_{0s} */
@@ -397,7 +403,7 @@ static void dft_ot3d_add_nonlocal_correlation_potential(dft_ot_functional *otf, 
 }
 
 /* local function */
-static void dft_ot3d_add_nonlocal_correlation_potential_x(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4) {
+static inline void dft_ot3d_add_nonlocal_correlation_potential_x(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4) {
 
   REAL c;
 
@@ -451,7 +457,7 @@ static void dft_ot3d_add_nonlocal_correlation_potential_x(dft_ot_functional *otf
 }
 
 /* local function */
-static void dft_ot3d_add_nonlocal_correlation_potential_y(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4) {
+static inline void dft_ot3d_add_nonlocal_correlation_potential_y(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4) {
 
   REAL c;
 
@@ -506,7 +512,7 @@ static void dft_ot3d_add_nonlocal_correlation_potential_y(dft_ot_functional *otf
 }
 
 /* local function */
-static void dft_ot3d_add_nonlocal_correlation_potential_z(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4) {
+static inline void dft_ot3d_add_nonlocal_correlation_potential_z(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4) {
 
   REAL c;
 
@@ -561,7 +567,7 @@ static void dft_ot3d_add_nonlocal_correlation_potential_z(dft_ot_functional *otf
 }
 
 /* local function (potential) */
-static void dft_ot3d_add_ancilotto(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *workspace1) {
+static inline void dft_ot3d_add_ancilotto(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *workspace1) {
 
   dft_common_idealgas_params(otf->temp, otf->mass, otf->c4);
   rgrid3d_operate_one(workspace1, rho, dft_common_bose_idealgas_dEdRho);
@@ -569,7 +575,7 @@ static void dft_ot3d_add_ancilotto(dft_ot_functional *otf, cgrid3d *potential, c
 }
 
 /* local function */
-static void dft_ot3d_add_barranco(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *workspace1) {
+static inline void dft_ot3d_add_barranco(dft_ot_functional *otf, cgrid3d *potential, const rgrid3d *rho, rgrid3d *workspace1) {
 
   XXX_beta = otf->beta;
   XXX_rhom = otf->rhom;
@@ -632,12 +638,12 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
   rgrid3d_inverse_fft(workspace1);
 
   /* C2 */
-  rgrid3d_abs_power(workspace2, workspace1, otf->c2_exp);
+  rgrid3d_ipower(workspace2, workspace1, otf->c2_exp);
   rgrid3d_product(workspace2, workspace2, density);
   rgrid3d_add_scaled(energy_density, otf->c2 / 2.0, workspace2);
 
   /* C3 */
-  rgrid3d_abs_power(workspace2, workspace1, otf->c3_exp);
+  rgrid3d_ipower(workspace2, workspace1, otf->c3_exp);
   rgrid3d_product(workspace2, workspace2, density);
   rgrid3d_add_scaled(energy_density, otf->c3 / 3.0, workspace2);
 
@@ -955,23 +961,12 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
     otf->C = 0.0;
   }
 
-  if(model & DFT_DR) { /* Dupont-Roc */
-    otf->c2 = 10455400.0; /* K Angs^(3 + 3\gamma) */
-    otf->c2_exp = 1.0 + 2.8; /* 1 + gamma */
-    otf->c3 = 0.0; /* not used */
-    otf->c3_exp = 1.0;
-    otf->c4 = 0.0;
-    otf->temp = 0.0;
-    otf->rho0 = 0.0218360;    /* Angs^-3 */
-    otf->lj_params.h = 2.377;    /* Angs */
-  }
-
   if(model < DFT_OT_T0MK) { /* 0 */
     otf->b = -718.99;
     otf->c2 = -2.411857E4;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1.858496E6;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 0.0;
     otf->temp = 0.0;
     otf->rho0 = 0.0218360;     /* Angs^-3 */
@@ -981,9 +976,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T0MK) { /* 1 */
     otf->b = -719.2435;
     otf->c2 = -24258.88;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1865257.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 0.0;
     otf->temp = 0.0;
     otf->rho0 = 0.0218354;
@@ -993,9 +988,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T400MK) { /* 2 */
     otf->b = -714.2174;
     otf->c2 = -24566.29;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1873203.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 0.98004;
     otf->temp = 0.4;
     otf->rho0 = 0.0218351;
@@ -1005,9 +1000,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T600MK) { /* 3 */
     otf->b = -705.1319;
     otf->c2 = -25124.17;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1887707.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 0.99915;
     otf->temp = 0.6;
     otf->rho0 = 0.0218346;
@@ -1017,9 +1012,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T800MK) { /* 4 */
     otf->b = -690.4745;
     otf->c2 = -26027.12;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1911283.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 0.99548;
     otf->temp = 0.8;
     otf->rho0 = 0.0218331;
@@ -1029,9 +1024,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T1200MK) { /* 5 */
     otf->b = -646.5135;
     otf->c2 = -28582.81;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1973737.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 0.99666;
     otf->temp = 1.2;
     otf->rho0 = 0.0218298;
@@ -1041,9 +1036,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T1400MK) { /* 6 */
     otf->b = -625.8123;
     otf->c2 = -29434.03;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1984068.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 0.99829;
     otf->temp = 1.4;
     otf->rho0 = 0.0218332;
@@ -1053,9 +1048,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T1600MK) { /* 7 */
     otf->b = -605.9788;
     otf->c2 = -30025.96;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1980898.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 1.00087;
     otf->temp = 1.6;
     otf->rho0 = 0.0218453;
@@ -1065,9 +1060,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T1800MK) { /* 8 */
     otf->b = -593.8289;
     otf->c2 = -29807.56;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1945685.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 1.00443;
     otf->temp = 1.8;
     otf->rho0 = 0.0218703;
@@ -1077,9 +1072,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T2000MK) { /* 9 */
     otf->b = -600.8313;
     otf->c2 = -27850.96;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1847407.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 1.00919;
     otf->temp = 2.0;
     otf->rho0 = 0.0219153;
@@ -1089,9 +1084,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T2100MK) { /* 10 */
     otf->b = -620.9129;
     otf->c2 = -25418.15;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1747494.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 1.01156;
     otf->temp = 2.1;
     otf->rho0 = 0.0219500;
@@ -1101,9 +1096,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T2200MK) { /* 11 */
     otf->b = -619.2016;
     otf->c2 = -25096.68;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1720802.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 1.01436;
     otf->temp = 2.2;
     otf->rho0 = 0.0219859;
@@ -1113,9 +1108,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T2400MK) { /* 12 */
     otf->b = -609.0757;
     otf->c2 = -26009.98;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1747943.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 1.02130;
     otf->temp = 2.4;
     otf->rho0 = 0.0218748;
@@ -1125,9 +1120,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T2600MK) { /* 13 */
     otf->b = -634.0664;
     otf->c2 = -23790.66;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1670707.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 1.02770;
     otf->temp = 2.6;
     otf->rho0 = 0.0217135;
@@ -1137,9 +1132,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T2800MK) { /* 14 */
     otf->b = -663.9942;
     otf->c2 = -21046.37;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1574611.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 1.03429;
     otf->temp = 2.8;
     otf->rho0 = 0.0215090;
@@ -1149,9 +1144,9 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   if(model & DFT_OT_T3000MK) { /* 15 */
     otf->b = -673.6543;
     otf->c2 = -20022.76;
-    otf->c2_exp = 2.0;
+    otf->c2_exp = 2;
     otf->c3 = 1535887.0;
-    otf->c3_exp = 3.0;
+    otf->c3_exp = 3;
     otf->c4 = 1.04271;
     otf->temp = 3.0;
     otf->rho0 = 0.0212593;
@@ -1189,11 +1184,11 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   otf->bf_params.a2  = 0.14912 * (GRID_AUTOANG*GRID_AUTOANG);
 
   fprintf(stderr, "libdft: C2 = " FMT_R " K Angs^" FMT_R "\n",
-	  otf->c2 * GRID_AUTOK * POW(GRID_AUTOANG, 3.0 * otf->c2_exp),
+	  otf->c2 * GRID_AUTOK * ipow(GRID_AUTOANG, 3.0 * otf->c2_exp),
 	  3.0 * otf->c2_exp);
   
   fprintf(stderr, "libdft: C3 = " FMT_R " K Angs^" FMT_R "\n", 
-	  otf->c3 * GRID_AUTOK * POW(GRID_AUTOANG, 3.0 * otf->c3_exp),
+	  otf->c3 * GRID_AUTOK * ipow(GRID_AUTOANG, 3.0 * otf->c3_exp),
 	  3.0 * otf->c3_exp);
   
   otf->model = model;

@@ -48,6 +48,7 @@ int main(int argc, char *argv[]) {
   
   /* Setup DFT driver parameters */
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
+  rgrid3d_set_fft_mode(1); /* 0 = FFTW, 1 = CUDA */
 
   /* FFTW planner flags */
   grid_set_fftw_flags(FFTW_PLANNER);
