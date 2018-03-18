@@ -316,12 +316,15 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
 #endif
     dft_ot3d_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4);
 
+#ifdef USE_CUDA
   if(((otf->model & DFT_OT_KC) || (otf->model & DFT_OT_BACKFLOW)) && rgrid3d_get_fft_mode()) {
     // The following non-cuda routines expect to have FFT of density in workspace1
     // Remove this when cuda versions of KC & backflow have been implemented
-    rgrid3d_copy(workspace1, density);
-    rgrid3d_fft(workspace1);    
+    grid_cuda_gpu2mem(3, workspace1->value, workspace1->grid_len);  // area 3 has fft of rho
+//    rgrid3d_copy(workspace1, density);
+//    rgrid3d_fft(workspace1);    
   }
+#endif
 
   /* Non-local correlation for kinetic energy */
   if(otf->model & DFT_OT_KC)
