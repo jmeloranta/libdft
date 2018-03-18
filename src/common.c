@@ -873,9 +873,9 @@ static rgrid3d *dft_common_pot_interpolate_read(INT n, char **files) {
  *
  */
 
-inline double eval_value_at_index_cyl(const rgrid3d *grid, INT i, INT j, INT k) {
+inline REAL eval_value_at_index_cyl(const rgrid3d *grid, INT i, INT j, INT k) {
 
-  long nr = grid->nx, nphi = grid->ny, nz = grid->nz;
+  INT nr = grid->nx, nphi = grid->ny, nz = grid->nz;
 
   if (i < 0 || j < 0 || k < 0 || i >= nr || j >= nphi || k >= nz) {
     if(i < 0) {
@@ -897,20 +897,20 @@ inline double eval_value_at_index_cyl(const rgrid3d *grid, INT i, INT j, INT k) 
  *
  */
 
-EXPORT inline double eval_value_cyl(const rgrid3d *grid, double r, double phi, double z) {
+EXPORT inline REAL eval_value_cyl(const rgrid3d *grid, REAL r, REAL phi, REAL z) {
 
-  double f000, f100, f010, f001, f110, f101, f011, f111;
-  long i, j, k, nphi = grid->ny;
-  double omz, omr, omphi, step = grid->step, step_phi = 2.0 * M_PI / (double) nphi;
+  REAL f000, f100, f010, f001, f110, f101, f011, f111;
+  INT i, j, k, nphi = grid->ny;
+  REAL omz, omr, omphi, step = grid->step, step_phi = 2.0 * M_PI / (REAL) nphi;
   
   /* i to index and 0 <= r < 1 */
   r = r / step;
-  i = (long) r;
+  i = (INT) r;
   r = r - i;
   
   /* j to index and 0 <= phi < 1 */
   phi = phi / step_phi;
-  j = (long) phi;
+  j = (INT) phi;
   phi = phi - j;
 
   /* k to index and 0 <= z < 1 */

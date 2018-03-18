@@ -550,7 +550,13 @@ REAL complex dft_driver_itime_abs(void *data, REAL complex tstep, INT i, INT j, 
   if(x >= bx) tmp += (x - bx) / width_x;
   if(y >= by) tmp += (y - by) / width_y;
   if(z >= bz) tmp += (z - bz) / width_z;
-  tmp = fast_tanh(tmp) * damp;   // tanh() is slow - use lookup table
+  // TODO: fast_tanh does not work with single precision
+#ifdef SINGLE_PREC
+  tmp = TANH(tmp) * damp;
+#else
+//  tmp = fast_tanh(tmp) * damp;   // tanh() is slow - use lookup table
+  tmp = TANH(tmp) * damp;   // tanh() is slow - use lookup table
+#endif
   return (1.0 - I * tmp) * CABS(tstep);
 }
 
@@ -2969,7 +2975,7 @@ EXPORT void dft_driver_npoint_smooth(rgrid3d *dest, rgrid3d *source, int npts) {
  *
  */
 
-EXPORT rgrid3d *dft_driver_get_workspace(int w) {
+EXPORT rgrid3d *dft_driver_get_workspace(INT w) {
 
   if (w < 1 || w > 10) return NULL;
   switch(w) {
