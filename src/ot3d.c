@@ -311,24 +311,14 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
   /* Non-linear local correlation */
   /* note workspace1 = fft of \rho */
 #ifdef USE_CUDA
-  if(rgrid3d_get_fft_mode()) dft_ot3d_cuda_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4);
+  if(rgrid3d_get_fft_mode()) dft_ot3d_cuda_add_local_correlation_potential(otf, potential, workspace2); // Do not overwrite workspace1 !
   else 
 #endif
     dft_ot3d_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4);
 
-#ifdef USE_CUDA
-  if(((otf->model & DFT_OT_KC) || (otf->model & DFT_OT_BACKFLOW)) && rgrid3d_get_fft_mode()) {
-    // The following non-cuda routines expect to have FFT of density in workspace1
-    // Remove this when cuda versions of KC & backflow have been implemented
-    grid_cuda_gpu2mem(3, workspace1->value, workspace1->grid_len);  // area 3 has fft of rho
-//    rgrid3d_copy(workspace1, density);
-//    rgrid3d_fft(workspace1);    
-  }
-#endif
-
-  /* Non-local correlation for kinetic energy */
+  /* Non-local correlation for kinetic energy (workspace1 = FFT(rho)) */
   if(otf->model & DFT_OT_KC)
-    dft_ot3d_add_nonlocal_correlation_potential(otf, potential, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6);
+    dft_ot3d_add_nonlocal_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4, workspace5, workspace6);
 
   /* Barranco's penalty term */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
