@@ -187,8 +187,7 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(INT model, INT nx, INT ny, INT nz, REAL
     rgrid3d_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     rgrid3d_fft(otf->lennard_jones);
     /* Scaling of LJ so that the integral is exactly b */
-    // TODO: Neumann BC may not work!? r2r fft
-    cgrid3d_multiply(otf->lennard_jones->cint, otf->b / ( step * step * step * otf->lennard_jones->cint->value[0]));
+    rgrid3d_multiply_fft(otf->lennard_jones, otf->b / (step * step * step * rgrid3d_cvalue_at_index(otf->lennard_jones, 0, 0, 0)));
     fprintf(stderr, "Done.\n");
 
     if(otf->model & DFT_OT_HD2) {
@@ -202,8 +201,7 @@ EXPORT dft_ot_functional *dft_ot3d_alloc(INT model, INT nx, INT ny, INT nz, REAL
     rgrid3d_adaptive_map(otf->spherical_avg, dft_common_spherical_avg, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     rgrid3d_fft(otf->spherical_avg);
     /* Scaling of sph. avg. so that the integral is exactly 1 */
-    // TODO: Neumann BC may not work!? r2r fft
-    cgrid3d_multiply(otf->spherical_avg->cint, 1.0 / (step * step * step * otf->spherical_avg->cint->value[0]));
+    rgrid3d_multiply_fft(otf->spherical_avg, 1.0 / (step * step * step * rgrid3d_cvalue_at_index(otf->spherical_avg, 0, 0, 0)));
     fprintf(stderr, "Done.\n");
     
     if(model & DFT_OT_KC) {
@@ -301,34 +299,16 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
 
   /* Lennard-Jones */  
   /* int rho(r') Vlj(r-r') dr' */
-#ifdef USE_CUDA
-  if(rgrid3d_get_fft_mode()) dft_ot3d_cuda_add_lennard_jones_potential(otf, potential, density, workspace1, workspace2);
-  else
-#endif
-    dft_ot3d_add_lennard_jones_potential(otf, potential, density, workspace1, workspace2);
+  dft_ot3d_add_lennard_jones_potential(otf, potential, density, workspace1, workspace2);
   /* workspace1 = FFT of density */
 
   /* Non-linear local correlation */
   /* note workspace1 = fft of \rho */
-#ifdef USE_CUDA
-  if(rgrid3d_get_fft_mode()) dft_ot3d_cuda_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4);
-  else 
-#endif
-    dft_ot3d_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4);
+  dft_ot3d_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4);
 
-#ifdef USE_CUDA
-  if(((otf->model & DFT_OT_KC) || (otf->model & DFT_OT_BACKFLOW)) && rgrid3d_get_fft_mode()) {
-    // The following non-cuda routines expect to have FFT of density in workspace1
-    // Remove this when cuda versions of KC & backflow have been implemented
-    grid_cuda_gpu2mem(3, workspace1->value, workspace1->grid_len);  // area 3 has fft of rho
-//    rgrid3d_copy(workspace1, density);
-//    rgrid3d_fft(workspace1);    
-  }
-#endif
-
-  /* Non-local correlation for kinetic energy */
+  /* Non-local correlation for kinetic energy (workspace1 = FFT(rho)) */
   if(otf->model & DFT_OT_KC)
-    dft_ot3d_add_nonlocal_correlation_potential(otf, potential, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6);
+    dft_ot3d_add_nonlocal_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4, workspace5, workspace6);
 
   /* Barranco's penalty term */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))

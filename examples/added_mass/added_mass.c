@@ -22,9 +22,9 @@
 #define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
 #define OUTPUT     200	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 128       	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128        	/* # of grid points along z */
+#define NX 256       	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 256        	/* # of grid points along z */
 #define STEP 1.5        /* spatial step length (Bohr) */
 #define DENSITY (0.0218360 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default at SVP) */
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
@@ -54,6 +54,7 @@ int main(int argc, char *argv[]) {
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
+  rgrid3d_set_fft_mode(1);
   /* Setup frame of reference momentum */
   dft_driver_setup_momentum(KX, KY, KZ);
 
@@ -131,6 +132,7 @@ int main(int argc, char *argv[]) {
     (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, IMP_STEP, iter); /* CORRECT */
     /* 3. if OUTPUT, compute energy*/
     if(!(iter % OUTPUT)){	
+      if(rgrid3d_get_fft_mode()) cuda_statistics(1);
       /* Impurity energy */
       grid3d_wf_density(impwf, density);
       kin = grid3d_wf_energy(impwf, NULL, cworkspace) ;     /*kinetic*/ 

@@ -2,10 +2,6 @@ include ../make.conf
 
 OBJS = ot3d.o common.o driver3d.o classical.o bulk3d.o
 
-ifeq ($(CUDA),yes)
-  OBJS += ot3d-cuda.o
-endif
-
 libdft.a: prototypes | $(OBJS)
 	$(AR) cr libdft.a $(OBJS)
 

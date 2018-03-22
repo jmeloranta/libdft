@@ -86,15 +86,15 @@ inline static void scale_wf(char what, wf3d *gwf) {
   
   /* liquid helium */
   switch(driver_norm_type) {
-  case DFT_DRIVER_NORMALIZE_BULK: /* bulk normalization */
-    norm = SQRT(driver_rho0) / CABS(gwf->grid->value[0]);
+  case DFT_DRIVER_NORMALIZE_BULK: /*bulk normalization */
+    norm = SQRT(driver_rho0) / CABS(cgrid3d_value_at_index(gwf->grid, 0, 0, 0));
     cgrid3d_multiply(gwf->grid, norm);
     break;
   case DFT_DRIVER_NORMALIZE_ZEROB:
     i = driver_nx / driver_nhe;
     j = driver_ny / driver_nhe;
     k = driver_nz / driver_nhe;
-    norm = SQRT(driver_rho0) / CABS(gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k]);
+    norm = SQRT(driver_rho0) / CABS(cgrid3d_value_at_index(gwf->grid, i, j, k));
     cgrid3d_multiply(gwf->grid, norm);
     break;
   case DFT_DRIVER_NORMALIZE_DROPLET: /* helium droplet */
@@ -107,8 +107,8 @@ inline static void scale_wf(char what, wf3d *gwf) {
 	  y = (j - driver_ny2) * driver_step;
 	  for (k = 0; k < driver_nz; k++) {
 	    z = (k - driver_nz2) * driver_step;
-	    if(SQRT(x*x + y*y + z*z) < driver_frad && CABS(gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k]) < sq)
-	      gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k] = sq;
+	    if(SQRT(x*x + y*y + z*z) < driver_frad && CABS(cgrid3d_value_at_index(gwf->grid, i, j, k)) < sq)
+              cgrid3d_value_to_index(gwf->grid, i, j, k, sq);
 	  }
 	}
       }
@@ -120,15 +120,14 @@ inline static void scale_wf(char what, wf3d *gwf) {
     if(!center_release) {
       REAL sq;
       sq = SQRT(3.0*driver_rho0/4.0);
-      INT nyz = driver_ny * driver_nz;
       for (i = 0; i < driver_nx; i++) {
 	x = (i - driver_nx2) * driver_step;
 	for (j = 0; j < driver_ny; j++) {
 	  y = (j - driver_ny2) * driver_step;
 	  for (k = 0; k < driver_nz; k++) {
 	    z = (k - driver_nz2) * driver_step;
-	    if(SQRT(x * x + z * z) < driver_frad && CABS(gwf->grid->value[i * nyz + j * driver_nz + k]) < sq)
-	      gwf->grid->value[i * nyz + j * driver_nz + k] = sq;
+	    if(SQRT(x * x + z * z) < driver_frad && CABS(cgrid3d_value_at_index(gwf->grid, i, j, k)) < sq)
+              cgrid3d_value_to_index(gwf->grid, i, j, k, sq);
 	  }
 	}
       }
@@ -143,7 +142,7 @@ inline static void scale_wf(char what, wf3d *gwf) {
 	  for (k = 0; k < driver_nz; k++) {
 	    z = (k - driver_nz/2.0) * driver_step;
 	    if(FABS(z) < driver_frad)
-	      gwf->grid->value[i * driver_ny * driver_nz + j * driver_nz + k] = 0.0;
+              cgrid3d_value_to_index(gwf->grid, i, j, k, 0.0);
 	  }
     }
     grid3d_wf_normalize(gwf);
@@ -466,8 +465,7 @@ struct priv_data {
  *
  */
 
-static REAL
-  fast_tanh_table[256] = { -0.96402758, -0.96290241, -0.96174273, -0.96054753, -0.95931576,
+static REAL fast_tanh_table[256] = { -0.96402758, -0.96290241, -0.96174273, -0.96054753, -0.95931576,
                            -0.95804636, -0.95673822, -0.95539023, -0.95400122, -0.95257001,
                            -0.95109539, -0.9495761 , -0.94801087, -0.94639839, -0.94473732,
                            -0.94302627, -0.94126385, -0.93944862, -0.93757908, -0.93565374,
@@ -525,7 +523,7 @@ static inline REAL fast_tanh(REAL x) {
   if(x > 2.0) return 1.0;
   else if(x <= -2.0) return -1.0;
   else {
-    int index = 128 + 64 * x;
+    INT index = 128 + 64 * x;
     return fast_tanh_table[index];
   }
 }
@@ -552,10 +550,9 @@ REAL complex dft_driver_itime_abs(void *data, REAL complex tstep, INT i, INT j, 
   if(z >= bz) tmp += (z - bz) / width_z;
   // TODO: fast_tanh does not work with single precision
 #ifdef SINGLE_PREC
-  tmp = TANH(tmp) * damp;
+  tmp = TANH(tmp) * damp;  // Does not work for single precision???
 #else
-//  tmp = fast_tanh(tmp) * damp;   // tanh() is slow - use lookup table
-  tmp = TANH(tmp) * damp;   // tanh() is slow - use lookup table
+  tmp = fast_tanh(tmp) * damp;   // tanh() is slow - use lookup table
 #endif
   return (1.0 - I * tmp) * CABS(tstep);
 }
@@ -1288,9 +1285,9 @@ EXPORT void dft_driver_write_phase(wf3d *wf, char *base) {
       for(k = 0; k < nz; k++) {
 	tmp = cgrid3d_value_at_index(grid, i, j, k);
 	if(CABS(tmp) < 1E-6)
-	  phase->value[i * ny * nz + j * nz + k] = 0.0;
+          rgrid3d_value_to_index(phase, i, j, k, 0.0);
 	else
-	  phase->value[i * ny * nz + j * nz + k] =  CIMAG(CLOG(tmp / CABS(tmp)));
+          rgrid3d_value_to_index(phase, i, j, k, CIMAG(CLOG(tmp / CABS(tmp))));
       }
 
   sprintf(file, "%s.grd", base);
@@ -1460,7 +1457,6 @@ EXPORT void dft_driver_write_velocity(wf3d *wf, char *base) {
   dft_driver_write_vectorfield(workspace1, workspace2, workspace3, base);
 }
 
-
 /*
  * Read in a grid from a binary file (.grd).
  *
@@ -1573,7 +1569,7 @@ EXPORT void dft_driver_potential(wf3d *gwf, rgrid3d *potential) {
   grid3d_wf_density(gwf, density);
   cgrid3d_zero(cworkspace);
   dft_ot3d_potential(dft_driver_otf, cworkspace, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
-  grid3d_complex_re_to_real( potential, cworkspace);
+  grid3d_complex_re_to_real(potential, cworkspace);
 }
 
 /*
@@ -1663,7 +1659,7 @@ EXPORT REAL dft_driver_rotation_energy(wf3d *wf, REAL omega_x, REAL omega_y, REA
   REAL lx, ly, lz;
 
   dft_driver_L( wf, &lx, &ly, &lz);
-  return - (omega_x * lx) - (omega_y * ly) - (omega_z * lz);
+  return -(omega_x * lx) - (omega_y * ly) - (omega_z * lz);
 }
 
 /*
@@ -2617,27 +2613,25 @@ EXPORT REAL dft_driver_spherical_rb(rgrid3d *density) {
  * It is often a good idea to aim at "zero" - especially if real time dynamics
  * will be run afterwards.
  *
+ * workspace = density from previous iteration.
+ *
  */
 
-static rgrid3d *prev_dens = NULL;
+EXPORT REAL dft_driver_norm(rgrid3d *density, rgrid3d *workspace) {
 
-EXPORT REAL dft_driver_norm(rgrid3d *density) {
+  static char been_here = 0;
+  REAL tmp;
 
-  INT i;
-  REAL mx = -1.0, tmp;
-
-  if(!prev_dens) {
-    prev_dens = dft_driver_alloc_rgrid();
-    rgrid3d_copy(prev_dens, density);
+  if(!been_here) {
+    rgrid3d_copy(workspace, density);
     return 1.0;
   }
 
-  for (i = 0; i < density->nx * density->ny * density->nz; i++)
-    if((tmp = FABS(density->value[i] - prev_dens->value[i])) > mx) mx = tmp;
+  tmp = rgrid3d_max(density);
   
-  rgrid3d_copy(prev_dens, density);
+  rgrid3d_copy(workspace, density);
 
-  return mx;
+  return tmp;
 }
 
 /*
@@ -2654,11 +2648,10 @@ EXPORT void dft_driver_force_spherical(wf3d *wf, REAL xc, REAL yc, REAL zc) {
 
   INT i, j, l, k, len;
   INT nx = wf->grid->nx, ny = wf->grid->ny, nz = wf->grid->nz;
-  INT nyz = ny * nz;
   REAL step = wf->grid->step;
   REAL x, y, z, x2, y2, z2, d;
   cgrid1d *average;
-  REAL complex *avalue, *value = wf->grid->value;
+  REAL complex *avalue;
 
   if(nx > ny) len = nx; else len = ny;
   if(nz > len) len = nz;
@@ -2679,7 +2672,7 @@ EXPORT void dft_driver_force_spherical(wf3d *wf, REAL xc, REAL yc, REAL zc) {
 	d = SQRT(x2 + y2 + z2);
 	k = (INT) (0.5 + d / step);
 	if(k >= len) k = len - 1;
-	value[i * nyz + j * nz + l] = avalue[k];
+        cgrid3d_value_to_index(wf->grid, i, j, k, avalue[k]);
       }
     }
   }
@@ -2875,45 +2868,50 @@ EXPORT void dft_driver_vortex(rgrid3d *potential, int direction) {
 
 EXPORT void dft_driver_clear(wf3d *gwf, rgrid3d *potential, REAL ul) {
 
-  INT i, d = gwf->grid->nx * gwf->grid->ny * gwf->grid->nz;
+  INT i, j, k;
 
-#pragma omp parallel for firstprivate(d,gwf,potential,ul) private(i) default(none) schedule(runtime)
-  for(i = 0; i < d; i++)
-    if(potential->value[i] >= ul) gwf->grid->value[i] = 0.0;
+  for(i = 0; i < potential->nx; i++)
+    for(j = 0; j < potential->ny; j++)
+      for(k = 0; k < potential->nz; k++)
+        if(rgrid3d_value_at_index(potential, i, j, k) >= ul) cgrid3d_value_to_index(gwf->grid, i, j, k, 0.0);
 }
-
 
 /*
  * This routine will limit the given potential exceeds the specified max value.
  *
  * potential = Potential that determines the points to be zeroed (rgrid3d *).
  * ul        = Limit for the potential above which the wf will be zeroed (REAL).
+ * ll        = Limit for the potential below which the wf will be zeroed (REAL).
  * 
  */
 
 EXPORT void dft_driver_clear_pot(rgrid3d *potential, REAL ul, REAL ll) {
 
-  INT i, d = potential->nx * potential->ny * potential->nz;
+  INT i, j, k;
+  REAL tmp;
 
-#pragma omp parallel for firstprivate(d,potential,ul,ll) private(i) default(none) schedule(runtime)
-  for(i = 0; i < d; i++) {
-    if(potential->value[i] > ul) potential->value[i] = ul;
-    if(potential->value[i] < ll) potential->value[i] = ll;
-  }
+  for(i = 0; i < potential->nx; i++)
+    for(j = 0; j < potential->ny; j++)
+      for(k = 0; k < potential->nz; k++) {
+        tmp = rgrid3d_value_at_index(potential, i, j, k);
+        if(tmp > ul) rgrid3d_value_to_index(potential, i, j, k, ul);
+        if(tmp < ll) rgrid3d_value_to_index(potential, i, j, k, ll);
+      }
 }
 
 /*
- * Zero part of a given grid based on a given density & treshold.
+ * Zero part of a given grid based on a given density treshold.
  *
  */
 
 EXPORT void dft_driver_clear_core(rgrid3d *grid, rgrid3d *density, REAL thr) {
 
-  INT i;
+  INT i, j, k;
 
-#pragma omp parallel for firstprivate(grid, density, thr) private(i) default(none) schedule(runtime)
-  for(i = 0; i < grid->nx * grid->ny * grid->nz; i++)
-    if(density->value[i] < thr) grid->value[i] = 0.0;
+  for(i = 0; i < grid->nx; i++)
+    for(j = 0; j < grid->ny; j++)
+      for(k = 0; k < grid->nz; j++)
+        if(rgrid3d_value_at_index(density, i, j, k) < thr) rgrid3d_value_to_index(grid, i, j, k, 0.0);
 }
 
 /*
@@ -2931,7 +2929,7 @@ EXPORT void dft_driver_clear_core(rgrid3d *grid, rgrid3d *density, REAL thr) {
 
 EXPORT void dft_driver_npoint_smooth(rgrid3d *dest, rgrid3d *source, int npts) {
 
-  INT i, ip, j, jp, k, kp, nx = source->nx, ny = source->ny, nz = source->nz, pts, nynz = ny * nz;
+  INT i, ip, j, jp, k, kp, nx = source->nx, ny = source->ny, nz = source->nz, pts;
   INT li, ui, lj, uj, lk, uk;
   REAL ave;
 
@@ -2943,7 +2941,7 @@ EXPORT void dft_driver_npoint_smooth(rgrid3d *dest, rgrid3d *source, int npts) {
     fprintf(stderr, "libdft: dft_driver_npoint_smooth() - dest and source cannot be equal.\n");
     exit(1);
   }
-#pragma omp parallel for firstprivate(npts,nx,ny,nz,nynz,dest,source) private(i,j,k,ave,pts,li,lj,lk,ui,uj,uk,ip,jp,kp) default(none) schedule(runtime)
+
   for (i = 0; i < nx; i++) 
     for (j = 0; j < ny; j++) 
       for (k = 0; k < nz; k++) {
@@ -2962,7 +2960,7 @@ EXPORT void dft_driver_npoint_smooth(rgrid3d *dest, rgrid3d *source, int npts) {
               ave += rgrid3d_value_at_index(source, ip, jp, kp);
             }
         ave /= (REAL) pts;
-        dest->value[i * nynz + j * nz + k] = ave;
+        rgrid3d_value_to_index(dest, i, j, k, ave);
       }
 }
 
