@@ -304,15 +304,7 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
 
   /* Non-linear local correlation */
   /* note workspace1 = fft of \rho */
-<<<<<<< HEAD
   dft_ot3d_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4);
-=======
-#ifdef USE_CUDA
-  if(rgrid3d_get_fft_mode()) dft_ot3d_cuda_add_local_correlation_potential(otf, potential, workspace2); // Do not overwrite workspace1 !
-  else 
-#endif
-    dft_ot3d_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4);
->>>>>>> 9f83fada25c72565d23126aefa92352bc961c66c
 
   /* Non-local correlation for kinetic energy (workspace1 = FFT(rho)) */
   if(otf->model & DFT_OT_KC)
