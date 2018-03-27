@@ -274,7 +274,7 @@ static inline REAL dft_common_g(REAL z, REAL s) { /* Brute force approach - the 
 
   for (k = 1; k <= NTERMS; k++) {
     zk *= z;
-    val += zk / POW(k, s);
+    val += zk / POW((REAL) k, s);
   }
   return val;
 }
@@ -738,7 +738,7 @@ EXPORT void dft_common_potential_map_tilt(char average, char *filex, char *filey
 
 EXPORT void dft_common_potential_map_nonperiodic(char average, char *filex, char *filey, char *filez, rgrid3d *potential) {
 
-  rgrid3d_set_origin(potential, -(potential->nx / 2) * potential->step, -(potential->ny / 2) * potential->step, -(potential->nz / 2) * potential->step);
+  rgrid3d_set_origin(potential, -((REAL) (potential->nx / 2)) * potential->step, -((REAL) (potential->ny / 2)) * potential->step, -((REAL) (potential->nz / 2)) * potential->step);
   dft_common_potential_map(average, filex, filey, filez, potential);
 }
 
@@ -814,7 +814,7 @@ EXPORT void dft_common_potential_smap_tilt(char average, char *filex, char *file
 
 EXPORT void dft_common_potential_smap_nonperiodic(char average, char *filex, char *filey, char *filez, rgrid3d *potential) {
 
-  rgrid3d_set_origin(potential, -(potential->nx / 2) * potential->step, -(potential->ny / 2) * potential->step, -(potential->nz / 2) * potential->step);
+  rgrid3d_set_origin(potential, -((REAL) (potential->nx / 2)) * potential->step, -((REAL) (potential->ny / 2)) * potential->step, -((REAL) (potential->nz / 2)) * potential->step);
   dft_common_potential_smap(average, filex, filey, filez, potential);
 }
 
@@ -842,10 +842,10 @@ static rgrid3d *dft_common_pot_interpolate_read(INT n, char **files) {
   pot_begin = pot.begin;
   pot_step = pot.step;
   pot_length = pot.length;
-  nr = pot.length + pot_begin / pot_step;   /* enough space for the potential + the empty core, which is set to constant */
+  nr = pot.length + (INT) (pot_begin / pot_step);   /* enough space for the potential + the empty core, which is set to constant */
   nphi = n; /* Only [0,Pi] stored - ]Pi,2Pi[ by symmetry */
 
-  cyl = rgrid3d_alloc(nr, nphi, 1, pot.step, RGRID3D_PERIODIC_BOUNDARY, NULL);
+  cyl = rgrid3d_alloc(nr, nphi, 1, pot.step, RGRID3D_PERIODIC_BOUNDARY, NULL, "cyl");
   
   /* For each direction */
   for (j = 0; j < n; j++) {
@@ -856,7 +856,7 @@ static rgrid3d *dft_common_pot_interpolate_read(INT n, char **files) {
     }
     /* map the current direction on the grid */
     for (i = k = 0; i < nr; i++) {
-      r = pot_step * i;
+      r = pot_step * (REAL) i;
       if (r < pot_begin)
 	cyl->value[i * nphi + j] = pot.points[0];
       else
@@ -873,7 +873,7 @@ static rgrid3d *dft_common_pot_interpolate_read(INT n, char **files) {
  *
  */
 
-inline REAL eval_value_at_index_cyl(const rgrid3d *grid, INT i, INT j, INT k) {
+inline REAL eval_value_at_index_cyl(rgrid3d *grid, INT i, INT j, INT k) {
 
   INT nr = grid->nx, nphi = grid->ny, nz = grid->nz;
 
@@ -897,7 +897,7 @@ inline REAL eval_value_at_index_cyl(const rgrid3d *grid, INT i, INT j, INT k) {
  *
  */
 
-EXPORT inline REAL eval_value_cyl(const rgrid3d *grid, REAL r, REAL phi, REAL z) {
+EXPORT inline REAL eval_value_cyl(rgrid3d *grid, REAL r, REAL phi, REAL z) {
 
   REAL f000, f100, f010, f001, f110, f101, f011, f111;
   INT i, j, k, nphi = grid->ny;
@@ -906,17 +906,17 @@ EXPORT inline REAL eval_value_cyl(const rgrid3d *grid, REAL r, REAL phi, REAL z)
   /* i to index and 0 <= r < 1 */
   r = r / step;
   i = (INT) r;
-  r = r - i;
+  r = r - (REAL) i;
   
   /* j to index and 0 <= phi < 1 */
   phi = phi / step_phi;
   j = (INT) phi;
-  phi = phi - j;
+  phi = phi - (REAL) j;
 
   /* k to index and 0 <= z < 1 */
-  k = (z /= step);
+  k = (INT) (z /= step);
   if (z < 0) k--;
-  z -= k;
+  z -= (REAL) k;
   k += grid->nz / 2;
 
   /*
@@ -948,7 +948,7 @@ EXPORT inline REAL eval_value_cyl(const rgrid3d *grid, REAL r, REAL phi, REAL z)
  *
  */
 
-static inline REAL dft_common_interpolate_value(const rgrid3d *grid, REAL r, REAL phi, REAL *x, REAL *y) {
+static inline REAL dft_common_interpolate_value(rgrid3d *grid, REAL r, REAL phi, REAL *x, REAL *y) {
 
   REAL f0, f1;
   INT i, j, nphi = grid->ny;
@@ -957,7 +957,7 @@ static inline REAL dft_common_interpolate_value(const rgrid3d *grid, REAL r, REA
   /* i to index and 0 <= r < 1 */
   r = r / step;
   i = (INT) r;
-  r = r - i;
+  r = r - (REAL) i;
   
   /*
    * Polynomial along phi
@@ -997,7 +997,7 @@ static inline REAL dft_common_interpolate_value(const rgrid3d *grid, REAL r, REA
  *
  */
 
-static inline REAL dft_common_spline_value(const rgrid3d *grid, REAL r, REAL phi, REAL *x, REAL *y, REAL *y2) {
+static inline REAL dft_common_spline_value(rgrid3d *grid, REAL r, REAL phi, REAL *x, REAL *y, REAL *y2) {
 
   REAL f0, f1;
   INT i, j, nphi = grid->ny;
@@ -1006,7 +1006,7 @@ static inline REAL dft_common_spline_value(const rgrid3d *grid, REAL r, REAL phi
   /* i to index and 0 <= r < 1 */
   r = r / step;
   i = (INT) r;
-  r = r - i;
+  r = r - (REAL) i;
   
   /*
    * Polynomial along phi
@@ -1061,7 +1061,7 @@ EXPORT void dft_common_pot_interpolate(INT n, char **files, rgrid3d *out) {
   REAL *tmp1, *tmp2;
   rgrid3d *cyl;
 
-  if(!(tmp1 = (REAL *) malloc(sizeof(REAL) * n)) || !(tmp2 = (REAL *) malloc(sizeof(REAL) * n))) {
+  if(!(tmp1 = (REAL *) malloc(sizeof(REAL) * (size_t) n)) || !(tmp2 = (REAL *) malloc(sizeof(REAL) * (size_t) n))) {
     fprintf(stderr, "libgrid: Out of memory in dft_common_interpolate().\n");
     exit(1);
   }
@@ -1070,14 +1070,14 @@ EXPORT void dft_common_pot_interpolate(INT n, char **files, rgrid3d *out) {
   /* map cyl_large to cart */
   for (i = 0; i < nx; i++) {
     REAL x2;
-    x = (i - nx/2) * step - x0;
+    x = ((REAL) (i - nx/2)) * step - x0;
     x2 = x * x;
     for (j = 0; j < ny; j++) {
       REAL y2;
-      y = (j - ny/2) * step - y0;
+      y = ((REAL) (j - ny/2)) * step - y0;
       y2 = y * y;
       for (k = 0; k < nz; k++) {
-	z = (k - nz/2) * step - z0;
+	z = ((REAL) (k - nz/2)) * step - z0;
 	r = SQRT(x2 + y2 + z * z);
 	phi = M_PI - ATAN2(SQRT(x2 + y2), -z);
 	out->value[i * nynz + j * nz + k] = dft_common_interpolate_value(cyl, r, phi, tmp1, tmp2);
@@ -1110,7 +1110,7 @@ EXPORT void dft_common_pot_spline(INT n, char **files, rgrid3d *out) {
   REAL *tmp1, *tmp2 , *tmp3;
   rgrid3d *cyl;
 
-  if(!(tmp1 = (REAL *) malloc(sizeof(REAL) * n)) || !(tmp2 = (REAL *) malloc(sizeof(REAL) * n)) || !(tmp3 = (REAL *) malloc(sizeof(REAL) * n)) ) {
+  if(!(tmp1 = (REAL *) malloc(sizeof(REAL) * (size_t) n)) || !(tmp2 = (REAL *) malloc(sizeof(REAL) * (size_t) n)) || !(tmp3 = (REAL *) malloc(sizeof(REAL) * (size_t) n)) ) {
     fprintf(stderr, "libgrid: Out of memory in dft_common_interpolate().\n");
     exit(1);
   }
@@ -1119,14 +1119,14 @@ EXPORT void dft_common_pot_spline(INT n, char **files, rgrid3d *out) {
   /* map cyl_large to cart */
   for (i = 0; i < nx; i++) {
     REAL x2;
-    x = (i - nx/2) * step - x0;
+    x = ((REAL) (i - nx/2)) * step - x0;
     x2 = x * x;
     for (j = 0; j < ny; j++) {
       REAL y2;
-      y = (j - ny/2) * step - y0;
+      y = ((REAL) (j - ny/2)) * step - y0;
       y2 = y * y;
       for (k = 0; k < nz; k++) {
-	z = (k - nz/2) * step - z0;
+	z = ((REAL) (k - nz/2)) * step - z0;
 	r = SQRT(x2 + y2 + z * z);
 	phi = M_PI - ATAN2(SQRT(x2 + y2), -z);
 	out->value[i * nynz + j * nz + k] = dft_common_spline_value(cyl, r, phi, tmp1, tmp2, tmp3) ;
@@ -1163,10 +1163,10 @@ EXPORT void dft_common_pot_angularderiv(INT n, char **files, rgrid3d *out) {
   nphi = cyl_pot->ny;
   step_cyl = cyl_pot->step;
 
-  cyl_k = rgrid3d_alloc(nr, nphi, 1, step_cyl, RGRID3D_PERIODIC_BOUNDARY, NULL); 
+  cyl_k = rgrid3d_alloc(nr, nphi, 1, step_cyl, RGRID3D_PERIODIC_BOUNDARY, NULL, "cyl_k"); 
 
   /* second derivative respect to theta */
-  REAL inv_step2 = nphi * nphi / (2. * 2. * M_PI * M_PI);
+  REAL inv_step2 = ((REAL) (nphi * nphi)) / (2.0 * 2.0 * M_PI * M_PI);
   for (i = 0; i < nr; i++) {
     for (j = 0; j < nphi ; j++) {
 	      cyl_k->value[i * nphi + j ] = inv_step2 * (
@@ -1179,14 +1179,14 @@ EXPORT void dft_common_pot_angularderiv(INT n, char **files, rgrid3d *out) {
   /* map cyl_k to cart */
   for (i = 0; i < nx; i++) {
     REAL x2;
-    x = (i - nx/2) * step - x0;
+    x = ((REAL) (i - nx/2)) * step - x0;
     x2 = x * x;
     for (j = 0; j < ny; j++) {
       REAL y2;
-      y = (j - ny/2) * step - y0;
+      y = ((REAL) (j - ny/2)) * step - y0;
       y2 = y * y;
       for (k = 0; k < nz; k++) {
-	z = (k - nz/2) * step - z0;
+	z = ((REAL) (k - nz/2)) * step - z0;
 	r = SQRT(x2 + y2 + z * z);
 	phi = M_PI - ATAN2(SQRT(x2 + y2), -z);
 	out->value[i * nynz + j * nz + k] = eval_value_cyl(cyl_k, r, phi, 0.0);
@@ -1231,7 +1231,7 @@ EXPORT void dft_common_pot_average(INT n, char **files, rgrid3d *out) {
   /* Erase the values in pot_ave */
   for(k = 0; k < pot_length; k++)
     pot_ave.points[k] = 0.0;
-  nr = pot_length + pot_begin / pot_step;   /* enough space for the potential + the empty core, which is set to constant */
+  nr = pot_length + (INT) (pot_begin / pot_step);   /* enough space for the potential + the empty core, which is set to constant */
 
   /* Construct the 1D potential averaging all directions */
   for (j = 0; j < n; j++) {
@@ -1241,9 +1241,9 @@ EXPORT void dft_common_pot_average(INT n, char **files, rgrid3d *out) {
       exit(1);
     }
     if(j == 0 || j == n-1)
-      angular_weight = 0.25 - (1.0 + (n-1) * (n-1) * COS(M_PI/(n-1))) / (4.0*n*(n-2));
+      angular_weight = 0.25 - (1.0 + ((REAL) (n-1)) * ((REAL) (n-1)) * COS(M_PI/((REAL) (n-1)))) / (REAL) (4*n*(n-2));
     else
-      angular_weight = ((n-1) * (n-1) * SIN(M_PI/(n-1)) * SIN(M_PI*j/(n-1))) / ( 2.0 * n * (n-2));
+      angular_weight = (((REAL) (n-1)) * ((REAL) (n-1)) * SIN(M_PI/(REAL) (n-1)) * SIN(M_PI*((REAL) j)/(REAL) (n-1))) / (REAL) (2 * n * (n-2));
 
     for(k = 0; k < pot.length; k++)
       pot_ave.points[k] += angular_weight * pot.points[k];
@@ -1251,11 +1251,11 @@ EXPORT void dft_common_pot_average(INT n, char **files, rgrid3d *out) {
 
   /* Map the 1D pot to cartesian grid */
   for (i = 0; i < nx; i++) {
-    x = (i - nx/2) * step - x0;
+    x = ((REAL) (i - nx/2)) * step - x0;
     for (j = 0; j < ny; j++) {
-      y = (j - ny/2) * step - y0;
+      y = ((REAL) (j - ny/2)) * step - y0;
       for (k = 0; k < nz; k++) {
-	z = (k - nz/2) * step - z0;
+	z = ((REAL) (k - nz/2)) * step - z0;
 	r = SQRT(x * x + y * y + z * z);
         if (r < pot_begin)
 	  out->value[i * nynz + j * nz + k] = pot_ave.points[0];

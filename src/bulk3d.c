@@ -303,9 +303,9 @@ static REAL complex Awave(void *arg, REAL x, REAL y, REAL z) {
 
 REAL dft_ot_bulk_TS = 50.0; /* fs */
 REAL dft_ot_bulk_AMP = 1.0E-3; /* amplitude of the excitation */
-REAL dft_ot_bulk_NX = 128; /* Bohr */
-REAL dft_ot_bulk_NY = 32;  /* Bohr */
-REAL dft_ot_bulk_NZ = 32;  /* Bohr */
+INT dft_ot_bulk_NX = 128;
+INT dft_ot_bulk_NY = 32;
+INT dft_ot_bulk_NZ = 32;
 REAL dft_ot_bulk_STEP = 1.0; /* Bohr */
 INT dft_ot_bulk_THR = 0;    /* Number of threads */
 
@@ -334,11 +334,11 @@ EXPORT REAL dft_ot_dispersion(dft_ot_functional *otf, REAL *k, REAL rho0) {
     dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
     dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
     dft_driver_initialize();
-    Apotential_store = dft_driver_alloc_cgrid();
-    Adensity = dft_driver_alloc_rgrid();           /* avoid allocating separate space for density */
-    Apot = dft_driver_alloc_rgrid();
-    Agwf = dft_driver_alloc_wavefunction(otf->mass);
-    Agwfp = dft_driver_alloc_wavefunction(otf->mass);
+    Apotential_store = dft_driver_alloc_cgrid("Apotential store");
+    Adensity = dft_driver_alloc_rgrid("Adensity");           /* avoid allocating separate space for density */
+    Apot = dft_driver_alloc_rgrid("Apot");
+    Agwf = dft_driver_alloc_wavefunction(otf->mass, "Agwf");
+    Agwfp = dft_driver_alloc_wavefunction(otf->mass, "Agwfp");
   }
   /* Update driver otf structure - parameters in the given otf may have changed from last call */
   otf->lennard_jones = dft_driver_otf->lennard_jones;
@@ -352,8 +352,8 @@ EXPORT REAL dft_ot_dispersion(dft_ot_functional *otf, REAL *k, REAL rho0) {
   mu0 = dft_ot_bulk_chempot2(otf);
   rgrid3d_constant(Apot, -mu0);
 
-  tmp = 2.0 * M_PI / (dft_ot_bulk_NX * dft_ot_bulk_STEP);
-  wave_params.kx = ((INT) (0.5 + *k / tmp)) * tmp; // round to nearest k with the grid - should we return this also?
+  tmp = 2.0 * M_PI / (((REAL) dft_ot_bulk_NX) * dft_ot_bulk_STEP);
+  wave_params.kx = ((REAL) (((INT) (0.5 + *k / tmp)))) * tmp; // round to nearest k with the grid - should we return this also?
   *k = wave_params.kx;
   if(*k == 0.0) return 0.0;
   wave_params.ky = 0.0;
@@ -373,7 +373,7 @@ EXPORT REAL dft_ot_dispersion(dft_ot_functional *otf, REAL *k, REAL rho0) {
     pval = rgrid3d_value_at_index(Adensity, dft_ot_bulk_NX/2, dft_ot_bulk_NY/2, dft_ot_bulk_NZ/2);
   }
   dft_driver_verbose = 1;
-  omega = (1.0 / (2.0 * l * dft_ot_bulk_TS / GRID_AUTOFS));
+  omega = (1.0 / (2.0 * ((REAL) l) * dft_ot_bulk_TS / GRID_AUTOFS));
   return (omega / GRID_AUTOS) * GRID_HZTOCM1 * 1.439 /* cm-1 to K */ / GRID_AUTOK;
 }
 
@@ -520,11 +520,11 @@ EXPORT REAL dft_ot_bulk_surface_tension(dft_ot_functional *otf, REAL rho0) {
     dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
     dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
     dft_driver_initialize();
-    Apotential_store = dft_driver_alloc_cgrid();
-    Adensity = dft_driver_alloc_rgrid();           /* avoid allocating separate space for density */
-    Apot = dft_driver_alloc_rgrid();
-    Agwf = dft_driver_alloc_wavefunction(otf->mass);
-    Agwfp = dft_driver_alloc_wavefunction(otf->mass);
+    Apotential_store = dft_driver_alloc_cgrid("Apotential store");
+    Adensity = dft_driver_alloc_rgrid("Adensity");           /* avoid allocating separate space for density */
+    Apot = dft_driver_alloc_rgrid("Apot");
+    Agwf = dft_driver_alloc_wavefunction(otf->mass, "Agwf");
+    Agwfp = dft_driver_alloc_wavefunction(otf->mass, "Agwfp");
     /* setup a free surface (slab around x = 0) */
     grid3d_wf_map(Agwf, &Aslab, NULL);
     cgrid3d_multiply(Agwf->grid, SQRT(rho0));
@@ -544,7 +544,7 @@ EXPORT REAL dft_ot_bulk_surface_tension(dft_ot_functional *otf, REAL rho0) {
   for(i = 1; ; i++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, i);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, i);
-    stens = dft_driver_energy(Agwf, Apot) / (2.0 * dft_ot_bulk_NY * dft_ot_bulk_NZ * dft_ot_bulk_STEP * dft_ot_bulk_STEP);
+    stens = dft_driver_energy(Agwf, Apot) / (2.0 * ((REAL) dft_ot_bulk_NY) * ((REAL) dft_ot_bulk_NZ) * dft_ot_bulk_STEP * dft_ot_bulk_STEP);
     if(FABS(stens - prev_stens) / stens < 0.03) break;
     prev_stens = stens;
   }

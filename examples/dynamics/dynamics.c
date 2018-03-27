@@ -87,17 +87,17 @@ int main(int argc, char **argv) {
   mu0 = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
 
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid();
-  rworkspace = dft_driver_alloc_rgrid();
-  potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
+  ext_pot = dft_driver_alloc_rgrid("ext_pot");
+  rworkspace = dft_driver_alloc_rgrid("rworkspace");
+  potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
   /* Generate the initial potential */
   offset = 0.0;
   rgrid3d_map(ext_pot, pot_func, (void *) &offset);
   rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
 
   /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
   cgrid3d_constant(gwf->grid, SQRT(dft_driver_otf->rho0));
 
   /* Step #1: Run 200 iterations using imaginary time for the initial state */

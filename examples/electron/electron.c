@@ -126,15 +126,15 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
   dft_driver_initialize();
 
-  density = dft_driver_alloc_rgrid();
-  pseudo = dft_driver_alloc_rgrid();
-  temp = dft_driver_alloc_rgrid();
-  potential_store = dft_driver_alloc_cgrid();
-  gwf = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS);
-  gwfp = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS);
-  egwf = dft_driver_alloc_wavefunction(1.0); /* electron mass */
+  density = dft_driver_alloc_rgrid("density");
+  pseudo = dft_driver_alloc_rgrid("pseudo");
+  temp = dft_driver_alloc_rgrid("temp");
+  potential_store = dft_driver_alloc_cgrid("potential_store");
+  gwf = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS, "gwf");
+  gwfp = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS, "gwfp");
+  egwf = dft_driver_alloc_wavefunction(1.0, "egwf"); /* electron mass */
   egwf->norm = 1.0; /* one electron */
-  egwfp = dft_driver_alloc_wavefunction(1.0); /* electron mass */
+  egwfp = dft_driver_alloc_wavefunction(1.0, "egwfp"); /* electron mass */
   egwfp->norm = 1.0; /* one electron */
 
   /* initialize wavefunctions */

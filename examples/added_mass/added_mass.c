@@ -22,9 +22,10 @@
 #define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
 #define OUTPUT     200	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 256       	/* # of grid points along x */
-#define NY 256          /* # of grid points along y */
-#define NZ 256        	/* # of grid points along z */
+#define CUDA 1          /* Use CUDA 1 (yes) or 0 (no) */
+#define NX 128       	/* # of grid points along x */
+#define NY 128          /* # of grid points along y */
+#define NZ 128        	/* # of grid points along z */
 #define STEP 1.5        /* spatial step length (Bohr) */
 #define DENSITY (0.0218360 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default at SVP) */
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
@@ -54,7 +55,9 @@ int main(int argc, char *argv[]) {
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
-  rgrid3d_set_fft_mode(1);
+#ifdef USE_CUDA
+  cuda_enable(CUDA);
+#endif
   /* Setup frame of reference momentum */
   dft_driver_setup_momentum(KX, KY, KZ);
 
@@ -77,17 +80,17 @@ int main(int argc, char *argv[]) {
   printf("rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
 
   /* Allocate wavefunctions and grids */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);  /* order parameter for current time */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS); /* order parameter for future (predict) */
-  impwf = dft_driver_alloc_wavefunction(IMP_MASS);   /* impurity - order parameter for current time */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");  /* order parameter for current time */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) */
+  impwf = dft_driver_alloc_wavefunction(IMP_MASS, "impwf");   /* impurity - order parameter for current time */
   impwf->norm  = 1.0;
-  impwfp = dft_driver_alloc_wavefunction(IMP_MASS);  /* impurity - order parameter for future (predict) */
+  impwfp = dft_driver_alloc_wavefunction(IMP_MASS, "impwfp");  /* impurity - order parameter for future (predict) */
   impwfp->norm = 1.0;
-  cworkspace = dft_driver_alloc_cgrid();             /* allocate complex workspace */
-  pair_pot = dft_driver_alloc_rgrid();               /* allocate real external potential grid */
-  ext_pot = dft_driver_alloc_rgrid();                /* allocate real external potential grid */
-  density = dft_driver_alloc_rgrid();                /* allocate real density grid */
-  current = dft_driver_alloc_rgrid();                /* allocate real density grid */
+  cworkspace = dft_driver_alloc_cgrid("cworkspace");             /* allocate complex workspace */
+  pair_pot = dft_driver_alloc_rgrid("pair pot");               /* allocate real external potential grid */
+  ext_pot = dft_driver_alloc_rgrid("ext pot");                /* allocate real external potential grid */
+  density = dft_driver_alloc_rgrid("density");                /* allocate real density grid */
+  current = dft_driver_alloc_rgrid("current");                /* allocate real density grid */
 
   fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (" FMT_R "," FMT_R "," FMT_R ") (A/ps)\n", 
@@ -132,7 +135,6 @@ int main(int argc, char *argv[]) {
     (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, IMP_STEP, iter); /* CORRECT */
     /* 3. if OUTPUT, compute energy*/
     if(!(iter % OUTPUT)){	
-      if(rgrid3d_get_fft_mode()) cuda_statistics(1);
       /* Impurity energy */
       grid3d_wf_density(impwf, density);
       kin = grid3d_wf_energy(impwf, NULL, cworkspace) ;     /*kinetic*/ 
@@ -154,10 +156,10 @@ int main(int argc, char *argv[]) {
     dft_driver_convolution_prepare(NULL, density);
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
     rgrid3d_add(ext_pot, -mu0) ; /* Add the chemical potential */
-    /*2. Predict + correct */
+
+    /* 2. Predict + correct */
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
-    
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */
     if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       /* Helium energy */
       kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
@@ -184,7 +186,9 @@ int main(int argc, char *argv[]) {
       else
 	printf("VX = 0, no added mass.\n");
       fflush(stdout);
+
       grid3d_wf_density(gwf, density);                     /* Density from gwf */
+
       sprintf(filename, "ebubble_liquid-" FMT_I, iter);              
       dft_driver_write_density(density, filename);
     }

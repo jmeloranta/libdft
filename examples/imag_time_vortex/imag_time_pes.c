@@ -85,17 +85,17 @@ int main(int argc, char **argv) {
   dft_driver_initialize();
 
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid();
-  orig_pot = dft_driver_alloc_rgrid();
-  potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
-  density = dft_driver_alloc_rgrid();
-  px = dft_driver_alloc_rgrid();
-  py = dft_driver_alloc_rgrid();
-  pz = dft_driver_alloc_rgrid();
+  ext_pot = dft_driver_alloc_rgrid("ext_pot");
+  orig_pot = dft_driver_alloc_rgrid("orig_pot");
+  potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
+  density = dft_driver_alloc_rgrid("density");
+  px = dft_driver_alloc_rgrid("px");
+  py = dft_driver_alloc_rgrid("py");
+  pz = dft_driver_alloc_rgrid("pz");
 
   /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
 #ifdef HE2STAR
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "he2-He.dat-spline", "he2-He.dat-spline", "he2-He.dat-spline", orig_pot);

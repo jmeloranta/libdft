@@ -329,12 +329,12 @@ int main(int argc, char *argv[]) {
   printf("rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
 
   /* Allocate wavefunctions and grids */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);  /* order parameter for current time */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS); /* order parameter for future (predict) */
-  cworkspace = dft_driver_alloc_cgrid();             /* allocate complex workspace */
-  ext_pot = dft_driver_alloc_rgrid();                /* allocate real external potential grid */
-  density = dft_driver_alloc_rgrid();                /* allocate real density grid */
-  current = dft_driver_alloc_rgrid();                /* allocate real density grid */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");  /* order parameter for current time */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) */
+  cworkspace = dft_driver_alloc_cgrid("cworkspace");             /* allocate complex workspace */
+  ext_pot = dft_driver_alloc_rgrid("ext pot");                /* allocate real external potential grid */
+  density = dft_driver_alloc_rgrid("density");                /* allocate real density grid */
+  current = dft_driver_alloc_rgrid("current");                /* allocate real density grid */
   
   fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (m/s)\n", 

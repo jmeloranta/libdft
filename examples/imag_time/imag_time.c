@@ -192,13 +192,13 @@ int main(int argc, char **argv) {
   dft_driver_initialize();
 
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid();
-  potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
-  density = dft_driver_alloc_rgrid();
+  ext_pot = dft_driver_alloc_rgrid("ext_pot");
+  potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
+  density = dft_driver_alloc_rgrid("density");
 
   /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
   /* Read external potential from file */
   rgrid3d_map(ext_pot, pot_func, NULL);

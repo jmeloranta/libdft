@@ -15,19 +15,19 @@ void analyze(wf3d *wf, INT iter, double vx) {
 
   printf("Current time = " FMT_R " fs.\n", ((REAL) iter) * TIME_STEP_REAL * GRID_AUTOFS);
 
-  if(!(cur_x = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, NULL))) {
+  if(!(cur_x = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, NULL, "cur_x"))) {
     fprintf(stderr, "Not enough memory to allocate grid.\n");
     exit(1);
   }
-  if(!(cur_y = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, NULL))) {
+  if(!(cur_y = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, NULL, "cur_y"))) {
     fprintf(stderr, "Not enough memory to allocate grid.\n");
     exit(1);
   }
-  if(!(cur_z = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, NULL))) {
+  if(!(cur_z = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, NULL, "cur_z"))) {
     fprintf(stderr, "Not enough memory to allocate grid.\n");
     exit(1);
   }
-  if(!(circ = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, NULL))) {
+  if(!(circ = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, NULL, "circ"))) {
     fprintf(stderr, "Not enough memory to allocate grid.\n");
     exit(1);
   }
@@ -41,7 +41,7 @@ void analyze(wf3d *wf, INT iter, double vx) {
   printf("Number of He atoms = " FMT_R "\n", rgrid3d_integral(circ));
   if(iter > 0) {
     printf("Drag force1 = " FMT_R " (au).\n", -rgrid3d_weighted_integral(circ, dpot_func, NULL)); // circ = density here
-    printf("Drag force2 = " FMT_R " (au).\n",  (cur_mom - prev_mom) / (TIME_STEP_REAL * OUTPUT_ITER / GRID_AUTOFS));
+    printf("Drag force2 = " FMT_R " (au).\n",  (cur_mom - prev_mom) / (TIME_STEP_REAL * ((REAL) OUTPUT_ITER) / GRID_AUTOFS));
   }
   prev_mom = cur_mom;
 

@@ -257,21 +257,21 @@ int main(int argc, char *argv[]) {
   printf("Exp: rho0 = " FMT_R " Angs^-3.\n", DENSITY / (0.529 * 0.529 * 0.529));
   
   /* Allocate wavefunctions and grids */
-  cpot_el = dft_driver_alloc_cgrid();            
-  cpot = dft_driver_alloc_cgrid();         
-  pair_pot = dft_driver_alloc_rgrid();               /* allocate real external potential grid */
-  dpair_pot = dft_driver_alloc_rgrid();               /* allocate real external potential grid */
-  ext_pot = dft_driver_alloc_rgrid();                /* allocate real external potential grid */
-  density = dft_driver_alloc_rgrid();                /* allocate real density grid */
-  vx = dft_driver_alloc_rgrid();                /* allocate real density grid */
-  impwf = dft_driver_alloc_wavefunction(IMP_MASS);   /* impurity - order parameter for current time */
+  cpot_el = dft_driver_alloc_cgrid("cpot_el");
+  cpot = dft_driver_alloc_cgrid("cpot");
+  pair_pot = dft_driver_alloc_rgrid("pair_pot");               /* allocate real external potential grid */
+  dpair_pot = dft_driver_alloc_rgrid("dpair_pot");               /* allocate real external potential grid */
+  ext_pot = dft_driver_alloc_rgrid("ext_pot");                /* allocate real external potential grid */
+  density = dft_driver_alloc_rgrid("density");                /* allocate real density grid */
+  vx = dft_driver_alloc_rgrid("vx");                /* allocate real density grid */
+  impwf = dft_driver_alloc_wavefunction(IMP_MASS, "impwf");   /* impurity - order parameter for current time */
   impwf->norm  = 1.0;
-  impwfp = dft_driver_alloc_wavefunction(IMP_MASS);  /* impurity - order parameter for future (predict) */
+  impwfp = dft_driver_alloc_wavefunction(IMP_MASS, "impwfp");  /* impurity - order parameter for future (predict) */
   impwfp->norm = 1.0;
   cgrid3d_set_momentum(impwf->grid, 0.0, 0.0, 0.0); /* Electron at rest */
   cgrid3d_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);  /* order parameter for current time */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS); /* order parameter for future (predict) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");  /* order parameter for current time */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) */
   
   fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (a.u.)\n", VX, VY, VZ);

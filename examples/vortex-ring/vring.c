@@ -70,12 +70,12 @@ int main(int argc, char **argv) {
   printf("rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG), mu0 * GRID_AUTOK);
 
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid();
-  potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
+  ext_pot = dft_driver_alloc_rgrid("ext_pot");
+  potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
 
   /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
   /* setup initial guess for vortex ring */
   cgrid3d_map(gwf->grid, vring, NULL);
 

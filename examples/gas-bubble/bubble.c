@@ -48,7 +48,9 @@ int main(int argc, char *argv[]) {
   
   /* Setup DFT driver parameters */
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
-  rgrid3d_set_fft_mode(1); /* 0 = FFTW, 1 = CUDA */
+#ifdef CUDA
+  cuda_enable(1);
+#endif
 
   /* FFTW planner flags */
   grid_set_fftw_flags(FFTW_PLANNER);
@@ -79,11 +81,11 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
   
   /* Allocate wavefunctions and grids */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);  /* order parameter for current time (He liquid) */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS); /* order parameter for future (predict) (He liquid) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");  /* order parameter for current time (He liquid) */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) (He liquid) */
 
-  cworkspace = dft_driver_alloc_cgrid();             /* allocate complex workspace */
-  ext_pot = dft_driver_alloc_rgrid();                /* allocate real external potential grid */
+  cworkspace = dft_driver_alloc_cgrid("cworkspace");             /* allocate complex workspace */
+  ext_pot = dft_driver_alloc_rgrid("ext_pot");                /* allocate real external potential grid */
   
   /* Setup frame of reference momentum (for both imaginary & real time) */
   vx = round_veloc(VX);     /* Round velocity to fit the spatial grid */

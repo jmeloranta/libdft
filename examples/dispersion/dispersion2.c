@@ -59,11 +59,11 @@ int main(int argc, char **argv) {
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   dft_driver_initialize();
-  density = dft_driver_alloc_rgrid();
-  potential_store = dft_driver_alloc_cgrid();
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);
-  pot = dft_driver_alloc_rgrid();
+  density = dft_driver_alloc_rgrid("density");
+  potential_store = dft_driver_alloc_cgrid("potential_store");
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");
+  pot = dft_driver_alloc_rgrid("pot");
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
   rgrid3d_constant(pot, -mu0);
   fprintf(stderr, "mu0 = " FMT_R "K.\n", mu0 * GRID_AUTOK);

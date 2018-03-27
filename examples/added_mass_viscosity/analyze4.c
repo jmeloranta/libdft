@@ -25,23 +25,16 @@ int main(int argc, char **argv) {
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
   dft_driver_initialize();
 
-  density = dft_driver_alloc_rgrid();
-  vx = dft_driver_alloc_rgrid();
-  vy = dft_driver_alloc_rgrid();
-  vz = dft_driver_alloc_rgrid();
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS);
-  impwf = dft_driver_alloc_wavefunction(IMP_MASS);
+  density = dft_driver_alloc_rgrid("density");
+  vx = dft_driver_alloc_rgrid("vx");
+  vy = dft_driver_alloc_rgrid("vy");
+  vz = dft_driver_alloc_rgrid("vz");
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");
+  impwf = dft_driver_alloc_wavefunction(IMP_MASS, "impwf");
   
-#ifdef SHORT_INT
-  printf("Compiled with NX = %d, NY = %d, NZ = %d, "
-#else
-  printf("Compiled with NX = %ld, NY = %ld, NZ = %ld, "
-#endif
-#ifdef SINGLE_PREC
- "STEP = %e, VX = %e\n", NX, NY, NZ, STEP, VX * GRID_AUTOMPS);
-#else
- "STEP = %le, VX = %le\n", NX, NY, NZ, STEP, VX * GRID_AUTOMPS);
-#endif
+  printf("Compiled with NX = " FMT_I ", NY = " FMT_I ", NZ = " FMT_I ", "
+    "STEP = " FMT_R ", VX = " FMT_R "\n", (INT) NX, (INT) NY, (INT) NZ, STEP, VX * GRID_AUTOMPS);
+
   if(argc == 3) {
     dft_driver_read_grid(gwf->grid, argv[1]);
     dft_driver_read_grid(impwf->grid, argv[2]);
@@ -49,6 +42,7 @@ int main(int argc, char **argv) {
     printf("Usage: analyze4 helium_wf electron_wf\n");
     exit(1);
   }
+
   /* super */
   grid3d_wf_density(gwf, density);
   dft_driver_write_density(density, "helium");

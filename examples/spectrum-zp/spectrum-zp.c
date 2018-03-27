@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
   rgrid3d *ext_pot, *ext_pot2, *density;
   wf3d *gwf, *gwfp;
   wf3d *imwf, *imwfp;
-  lINT iter;
+  INT iter;
   REAL energy, natoms, en, mu0;
   FILE *fp;
 
@@ -68,20 +68,20 @@ int main(int argc, char **argv) {
   dft_driver_initialize();
 
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid();
-  ext_pot2 = dft_driver_alloc_rgrid();
-  density = dft_driver_alloc_rgrid();
-  potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
+  ext_pot = dft_driver_alloc_rgrid("ext_pot");
+  ext_pot2 = dft_driver_alloc_rgrid("ext_pot2");
+  density = dft_driver_alloc_rgrid("density");
+  potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
 
   /* Read external potential from file */
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z, ext_pot);
   dft_driver_convolution_prepare(NULL, ext_pot);
 
   /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
-  imwf = dft_driver_alloc_wavefunction(IMP_MASS); /*  imp. wavefunction */
-  imwfp = dft_driver_alloc_wavefunction(IMP_MASS);/* temp. wavefunction */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+  imwf = dft_driver_alloc_wavefunction(IMP_MASS, "imwf"); /*  imp. wavefunction */
+  imwfp = dft_driver_alloc_wavefunction(IMP_MASS, "imwfp");/* temp. wavefunction */
   dft_driver_gaussian_wavefunction(imwf, 0.0, 0.0, 0.0, 2.0);
   dft_driver_gaussian_wavefunction(imwfp, 0.0, 0.0, 0.0, 2.0);
 
