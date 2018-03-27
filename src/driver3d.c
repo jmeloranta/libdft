@@ -2971,46 +2971,57 @@ EXPORT void dft_driver_npoint_smooth(rgrid3d *dest, rgrid3d *source, int npts) {
 /*
  * Allow outside access to workspaces.
  *
- * w = workspace # requested (int; input).
+ * w     = workspace # requested (char; input).
+ * alloc = 1: allocate workspace if not allocated, 0 = do not allocate if not already allocated (char; input).
  *
  * Return value: Pointer to the workspace (rgrid3d *) or NULL if invalid workspace number requested.
  *
+ * workspace1 - workspace9: used during propagation (evaluation of OT potential). No need to (and will not be) preserve between predict/correct (rgrid3d).
+ * cworkspace             : used during propagation (Crank-Nicolson KE propagation and OT potential evaluation). No need to (and will not be) preserve between predict/correct (cgrid3d).
+ * workspace10            : density storage (rgrid3d). Same applies as for the above.
+ * All space is safe to use everywhere (but will be overwritten by either predict/correct propagation calls or possibly other driver3d.c functions).
+ * 
+ * Returns NULL if the requrested work space has not been allocated.
+ *
  */
 
-EXPORT void *dft_driver_get_workspace(INT w) {
+EXPORT void *dft_driver_get_workspace(char w, char alloc) {
 
   if (w < 0 || w > 10) return NULL;
   switch(w) {
     case 0:
-      if(!cworkspace) cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
+      if(!cworkspace && alloc) cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
       return (void *) cworkspace;
     case 1:
-      if(!workspace1) workspace1 = dft_driver_alloc_rgrid("DR workspace1");
+      if(!workspace1 && alloc) workspace1 = dft_driver_alloc_rgrid("DR workspace1");
       return (void *) workspace1;
     case 2:
-      if(!workspace2) workspace2 = dft_driver_alloc_rgrid("DR workspace2");
+      if(!workspace2 && alloc) workspace2 = dft_driver_alloc_rgrid("DR workspace2");
       return (void *) workspace2;
     case 3:
-      if(!workspace3) workspace3 = dft_driver_alloc_rgrid("DR workspace3");
+      if(!workspace3 && alloc) workspace3 = dft_driver_alloc_rgrid("DR workspace3");
       return (void *) workspace3;
     case 4:
-      if(!workspace4) workspace4 = dft_driver_alloc_rgrid("DR workspace4");
+      if(!workspace4 && alloc) workspace4 = dft_driver_alloc_rgrid("DR workspace4");
       return (void *) workspace4;
     case 5:
-      if(!workspace5) workspace5 = dft_driver_alloc_rgrid("DR workspace5");
+      if(!workspace5 && alloc) workspace5 = dft_driver_alloc_rgrid("DR workspace5");
       return (void *) workspace5;
     case 6:
-      if(!workspace6) workspace6 = dft_driver_alloc_rgrid("DR workspace6");
+      if(!workspace6 && alloc) workspace6 = dft_driver_alloc_rgrid("DR workspace6");
       return (void *) workspace6;
     case 7:
-      if(!workspace7) workspace7 = dft_driver_alloc_rgrid("DR workspace7");
+      if(!workspace7 && alloc) workspace7 = dft_driver_alloc_rgrid("DR workspace7");
       return (void *) workspace7;
     case 8:
-      if(!workspace8) workspace8 = dft_driver_alloc_rgrid("DR workspace8");
+      if(!workspace8 && alloc) workspace8 = dft_driver_alloc_rgrid("DR workspace8");
       return (void *) workspace8;
     case 9:
-      if(!workspace9) workspace9 = dft_driver_alloc_rgrid("DR workspace9");
+      if(!workspace9 && alloc) workspace9 = dft_driver_alloc_rgrid("DR workspace9");
       return (void *) workspace9;
+    case 10:
+      if(!density && alloc) density = dft_driver_alloc_rgrid("DR density");
+      return (void *) density;
    }
    return NULL;
 }

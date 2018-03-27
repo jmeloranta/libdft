@@ -86,11 +86,11 @@ int main(int argc, char *argv[]) {
   impwf->norm  = 1.0;
   impwfp = dft_driver_alloc_wavefunction(IMP_MASS, "impwfp");  /* impurity - order parameter for future (predict) */
   impwfp->norm = 1.0;
-  cworkspace = dft_driver_alloc_cgrid("cworkspace");             /* allocate complex workspace */
-  pair_pot = dft_driver_alloc_rgrid("pair pot");               /* allocate real external potential grid */
-  ext_pot = dft_driver_alloc_rgrid("ext pot");                /* allocate real external potential grid */
-  density = dft_driver_alloc_rgrid("density");                /* allocate real density grid */
-  current = dft_driver_alloc_rgrid("current");                /* allocate real density grid */
+  cworkspace = dft_driver_alloc_cgrid("cworkspace");           /* allocate complex workspace (must be preserved during predict-correct) */
+  pair_pot = dft_driver_alloc_rgrid("pair pot");               /* allocate real external potential grid (seprate grid; cannot be overwritten) */
+  ext_pot = dft_driver_alloc_rgrid("ext pot");                 /* allocate real external potential grid (used by predict-correct; separate grid) */
+  density = (rgrid3d *) dft_driver_get_workspace(10, 1);       /* used outside predict-correct */
+  current = (rgrid3d *) dft_driver_get_workspace(1, 1);        /* used outside predict-correct */
 
   fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (" FMT_R "," FMT_R "," FMT_R ") (A/ps)\n", 

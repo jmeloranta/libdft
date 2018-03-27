@@ -7,30 +7,16 @@
 
 void analyze(wf3d *wf, INT iter, double vx) {
 
-  INT nx = wf->grid->nx, ny = wf->grid->ny, nz = wf->grid->nz;
-  REAL step = wf->grid->step;
   static REAL cur_mom = 0.0, prev_mom = 0.0;
   rgrid3d *cur_x, *cur_y, *cur_z, *circ;
   extern REAL dpot_func(void *, REAL, REAL, REAL);
 
   printf("Current time = " FMT_R " fs.\n", ((REAL) iter) * TIME_STEP_REAL * GRID_AUTOFS);
 
-  if(!(cur_x = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, NULL, "cur_x"))) {
-    fprintf(stderr, "Not enough memory to allocate grid.\n");
-    exit(1);
-  }
-  if(!(cur_y = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, NULL, "cur_y"))) {
-    fprintf(stderr, "Not enough memory to allocate grid.\n");
-    exit(1);
-  }
-  if(!(cur_z = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, NULL, "cur_z"))) {
-    fprintf(stderr, "Not enough memory to allocate grid.\n");
-    exit(1);
-  }
-  if(!(circ = rgrid3d_alloc(nx, ny, nz, step, RGRID3D_PERIODIC_BOUNDARY, NULL, "circ"))) {
-    fprintf(stderr, "Not enough memory to allocate grid.\n");
-    exit(1);
-  }
+  cur_x = dft_driver_get_workspace(1, 1);
+  cur_y = dft_driver_get_workspace(2, 1);
+  cur_z = dft_driver_get_workspace(3, 1);
+  circ = dft_driver_get_workspace(4, 1);
 
   grid3d_wf_probability_flux(wf, cur_x, cur_y, cur_z);
   cur_mom = rgrid3d_integral(cur_x) * wf->mass;
@@ -49,8 +35,4 @@ void analyze(wf3d *wf, INT iter, double vx) {
   rgrid3d_power(circ, circ, NN);
   printf("Total circulation = " FMT_R " (au; NN = " FMT_R ").\n", rgrid3d_integral(circ), NN);
   fflush(stdout);    
-  rgrid3d_free(cur_x);
-  rgrid3d_free(cur_y);
-  rgrid3d_free(cur_z);
-  rgrid3d_free(circ);
 }  
