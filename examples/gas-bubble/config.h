@@ -6,10 +6,10 @@
 #define TIME_STEP_IMAG 30.0             /* Time step in imag iterations (fs) */
 #define TIME_STEP_REAL 30.0             /* Time step for real time iterations (fs) */
 #define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
-#define STARTING_TIME 40.0           /* Start real time simulation at this time (fs) - 10 ps (was 400,000) */
+#define STARTING_TIME 400000.0           /* Start real time simulation at this time (fs) - 10 ps (was 400,000) */
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP_IMAG))
 #define MAXITER 80000000                /* Maximum number of real time iterations */
-#define OUTPUT_TIME 30.0              /* Output interval time (fs) (2500) */
+#define OUTPUT_TIME 2500.0              /* Output interval time (fs) (2500) */
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP_REAL))
 /* #define OUTPUT_GRID                     /* Output grid at each iteration (takes lots of space) (leave undefined if not needed) */
 #define CUDA                           /* Use CUDA ? */

@@ -34,5 +34,8 @@ void analyze(wf3d *wf, INT iter, double vx) {
   rgrid3d_abs_rot(circ, cur_x, cur_y, cur_z);
   rgrid3d_power(circ, circ, NN);
   printf("Total circulation = " FMT_R " (au; NN = " FMT_R ").\n", rgrid3d_integral(circ), NN);
+#ifdef CUDA
+  cuda_statistics(0);
+#endif
   fflush(stdout);    
 }  
