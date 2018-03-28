@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
     grid3d_wf_density(gwf, density);
-    printf(FMT_R " " FMT_R "\n", l * TS, rgrid3d_value_at_index(density, N/2, N/2, N/2));
+    printf(FMT_R " " FMT_R "\n", ((REAL) l) * TS, rgrid3d_value_at_index(density, N/2, N/2, N/2));
     fflush(stdout);
     fprintf(stderr, "One iteration = " FMT_R " wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
   }

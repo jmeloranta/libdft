@@ -580,7 +580,7 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL tstep)
   /* 1/2 x kinetic */
   switch(dft_driver_kinetic) {
   case DFT_DRIVER_KINETIC_FFT: /* this works for absorbing boundaries too ! -- even it is real time there! */
-    // NOTE: FFT takes the time step from the center of the grid only (allows time dependent real / imag switching)
+    // NOTE: FFT only takes the time step from the (0, 0, 0) position of the grid only (allows time dependent real / imag switching)
     if(dft_driver_bc_function) {
       struct priv_data data;
       data.nx2 = driver_nx2; data.ny2 = driver_ny2; data.nz2 = driver_nz2;

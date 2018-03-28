@@ -10,8 +10,9 @@
  * Models:
  *
  * DFT_OT_KC       Include the non-local kinetic energy correlation.
- * DFT_OT_HD       Include Barranco's high density correction.
- * DFT_OT_BACKFLOW Inlcude the backflow potential (dynamics).
+ * DFT_OT_HD       Include Barranco's high density correction (short-range and backflow).
+ * DFT_OT_HD2       Include Barranco's high density correction (short-range and backflow). Different parametrization.
+ * DFT_OT_BACKFLOW Inlcude the backflow potential (dynamics). To get the new BF form, use DFT_OT_HD or DFT_OT_HD2.
  * DFT_OT_T0MK     Thermal model 0.0 K (i.e. just new parametrization)
  * DFT_OT_T400MK   Thermal model 0.4 K
  * DFT_OT_T600MK   Thermal model 0.6 K

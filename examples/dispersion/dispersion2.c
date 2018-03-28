@@ -13,10 +13,10 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 512
-#define NY 128
-#define NZ 128
-#define STEP 0.2 /* Bohr */
+#define NX 128
+#define NY 64
+#define NZ 64
+#define STEP 0.5 /* Bohr */
 #define TS 10.0 /* fs */
 
 #define THREADS 0
@@ -52,6 +52,9 @@ int main(int argc, char **argv) {
   fprintf(stderr, "Maxmimum n corresponds to " FMT_R " Angs^-1.\n", atof(argv[2]) * 2.0 * M_PI / (GRID_AUTOANG * NX * STEP));
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
 
+  cuda_enable(0);
+
+//  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
   model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
   dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, RHO0);
 
@@ -71,8 +74,8 @@ int main(int argc, char **argv) {
 
   printf("# Dispersion relation for functional " FMT_I ".\n", model);
   printf("0 0\n");
-  for (n = atof(argv[1]); n <= atof(argv[2]); n++) {
-    wave_params.kx = n * 2.0 * M_PI / (NX * STEP);
+  for (n = atoi(argv[1]); n <= atoi(argv[2]); n++) {
+    wave_params.kx = ((REAL) n) * 2.0 * M_PI / (NX * STEP);
     wave_params.ky = 0.0;
     wave_params.kz = 0.0;
     wave_params.a = 1.0E-3;
@@ -91,7 +94,7 @@ int main(int argc, char **argv) {
       prev_val = rgrid3d_value_at_index(density, NX/2, NY/2, NZ/2);
       fprintf(stderr, "One iteration = " FMT_R " wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
     }
-    printf(FMT_R " " FMT_R "\n", wave_params.kx / GRID_AUTOANG, (1.0 / ((2.0 * l * TS) * 1E-15)) * 3.335E-11 * 1.439);
+    printf(FMT_R " " FMT_R "\n", wave_params.kx / GRID_AUTOANG, (1.0 / ((2.0 * ((REAL) l) * TS) * 1E-15)) * 3.335E-11 * 1.439);
     fflush(stdout);
   }
   return 0;
