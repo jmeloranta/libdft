@@ -21,7 +21,7 @@
 
 int main() {
 
-  double pressure, rho, mu;
+  REAL pressure, rho, mu;
 
   /*
    * This block of instructions is needed to initialize everything
@@ -32,8 +32,7 @@ int main() {
   /* Plain Orsay-Trento in real or imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN, 1, DENSITY);   /* DFT_OT_PLAIN = Orsay-Trento without kinetic corr. or backflow, 1 = imag time */
   /* Regular boundaries */
-  dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
-  dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);   /* regular periodic boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
   /* Initialize */
   dft_driver_initialize();
@@ -44,7 +43,7 @@ int main() {
   for(pressure = MIN_PRES; pressure <= MAX_PRES; pressure += DELTA_PRES) {
     rho = dft_ot_bulk_density_pressurized(dft_driver_otf, pressure);
     mu  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, pressure);
-    printf("Pressure:\t%lf (bar)\t density:\t%lf (A**-3)\tchempot:\t%lf (K)\n",
+    printf("Pressure:\t" FMT_R " (bar)\t density:\t" FMT_R " (A**-3)\tchempot:\t" FMT_R " (K)\n",
 	   pressure * GRID_AUTOBAR,
 	   rho / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG),
 	   mu * GRID_AUTOK);
