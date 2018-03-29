@@ -560,27 +560,20 @@ REAL complex dft_driver_itime_abs(void *data, REAL complex tstep, INT i, INT j, 
 /*
  * Propagate kinetic (1st half).
  *
- * what = DFT_DRIVER_PROPAGATE_HELIUM  or DFT_DRIVER_PROPAGATE_OTHER (char; input).
- * gwf = wavefunction (wf3d *; input).
- * tstep = time step (REAL; input).
+ * what   = DFT_DRIVER_PROPAGATE_HELIUM  or DFT_DRIVER_PROPAGATE_OTHER (char; input).
+ * gwf    = wavefunction (wf3d *; input).
+ * ctstep = time step in au (REAL complex; input).
  *
  */
 
-EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL tstep) {
+EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL complex ctstep) {
 
-  REAL complex htime;
- 
   if(what == DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT) return;   /* skip kinetic */
-
-  tstep /= GRID_AUTOFS;
-
-  if(driver_iter_mode == DFT_DRIVER_REAL_TIME) htime = tstep / 2.0;
-  else htime = -I * tstep / 2.0;
 
   /* 1/2 x kinetic */
   switch(dft_driver_kinetic) {
-  case DFT_DRIVER_KINETIC_FFT: /* this works for absorbing boundaries too ! -- even it is real time there! */
-    // NOTE: FFT only takes the time step from the (0, 0, 0) position of the grid only (allows time dependent real / imag switching)
+  case DFT_DRIVER_KINETIC_FFT: /* this works for absorbing boundaries too ! -- even it is real time there! (abs only in potential) */
+    // NOTE: FFT only takes the time step from the center of the grid only (allows time dependent real / imag switching)
     if(dft_driver_bc_function) {
       struct priv_data data;
       data.nx2 = driver_nx2; data.ny2 = driver_ny2; data.nz2 = driver_nz2;
@@ -588,16 +581,16 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL tstep)
       data.width_x = driver_width_x; data.width_y = driver_width_y; data.width_z = driver_width_z;
       data.bx = driver_bx; data.by = driver_by; data.bz = driver_bz;
       data.damp = driver_damp;
-      htime = (*dft_driver_bc_function)((void *) &data, tstep / 2.0, 0, 0, 0); // else use htime
+      ctstep = (*dft_driver_bc_function)((void *) &data, ctstep, driver_nx2, driver_ny2, driver_nz2); // else use htime
     }
-    grid3d_wf_propagate_kinetic_fft(gwf, htime);
+    grid3d_wf_propagate_kinetic_fft(gwf, ctstep / 2.0);
     break;
   case DFT_DRIVER_KINETIC_CN_DBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
     if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
       fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
-    grid3d_wf_propagate_kinetic_cn_dbc(gwf, htime, cworkspace);
+    grid3d_wf_propagate_kinetic_cn_dbc(gwf, ctstep / 2.0, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC:
     if(!cworkspace)
@@ -610,30 +603,30 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL tstep)
       data.bx = driver_bx; data.by = driver_by; data.bz = driver_bz;
       data.damp = driver_damp;
       if(dft_driver_bc_function)
-        grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_bc_function, htime, (void *) &data, cworkspace);
+        grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_bc_function, ctstep / 2.0, (void *) &data, cworkspace);
       else
-        grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_itime_abs, htime, (void *) &data, cworkspace);
-    } else grid3d_wf_propagate_kinetic_cn_nbc(gwf, htime, cworkspace);
+        grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_itime_abs, ctstep / 2.0, (void *) &data, cworkspace);
+    } else grid3d_wf_propagate_kinetic_cn_nbc(gwf, ctstep / 2.0, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
     if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
       fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
-    grid3d_wf_propagate_kinetic_cn_nbc_rot(gwf, htime, driver_omega, cworkspace);
+    grid3d_wf_propagate_kinetic_cn_nbc_rot(gwf, ctstep / 2.0, driver_omega, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_PBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
     if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
       fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
-    grid3d_wf_propagate_kinetic_cn_pbc(gwf, htime, cworkspace);
+    grid3d_wf_propagate_kinetic_cn_pbc(gwf, ctstep / 2.0, cworkspace);
     break;
 #if 0
   case DFT_DRIVER_KINETIC_CN_APBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
-    grid3d_wf_propagate_kinetic_cn_apbc(gwf, htime, cworkspace);
+    grid3d_wf_propagate_kinetic_cn_apbc(gwf, ctstep / 2.0, cworkspace);
     break;
 #endif
   default:
@@ -646,19 +639,19 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL tstep)
 /*
  * Propagate kinetic (2nd half).
  *
- * what = DFT_DRIVER_PROPAGATE_HELIUM or DFT_DRIVER_PROPAGATE_OTHER (char; input).
- * gwf = wavefunction (wf3d *; input/output).
- * tstep = time step (REAL; input).
+ * what   = DFT_DRIVER_PROPAGATE_HELIUM or DFT_DRIVER_PROPAGATE_OTHER (char; input).
+ * gwf    = wavefunction (wf3d *; input/output).
+ * ctstep = time step in au (REAL complex; input).
  *
  */
 
-EXPORT void dft_driver_propagate_kinetic_second(char what, wf3d *gwf, REAL tstep) {
+EXPORT void dft_driver_propagate_kinetic_second(char what, wf3d *gwf, REAL complex ctstep) {
 
   static char local_been_here = 0;
   
   if(what == DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT) return;   /* skip kinetic */
 
-  dft_driver_propagate_kinetic_first(what, gwf, tstep);
+  dft_driver_propagate_kinetic_first(what, gwf, ctstep);
 
   if(!local_been_here) {
     local_been_here = 1;
@@ -809,20 +802,14 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 /*
  * Propagate potential.
  *
- * what  = DFT_DRIVER_PROPAGATE_HELIUM  or DFT_DRIVER_PROPAGATE_OTHER (char; input).
- * gwf   = wavefunction (wf3d *; input/output).
- * pot   = potential (cgrid3d *; input).
- * tstep = time step (REAL, input).
+ * what   = DFT_DRIVER_PROPAGATE_HELIUM  or DFT_DRIVER_PROPAGATE_OTHER (char; input).
+ * gwf    = wavefunction (wf3d *; input/output).
+ * pot    = potential (cgrid3d *; input).
+ * ctstep = time step in au (REAL complex, input).
  *
  */
 
-EXPORT void dft_driver_propagate_potential(char what, wf3d *gwf, cgrid3d *pot, REAL tstep) {
-
-  REAL complex time;
-
-  tstep /= GRID_AUTOFS;
-  if(driver_iter_mode == DFT_DRIVER_REAL_TIME) time = tstep;
-  else time = -I * tstep;
+EXPORT void dft_driver_propagate_potential(char what, wf3d *gwf, cgrid3d *pot, REAL complex ctstep) {
 
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
     struct priv_data data;
@@ -832,10 +819,10 @@ EXPORT void dft_driver_propagate_potential(char what, wf3d *gwf, cgrid3d *pot, R
     data.bx = driver_bx; data.by = driver_by; data.bz = driver_bz;
     data.damp = driver_damp;
     if(dft_driver_bc_function)
-      grid3d_wf_propagate_potential2(gwf, pot, dft_driver_bc_function, time, (void *) &data);
+      grid3d_wf_propagate_potential2(gwf, pot, dft_driver_bc_function, ctstep, (void *) &data);
     else
-      grid3d_wf_propagate_potential2(gwf, pot, dft_driver_itime_abs, time, (void *) &data);
-  } else grid3d_wf_propagate_potential(gwf, pot, time);
+      grid3d_wf_propagate_potential2(gwf, pot, dft_driver_itime_abs, ctstep, (void *) &data);
+  } else grid3d_wf_propagate_potential(gwf, pot, ctstep);
 
   if(driver_iter_mode == DFT_DRIVER_IMAG_TIME) scale_wf(what, gwf);
 }
@@ -850,7 +837,7 @@ EXPORT void dft_driver_propagate_potential(char what, wf3d *gwf, cgrid3d *pot, R
  * gwfp      = predicted wavefunction (wf3d *; output).
  * potential = storage space for the potential (cgrid3d *; output).
  *             Do not overwrite this before calling the correct routine.
- * tstep     = time step in FS (REAL; input).
+ * ctstep    = time step in FS (REAL complex; input).
  * iter      = current iteration (INT; input).
  *
  * If what == DFT_DRIVER_PROPAGATE_HELIUM, the liquid potential is added automatically. Both kinetic and potential propagated.
@@ -861,7 +848,23 @@ EXPORT void dft_driver_propagate_potential(char what, wf3d *gwf, cgrid3d *pot, R
  *
  */
 
-EXPORT inline void dft_driver_propagate_predict(char what, rgrid3d *ext_pot, wf3d *gwf, wf3d *gwfp, cgrid3d *potential, REAL tstep, INT iter) {
+EXPORT inline void dft_driver_propagate_predict(char what, rgrid3d *ext_pot, wf3d *gwf, wf3d *gwfp, cgrid3d *potential, REAL complex ctstep, INT iter) {
+
+  ctstep /= GRID_AUTOFS;
+  switch(driver_iter_mode) {
+    case DFT_DRIVER_REAL_TIME:
+      ctstep = CREAL(ctstep);
+      break;
+    case DFT_DRIVER_IMAG_TIME:
+      ctstep = -I * CREAL(ctstep);
+    break;
+    case DFT_DRIVER_USER_TIME:
+      /* Use whatever we were given */
+    break;
+    default:
+      fprintf(stderr, "libdft: Illegal value for driver_iter_mode.\n");
+      exit(1);
+  }
 
   grid_timer_start(&timer);  
 
@@ -881,7 +884,7 @@ EXPORT inline void dft_driver_propagate_predict(char what, rgrid3d *ext_pot, wf3
     center_release = 1;
   } else center_release = 0;
 
-  dft_driver_propagate_kinetic_first(what, gwf, tstep);
+  dft_driver_propagate_kinetic_first(what, gwf, ctstep);
 
   cgrid3d_zero(potential);
   switch(what) {
@@ -903,7 +906,7 @@ EXPORT inline void dft_driver_propagate_predict(char what, rgrid3d *ext_pot, wf3
 
   cgrid3d_copy(gwfp->grid, gwf->grid);
 
-  dft_driver_propagate_potential(what, gwfp, potential, tstep);
+  dft_driver_propagate_potential(what, gwfp, potential, ctstep);
 
   if(dft_driver_verbose) fprintf(stderr, "libdft: Predict step " FMT_R " wall clock seconds (iter = " FMT_I ").\n", grid_timer_wall_clock_time(&timer), iter);
   fflush(stderr);
@@ -918,7 +921,7 @@ EXPORT inline void dft_driver_propagate_predict(char what, rgrid3d *ext_pot, wf3
  *             Note that gwf is NOT changed by this routine.
  * gwfp      = predicted wavefunction (wf3d *; output).
  * potential = storage space for the potential (cgrid3d *; output).
- * tstep     = time step in FS (REAL).
+ * ctstep    = time step in FS (REAL complex; input).
  * iter      = current iteration (INT).
  *
  * If what == DFT_DRIVER_PROPAGATE_HELIUM, the liquid potential is added automatically. Both kinetic and potential propagated.
@@ -929,7 +932,23 @@ EXPORT inline void dft_driver_propagate_predict(char what, rgrid3d *ext_pot, wf3
  *
  */
 
-EXPORT inline void dft_driver_propagate_correct(char what, rgrid3d *ext_pot, wf3d *gwf, wf3d *gwfp, cgrid3d *potential, REAL tstep, INT iter) {
+EXPORT inline void dft_driver_propagate_correct(char what, rgrid3d *ext_pot, wf3d *gwf, wf3d *gwfp, cgrid3d *potential, REAL complex ctstep, INT iter) {
+
+  ctstep /= GRID_AUTOFS;
+  switch(driver_iter_mode) {
+    case DFT_DRIVER_REAL_TIME:
+      ctstep = CREAL(ctstep);
+      break;
+    case DFT_DRIVER_IMAG_TIME:
+      ctstep = -I * CREAL(ctstep);
+    break;
+    case DFT_DRIVER_USER_TIME:
+      /* Use whatever we were given */
+    break;
+    default:
+      fprintf(stderr, "libdft: Illegal value for driver_iter_mode.\n");
+      exit(1);
+  }
 
   grid_timer_start(&timer);  
 
@@ -950,8 +969,8 @@ EXPORT inline void dft_driver_propagate_correct(char what, rgrid3d *ext_pot, wf3
   }
   if(ext_pot) grid3d_add_real_to_complex_re(potential, ext_pot);
   cgrid3d_multiply(potential, 0.5);
-  dft_driver_propagate_potential(what, gwf, potential, tstep);
-  dft_driver_propagate_kinetic_second(what, gwf, tstep);
+  dft_driver_propagate_potential(what, gwf, potential, ctstep);
+  dft_driver_propagate_kinetic_second(what, gwf, ctstep);
   if(dft_driver_verbose) fprintf(stderr, "libdft: Correct step " FMT_R " wall clock seconds (iter = " FMT_I ").\n", grid_timer_wall_clock_time(&timer), iter);
   fflush(stderr);
 }
