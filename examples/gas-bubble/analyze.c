@@ -11,7 +11,7 @@ void analyze(wf3d *wf, INT iter, double vx) {
   rgrid3d *cur_x, *cur_y, *cur_z, *circ;
   extern REAL dpot_func(void *, REAL, REAL, REAL);
 
-  printf("Current time = " FMT_R " fs.\n", ((REAL) iter) * TIME_STEP_REAL * GRID_AUTOFS);
+  printf("Current time = " FMT_R " fs.\n", ((REAL) iter) * TIME_STEP * GRID_AUTOFS);
 
   cur_x = dft_driver_get_workspace(1, 1);
   cur_y = dft_driver_get_workspace(2, 1);
@@ -27,7 +27,7 @@ void analyze(wf3d *wf, INT iter, double vx) {
   printf("Number of He atoms = " FMT_R "\n", rgrid3d_integral(circ));
   if(iter > 0) {
     printf("Drag force1 = " FMT_R " (au).\n", -rgrid3d_weighted_integral(circ, dpot_func, NULL)); // circ = density here
-    printf("Drag force2 = " FMT_R " (au).\n",  (cur_mom - prev_mom) / (TIME_STEP_REAL * ((REAL) OUTPUT_ITER) / GRID_AUTOFS));
+    printf("Drag force2 = " FMT_R " (au).\n",  (cur_mom - prev_mom) / (TIME_STEP * ((REAL) OUTPUT_ITER) / GRID_AUTOFS));
   }
   prev_mom = cur_mom;
 

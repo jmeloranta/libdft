@@ -336,7 +336,7 @@ EXPORT void dft_driver_setup_viscosity(REAL visc, REAL alpha) {
  * Set up the DFT calculation model.
  *
  * dft_model = specify the DFT Hamiltonian to use (see ot.h) (input, INT).
- * iter_mode = iteration mode: 1 = imaginary time, 0 = real time (input, INT).
+ * iter_mode = iteration mode: 2 = user specified time (complex), 1 = imaginary time, 0 = real time (input, INT).
  * rho0      = equilibrium density for the liquid (in a.u.; input, REAL).
  *             if 0.0, the equilibrium density will be used
  *             when dft_driver_initialize is called.
@@ -572,30 +572,20 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL comple
 
   /* 1/2 x kinetic */
   switch(dft_driver_kinetic) {
-  case DFT_DRIVER_KINETIC_FFT: /* this works for absorbing boundaries too ! -- even it is real time there! (abs only in potential) */
-    // NOTE: FFT only takes the time step from the center of the grid only (allows time dependent real / imag switching)
-    if(dft_driver_bc_function) {
-      struct priv_data data;
-      data.nx2 = driver_nx2; data.ny2 = driver_ny2; data.nz2 = driver_nz2;
-      data.step = driver_step;
-      data.width_x = driver_width_x; data.width_y = driver_width_y; data.width_z = driver_width_z;
-      data.bx = driver_bx; data.by = driver_by; data.bz = driver_bz;
-      data.damp = driver_damp;
-      ctstep = (*dft_driver_bc_function)((void *) &data, ctstep, driver_nx2, driver_ny2, driver_nz2); // else use htime
-    }
-    grid3d_wf_propagate_kinetic_fft(gwf, ctstep / 2.0);
+  case DFT_DRIVER_KINETIC_FFT:
+    grid3d_wf_propagate_kinetic_fft(gwf, ctstep / 2.0);  // skip possible imag boundary but keep it for potential
     break;
   case DFT_DRIVER_KINETIC_CN_DBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME)
       fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
     grid3d_wf_propagate_kinetic_cn_dbc(gwf, ctstep / 2.0, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) { // do not apply in imag time
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME) { // do not apply in imag time
       struct priv_data data;
       data.nx2 = driver_nx2; data.ny2 = driver_ny2; data.nz2 = driver_nz2;
       data.step = driver_step;
@@ -611,14 +601,14 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL comple
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME)
       fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
     grid3d_wf_propagate_kinetic_cn_nbc_rot(gwf, ctstep / 2.0, driver_omega, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_PBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME)
       fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
     grid3d_wf_propagate_kinetic_cn_pbc(gwf, ctstep / 2.0, cworkspace);
     break;
@@ -633,7 +623,8 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL comple
     fprintf(stderr, "libdft: Unknown BC for kinetic energy propagation.\n");
     exit(1);
   }
-  if(driver_iter_mode == DFT_DRIVER_IMAG_TIME) scale_wf(what, gwf);
+
+  if(driver_iter_mode != DFT_DRIVER_REAL_TIME) scale_wf(what, gwf);
 }
 
 /*
@@ -811,7 +802,7 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
 EXPORT void dft_driver_propagate_potential(char what, wf3d *gwf, cgrid3d *pot, REAL complex ctstep) {
 
-  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
+  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME) {
     struct priv_data data;
     data.nx2 = driver_nx2; data.ny2 = driver_ny2; data.nz2 = driver_nz2;
     data.step = driver_step;
@@ -824,7 +815,7 @@ EXPORT void dft_driver_propagate_potential(char what, wf3d *gwf, cgrid3d *pot, R
       grid3d_wf_propagate_potential2(gwf, pot, dft_driver_itime_abs, ctstep, (void *) &data);
   } else grid3d_wf_propagate_potential(gwf, pot, ctstep);
 
-  if(driver_iter_mode == DFT_DRIVER_IMAG_TIME) scale_wf(what, gwf);
+  if(driver_iter_mode != DFT_DRIVER_REAL_TIME) scale_wf(what, gwf);
 }
 
 /*
