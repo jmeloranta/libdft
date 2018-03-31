@@ -116,6 +116,8 @@ int main(int argc, char *argv[]) {
   printf("restart = " FMT_I ".\n", restart);
   fclose(fp);
 
+//  cuda_enable(1);  // enable CUDA ?
+
   /* allocate memory (3 x grid dimension, */
   fprintf(stderr,"Model = " FMT_I ".\n", model);
   dft_driver_setup_grid(nx, ny, nz, step, threads);
