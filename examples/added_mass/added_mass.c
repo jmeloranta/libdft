@@ -20,7 +20,7 @@
 #define IMP_STEP 0.2	/* Time step in fs (5 for real, 10 for imag) */
 #define STARTING_ITER 1 /* Starting iteration - be careful if set to zero */
 #define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
-#define OUTPUT     1	/* output every this iteration */
+#define OUTPUT     200	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
 #define CUDA 1          /* Use CUDA 1 (yes) or 0 (no) */
 #define NX 128       	/* # of grid points along x */
