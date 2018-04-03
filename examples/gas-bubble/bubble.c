@@ -48,6 +48,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
 #ifdef CUDA
   cuda_enable(1);
+  cuda_debug(1);
 #endif
 
   /* FFTW planner flags */
