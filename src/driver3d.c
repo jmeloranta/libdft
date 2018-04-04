@@ -362,7 +362,6 @@ EXPORT void dft_driver_setup_model(INT dft_model, INT iter_mode, REAL rho0) {
  *
  * type    = Boundary type: 0 = regular, 1 = absorbing (imag time) 
  *           (input, INT).
- * damp    = Daping constant (input, REAL). Usually between 0.1 and 1.0. Only when type = 1.
  * width_x = Width of the absorbing region along x. Only when type = 1.
  * width_y = Width of the absorbing region along y. Only when type = 1.
  * width_z = Width of the absorbing region along z. Only when type = 1.
@@ -375,7 +374,7 @@ EXPORT void dft_driver_setup_model(INT dft_model, INT iter_mode, REAL rho0) {
  *
  */
 
-EXPORT void dft_driver_setup_boundary_type(INT boundary_type, REAL damp, REAL width_x, REAL width_y, REAL width_z) {
+EXPORT void dft_driver_setup_boundary_type(INT boundary_type, REAL width_x, REAL width_y, REAL width_z) {
 
   driver_boundary_type = boundary_type;
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME) {
@@ -391,6 +390,8 @@ EXPORT void dft_driver_setup_boundary_type(INT boundary_type, REAL damp, REAL wi
   driver_bc_hy = driver_ny - driver_bc_ly - 1;
   driver_bc_lz = (INT) (width_z / driver_step);
   driver_bc_hz = driver_nz - driver_bc_lz - 1;
+  fprintf(stderr, "libdft: lx = " FMT_I ", hx = " FMT_I ", ly = " FMT_I ", hy = " FMT_I ", lz = " FMT_I ", hz = " FMT_I "\n",
+   driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz);
 }
 
 /*
@@ -465,28 +466,28 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL comple
   case DFT_DRIVER_KINETIC_CN_DBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME)
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
       fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
     grid3d_wf_propagate_kinetic_cn_dbc(gwf, ctstep / 2.0, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME) // do not apply in imag time
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) // do not apply in imag time
       grid3d_wf_propagate_kinetic_cn_nbc_abs(gwf, ctstep / 2.0, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz, cworkspace);
     else grid3d_wf_propagate_kinetic_cn_nbc(gwf, ctstep / 2.0, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME)
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
       fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
     grid3d_wf_propagate_kinetic_cn_nbc_rot(gwf, ctstep / 2.0, driver_omega, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_PBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME)
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_IMAG_TIME)
       fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
     grid3d_wf_propagate_kinetic_cn_pbc(gwf, ctstep / 2.0, cworkspace);
     break;
