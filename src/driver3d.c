@@ -31,15 +31,15 @@ char dft_driver_verbose = 1;   /* set to zero to eliminate informative print out
 dft_ot_functional *dft_driver_otf = 0;
 char dft_driver_init_wavefunction = 1;
 char dft_driver_kinetic = 0; /* default FFT propagation for kinetic, TODO: FFT gives some numerical hash - bug? */
-REAL complex (*dft_driver_bc_function)(void *, REAL complex, INT, INT, INT) = NULL; /* User specified function for absorbing boundaries */
 
 static INT driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_nx2 = 0, driver_ny2 = 0, driver_nz2 = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
 static INT driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_rels = 0;
+static INT driver_bc_lx = 0, driver_bc_hx = 0, driver_bc_ly = 0, driver_bc_hy = 0, driver_bc_lz = 0, driver_bc_hz = 0;
 static char driver_bc = 0;
-static REAL driver_frad = 0.0, driver_omega = 0.0, driver_damp = 0.2, driver_width_x = 1.0, driver_width_y = 1.0, driver_width_z = 1.0;
+static REAL driver_frad = 0.0, driver_omega = 0.0;
 static REAL viscosity = 0.0, viscosity_alpha = 1.0;
 static REAL driver_step = 0.0, driver_rho0 = 0.0;
-static REAL driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0, driver_bx = 0.0, driver_by = 0.0, driver_bz = 0.0;
+static REAL driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0;
 static REAL driver_kx0 = 0.0, driver_ky0 = 0.0,driver_kz0 = 0.0;
 static rgrid3d *density = 0, *workspace1 = 0, *workspace2 = 0, *workspace3 = 0, *workspace4 = 0, *workspace5 = 0, *workspace6 = 0;
 static rgrid3d *workspace7 = 0, *workspace8 = 0, *workspace9 = 0;
@@ -385,13 +385,12 @@ EXPORT void dft_driver_setup_boundary_type(INT boundary_type, REAL damp, REAL wi
       exit(1);
     }
   }
-  driver_damp = damp;
-  driver_width_x = width_x;
-  driver_width_y = width_y;
-  driver_width_z = width_z;
-  driver_bx = driver_step * (REAL) driver_nx2 - driver_width_x;
-  driver_by = driver_step * (REAL) driver_ny2 - driver_width_y;
-  driver_bz = driver_step * (REAL) driver_nz2 - driver_width_z;
+  driver_bc_lx = (INT) (width_x / driver_step);
+  driver_bc_hx = driver_nx - driver_bc_lx - 1;
+  driver_bc_ly = (INT) (width_y / driver_step);
+  driver_bc_hy = driver_ny - driver_bc_ly - 1;
+  driver_bc_lz = (INT) (width_z / driver_step);
+  driver_bc_hz = driver_nz - driver_bc_lz - 1;
 }
 
 /*
@@ -446,118 +445,6 @@ EXPORT void dft_driver_setup_rotation_omega(REAL omega) {
 }
 
 /*
- * Impose imaginary time within the absorbing boundary region.
- *
- * Called back from grid3d_wf_propagate_kinetic_cn_nbc2() and grid3d_wf_propagate_potential() routines.
- *
- */
-
-struct priv_data {
-  INT nx2, ny2, nz2;
-  REAL step;
-  REAL width_x, width_y, width_z;
-  REAL bx, by, bz;
-  REAL damp;
-};
-
-/*
- * For some reason tanh() is really slow in glibc. We need just approx tanh() -> use lookup table.
- *
- */
-
-static REAL fast_tanh_table[256] = { -0.96402758, -0.96290241, -0.96174273, -0.96054753, -0.95931576,
-                           -0.95804636, -0.95673822, -0.95539023, -0.95400122, -0.95257001,
-                           -0.95109539, -0.9495761 , -0.94801087, -0.94639839, -0.94473732,
-                           -0.94302627, -0.94126385, -0.93944862, -0.93757908, -0.93565374,
-                           -0.93367104, -0.93162941, -0.92952723, -0.92736284, -0.92513456,
-                           -0.92284066, -0.92047938, -0.91804891, -0.91554743, -0.91297305,
-                           -0.91032388, -0.90759795, -0.9047933 , -0.90190789, -0.89893968,
-                           -0.89588656, -0.89274642, -0.88951709, -0.88619637, -0.88278203,
-                           -0.87927182, -0.87566342, -0.87195453, -0.86814278, -0.86422579,
-                           -0.86020115, -0.85606642, -0.85181914, -0.84745683, -0.84297699,
-                           -0.83837709, -0.83365461, -0.82880699, -0.82383167, -0.81872609,
-                           -0.81348767, -0.80811385, -0.80260204, -0.7969497 , -0.79115425,
-                           -0.78521317, -0.77912392, -0.772884  , -0.76649093, -0.75994227,
-                           -0.75323562, -0.74636859, -0.73933889, -0.73214422, -0.7247824 ,
-                           -0.71725127, -0.70954876, -0.70167287, -0.6936217 , -0.68539341,
-                           -0.67698629, -0.66839871, -0.65962916, -0.65067625, -0.64153871,
-                           -0.6322154 , -0.62270534, -0.61300768, -0.60312171, -0.59304692,
-                           -0.58278295, -0.57232959, -0.56168685, -0.55085493, -0.53983419,
-                           -0.52862523, -0.51722883, -0.50564601, -0.49387799, -0.48192623,
-                           -0.46979241, -0.45747844, -0.44498647, -0.4323189 , -0.41947836,
-                           -0.40646773, -0.39329014, -0.37994896, -0.36644782, -0.35279057,
-                           -0.33898135, -0.32502449, -0.31092459, -0.2966865 , -0.28231527,
-                           -0.26781621, -0.25319481, -0.23845682, -0.22360817, -0.208655  ,
-                           -0.19360362, -0.17846056, -0.16323249, -0.14792623, -0.13254879,
-                           -0.11710727, -0.10160892, -0.08606109, -0.07047123, -0.05484686,
-                           -0.0391956 , -0.02352507, -0.00784298,  0.00784298,  0.02352507,
-                           0.0391956 ,  0.05484686,  0.07047123,  0.08606109,  0.10160892,
-                           0.11710727,  0.13254879,  0.14792623,  0.16323249,  0.17846056,
-                           0.19360362,  0.208655  ,  0.22360817,  0.23845682,  0.25319481,
-                           0.26781621,  0.28231527,  0.2966865 ,  0.31092459,  0.32502449,
-                           0.33898135,  0.35279057,  0.36644782,  0.37994896,  0.39329014,
-                           0.40646773,  0.41947836,  0.4323189 ,  0.44498647,  0.45747844,
-                           0.46979241,  0.48192623,  0.49387799,  0.50564601,  0.51722883,
-                           0.52862523,  0.53983419,  0.55085493,  0.56168685,  0.57232959,
-                           0.58278295,  0.59304692,  0.60312171,  0.61300768,  0.62270534,
-                           0.6322154 ,  0.64153871,  0.65067625,  0.65962916,  0.66839871,
-                           0.67698629,  0.68539341,  0.6936217 ,  0.70167287,  0.70954876,
-                           0.71725127,  0.7247824 ,  0.73214422,  0.73933889,  0.74636859,
-                           0.75323562,  0.75994227,  0.76649093,  0.772884  ,  0.77912392,
-                           0.78521317,  0.79115425,  0.7969497 ,  0.80260204,  0.80811385,
-                           0.81348767,  0.81872609,  0.82383167,  0.82880699,  0.83365461,
-                           0.83837709,  0.84297699,  0.84745683,  0.85181914,  0.85606642,
-                           0.86020115,  0.86422579,  0.86814278,  0.87195453,  0.87566342,
-                           0.87927182,  0.88278203,  0.88619637,  0.88951709,  0.89274642,
-                           0.89588656,  0.89893968,  0.90190789,  0.9047933 ,  0.90759795,
-                           0.91032388,  0.91297305,  0.91554743,  0.91804891,  0.92047938,
-                           0.92284066,  0.92513456,  0.92736284,  0.92952723,  0.93162941,
-                           0.93367104,  0.93565374,  0.93757908,  0.93944862,  0.94126385,
-                           0.94302627,  0.94473732,  0.94639839,  0.94801087,  0.9495761 ,
-                           0.95109539,  0.95257001,  0.95400122,  0.95539023,  0.95673822,
-                           0.95804636,  0.95931576,  0.96054753,  0.96174273,  0.96290241,
-                           0.96402758 };
-
-static inline REAL fast_tanh(REAL x) {
-
-  if(x > 2.0) return 1.0;
-  else if(x <= -2.0) return -1.0;
-  else {
-    INT index = 128 + (INT) (64.0 * x);
-    return fast_tanh_table[index];
-  }
-}
-
-REAL complex dft_driver_itime_abs(void *data, REAL complex tstep, INT i, INT j, INT k) {
-
-  REAL x, y, z, tmp;
-  struct priv_data *asd = (struct priv_data *) data;  
-  INT nx2 = asd->nx2, ny2 = asd->ny2, nz2 = asd->nz2;
-  REAL step = asd->step, width_x = asd->width_x, width_y = asd->width_y, width_z = asd->width_z;
-  REAL bx = asd->bx, by = asd->by, bz = asd->bz;
-  REAL damp = asd->damp;
-
-  // current position
-  x = FABS((REAL) (i - nx2) * step);
-  y = FABS((REAL) (j - ny2) * step);
-  z = FABS((REAL) (k - nz2) * step);
-
-  if(x < bx && y < by && z < bz) return tstep;
-
-  tmp = 0.0;
-  if(x >= bx) tmp += (x - bx) / width_x;
-  if(y >= by) tmp += (y - by) / width_y;
-  if(z >= bz) tmp += (z - bz) / width_z;
-  // TODO: fast_tanh does not work with single precision
-#ifdef SINGLE_PREC
-  tmp = TANH(tmp) * damp;  // Does not work for single precision???
-#else
-  tmp = fast_tanh(tmp) * damp;   // tanh() is slow - use lookup table
-#endif
-  return (1.0 - I * tmp) * CABS(tstep);
-}
-
-/*
  * Propagate kinetic (1st half).
  *
  * what   = DFT_DRIVER_PROPAGATE_HELIUM  or DFT_DRIVER_PROPAGATE_OTHER (char; input).
@@ -585,18 +472,9 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL comple
   case DFT_DRIVER_KINETIC_CN_NBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME) { // do not apply in imag time
-      struct priv_data data;
-      data.nx2 = driver_nx2; data.ny2 = driver_ny2; data.nz2 = driver_nz2;
-      data.step = driver_step;
-      data.width_x = driver_width_x; data.width_y = driver_width_y; data.width_z = driver_width_z;
-      data.bx = driver_bx; data.by = driver_by; data.bz = driver_bz;
-      data.damp = driver_damp;
-      if(dft_driver_bc_function)
-        grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_bc_function, ctstep / 2.0, (void *) &data, cworkspace);
-      else
-        grid3d_wf_propagate_kinetic_cn_nbc2(gwf, dft_driver_itime_abs, ctstep / 2.0, (void *) &data, cworkspace);
-    } else grid3d_wf_propagate_kinetic_cn_nbc(gwf, ctstep / 2.0, cworkspace);
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME) // do not apply in imag time
+      grid3d_wf_propagate_kinetic_cn_nbc_abs(gwf, ctstep / 2.0, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz, cworkspace);
+    else grid3d_wf_propagate_kinetic_cn_nbc(gwf, ctstep / 2.0, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
     if(!cworkspace)
@@ -802,18 +680,9 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
 EXPORT void dft_driver_propagate_potential(char what, wf3d *gwf, cgrid3d *pot, REAL complex ctstep) {
 
-  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME) {
-    struct priv_data data;
-    data.nx2 = driver_nx2; data.ny2 = driver_ny2; data.nz2 = driver_nz2;
-    data.step = driver_step;
-    data.width_x = driver_width_x; data.width_y = driver_width_y; data.width_z = driver_width_z;
-    data.bx = driver_bx; data.by = driver_by; data.bz = driver_bz;
-    data.damp = driver_damp;
-    if(dft_driver_bc_function)
-      grid3d_wf_propagate_potential2(gwf, pot, dft_driver_bc_function, ctstep, (void *) &data);
-    else
-      grid3d_wf_propagate_potential2(gwf, pot, dft_driver_itime_abs, ctstep, (void *) &data);
-  } else grid3d_wf_propagate_potential(gwf, pot, ctstep);
+  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME)
+    grid3d_wf_propagate_potential_abs(gwf, pot, ctstep, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz);
+  else grid3d_wf_propagate_potential(gwf, pot, ctstep);
 
   if(driver_iter_mode != DFT_DRIVER_REAL_TIME) scale_wf(what, gwf);
 }
