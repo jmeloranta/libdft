@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);
 #if KINETIC_PROPAGATOR == DFT_DRIVER_KINETIC_FFT
   fprintf(stderr, "FFT propagator, no absorbing boundaries.\n");
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
 #else
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
   fprintf(stderr, "Absorption begins at (" FMT_R "," FMT_R "," FMT_R ") Bohr from the boundary\n",  ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
