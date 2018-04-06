@@ -14,8 +14,6 @@
 #include "dft.h"
 #include "ot.h"
 
-#define MM_BACKFLOW   /* Include Pi & Barranco cutoff correction to backflow at high densities (where BF is unstable otherwise) */
-
 static void dft_ot3d_add_nonlocal_correlation_potential(dft_ot_functional *otf, cgrid3d *potential, rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4, rgrid3d *workspace5);
 static void dft_ot3d_add_nonlocal_correlation_potential_x(dft_ot_functional *otf, cgrid3d *potential, rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4);
 static void dft_ot3d_add_nonlocal_correlation_potential_y(dft_ot_functional *otf, cgrid3d *potential, rgrid3d *rho, rgrid3d *rho_tf, rgrid3d *rho_st, rgrid3d *workspace1, rgrid3d *workspace2, rgrid3d *workspace3, rgrid3d *workspace4);
@@ -317,10 +315,10 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
   if(otf->model & DFT_OT_BACKFLOW) {
     /* wf, veloc_x(1), veloc_y(2), veloc_z(3), wrk(4) */
     grid3d_wf_probability_flux(wf, workspace1, workspace2, workspace3);    /* finite difference */
-    // grid3d_wf_momentum(wf, workspace1, workspace2, workspace3, workspace4);   /* this would imply FFT boundaries */
     rgrid3d_division_eps(workspace1, workspace1, density, DFT_BF_EPS);  /* velocity = flux / rho */
     rgrid3d_division_eps(workspace2, workspace2, density, DFT_BF_EPS);
     rgrid3d_division_eps(workspace3, workspace3, density, DFT_BF_EPS);
+
     dft_ot3d_backflow_potential(otf, potential, density, workspace1 /* veloc_x */, workspace2 /* veloc_y */, workspace3 /* veloc_z */, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
   }
 
@@ -796,6 +794,7 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
     /* Original BF code (without the MM density cutoff) */
     rgrid3d_copy(workspace1, density);   /* just rho */
   }
+
   rgrid3d_fft(workspace1);
   rgrid3d_fft_convolute(workspace1, workspace1, otf->backflow_pot);
   rgrid3d_inverse_fft(workspace1);
@@ -860,6 +859,7 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
     rgrid3d_operate_one_product(workspace6, workspace6, density, dft_ot3d_bf_pi_op);
   }
   rgrid3d_multiply(workspace6, -0.5 * otf->mass);
+
   grid3d_add_real_to_complex_re(potential, workspace6);
 
   /* workspace2 (C), workspace6 not used after this point */
