@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
   fprintf(stderr,"Model = " FMT_I ".\n", model);
   dft_driver_setup_grid(nx, ny, nz, step, threads);
   dft_driver_setup_model(model, itp, rho0);
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   /* Neumann boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);

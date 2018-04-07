@@ -32,7 +32,7 @@ int main() {
   /* Plain Orsay-Trento in real or imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN, 1, DENSITY);   /* DFT_OT_PLAIN = Orsay-Trento without kinetic corr. or backflow, 1 = imag time */
   /* Regular boundaries */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);   /* regular periodic boundaries */
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);   /* regular periodic boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
   /* Initialize */
   dft_driver_initialize();

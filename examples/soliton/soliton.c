@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
   /* No absorbing boundary */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 3.0, 10);
 
@@ -73,13 +73,13 @@ int main(int argc, char **argv) {
   mu0 = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
 
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid();
-  rworkspace = dft_driver_alloc_rgrid();
-  potential_store = dft_driver_alloc_cgrid(); /* temporary storage */
+  ext_pot = dft_driver_alloc_rgrid("ext pot");
+  rworkspace = dft_driver_alloc_rgrid("rworkspace");
+  potential_store = dft_driver_alloc_cgrid("cworkspace"); /* temporary storage */
 
   /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS);/* temp. wavefunction */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
   /* setup soliton (ext_pot is temp here) */
   rgrid3d_map(ext_pot, soliton, NULL);
   rgrid3d_multiply(ext_pot, rho0);

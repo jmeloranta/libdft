@@ -22,7 +22,7 @@
 #define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
 #define OUTPUT     200	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define CUDA 1          /* Use CUDA 1 (yes) or 0 (no) */
+#define CUDA 0          /* Use CUDA 1 (yes) or 0 (no) */
 #define NX 128       	/* # of grid points along x */
 #define NY 128          /* # of grid points along y */
 #define NZ 128        	/* # of grid points along z */
@@ -65,11 +65,13 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_model(DFT_OT_PLAIN, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
 
   /* Regular boundaries */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);   /* regular periodic boundaries */
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);   /* regular periodic boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   
   /* Initialize */
   dft_driver_initialize();
+  dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
+//  dft_driver_kinetic = DFT_DRIVER_KINETIC_FFT;
 
   /* bulk normalization */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */

@@ -52,13 +52,13 @@ int main(int argc, char **argv) {
   fprintf(stderr, "Maxmimum n corresponds to " FMT_R " Angs^-1.\n", atof(argv[2]) * 2.0 * M_PI / (GRID_AUTOANG * NX * STEP));
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
 
-  cuda_enable(0);
+  cuda_enable(1);
 
 //  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
-  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
+  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW;
   dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, RHO0);
 
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   dft_driver_initialize();
@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     wave_params.a = 1.0E-3;
     wave_params.rho = RHO0;
     grid3d_wf_map(gwf, wave, &wave_params);
-    prev_val = 1E99;
+    prev_val = 1E10;
     for(l = 0; ; l++) {
       grid_timer_start(&timer);
       dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
