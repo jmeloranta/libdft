@@ -831,7 +831,9 @@ EXPORT inline void dft_driver_propagate_correct(char what, rgrid3d *ext_pot, wf3
   if(ext_pot) grid3d_add_real_to_complex_re(potential, ext_pot);
   cgrid3d_multiply(potential, 0.5);
   dft_driver_propagate_potential(what, gwf, potential, ctstep);
+
   dft_driver_propagate_kinetic_second(what, gwf, ctstep);
+
   if(dft_driver_verbose) fprintf(stderr, "libdft: Correct step " FMT_R " wall clock seconds (iter = " FMT_I ").\n", grid_timer_wall_clock_time(&timer), iter);
   fflush(stderr);
 }

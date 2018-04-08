@@ -1,7 +1,7 @@
 Library for Orsay-Trento helium DFT.
-Review make.conf for correct compilation parameters.
+Compilation parameters are taken from libgrid make.conf.
 
-Needs: libgrid and fftw (and lapack/blas).
+Needs: libgrid and fftw.
 
 List of people how contributed to the code:
 
