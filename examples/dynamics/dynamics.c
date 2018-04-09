@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 3.0, 10);
 
@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
 
   /* Step #2: Run real time simulation using the final state potential */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, ABS_WIDTH, ABS_WIDTH, ABS_WIDTH);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 1.0, ABS_WIDTH, ABS_WIDTH, ABS_WIDTH);
   /* Generate the excited potential */
   offset = EXCITED_OFFSET;
   rgrid3d_map(ext_pot, pot_func, (void *) &offset);

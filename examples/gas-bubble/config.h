@@ -3,7 +3,7 @@
  *
  */
 
-#define TIME_STEP 15.0                  /* Time step in imag/real iterations (fs) */
+#define TIME_STEP 5.0                  /* Time step in imag/real iterations (fs) */
 #define FUNCTIONAL (DFT_OT_PLAIN|DFT_OT_KC|DFT_OT_BACKFLOW)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 #define STARTING_TIME 2000.0          /* Start real time simulation at this time (fs) - 10 ps (was 400,000) */
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP))

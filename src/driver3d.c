@@ -36,11 +36,11 @@ static INT driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_nx2 = 0, driver_n
 static INT driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_rels = 0;
 static INT driver_bc_lx = 0, driver_bc_hx = 0, driver_bc_ly = 0, driver_bc_hy = 0, driver_bc_lz = 0, driver_bc_hz = 0;
 static char driver_bc = 0;
-static REAL driver_frad = 0.0, driver_omega = 0.0;
+static REAL driver_frad = 0.0, driver_omega = 0.0, driver_bc_amp = 1.0;
 static REAL viscosity = 0.0, viscosity_alpha = 1.0;
 static REAL driver_step = 0.0, driver_rho0 = 0.0;
 static REAL driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0;
-static REAL driver_kx0 = 0.0, driver_ky0 = 0.0,driver_kz0 = 0.0;
+static REAL driver_kx0 = 0.0, driver_ky0 = 0.0, driver_kz0 = 0.0;
 static rgrid3d *density = 0, *workspace1 = 0, *workspace2 = 0, *workspace3 = 0, *workspace4 = 0, *workspace5 = 0, *workspace6 = 0;
 static rgrid3d *workspace7 = 0, *workspace8 = 0, *workspace9 = 0;
 static cgrid3d *cworkspace = 0;
@@ -362,9 +362,10 @@ EXPORT void dft_driver_setup_model(INT dft_model, INT iter_mode, REAL rho0) {
  *
  * type    = Boundary type: 0 = regular, 1 = absorbing (imag time) 
  *           (input, INT).
- * width_x = Width of the absorbing region along x. Only when type = 1.
- * width_y = Width of the absorbing region along y. Only when type = 1.
- * width_z = Width of the absorbing region along z. Only when type = 1.
+ * amp     = Max. imaginary amplitude (REAL; input).
+ * width_x = Width of the absorbing region along x. Only when type = 1 (REAL; input).
+ * width_y = Width of the absorbing region along y. Only when type = 1 (REAL; input).
+ * width_z = Width of the absorbing region along z. Only when type = 1 (REAL; input).
  * 
  * NOTE: For the absorbing BC to work, one MUST use DFT_DRIVER_DONT_NORMALIZE and include the chemical potential!
  *       (in both imaginary & real time propagation). Otherwise, you will find issues at the boundary (due to the 
@@ -374,7 +375,7 @@ EXPORT void dft_driver_setup_model(INT dft_model, INT iter_mode, REAL rho0) {
  *
  */
 
-EXPORT void dft_driver_setup_boundary_type(INT boundary_type, REAL width_x, REAL width_y, REAL width_z) {
+EXPORT void dft_driver_setup_boundary_type(INT boundary_type, REAL amp, REAL width_x, REAL width_y, REAL width_z) {
 
   driver_boundary_type = boundary_type;
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME) {
@@ -390,8 +391,10 @@ EXPORT void dft_driver_setup_boundary_type(INT boundary_type, REAL width_x, REAL
   driver_bc_hy = driver_ny - driver_bc_ly - 1;
   driver_bc_lz = (INT) (width_z / driver_step);
   driver_bc_hz = driver_nz - driver_bc_lz - 1;
-  fprintf(stderr, "libdft: lx = " FMT_I ", hx = " FMT_I ", ly = " FMT_I ", hy = " FMT_I ", lz = " FMT_I ", hz = " FMT_I "\n",
-   driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz);
+  fprintf(stderr, "libdft: Absorbing boundary indices: lx = " FMT_I ", hx = " FMT_I ", ly = " FMT_I ", hy = " FMT_I ", lz = " FMT_I ", hz = " FMT_I "\n",
+    driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz);
+  driver_bc_amp = amp;
+  fprintf(stderr, "libdft: Max. absorbtion amplitude = " FMT_R ".\n", driver_bc_amp);
 }
 
 /*
@@ -474,7 +477,7 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL comple
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
     if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) // do not apply in imag time
-      grid3d_wf_propagate_kinetic_cn_nbc_abs(gwf, ctstep / 2.0, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz, cworkspace);
+      grid3d_wf_propagate_kinetic_cn_nbc_abs(gwf, ctstep / 2.0, driver_bc_amp, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz, cworkspace);
     else grid3d_wf_propagate_kinetic_cn_nbc(gwf, ctstep / 2.0, cworkspace);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
@@ -682,7 +685,7 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 EXPORT void dft_driver_propagate_potential(char what, wf3d *gwf, cgrid3d *pot, REAL complex ctstep) {
 
   if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME)
-    grid3d_wf_propagate_potential_abs(gwf, pot, ctstep, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz);
+    grid3d_wf_propagate_potential_abs(gwf, pot, ctstep, driver_bc_amp, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz);
   else grid3d_wf_propagate_potential(gwf, pot, ctstep);
 
   if(driver_iter_mode != DFT_DRIVER_REAL_TIME) scale_wf(what, gwf);
