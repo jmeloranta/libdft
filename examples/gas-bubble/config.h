@@ -21,6 +21,7 @@
 #define NY 256          /* # of grid points along y */
 #define NZ 256        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
+#define ABS_AMP 1.0     /* Absorption strength */
 #define ABS_WIDTH_X 60.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Y 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Z 25.0  /* Width of the absorbing boundary */

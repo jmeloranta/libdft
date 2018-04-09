@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "FFT propagator, no absorbing boundaries.\n");
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
 #else
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 1.0, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, ABS_AMP, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
   fprintf(stderr, "Absorption begins at (" FMT_R "," FMT_R "," FMT_R ") Bohr from the boundary\n",  ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
 #endif
 
