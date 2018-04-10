@@ -330,7 +330,7 @@ EXPORT REAL dft_ot_dispersion(dft_ot_functional *otf, REAL *k, REAL rho0) {
     if(rho0 < 0.0) return 0.0; /* just free the memeory */
     dft_driver_setup_grid(dft_ot_bulk_NX, dft_ot_bulk_NY, dft_ot_bulk_NZ, dft_ot_bulk_STEP, dft_ot_bulk_THR);
     dft_driver_setup_model(otf->model, DFT_DRIVER_REAL_TIME, rho0);
-    dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
+    dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
     dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
     dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
     dft_driver_initialize();
@@ -516,7 +516,7 @@ EXPORT REAL dft_ot_bulk_surface_tension(dft_ot_functional *otf, REAL rho0) {
     if(rho0 < 0.0) return 0.0; /* just free the memeory */
     dft_driver_setup_grid(dft_ot_bulk_NX, dft_ot_bulk_NY, dft_ot_bulk_NZ, dft_ot_bulk_STEP, dft_ot_bulk_THR);
     dft_driver_setup_model(otf->model, DFT_DRIVER_IMAG_TIME, rho0);
-    dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
+    dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
     dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
     dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
     dft_driver_initialize();

@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
   dft_driver_setup_momentum(0.0, 0.0, KZ);
   dft_driver_setup_model(FUNC, DFT_DRIVER_REAL_TIME, 0.0);
   /* No absorbing boundary */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0);
+  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
 
