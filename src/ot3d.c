@@ -21,7 +21,7 @@ static void dft_ot3d_add_nonlocal_correlation_potential_z(dft_ot_functional *otf
 static void dft_ot3d_add_barranco(dft_ot_functional *otf, cgrid3d *potential, rgrid3d *rho, rgrid3d *workspace1);
 static void dft_ot3d_add_ancilotto(dft_ot_functional *otf, cgrid3d *potential, rgrid3d *rho, rgrid3d *workspace1);
 
-/* local functions */
+/* local functions (TODO: Add these as device functions to CUDA - but how? Not part of libgrid...) */
 static REAL XXX_xi, XXX_rhobf;
 static inline REAL dft_ot3d_bf_pi_energy_op2(REAL rhop) {
 
@@ -276,7 +276,7 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
 
   if(otf->model & DFT_ZERO) {
     fprintf(stderr, "libdft: Warning - zero potential used.\n");
-    //cgrid3d_zero(potential);
+    cgrid3d_zero(potential);
     return;
   }
 
@@ -314,6 +314,7 @@ EXPORT void dft_ot3d_potential(dft_ot_functional *otf, cgrid3d *potential, wf3d 
 
   if(otf->model & DFT_OT_BACKFLOW) {
     /* wf, veloc_x(1), veloc_y(2), veloc_z(3), wrk(4) */
+    // grid3d_wf_momentum(wf, workspace1, workspace2, workspace3, ...);   But can't do since we don't have cmplx workspaces
     grid3d_wf_probability_flux(wf, workspace1, workspace2, workspace3);    /* finite difference */
     rgrid3d_division_eps(workspace1, workspace1, density, DFT_BF_EPS);  /* velocity = flux / rho */
     rgrid3d_division_eps(workspace2, workspace2, density, DFT_BF_EPS);
@@ -709,7 +710,7 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
     }
     // workspace7 = density from this on
     
-    // grid3d_wf_momentum(wf, workspace1, workspace2, workspace3, workspace4);   /* this would imply FFT boundaries */
+    // grid3d_wf_momentum(wf, workspace1, workspace2, workspace3, ...); But can't do since we don't have cmplx workspaces
     grid3d_wf_probability_flux(wf, workspace1, workspace2, workspace3);    /* finite difference */
     rgrid3d_division_eps(workspace1, workspace1, workspace7, DFT_BF_EPS);  /* velocity = flux / rho, v_x */
     rgrid3d_division_eps(workspace2, workspace2, workspace7, DFT_BF_EPS);  /* v_y */
