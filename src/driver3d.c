@@ -557,7 +557,7 @@ EXPORT void dft_driver_ot_potential(wf3d *gwf, cgrid3d *pot) {
 
 #define POISSON /* Solve Poisson eq for the viscous potential */
 
-static REAL visc_func(REAL rho) {
+static REAL visc_func(REAL rho, void *NA) {
 
   return POW(rho / driver_rho0, viscosity_alpha) * viscosity;  // viscosity_alpha > 0
 }
@@ -633,7 +633,7 @@ EXPORT void dft_driver_viscous_potential(wf3d *gwf, cgrid3d *pot) {
 
   /* factor in viscosity */
   grid3d_wf_density(gwf, workspace8);
-  rgrid3d_operate_one(workspace8, workspace8, visc_func);
+  rgrid3d_operate_one(workspace8, workspace8, visc_func, NULL);
   rgrid3d_product(workspace2, workspace2, workspace8);
   rgrid3d_product(workspace3, workspace3, workspace8);
   rgrid3d_product(workspace4, workspace4, workspace8);
@@ -1633,7 +1633,7 @@ EXPORT REAL dft_driver_natoms(wf3d *gwf) {
  *
  */
 
-static REAL complex dft_eval_exp(REAL complex a) { /* a contains t */
+static REAL complex dft_eval_exp(REAL complex a, void *NA) { /* a contains t */
 
   return (1.0 - CEXP(-I * a));
 }
@@ -1642,7 +1642,7 @@ static REAL complex dft_do_int(rgrid3d *dens, rgrid3d *dpot, REAL t, cgrid3d *wr
 
   grid3d_real_to_complex_re(wrk, dpot);
   cgrid3d_multiply(wrk, t);
-  cgrid3d_operate_one(wrk, wrk, dft_eval_exp);
+  cgrid3d_operate_one(wrk, wrk, dft_eval_exp, NULL);
   grid3d_product_complex_with_real(wrk, dens);
   return cgrid3d_integral(wrk);            // debug: This should have minus in front?! Sign error elsewhere? (does not appear in ZP?!)
 }
@@ -1733,12 +1733,12 @@ static void do_gexp(cgrid3d *gexp, rgrid3d *dpot, REAL t) {
 
   grid3d_real_to_complex_re(gexp, dpot);
   cgrid3d_multiply(gexp, t);
-  cgrid3d_operate_one(gexp, gexp, dft_eval_exp);
+  cgrid3d_operate_one(gexp, gexp, dft_eval_exp, NULL);
   cgrid3d_fft(gexp);  
 #if 0
   cgrid3d_zero(gexp);
   cgrid3d_add_scaled(gexp, t, dpot);
-  cgrid3d_operate_one(gexp, gexp, dft_eval_exp);
+  cgrid3d_operate_one(gexp, gexp, dft_eval_exp, NULL);
   cgrid3d_fft(gexp);
 #endif
 }
