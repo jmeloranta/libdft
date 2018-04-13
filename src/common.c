@@ -379,9 +379,10 @@ EXPORT inline REAL dft_common_fit_g52(REAL z) {
 EXPORT inline REAL dft_common_fit_z(REAL val) {
 
 #ifdef BRUTE_FORCE
-  if(val >= dft_common_fit_g32(1.0)) return 1.0; /* g_{3/2}(1) */
   /* Golden sectioning */
   REAL a, b, c, d, fc, fd, tmp;
+
+  if(val >= dft_common_fit_g32(1.0)) return 1.0; /* g_{3/2}(1) */
 
   a = 0.0;
   b = 1.0;

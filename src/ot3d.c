@@ -21,45 +21,6 @@ static void dft_ot3d_add_nonlocal_correlation_potential_z(dft_ot_functional *otf
 static void dft_ot3d_add_barranco(dft_ot_functional *otf, cgrid3d *potential, rgrid3d *rho, rgrid3d *workspace1);
 static void dft_ot3d_add_ancilotto(dft_ot_functional *otf, cgrid3d *potential, rgrid3d *rho, rgrid3d *workspace1);
 
-/* local functions (NOTE: These are also hardwired to libgrid so that they can execute on GPU with cuda) */
-static inline REAL dft_ot3d_bf_pi_energy_op2(REAL rhop, void *params) {
-
-  dft_ot_functional *otf = (dft_ot_functional *) params;
-
-  // TODO: there are indications that tanh() is really slow (possibly bug in glibc)
-  return 0.5 * (1.0 - TANH(otf->xi * (rhop - otf->rhobf)));    /* G(rho) */
-}
-
-static inline REAL dft_ot3d_bf_pi_energy_op(REAL rhop, void *params) {
-
-  return rhop * dft_ot3d_bf_pi_energy_op2(rhop, params);    /* rho * G(rho) */
-}
-
-static inline REAL dft_ot3d_bf_pi_op(REAL rhop, void *params) {   /* rho * dG/drho + G */
-
-  dft_ot_functional *otf = (dft_ot_functional *) params;
-  REAL tmp = 1.0 / (COSH((rhop - otf->rhobf) * otf->xi) + DFT_BF_EPS);
-  
-  return rhop * (-0.5 * otf->xi * tmp * tmp) + dft_ot3d_bf_pi_energy_op2(rhop, params);
-}
-
-/* local function */
-static inline REAL dft_ot3d_barranco_op(REAL rhop, void *params) {
-
-  dft_ot_functional *otf = (dft_ot_functional *) params;
-  REAL stanh = TANH(otf->beta * (rhop - otf->rhom));
-
-  return (otf->C * ((1.0 + stanh) + otf->beta * rhop * (1.0 - stanh * stanh)));
-}
-
-/* local function */
-static inline REAL dft_ot3d_barranco_energy_op(REAL rhop, void *params) {
-
-  dft_ot_functional *otf = (dft_ot_functional *) params;
-
-  return (otf->C * (1.0 + TANH(otf->beta * (rhop - otf->rhom))) * rhop);
-}
-
 EXPORT REAL dft_ot_backflow_pot(void *arg, REAL x, REAL y, REAL z) {
 
   REAL g11 = ((dft_ot_bf *) arg)->g11;
@@ -555,14 +516,16 @@ static inline void dft_ot3d_add_nonlocal_correlation_potential_z(dft_ot_function
 /* local function (potential) */
 static inline void dft_ot3d_add_ancilotto(dft_ot_functional *otf, cgrid3d *potential, rgrid3d *rho, rgrid3d *workspace1) {
 
-  rgrid3d_operate_one(workspace1, rho, dft_common_bose_idealgas_dEdRho, (void *) otf);
+  grid3d_func6a_operate_one(workspace1, rho, otf->mass, otf->temp, otf->c4);
+//  rgrid3d_operate_one(workspace1, rho, dft_common_bose_idealgas_dEdRho, (void *) otf);
   grid3d_add_real_to_complex_re(potential, workspace1);
 }
 
 /* local function */
 static inline void dft_ot3d_add_barranco(dft_ot_functional *otf, cgrid3d *potential, rgrid3d *rho, rgrid3d *workspace1) {
 
-  rgrid3d_operate_one(workspace1, rho, dft_ot3d_barranco_op, otf);
+  grid3d_func4_operate_one(workspace1, rho, otf->beta, otf->rhom, otf->C);
+//  rgrid3d_operate_one(workspace1, rho, dft_ot3d_barranco_op, otf);
   grid3d_add_real_to_complex_re(potential, workspace1);
 }
 
@@ -631,13 +594,15 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
 
   /* Barranco's contribution (high density) */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
-    rgrid3d_operate_one(workspace1, density, dft_ot3d_barranco_energy_op, otf);
+    grid3d_func5_operate_one(workspace1, density, otf->beta, otf->rhom, otf->C);
+//    rgrid3d_operate_one(workspace1, density, dft_ot3d_barranco_energy_op, otf);
     rgrid3d_sum(energy_density, energy_density, workspace1);
   }
 
   /* Ideal gas contribution (thermal) */
   if(otf->model >= DFT_OT_T400MK && otf->model < DFT_GP) { /* do not add this for DR */
-    rgrid3d_operate_one(workspace1, density, dft_common_bose_idealgas_energy, otf);
+    grid3d_func6b_operate_one(workspace1, density, otf->mass, otf->temp, otf->c4);
+//    rgrid3d_operate_one(workspace1, density, dft_common_bose_idealgas_energy, otf);
     rgrid3d_sum(energy_density, energy_density, workspace1);
   }
   
@@ -697,7 +662,8 @@ EXPORT void dft_ot3d_energy_density(dft_ot_functional *otf, rgrid3d *energy_dens
   if(otf->model & DFT_OT_BACKFLOW) {
     if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
       /* M & M high density cutoff */
-      rgrid3d_operate_one(workspace7, density, dft_ot3d_bf_pi_energy_op, otf);
+      grid3d_func2_operate_one(workspace7, density, otf->xi, otf->rhobf);
+//      rgrid3d_operate_one(workspace7, density, dft_ot3d_bf_pi_energy_op, otf);
     } else {
       /* Original BF */
       rgrid3d_copy(workspace7, density);
@@ -782,7 +748,8 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
 
   /* Calculate A (workspace1) [scalar] */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
-    rgrid3d_operate_one(workspace1, density, dft_ot3d_bf_pi_energy_op, otf); /* g rho */
+    grid3d_func2_operate_one(workspace1, density, otf->xi, otf->rhobf);
+//    rgrid3d_operate_one(workspace1, density, dft_ot3d_bf_pi_energy_op, otf); /* g rho */
   } else {
     /* Original BF code (without the MM density cutoff) */
     rgrid3d_copy(workspace1, density);   /* just rho */
@@ -797,7 +764,8 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
   rgrid3d_add_scaled_product(workspace2, 1.0, veloc_y, veloc_y);
   rgrid3d_add_scaled_product(workspace2, 1.0, veloc_z, veloc_z);
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    rgrid3d_operate_one_product(workspace2, workspace2, density, dft_ot3d_bf_pi_energy_op, otf); /* g rho */
+    grid3d_func2_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);  /* g rho */
+//    rgrid3d_operate_one_product(workspace2, workspace2, density, dft_ot3d_bf_pi_energy_op, otf); /* g rho */
   } else {
     rgrid3d_product(workspace2, workspace2, density);
   }
@@ -808,7 +776,8 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
   /* Calculate B (workspace3 (x), workspace4 (y), workspace5 (z)) [vector] */
   /* B_X */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    rgrid3d_operate_one_product(workspace3, veloc_x, density, dft_ot3d_bf_pi_energy_op, otf); /* g rho */
+    grid3d_func2_operate_one_product(workspace3, veloc_x, density, otf->xi, otf->rhobf);
+//    rgrid3d_operate_one_product(workspace3, veloc_x, density, dft_ot3d_bf_pi_energy_op, otf); /* g rho */
   } else {
     rgrid3d_product(workspace3, veloc_x, density);
   }
@@ -818,7 +787,8 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
 
   /* B_Y */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    rgrid3d_operate_one_product(workspace4, veloc_y, density, dft_ot3d_bf_pi_energy_op, otf); /* g rho */
+    grid3d_func2_operate_one_product(workspace4, veloc_y, density, otf->xi, otf->rhobf);
+//    rgrid3d_operate_one_product(workspace4, veloc_y, density, dft_ot3d_bf_pi_energy_op, otf); /* g rho */
   } else {
     rgrid3d_product(workspace4, veloc_y, density);
   }
@@ -828,7 +798,8 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
 
   /* B_Z */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    rgrid3d_operate_one_product(workspace5, veloc_z, density, dft_ot3d_bf_pi_energy_op, otf); /* g rho */
+    grid3d_func2_operate_one_product(workspace5, veloc_z, density, otf->xi, otf->rhobf);
+//    rgrid3d_operate_one_product(workspace5, veloc_z, density, dft_ot3d_bf_pi_energy_op, otf); /* g rho */
   } else {
     rgrid3d_product(workspace5, veloc_z, density);
   }
@@ -849,7 +820,8 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
   rgrid3d_sum(workspace6, workspace6, workspace2);
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
     /* multiply by [rho x (dG/drho)(rho) + G(rho)] (dft_ot3d_bf_pi_op) */
-    rgrid3d_operate_one_product(workspace6, workspace6, density, dft_ot3d_bf_pi_op, otf);
+    grid3d_func3_operate_one_product(workspace6, workspace6, density, otf->xi, otf->rhobf);
+//    rgrid3d_operate_one_product(workspace6, workspace6, density, dft_ot3d_bf_pi_op, otf);
   }
   rgrid3d_multiply(workspace6, -0.5 * otf->mass);
 
@@ -871,8 +843,9 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
 
   /* 1.1 (1/2) (drho/dx)/rho * (v_xA - B_x) */  
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    rgrid3d_operate_one(workspace1, density, dft_ot3d_bf_pi_energy_op, otf);
-    rgrid3d_fd_gradient_x(workspace1, workspace2);  
+    grid3d_func2_operate_one(workspace1, density, otf->xi, otf->rhobf);
+//    rgrid3d_operate_one(workspace1, density, dft_ot3d_bf_pi_energy_op, otf);
+    rgrid3d_fd_gradient_x(workspace1, workspace2);
   } else {
     rgrid3d_fd_gradient_x(density, workspace2);
   }
@@ -881,6 +854,7 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
 
   /* 1.2 (1/2) (drho/dy)/rho * (v_yA - B_y) */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
+    /* grid3d_func2_operate_one(workspace1, density, otf->xi, otf->rhobf); */ /* already done above */
     /* rgrid3d_operate_one(workspace1, density, dft_ot3d_bf_pi_energy_op, otf); */ /* already done above */
     rgrid3d_fd_gradient_y(workspace1, workspace2);  
   } else {
@@ -891,6 +865,7 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
 
   /* 1.3 (1/2) (drho/dz)/rho * (v_zA - B_z) */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
+    /* grid3d_func2_operate_one(workspace1, density, otf->xi, otf->rhobf); */ /* already done above */
     /* rgrid3d_operate_one(workspace1, density, dft_ot3d_bf_pi_energy_op, otf); */ /* already done above */
     rgrid3d_fd_gradient_z(workspace1, workspace2);  
   } else {
@@ -902,21 +877,24 @@ EXPORT void dft_ot3d_backflow_potential(dft_ot_functional *otf, cgrid3d *potenti
   /* 2.1 (1/2) (d/dx) (v_xA - B_x) */
   rgrid3d_fd_gradient_x(veloc_x, workspace2);
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    rgrid3d_operate_one_product(workspace2, workspace2, density, dft_ot3d_bf_pi_energy_op2, otf); /* multiply by g */
+    grid3d_func1_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);   /* multiply by g */
+//    rgrid3d_operate_one_product(workspace2, workspace2, density, dft_ot3d_bf_pi_energy_op2, otf); /* multiply by g */
   }
   rgrid3d_add_scaled(workspace6, 0.5, workspace2);
 
   /* 2.2 (1/2) (d/dy) (v_yA - B_y) */
   rgrid3d_fd_gradient_y(veloc_y, workspace2);
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    rgrid3d_operate_one_product(workspace2, workspace2, density, dft_ot3d_bf_pi_energy_op2, otf);  /* multiply by g */
+    grid3d_func1_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);
+//    rgrid3d_operate_one_product(workspace2, workspace2, density, dft_ot3d_bf_pi_energy_op2, otf);  /* multiply by g */
   }
   rgrid3d_add_scaled(workspace6, 0.5, workspace2);
 
   /* 2.3 (1/2) (d/dz) (v_zA - B_z) */
   rgrid3d_fd_gradient_z(veloc_z, workspace2);
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    rgrid3d_operate_one_product(workspace2, workspace2, density, dft_ot3d_bf_pi_energy_op2, otf);  /* multiply by g */
+    grid3d_func1_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);
+//    rgrid3d_operate_one_product(workspace2, workspace2, density, dft_ot3d_bf_pi_energy_op2, otf);  /* multiply by g */
   }
   rgrid3d_add_scaled(workspace6, 0.5, workspace2);
 
