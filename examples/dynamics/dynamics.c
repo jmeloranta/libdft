@@ -68,7 +68,9 @@ int main(int argc, char **argv) {
   REAL offset, mu0, rho0;
   char buf[512];
 
-//  cuda_enable(1);
+#ifdef USE_CUDA
+  cuda_enable(1);
+#endif
 
   /* Setup DFT driver parameters (grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);

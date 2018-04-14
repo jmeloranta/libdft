@@ -22,7 +22,6 @@
 #define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
 #define OUTPUT     200	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define CUDA 0          /* Use CUDA 1 (yes) or 0 (no) */
 #define NX 128       	/* # of grid points along x */
 #define NY 128          /* # of grid points along y */
 #define NZ 128        	/* # of grid points along z */
@@ -56,7 +55,7 @@ int main(int argc, char *argv[]) {
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
 #ifdef USE_CUDA
-  cuda_enable(CUDA);
+  cuda_enable(1);
 #endif
   /* Setup frame of reference momentum */
   dft_driver_setup_momentum(KX, KY, KZ);
