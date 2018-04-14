@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
   
   /* Setup DFT driver parameters */
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
-#ifdef CUDA
+#ifdef USE_CUDA
   cuda_enable(1);
 //  cuda_debug(1);
 #endif
