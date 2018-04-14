@@ -8,6 +8,7 @@
 #include <grid/grid.h>
 #include <grid/au.h>
 #include "dft.h"
+#include "ot.h"
 
 /*
  * Tunable numerical parameters.
@@ -378,9 +379,10 @@ EXPORT inline REAL dft_common_fit_g52(REAL z) {
 EXPORT inline REAL dft_common_fit_z(REAL val) {
 
 #ifdef BRUTE_FORCE
-  if(val >= dft_common_fit_g32(1.0)) return 1.0; /* g_{3/2}(1) */
   /* Golden sectioning */
   REAL a, b, c, d, fc, fd, tmp;
+
+  if(val >= dft_common_fit_g32(1.0)) return 1.0; /* g_{3/2}(1) */
 
   a = 0.0;
   b = 1.0;
@@ -416,30 +418,6 @@ EXPORT inline REAL dft_common_fit_z(REAL val) {
 }
 
 /*
- * Ideal gas contribution routines. Call the params routine first to
- * set temperature, mass and the constant (multiplier) c4. Then use
- * the grid map() functions.
- *
- * temp = Temperature (REAL).
- * mass = Mass (REAL).
- * c4   = The C4 coefficient in the thermal mode (REAL).
- * 
- * No return value.
- *
- * TODO: This is ugly - do not use globals like this!
- *
- */
-
-static REAL XXX_temp, XXX_mass, XXX_c4;
-
-EXPORT void dft_common_idealgas_params(REAL temp, REAL mass, REAL c4) {
-
-  XXX_temp = temp;
-  XXX_mass = mass;
-  XXX_c4 = c4;
-}
-
-/*
  * Classical ideal gas. Free energy / volume derivative with respect to rho: d(A/V) / drho
  *
  * rhop = Gas density (REAL).
@@ -448,12 +426,13 @@ EXPORT void dft_common_idealgas_params(REAL temp, REAL mass, REAL c4) {
  *
  */
 
-EXPORT REAL dft_common_classical_idealgas_dEdRho(REAL rhop) {
+EXPORT REAL dft_common_classical_idealgas_dEdRho(REAL rhop, void *params) {
 
+  dft_ot_functional *otf = (dft_ot_functional *) params;
   REAL l3, val;
 
-  l3 = dft_common_lwl3(XXX_mass, XXX_temp);
-  val = GRID_AUKB * XXX_temp * LOG(rhop * l3 + 1E-6*EPS);    // -log(1/x) = log(x)
+  l3 = dft_common_lwl3(otf->mass, otf->temp);
+  val = GRID_AUKB * otf->temp * LOG(rhop * l3 + 1E-6*EPS);    // -log(1/x) = log(x)
   //  if (val > CUTOFF) val = CUTOFF;
   return val;
 }
@@ -467,12 +446,13 @@ EXPORT REAL dft_common_classical_idealgas_dEdRho(REAL rhop) {
  *
  */
 
-EXPORT REAL dft_common_classical_idealgas_energy(REAL rhop) {
+EXPORT REAL dft_common_classical_idealgas_energy(REAL rhop, void *params) {
 
   REAL l3;
+  dft_ot_functional *otf = (dft_ot_functional *) params;
 
-  l3 = dft_common_lwl3(XXX_mass, XXX_temp);
-  return -rhop * GRID_AUKB * XXX_temp * (1.0 - LOG(rhop*l3 + 1E-6*EPS));
+  l3 = dft_common_lwl3(otf->mass, otf->temp);
+  return -rhop * GRID_AUKB * otf->temp * (1.0 - LOG(rhop*l3 + 1E-6*EPS));
 }
 
 /*
@@ -483,13 +463,14 @@ EXPORT REAL dft_common_classical_idealgas_energy(REAL rhop) {
  * Returns free energy / volume.
  */
 
-EXPORT REAL dft_common_bose_idealgas_energy(REAL rhop) {
+EXPORT REAL dft_common_bose_idealgas_energy(REAL rhop, void *params) {
 
   REAL z, l3;
+  dft_ot_functional *otf = (dft_ot_functional *) params;
 
-  l3 = dft_common_lwl3(XXX_mass, XXX_temp);
+  l3 = dft_common_lwl3(otf->mass, otf->temp);
   z = dft_common_fit_z(rhop * l3);
-  return (XXX_c4 * GRID_AUKB * XXX_temp * (rhop * LOG(z) - dft_common_fit_g52(z) / l3));
+  return (otf->c4 * GRID_AUKB * otf->temp * (rhop * LOG(z) - dft_common_fit_g52(z) / l3));
 }
 
 /*
@@ -503,24 +484,25 @@ EXPORT REAL dft_common_bose_idealgas_energy(REAL rhop) {
 /* Matches the difference of dft_common_idealgas_energy_op() */
 // #define USE_DIFFERENCE
 
-EXPORT REAL dft_common_bose_idealgas_dEdRho(REAL rhop) {
+EXPORT REAL dft_common_bose_idealgas_dEdRho(REAL rhop, void *params) {
 
 #ifdef USE_DIFFERENCE
 #define DIFF_EPS 1E-12
-  return (dft_common_bose_idealgas_energy(rhop + DIFF_EPS) - dft_common_bose_idealgas_energy(rhop - DIFF_EPS)) / (2.0 * DIFF_EPS);
+  return (dft_common_bose_idealgas_energy(rhop + DIFF_EPS, params) - dft_common_bose_idealgas_energy(rhop - DIFF_EPS, params)) / (2.0 * DIFF_EPS);
 #else
   REAL l3, z0, rl3, g12, g32;
   REAL tmp;
+  dft_ot_functional *otf = (dft_ot_functional *) params;
 
-  l3 = dft_common_lwl3(XXX_mass, XXX_temp);
+  l3 = dft_common_lwl3(otf->mass, otf->temp);
   rl3 = rhop * l3;
   tmp = dft_common_fit_g32(1.0);
-  if(rl3 >= tmp) return -XXX_c4 * GRID_AUKB * (XXX_temp / l3) * tmp;
+  if(rl3 >= tmp) return -otf->c4 * GRID_AUKB * (otf->temp / l3) * tmp;
   z0 = dft_common_fit_z(rl3);    /* check these fits */
   g12 = dft_common_fit_g12(z0);
   g32 = dft_common_fit_g32(z0);
 
-  return XXX_c4 * GRID_AUKB * XXX_temp * (LOG(z0) + rl3 / g12 - g32 / g12);
+  return otf->c4 * GRID_AUKB * otf->temp * (LOG(z0) + rl3 / g12 - g32 / g12);
 #endif
 }
 

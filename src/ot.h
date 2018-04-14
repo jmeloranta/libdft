@@ -140,6 +140,8 @@ typedef struct dft_ot_functional_struct {
   REAL rhom; /* Barranco */
   REAL C;    /* Barranco */
   REAL mu0;  /* Gross-Pitaevskii single particle energy */
+  REAL xi;   /* Pi */
+  REAL rhobf; /* Pi */
 } dft_ot_functional;
 
 /* Global user accessible variables */

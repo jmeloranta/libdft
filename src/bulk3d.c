@@ -28,10 +28,8 @@ EXPORT REAL dft_ot_bulk_energy(dft_ot_functional *otf, REAL rho) {
   if(otf->model & DFT_GP) return otf->mu0 * rho;
 
   tmp = (1.0 / 2.0) * otf->b * rho * rho + (1.0 / 2.0) * otf->c2 * rho * rho * rho + (1.0 / 3.0) * otf->c3 * rho * rho * rho * rho;
-  if(otf->c4 != 0.0) {
-    dft_common_idealgas_params(otf->temp, otf->mass, otf->c4);
-    tmp += dft_common_bose_idealgas_energy(rho); /* includes c4 */
-  }
+  if(otf->c4 != 0.0)
+    tmp += dft_common_bose_idealgas_energy(rho, (void *) otf); /* includes c4 */
   return tmp;
 }
 
@@ -55,10 +53,8 @@ EXPORT REAL dft_ot_bulk_dEdRho(dft_ot_functional *otf, REAL rho) {
   if(otf->model & DFT_GP) return otf->mu0;
 
   tmp = otf->b * rho + (3.0 / 2.0) * otf->c2 * rho * rho + (4.0 / 3.0) * otf->c3 * rho * rho * rho;
-  if(otf->c4 != 0.0) {
-    dft_common_idealgas_params(otf->temp, otf->mass, otf->c4);
-    tmp += dft_common_bose_idealgas_dEdRho(rho);
-  }
+  if(otf->c4 != 0.0)
+    tmp += dft_common_bose_idealgas_dEdRho(rho, (void *) otf);
   return tmp;
 }
 

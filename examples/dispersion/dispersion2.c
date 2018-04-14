@@ -52,7 +52,9 @@ int main(int argc, char **argv) {
   fprintf(stderr, "Maxmimum n corresponds to " FMT_R " Angs^-1.\n", atof(argv[2]) * 2.0 * M_PI / (GRID_AUTOANG * NX * STEP));
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
 
+#ifdef USE_CUDA
   cuda_enable(1);
+#endif
 
 //  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
   model = DFT_OT_PLAIN | DFT_OT_BACKFLOW;
