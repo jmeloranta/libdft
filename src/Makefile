@@ -1,8 +1,12 @@
 include ../make.conf
 
+all:
+	make prototypes
+	make libdft.a
+
 OBJS = ot3d.o common.o driver3d.o classical.o bulk3d.o
 
-libdft.a: prototypes | $(OBJS)
+libdft.a: $(OBJS)
 	$(AR) cr libdft.a $(OBJS)
 
 prototypes:
@@ -23,11 +27,6 @@ common.o: common.c dft.h
 
 ot3d.o: ot3d.c ot.h dft.h
 	$(CC) -I. $(CFLAGS) -c ot3d.c
-
-ifeq ($(CUDA),yes)
-ot3d-cuda.o: ot3d-cuda.c ot.h dft.h
-	$(CC) -I. $(CFLAGS) -c ot3d-cuda.c
-endif
 
 classical.o: classical.c dft.h
 	$(CC) -I. $(CFLAGS) -c classical.c
