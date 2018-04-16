@@ -1116,8 +1116,8 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   }
 
   /* Backflow fix from M & M */
-  otf->xi = 1E4 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
-  otf->rhobf = 0.033 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
+  otf->xi = 1E4 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
+  otf->rhobf = 0.033 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
 
   fprintf(stderr,"libdft: Temperature = " FMT_R " K.\n", otf->temp); 
 

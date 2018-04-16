@@ -13,16 +13,16 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 256
-#define NY 128
-#define NZ 128
+#define NX 128
+#define NY 64
+#define NZ 64
 #define STEP 0.5 /* Bohr */
-#define TS 10.0 /* fs */
+#define TS 20.0 /* fs */
 #define AMP 1e-2 /* wave amplitude (of total rho0) */
 
 #define THREADS 0
 
-#define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
+#define RHO0 (0.035 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
   cuda_enable(1);
 #endif
 
-  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
+  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD;
   dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, RHO0);
 
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
