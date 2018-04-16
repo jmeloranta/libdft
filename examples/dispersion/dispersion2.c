@@ -13,11 +13,12 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 128
-#define NY 64
-#define NZ 64
+#define NX 256
+#define NY 128
+#define NZ 128
 #define STEP 0.5 /* Bohr */
 #define TS 10.0 /* fs */
+#define AMP 1e-2 /* wave amplitude (of total rho0) */
 
 #define THREADS 0
 
@@ -56,8 +57,7 @@ int main(int argc, char **argv) {
   cuda_enable(1);
 #endif
 
-//  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
-  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW;
+  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
   dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, RHO0);
 
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
     wave_params.kx = ((REAL) n) * 2.0 * M_PI / (NX * STEP);
     wave_params.ky = 0.0;
     wave_params.kz = 0.0;
-    wave_params.a = 1.0E-3;
+    wave_params.a = AMP;
     wave_params.rho = RHO0;
     grid3d_wf_map(gwf, wave, &wave_params);
     prev_val = 1E10;
