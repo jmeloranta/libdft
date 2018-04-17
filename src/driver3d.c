@@ -43,7 +43,7 @@ static REAL driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0;
 static REAL driver_kx0 = 0.0, driver_ky0 = 0.0, driver_kz0 = 0.0;
 static rgrid3d *density = 0, *workspace1 = 0, *workspace2 = 0, *workspace3 = 0, *workspace4 = 0, *workspace5 = 0, *workspace6 = 0;
 static rgrid3d *workspace7 = 0, *workspace8 = 0, *workspace9 = 0;
-static cgrid3d *cworkspace = 0;
+static cgrid3d *cworkspace = 0, *cworkspace2 = 0;
 static grid_timer timer;
 
 /*
@@ -476,16 +476,20 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf3d *gwf, REAL comple
   case DFT_DRIVER_KINETIC_CN_NBC:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
+    if(!cworkspace2) 
+      cworkspace2 = dft_driver_alloc_cgrid("DR cworkspace2");
     if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) // do not apply in imag time
-      grid3d_wf_propagate_kinetic_cn_nbc_abs(gwf, ctstep / 2.0, driver_bc_amp, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz, cworkspace);
-    else grid3d_wf_propagate_kinetic_cn_nbc(gwf, ctstep / 2.0, cworkspace);
+      grid3d_wf_propagate_kinetic_cn_nbc_abs(gwf, ctstep / 2.0, driver_bc_amp, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz, cworkspace, cworkspace2);
+    else grid3d_wf_propagate_kinetic_cn_nbc(gwf, ctstep / 2.0, cworkspace, cworkspace2);
     break;
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
     if(!cworkspace)
       cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
+    if(!cworkspace2) 
+      cworkspace2 = dft_driver_alloc_cgrid("DR cworkspace2");
     if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
       fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
-    grid3d_wf_propagate_kinetic_cn_nbc_rot(gwf, ctstep / 2.0, driver_omega, cworkspace);
+    grid3d_wf_propagate_kinetic_cn_nbc_rot(gwf, ctstep / 2.0, driver_omega, cworkspace, cworkspace2);
     break;
   case DFT_DRIVER_KINETIC_CN_PBC:
     if(!cworkspace)
@@ -2872,11 +2876,8 @@ EXPORT void dft_driver_npoint_smooth(rgrid3d *dest, rgrid3d *source, int npts) {
 
 EXPORT void *dft_driver_get_workspace(char w, char alloc) {
 
-  if (w < 0 || w > 10) return NULL;
+  if (w < 1 || w > 10) return NULL;
   switch(w) {
-    case 0:
-      if(!cworkspace && alloc) cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
-      return (void *) cworkspace;
     case 1:
       if(!workspace1 && alloc) workspace1 = dft_driver_alloc_rgrid("DR workspace1");
       return (void *) workspace1;
@@ -2907,6 +2908,12 @@ EXPORT void *dft_driver_get_workspace(char w, char alloc) {
     case 10:
       if(!density && alloc) density = dft_driver_alloc_rgrid("DR density");
       return (void *) density;
+    case 11:
+      if(!cworkspace && alloc) cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
+      return (void *) cworkspace;
+    case 12:
+      if(!cworkspace2 && alloc) cworkspace2 = dft_driver_alloc_cgrid("DR cworkspace2");
+      return (void *) cworkspace2;
    }
    return NULL;
 }
