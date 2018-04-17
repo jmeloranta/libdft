@@ -1,2 +1,3 @@
-- memory profile - storing things (density) multiple times etc.
-- cpu profile
+- is there a problem with examples/dispersion/dispersion3.c? It seems to give roton minimum that is slightly too low!? (OT+BF+KC)
+
+
