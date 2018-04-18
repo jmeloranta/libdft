@@ -44,11 +44,11 @@
 
 int main(int argc, char **argv) {
 
-  cgrid3d *potential_store;
-  cgrid1d *spectrum;
-  rgrid3d *ext_pot, *ext_pot2, *density;
-  wf3d *gwf, *gwfp;
-  wf3d *imwf, *imwfp;
+  cgrid *potential_store;
+  cgrid *spectrum;
+  rgrid *ext_pot, *ext_pot2, *density;
+  wf *gwf, *gwfp;
+  wf *imwf, *imwfp;
   INT iter;
   REAL energy, natoms, en, mu0;
   FILE *fp;
@@ -93,15 +93,15 @@ int main(int argc, char **argv) {
   /* Run imaginary time iterations */
   for (; iter < IMITER; iter++) {
     /* convolute impurity density with ext_pot -> ext_pot2 */
-    grid3d_wf_density(imwf, density);
+    grid_wf_density(imwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
-    rgrid3d_add(ext_pot2, -mu0);
+    rgrid_add(ext_pot2, -mu0);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
 
     /* convolute liquid density with ext_pot -> ext_pot2 */
-    grid3d_wf_density(gwf, density);
+    grid_wf_density(gwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
@@ -109,9 +109,9 @@ int main(int argc, char **argv) {
   }
 
   /* At this point gwf contains the converged wavefunction */
-  grid3d_wf_density(gwf, density);
+  grid_wf_density(gwf, density);
   dft_driver_write_density(density, "initial-helium");
-  grid3d_wf_density(imwf, density);
+  grid_wf_density(imwf, density);
   dft_driver_write_density(density, "initial-imp");
 
   energy = dft_driver_energy(gwf, ext_pot);
@@ -122,16 +122,16 @@ int main(int argc, char **argv) {
 
   /* Propagate only the liquid in real time */
   dft_driver_setup_model(MODEL, DFT_DRIVER_REAL_TIME, RHO0);
-  grid3d_wf_density(imwf, density);
+  grid_wf_density(imwf, density);
   ext_pot = dft_driver_spectrum_init(density, REITER, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z);
-  rgrid3d_add(ext_pot, -mu0);
+  rgrid_add(ext_pot, -mu0);
   for (iter = 0; iter < REITER; iter++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
     dft_driver_spectrum_collect(gwf);
     if(!(iter % 10)) {
       char buf[512];
-      grid3d_wf_density(gwf, density);
+      grid_wf_density(gwf, density);
       sprintf(buf, "realtime-" FMT_I, iter);
       dft_driver_write_density(density, buf);
     }
@@ -142,8 +142,8 @@ int main(int argc, char **argv) {
     exit(1);
   }
   for (iter = 0, en = -0.5 * spectrum->step * (spectrum->nx - 1); iter < spectrum->nx; iter++, en += spectrum->step)
-    // fprintf(fp, FMT_R " " FMT_R "\n", en, CREAL(cgrid1d_value_at_index(spectrum, iter)));
-    fprintf(fp, FMT_R " " FMT_R "\n", en, POW(CREAL(cgrid1d_value_at_index(spectrum, iter)), 2.0) + POW(CIMAG(cgrid1d_value_at_index(spectrum, iter)), 2.0));
+    // fprintf(fp, FMT_R " " FMT_R "\n", en, CREAL(cgrid_value_at_index(spectrum, 1, 1, iter)));
+    fprintf(fp, FMT_R " " FMT_R "\n", en, POW(CREAL(cgrid_value_at_index(spectrum, 1, 1, iter)), 2.0) + POW(CIMAG(cgrid_value_at_index(spectrum, 1, 1, iter)), 2.0));
   fclose(fp);
   printf("Spectrum written to spectrum.dat\n");
   exit(0);

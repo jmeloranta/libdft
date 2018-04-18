@@ -173,9 +173,9 @@ REAL pot_func(void *asd, REAL x, REAL y, REAL z) {
 
 int main(int argc, char **argv) {
 
-  cgrid3d *potential_store;
-  rgrid3d *ext_pot, *density;
-  wf3d *gwf, *gwfp;
+  cgrid *potential_store;
+  rgrid *ext_pot, *density;
+  wf *gwf, *gwfp;
   INT iter;
   REAL energy, natoms, mu0, rho0;
 
@@ -201,10 +201,10 @@ int main(int argc, char **argv) {
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
   /* Read external potential from file */
-  rgrid3d_map(ext_pot, pot_func, NULL);
+  rgrid_map(ext_pot, pot_func, NULL);
   //dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "cl-pot.dat", "cl-pot.dat", "cl-pot.dat", ext_pot);
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
-  rgrid3d_add(ext_pot, -mu0);
+  rgrid_add(ext_pot, -mu0);
   rho0 = dft_driver_otf->rho0;
   printf("mu0 = %le K, rho0 = %le Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
@@ -215,7 +215,7 @@ int main(int argc, char **argv) {
     if(!(iter % NTH)) {
       char buf[512];
       sprintf(buf, "output-" FMT_I, iter);
-      grid3d_wf_density(gwf, density);
+      grid_wf_density(gwf, density);
       dft_driver_write_density(density, buf);
       sprintf(buf, "wf-output-" FMT_I, iter);
       dft_driver_write_grid(gwf->grid, buf);
@@ -228,7 +228,7 @@ int main(int argc, char **argv) {
     fflush(stdout);
   }
   /* At this point gwf contains the converged wavefunction */
-  grid3d_wf_density(gwf, density);
+  grid_wf_density(gwf, density);
   dft_driver_write_density(density, "output");
   return 0;
 }

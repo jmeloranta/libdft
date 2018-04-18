@@ -43,10 +43,10 @@ REAL global_time;
 
 int main(int argc, char *argv[]) {
 
-  wf3d *gwf, *gwfp;
-  wf3d *impwf, *impwfp; /* impurity wavefunction */
-  cgrid3d *cworkspace;
-  rgrid3d *pair_pot, *ext_pot, *density, *current;
+  wf *gwf, *gwfp;
+  wf *impwf, *impwfp; /* impurity wavefunction */
+  cgrid *cworkspace;
+  rgrid *pair_pot, *ext_pot, *density, *current;
   INT iter;
   char filename[2048];
   REAL kin, pot;
@@ -90,8 +90,8 @@ int main(int argc, char *argv[]) {
   cworkspace = dft_driver_alloc_cgrid("cworkspace");           /* allocate complex workspace (must be preserved during predict-correct) */
   pair_pot = dft_driver_alloc_rgrid("pair pot");               /* allocate real external potential grid (seprate grid; cannot be overwritten) */
   ext_pot = dft_driver_alloc_rgrid("ext pot");                 /* allocate real external potential grid (used by predict-correct; separate grid) */
-  density = (rgrid3d *) dft_driver_get_workspace(10, 1);       /* used outside predict-correct */
-  current = (rgrid3d *) dft_driver_get_workspace(1, 1);        /* used outside predict-correct */
+  density = (rgrid *) dft_driver_get_workspace(10, 1);       /* used outside predict-correct */
+  current = (rgrid *) dft_driver_get_workspace(1, 1);        /* used outside predict-correct */
 
   fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (" FMT_R "," FMT_R "," FMT_R ") (A/ps)\n", 
@@ -102,10 +102,10 @@ int main(int argc, char *argv[]) {
   /* Initial wavefunctions. Read from file or set to initial guess */
 #if 1
   /* Constant density (initial guess) */
-  cgrid3d_constant(gwf->grid, SQRT(rho0));
+  cgrid_constant(gwf->grid, SQRT(rho0));
   /* Gaussian for impurity (initial guess) */
   REAL inv_width = 0.5;
-  cgrid3d_map(impwf->grid, dft_common_cgaussian, &inv_width);
+  cgrid_map(impwf->grid, dft_common_cgaussian, &inv_width);
 #else
   /* Read liquid wavefunction from file */ 
   dft_driver_read_grid(gwf->grid, "liquid_input");
@@ -114,10 +114,10 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* Set the electron velocity to zero */
-  cgrid3d_set_momentum(impwf->grid, 0.0, 0.0, 0.0);
+  cgrid_set_momentum(impwf->grid, 0.0, 0.0, 0.0);
 
-  cgrid3d_copy(gwfp->grid, gwf->grid);                    /* make current and predicted wf's equal */
-  cgrid3d_copy(impwfp->grid, impwf->grid);                /* make current and predicted wf's equal */
+  cgrid_copy(gwfp->grid, gwf->grid);                    /* make current and predicted wf's equal */
+  cgrid_copy(impwfp->grid, impwf->grid);                /* make current and predicted wf's equal */
   
   /* Read pair potential from file and do FFT */
   dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "../electron/jortner.dat", "../electron/jortner.dat", "../electron/jortner.dat", pair_pot);
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
     printf("Iteration = " FMT_I "\n", iter);
     /*** IMPURITY ***/
     /* 1. update potential */
-    grid3d_wf_density(gwf, density);
+    grid_wf_density(gwf, density);
     dft_driver_convolution_prepare(NULL, density);
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
     /* no chemical potential for impurity */
@@ -137,9 +137,9 @@ int main(int argc, char *argv[]) {
     /* 3. if OUTPUT, compute energy*/
     if(!(iter % OUTPUT)){	
       /* Impurity energy */
-      grid3d_wf_density(impwf, density);
-      kin = grid3d_wf_energy(impwf, NULL, cworkspace) ;     /*kinetic*/ 
-      pot = rgrid3d_integral_of_product(ext_pot, density) ; /*potential*/
+      grid_wf_density(impwf, density);
+      kin = grid_wf_energy(impwf, NULL, cworkspace) ;     /*kinetic*/ 
+      pot = rgrid_integral_of_product(ext_pot, density) ; /*potential*/
       printf("Output at iteration " FMT_I ":\n", iter);
       printf("Impurity kinetic   = " FMT_R "\n", kin * GRID_AUTOK);  /* Print result in K */
       printf("Impurity potential = " FMT_R "\n", pot * GRID_AUTOK);  /* Print result in K */
@@ -153,10 +153,10 @@ int main(int argc, char *argv[]) {
     
     /***  HELIUM  ***/
     /* 1. update potential */
-    grid3d_wf_density(impwf, density);
+    grid_wf_density(impwf, density);
     dft_driver_convolution_prepare(NULL, density);
     dft_driver_convolution_eval(ext_pot, density, pair_pot);
-    rgrid3d_add(ext_pot, -mu0) ; /* Add the chemical potential */
+    rgrid_add(ext_pot, -mu0) ; /* Add the chemical potential */
 
     /* 2. Predict + correct */
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
@@ -176,19 +176,19 @@ int main(int argc, char *argv[]) {
 
       /* Helium density */
       if(VX != 0.0)
-	grid3d_wf_probability_flux_x(gwf, current);
+	grid_wf_probability_flux_x(gwf, current);
       else if(VY != 0.0)
-	grid3d_wf_probability_flux_y(gwf, current);
+	grid_wf_probability_flux_y(gwf, current);
       else
-	grid3d_wf_probability_flux_z(gwf, current);
+	grid_wf_probability_flux_z(gwf, current);
 
       if(VX != 0.0)
-	printf("Added mass = " FMT_R "\n", rgrid3d_integral(current) / VX); 
+	printf("Added mass = " FMT_R "\n", rgrid_integral(current) / VX); 
       else
 	printf("VX = 0, no added mass.\n");
       fflush(stdout);
 
-      grid3d_wf_density(gwf, density);                     /* Density from gwf */
+      grid_wf_density(gwf, density);                     /* Density from gwf */
 
       sprintf(filename, "ebubble_liquid-" FMT_I, iter);              
       dft_driver_write_density(density, filename);

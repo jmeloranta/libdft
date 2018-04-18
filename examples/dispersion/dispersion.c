@@ -37,9 +37,9 @@ int main(int argc, char **argv) {
   INT l, iterations;
   REAL size, mu0;
   grid_timer timer;
-  cgrid3d *potential_store;
-  wf3d *gwf, *gwfp;
-  rgrid3d *density, *pot;
+  cgrid *potential_store;
+  wf *gwf, *gwfp;
+  rgrid *density, *pot;
   sWaveParams wave_params;
   
   /* parameters */
@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");
   pot = dft_driver_alloc_rgrid("pot");
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
-  rgrid3d_constant(pot, -mu0);
+  rgrid_constant(pot, -mu0);
   
   wave_params.kx = (REAL) atof(argv[2]) * 2.0 * M_PI / size;
   wave_params.ky = (REAL) atof(argv[3]) * 2.0 * M_PI / size;
@@ -74,14 +74,14 @@ int main(int argc, char **argv) {
   wave_params.rho = dft_ot_bulk_density(dft_driver_otf);
   fprintf(stderr, "Momentum (" FMT_R " x " FMT_R " x " FMT_R ") Angs^-1\n", wave_params.kx / GRID_AUTOANG, wave_params.ky / GRID_AUTOANG, wave_params.kz / GRID_AUTOANG);
   
-  grid3d_wf_map(gwf, wave, &wave_params);
+  grid_wf_map(gwf, wave, &wave_params);
 
   for(l = 0; l < iterations; l++) {
     grid_timer_start(&timer);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
-    grid3d_wf_density(gwf, density);
-    printf(FMT_R " " FMT_R "\n", ((REAL) l) * TS, rgrid3d_value_at_index(density, N/2, N/2, N/2));
+    grid_wf_density(gwf, density);
+    printf(FMT_R " " FMT_R "\n", ((REAL) l) * TS, rgrid_value_at_index(density, N/2, N/2, N/2));
     fflush(stdout);
     fprintf(stderr, "One iteration = " FMT_R " wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
   }

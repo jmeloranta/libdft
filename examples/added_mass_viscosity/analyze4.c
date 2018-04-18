@@ -18,8 +18,8 @@
 
 int main(int argc, char **argv) {
 
-  rgrid3d *density, *vx, *vy, *vz;
-  wf3d *gwf, *impwf;
+  rgrid *density, *vx, *vy, *vz;
+  wf *gwf, *impwf;
   
   /* Setup grid driver parameters */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
@@ -44,16 +44,16 @@ int main(int argc, char **argv) {
   }
 
   /* super */
-  grid3d_wf_density(gwf, density);
+  grid_wf_density(gwf, density);
   dft_driver_write_density(density, "helium");
   dft_driver_veloc_field(gwf, vx, vy, vz);
-  rgrid3d_add(vx, -VX);
+  rgrid_add(vx, -VX);
   dft_driver_write_density(vx, "helium-vx");
   dft_driver_write_density(vy, "helium-vy");
   dft_driver_write_density(vz, "helium-vz");
 
   /* electron */
-  grid3d_wf_density(impwf, density);
+  grid_wf_density(impwf, density);
   dft_driver_write_density(density, "electron");
   dft_driver_veloc_field(impwf, vx, vy, vz);
   dft_driver_write_density(vx, "electron-vx");

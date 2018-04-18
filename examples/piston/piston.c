@@ -84,9 +84,9 @@ REAL pot_func(void *NA, REAL x, REAL y, REAL z) {
 
 int main(int argc, char **argv) {
 
-  rgrid3d *ext_pot, *rworkspace;
-  cgrid3d *potential_store;
-  wf3d *gwf, *gwfp;
+  rgrid *ext_pot, *rworkspace;
+  cgrid *potential_store;
+  wf *gwf, *gwfp;
   INT iter;
   REAL mu0, rho0;
   char buf[512];
@@ -119,8 +119,8 @@ int main(int argc, char **argv) {
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
   /* map potential */
-  rgrid3d_map(ext_pot, pot_func, NULL);
-  rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
+  rgrid_map(ext_pot, pot_func, NULL);
+  rgrid_add(ext_pot, -mu0); /* Add the chemical potential */
 
   /* Imag time iterations */
   for (iter = 0; iter < INITIAL; iter++) {
@@ -136,13 +136,13 @@ int main(int argc, char **argv) {
     /* Move potential */
     if(piston_pos < PISTON_DIST) {
       piston_pos = piston(iter * TS / GRID_AUTOFS);
-      rgrid3d_map(ext_pot, pot_func, NULL);
-      rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
+      rgrid_map(ext_pot, pot_func, NULL);
+      rgrid_add(ext_pot, -mu0); /* Add the chemical potential */
       /* end move */
     }
     if(!(iter % NTH)) {
       sprintf(buf, "piston-" FMT_I, iter);
-      grid3d_wf_density(gwf, rworkspace);
+      grid_wf_density(gwf, rworkspace);
       dft_driver_write_density(rworkspace, buf);
     }
   }

@@ -59,16 +59,16 @@ static REAL z[NN] = {0.0, 0.0, 0.0};
 
 REAL switch_axis(void *xx, REAL x, REAL y, REAL z) {
 
-  rgrid3d *grid = (rgrid3d *) xx;
+  rgrid *grid = (rgrid *) xx;
 
-  return rgrid3d_value(grid, z, y, x);  // swap x and z -> molecule along x axis
+  return rgrid_value(grid, z, y, x);  // swap x and z -> molecule along x axis
 }
 
 int main(int argc, char **argv) {
 
-  cgrid3d *potential_store;
-  rgrid3d *ext_pot, *density, *px, *py, *pz;
-  wf3d *gwf, *gwfp;
+  cgrid *potential_store;
+  rgrid *ext_pot, *density, *px, *py, *pz;
+  wf *gwf, *gwfp;
   INT iter, N, i;
   REAL energy, natoms, omega, beff, i_add, lx, ly, lz, i_free, b_free, mass, cmx, cmy, cmz;
 
@@ -111,21 +111,21 @@ int main(int argc, char **argv) {
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
   /* Read external potential from file */
-  density->value_outside = RGRID3D_DIRICHLET_BOUNDARY;  // for extrapolation to work
+  density->value_outside = RGRID_DIRICHLET_BOUNDARY;  // for extrapolation to work
 #ifdef SWITCH_AXIS
   dft_driver_read_density(density, POTENTIAL);
-  rgrid3d_map(ext_pot, switch_axis, density);
+  rgrid_map(ext_pot, switch_axis, density);
 #else
   dft_driver_read_density(ext_pot, POTENTIAL);
 #endif
-  density->value_outside = RGRID3D_PERIODIC_BOUNDARY;   // done, back to original
-  rgrid3d_add(ext_pot, 7.2 / GRID_AUTOK);
+  density->value_outside = RGRID_PERIODIC_BOUNDARY;   // done, back to original
+  rgrid_add(ext_pot, 7.2 / GRID_AUTOK);
 
   omega = OMEGA;
   printf("Omega = " FMT_R "\n", omega);
   dft_driver_setup_rotation_omega(omega);
 
-  cgrid3d_constant(gwf->grid, 1.0);
+  cgrid_constant(gwf->grid, 1.0);
 
   for (iter = 1; iter < MAXITER; iter++) {
     
@@ -140,10 +140,10 @@ int main(int argc, char **argv) {
     }
     cmx /= mass; cmy /= mass; cmz /= mass;    
     // 2. Liquid
-    grid3d_wf_probability_flux_y(gwf, density);
-    cmx += rgrid3d_integral(density) * gwf->mass / (2.0 * omega * mass);
-    grid3d_wf_probability_flux_x(gwf, density);
-    cmy -= rgrid3d_integral(density) * gwf->mass / (2.0 * omega * mass);
+    grid_wf_probability_flux_y(gwf, density);
+    cmx += rgrid_integral(density) * gwf->mass / (2.0 * omega * mass);
+    grid_wf_probability_flux_x(gwf, density);
+    cmy -= rgrid_integral(density) * gwf->mass / (2.0 * omega * mass);
     printf("Current center of inertia: " FMT_R " " FMT_R " " FMT_R "\n", cmx, cmy, cmz);
 
     /* Moment of inertia about the center of mass for the molecule */
@@ -159,8 +159,8 @@ int main(int argc, char **argv) {
     printf("I_molecule = " FMT_R " AMU Angs^2\n", i_free * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
     printf("B_molecule = " FMT_R " cm-1.\n", b_free * GRID_AUTOCM1);
     /* Liquid contribution to the moment of inertia */
-    cgrid3d_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in dft_driver_L() and -wL_z in the Hamiltonian
-    cgrid3d_set_origin(gwfp->grid, cmx, cmy, cmz);// the point x=0 is shift by cmX 
+    cgrid_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in dft_driver_L() and -wL_z in the Hamiltonian
+    cgrid_set_origin(gwfp->grid, cmx, cmy, cmz);// the point x=0 is shift by cmX 
     dft_driver_L(gwf, &lx, &ly, &lz);
     i_add = lz / omega;
     printf("I_eff = " FMT_R " AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
@@ -172,7 +172,7 @@ int main(int argc, char **argv) {
 
     if(!(iter % 100)) {
       char buf[512];
-      grid3d_wf_density(gwf, density);
+      grid_wf_density(gwf, density);
 #if 1
       sprintf(buf, "output-" FMT_I, iter);
       dft_driver_write_density(density, buf);
@@ -183,7 +183,7 @@ int main(int argc, char **argv) {
       printf("Number of He atoms is " FMT_R ".\n", natoms);
       printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
 #if 0
-      grid3d_wf_probability_flux(gwf, px, py, pz);
+      grid_wf_probability_flux(gwf, px, py, pz);
       sprintf(buf, "flux_x-" FMT_I, iter);
       dft_driver_write_density(px, buf);
       sprintf(buf, "flux_y-" FMT_I, iter);

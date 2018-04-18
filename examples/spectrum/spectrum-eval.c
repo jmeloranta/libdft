@@ -20,7 +20,7 @@
 
 int main(int argc, char **argv) {
 
-  cgrid1d *spectrum;
+  cgrid *spectrum;
   REAL val, en;
   INT iter = 0, i;
   FILE *fp;
@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     exit(1);
   }
   for (iter = 0, en = -0.5 * spectrum->step * spectrum->nx; iter < spectrum->nx; iter++, en += spectrum->step)
-    fprintf(fp, FMT_R " " FMT_R " " FMT_R "\n", en, CREAL(cgrid1d_value_at_index(spectrum, iter)), CIMAG(cgrid1d_value_at_index(spectrum, iter)));
+    fprintf(fp, FMT_R " " FMT_R " " FMT_R "\n", en, CREAL(cgrid_value_at_index(spectrum, 1, 1, iter)), CIMAG(cgrid_value_at_index(spectrum, 1, 1, iter)));
   fclose(fp);
   printf("Spectrum written to spectrum.dat\n");
   exit(0);

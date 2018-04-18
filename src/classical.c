@@ -1,5 +1,5 @@
 /*
- * Routines for classical DFT (3D).
+ * Routines for classical DFT.
  *
  */
 

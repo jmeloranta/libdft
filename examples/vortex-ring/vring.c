@@ -43,9 +43,9 @@ REAL complex vring(void *asd, REAL x, REAL y, REAL z) {
 
 int main(int argc, char **argv) {
 
-  rgrid3d *ext_pot;
-  cgrid3d *potential_store;
-  wf3d *gwf, *gwfp;
+  rgrid *ext_pot;
+  cgrid *potential_store;
+  wf *gwf, *gwfp;
   INT iter;
   REAL mu0, kin, pot, n;
   char buf[512];
@@ -77,10 +77,10 @@ int main(int argc, char **argv) {
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
   /* setup initial guess for vortex ring */
-  cgrid3d_map(gwf->grid, vring, NULL);
+  cgrid_map(gwf->grid, vring, NULL);
 
   /* Generate the excited potential */
-  rgrid3d_constant(ext_pot, -mu0); /* Add the chemical potential */
+  rgrid_constant(ext_pot, -mu0); /* Add the chemical potential */
 
   for (iter = 1; iter < 800000; iter++) {
     if(iter == 1 || !(iter % NTH)) {

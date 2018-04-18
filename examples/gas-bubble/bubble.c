@@ -33,15 +33,15 @@ REAL complex tstep(REAL complex tstep, INT iter) {
 
 int main(int argc, char *argv[]) {
 
-  wf3d *gwf, *gwfp;
-  cgrid3d *cworkspace;
-  rgrid3d *ext_pot;
+  wf *gwf, *gwfp;
+  cgrid *cworkspace;
+  rgrid *ext_pot;
 #ifdef OUTPUT_GRID
   char filename[2048];
 #endif
   REAL vx, mu0, kx, rho0;
   INT iter;
-  extern void analyze(wf3d *, INT, REAL);
+  extern void analyze(wf *, INT, REAL);
   extern REAL pot_func(void *, REAL, REAL, REAL);
   
   /* Setup DFT driver parameters */
@@ -90,9 +90,9 @@ int main(int argc, char *argv[]) {
   vx = round_veloc(VX);     /* Round velocity to fit the spatial grid */
   kx = momentum(vx);
   dft_driver_setup_momentum(kx, 0.0, 0.0);
-  cgrid3d_set_momentum(gwf->grid, kx, 0.0, 0.0);
-  cgrid3d_set_momentum(gwfp->grid, kx, 0.0, 0.0);
-  cgrid3d_set_momentum(cworkspace, kx, 0.0, 0.0);
+  cgrid_set_momentum(gwf->grid, kx, 0.0, 0.0);
+  cgrid_set_momentum(gwfp->grid, kx, 0.0, 0.0);
+  cgrid_set_momentum(cworkspace, kx, 0.0, 0.0);
 
   fprintf(stderr, "Time step in fs   = " FMT_R "\n", TIME_STEP);
   fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
@@ -101,8 +101,8 @@ int main(int argc, char *argv[]) {
 		  vx * 1000.0 * GRID_AUTOANG / GRID_AUTOFS, 0.0, 0.0);
   fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (m/s)\n", vx * GRID_AUTOMPS, 0.0, 0.0);
 
-  rgrid3d_map(ext_pot, pot_func, NULL); /* External potential */
-  rgrid3d_add(ext_pot, -mu0);
+  rgrid_map(ext_pot, pot_func, NULL); /* External potential */
+  rgrid_add(ext_pot, -mu0);
 
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_USER_TIME, rho0);  /* mixed real & imag time iterations for warm up */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);

@@ -63,7 +63,7 @@ EXPORT inline REAL dft_common_lj_func(REAL r2, REAL sig, REAL eps) {
 }
 
 /*
- * Lennard-Jones potential to be used with grid map() routines (3D)
+ * Lennard-Jones potential to be used with grid map() routines
  * Note that the LJ potential has zero core when r < h.
  *
  * The potential paramegers are passed in arg (ot_common_lh data type).
@@ -93,7 +93,7 @@ EXPORT inline REAL dft_common_lennard_jones(void *arg, REAL x, REAL y, REAL z) {
 }
 
 /*
- * Lennard-Jones potential with smoothed core to be used with grid map()
+ * Lennard-Jones potential with smoothed core to be used with grid map().
  * routines. Parameters passed in arg (see the regular LJ above).
  *
  * The potential paramegers are passed in arg (ot_common_lh data type).
@@ -123,7 +123,7 @@ EXPORT inline REAL dft_common_lennard_jones_smooth(void *arg, REAL x, REAL y, RE
 }
 
 /*
- * Spherical average function to be used with grid map() routines (3D).
+ * Spherical average function to be used with grid map() routines.
  * The sphere radius is passed in arg.
  *
  * arg = pointer to the radius of the sphere (REAL *).
@@ -146,7 +146,7 @@ EXPORT inline REAL dft_common_spherical_avg(void *arg, REAL x, REAL y, REAL z) {
 
 
 /*
- * Spherical average function IN MOMENTUM SPACE to be used with grid map() routines (3D).
+ * Spherical average function IN MOMENTUM SPACE to be used with grid map() routines.
  * The sphere radius is passed in arg.
  *
  * arg = pointer to the radius of the sphere, hk (REAL *).
@@ -167,7 +167,7 @@ EXPORT inline REAL dft_common_spherical_avg_k(void *arg, REAL kx, REAL ky, REAL 
 }
 
 /*
- * Gaussian function to be used with grid map() functions (3D).
+ * Gaussian function to be used with grid map() functions.
  * The gaussian is centered at (0,0,0) and width is given in arg.
  *
  * arg = Inverse width of the gaussian function (REAL *).
@@ -189,7 +189,7 @@ EXPORT inline REAL dft_common_gaussian(void *arg, REAL x, REAL y, REAL z) {
 }
 
 /*
- * Complex Gaussian function to be used with cgrid map() functions (3D).
+ * Complex Gaussian function to be used with cgrid map() functions.
  * The gaussian is centered at (0,0,0) and width is given in arg.
  *
  * arg = Inverse width of the gaussian function (REAL *).
@@ -655,7 +655,7 @@ REAL dft_common_extpot(void *arg, REAL x, REAL y, REAL z) {
  * file_x  = Potential along x axis (char *).
  * file_y  = Potential along y axis (char *).
  * file_z  = Potential along z axis (char *).
- * grid    = Output potential grid (cgrid3d *).
+ * grid    = Output potential grid (cgrid *).
  * theta0  = Rotation angle theta.
  * phi0    = Rotation angle phi.
  * x0      = New origin x.
@@ -668,7 +668,7 @@ REAL dft_common_extpot(void *arg, REAL x, REAL y, REAL z) {
  *
  */
 	
-EXPORT void dft_common_potential_map_tilt_shift(char average, char *filex, char *filey, char *filez, rgrid3d *potential, REAL theta0, REAL phi0, REAL x0, REAL y0, REAL z0) {
+EXPORT void dft_common_potential_map_tilt_shift(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta0, REAL phi0, REAL x0, REAL y0, REAL z0) {
 
   dft_extpot x, y, z;
   dft_extpot_set set;
@@ -687,7 +687,7 @@ EXPORT void dft_common_potential_map_tilt_shift(char average, char *filex, char 
   dft_common_read_pot(filex, &x);
   dft_common_read_pot(filey, &y);
   dft_common_read_pot(filez, &z);
-  rgrid3d_map(potential, dft_common_extpot, (void *) &set);
+  rgrid_map(potential, dft_common_extpot, (void *) &set);
   fprintf(stderr, "done.\n");
 }
 
@@ -696,7 +696,7 @@ EXPORT void dft_common_potential_map_tilt_shift(char average, char *filex, char 
  * 
  */
 
-EXPORT void dft_common_potential_map(char average, char *filex, char *filey, char *filez, rgrid3d *potential) {
+EXPORT void dft_common_potential_map(char average, char *filex, char *filey, char *filez, rgrid *potential) {
   
   dft_common_potential_map_tilt_shift(average, filex, filey, filez, potential, 0.0, 0.0, 0.0, 0.0, 0.0);
 }
@@ -706,7 +706,7 @@ EXPORT void dft_common_potential_map(char average, char *filex, char *filey, cha
  *
  */
 
-EXPORT void dft_common_potential_map_tilt(char average, char *filex, char *filey, char *filez, rgrid3d *potential, REAL theta, REAL phi) {
+EXPORT void dft_common_potential_map_tilt(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta, REAL phi) {
   
   dft_common_potential_map_tilt_shift(average, filex, filey, filez, potential, theta, phi, 0.0, 0.0, 0.0);
 }
@@ -718,9 +718,9 @@ EXPORT void dft_common_potential_map_tilt(char average, char *filex, char *filey
  *
  */
 
-EXPORT void dft_common_potential_map_nonperiodic(char average, char *filex, char *filey, char *filez, rgrid3d *potential) {
+EXPORT void dft_common_potential_map_nonperiodic(char average, char *filex, char *filey, char *filez, rgrid *potential) {
 
-  rgrid3d_set_origin(potential, -((REAL) (potential->nx / 2)) * potential->step, -((REAL) (potential->ny / 2)) * potential->step, -((REAL) (potential->nz / 2)) * potential->step);
+  rgrid_set_origin(potential, -((REAL) (potential->nx / 2)) * potential->step, -((REAL) (potential->ny / 2)) * potential->step, -((REAL) (potential->nz / 2)) * potential->step);
   dft_common_potential_map(average, filex, filey, filez, potential);
 }
 
@@ -732,7 +732,7 @@ EXPORT void dft_common_potential_map_nonperiodic(char average, char *filex, char
  * file_x  = Potential along x axis (char *).
  * file_y  = Potential along y axis (char *).
  * file_z  = Potential along z axis (char *).
- * grid    = Output potential grid (cgrid3d *).
+ * grid    = Output potential grid (cgrid *).
  * theta0  = Rotation angle theta.
  * phi0    = Rotation angle phi.
  * x0      = New origin x.
@@ -745,7 +745,7 @@ EXPORT void dft_common_potential_map_nonperiodic(char average, char *filex, char
  *
  */
 	
-EXPORT void dft_common_potential_smap_tilt_shift(char average, char *filex, char *filey, char *filez, rgrid3d *potential, REAL theta0, REAL phi0, REAL x0, REAL y0, REAL z0) {
+EXPORT void dft_common_potential_smap_tilt_shift(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta0, REAL phi0, REAL x0, REAL y0, REAL z0) {
 
   dft_extpot x, y, z;
   dft_extpot_set set;
@@ -764,7 +764,7 @@ EXPORT void dft_common_potential_smap_tilt_shift(char average, char *filex, char
   dft_common_read_pot(filex, &x);
   dft_common_read_pot(filey, &y);
   dft_common_read_pot(filez, &z);
-  rgrid3d_smooth_map(potential, dft_common_extpot, (void *) &set, 10); /* TODO allow changing this */
+  rgrid_smooth_map(potential, dft_common_extpot, (void *) &set, 10); /* TODO allow changing this */
   fprintf(stderr, "done.\n");
 }
 
@@ -773,7 +773,7 @@ EXPORT void dft_common_potential_smap_tilt_shift(char average, char *filex, char
  *
  */
 
-EXPORT void dft_common_potential_smap(char average, char *filex, char *filey, char *filez, rgrid3d *potential) {
+EXPORT void dft_common_potential_smap(char average, char *filex, char *filey, char *filez, rgrid *potential) {
   
   dft_common_potential_smap_tilt_shift(average, filex, filey, filez, potential, 0.0, 0.0, 0.0, 0.0, 0.0);
 }
@@ -783,7 +783,7 @@ EXPORT void dft_common_potential_smap(char average, char *filex, char *filey, ch
  *
  */
 
-EXPORT void dft_common_potential_smap_tilt(char average, char *filex, char *filey, char *filez, rgrid3d *potential, REAL theta, REAL phi) {
+EXPORT void dft_common_potential_smap_tilt(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta, REAL phi) {
   
   dft_common_potential_smap_tilt_shift(average, filex, filey, filez, potential, theta, phi, 0.0, 0.0, 0.0);
 }
@@ -794,9 +794,9 @@ EXPORT void dft_common_potential_smap_tilt(char average, char *filex, char *file
  *
  */
 
-EXPORT void dft_common_potential_smap_nonperiodic(char average, char *filex, char *filey, char *filez, rgrid3d *potential) {
+EXPORT void dft_common_potential_smap_nonperiodic(char average, char *filex, char *filey, char *filez, rgrid *potential) {
 
-  rgrid3d_set_origin(potential, -((REAL) (potential->nx / 2)) * potential->step, -((REAL) (potential->ny / 2)) * potential->step, -((REAL) (potential->nz / 2)) * potential->step);
+  rgrid_set_origin(potential, -((REAL) (potential->nx / 2)) * potential->step, -((REAL) (potential->ny / 2)) * potential->step, -((REAL) (potential->nz / 2)) * potential->step);
   dft_common_potential_smap(average, filex, filey, filez, potential);
 }
 
@@ -806,12 +806,12 @@ EXPORT void dft_common_potential_smap_nonperiodic(char average, char *filex, cha
  *
  */
 
-static rgrid3d *dft_common_pot_interpolate_read(INT n, char **files) {
+static rgrid *dft_common_pot_interpolate_read(INT n, char **files) {
 
   REAL r, pot_begin, pot_step;
   INT i, j, k;
   INT nr, nphi, pot_length;
-  rgrid3d *cyl;
+  rgrid *cyl;
   dft_extpot pot;
 
   if (n < 0) {
@@ -827,7 +827,7 @@ static rgrid3d *dft_common_pot_interpolate_read(INT n, char **files) {
   nr = pot.length + (INT) (pot_begin / pot_step);   /* enough space for the potential + the empty core, which is set to constant */
   nphi = n; /* Only [0,Pi] stored - ]Pi,2Pi[ by symmetry */
 
-  cyl = rgrid3d_alloc(nr, nphi, 1, pot.step, RGRID3D_PERIODIC_BOUNDARY, NULL, "cyl");
+  cyl = rgrid_alloc(nr, nphi, 1, pot.step, RGRID_PERIODIC_BOUNDARY, NULL, "cyl");
   
   /* For each direction */
   for (j = 0; j < n; j++) {
@@ -855,7 +855,7 @@ static rgrid3d *dft_common_pot_interpolate_read(INT n, char **files) {
  *
  */
 
-inline REAL eval_value_at_index_cyl(rgrid3d *grid, INT i, INT j, INT k) {
+inline REAL eval_value_at_index_cyl(rgrid *grid, INT i, INT j, INT k) {
 
   INT nr = grid->nx, nphi = grid->ny, nz = grid->nz;
 
@@ -879,7 +879,7 @@ inline REAL eval_value_at_index_cyl(rgrid3d *grid, INT i, INT j, INT k) {
  *
  */
 
-EXPORT inline REAL eval_value_cyl(rgrid3d *grid, REAL r, REAL phi, REAL z) {
+EXPORT inline REAL eval_value_cyl(rgrid *grid, REAL r, REAL phi, REAL z) {
 
   REAL f000, f100, f010, f001, f110, f101, f011, f111;
   INT i, j, k, nphi = grid->ny;
@@ -930,7 +930,7 @@ EXPORT inline REAL eval_value_cyl(rgrid3d *grid, REAL r, REAL phi, REAL z) {
  *
  */
 
-static inline REAL dft_common_interpolate_value(rgrid3d *grid, REAL r, REAL phi, REAL *x, REAL *y) {
+static inline REAL dft_common_interpolate_value(rgrid *grid, REAL r, REAL phi, REAL *x, REAL *y) {
 
   REAL f0, f1;
   INT i, j, nphi = grid->ny;
@@ -979,7 +979,7 @@ static inline REAL dft_common_interpolate_value(rgrid3d *grid, REAL r, REAL phi,
  *
  */
 
-static inline REAL dft_common_spline_value(rgrid3d *grid, REAL r, REAL phi, REAL *x, REAL *y, REAL *y2) {
+static inline REAL dft_common_spline_value(rgrid *grid, REAL r, REAL phi, REAL *x, REAL *y, REAL *y2) {
 
   REAL f0, f1;
   INT i, j, nphi = grid->ny;
@@ -1036,12 +1036,12 @@ static inline REAL dft_common_spline_value(rgrid3d *grid, REAL r, REAL phi, REAL
  *
  */
 
-EXPORT void dft_common_pot_interpolate(INT n, char **files, rgrid3d *out) {
+EXPORT void dft_common_pot_interpolate(INT n, char **files, rgrid *out) {
 
   REAL x, y, z, r, phi, step = out->step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
   INT nx = out->nx, ny = out->ny, nz = out->nz, nynz = ny * nz, i, j, k;
   REAL *tmp1, *tmp2;
-  rgrid3d *cyl;
+  rgrid *cyl;
 
   if(!(tmp1 = (REAL *) malloc(sizeof(REAL) * (size_t) n)) || !(tmp2 = (REAL *) malloc(sizeof(REAL) * (size_t) n))) {
     fprintf(stderr, "libgrid: Out of memory in dft_common_interpolate().\n");
@@ -1066,7 +1066,7 @@ EXPORT void dft_common_pot_interpolate(INT n, char **files, rgrid3d *out) {
       }
     }
   }
-  rgrid3d_free(cyl);
+  rgrid_free(cyl);
   free(tmp1);
   free(tmp2);
 }
@@ -1085,12 +1085,12 @@ EXPORT void dft_common_pot_interpolate(INT n, char **files, rgrid3d *out) {
  *
  */
 
-EXPORT void dft_common_pot_spline(INT n, char **files, rgrid3d *out) {
+EXPORT void dft_common_pot_spline(INT n, char **files, rgrid *out) {
 
   REAL x, y, z, r, phi, step = out->step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
   INT nx = out->nx, ny = out->ny, nz = out->nz, nynz = ny * nz, i, j, k;
   REAL *tmp1, *tmp2 , *tmp3;
-  rgrid3d *cyl;
+  rgrid *cyl;
 
   if(!(tmp1 = (REAL *) malloc(sizeof(REAL) * (size_t) n)) || !(tmp2 = (REAL *) malloc(sizeof(REAL) * (size_t) n)) || !(tmp3 = (REAL *) malloc(sizeof(REAL) * (size_t) n)) ) {
     fprintf(stderr, "libgrid: Out of memory in dft_common_interpolate().\n");
@@ -1115,7 +1115,7 @@ EXPORT void dft_common_pot_spline(INT n, char **files, rgrid3d *out) {
       }
     }
   }
-  rgrid3d_free(cyl);
+  rgrid_free(cyl);
   free(tmp1);
   free(tmp2);
 }
@@ -1133,28 +1133,28 @@ EXPORT void dft_common_pot_spline(INT n, char **files, rgrid3d *out) {
  *
  */
 
-EXPORT void dft_common_pot_angularderiv(INT n, char **files, rgrid3d *out) {
+EXPORT void dft_common_pot_angularderiv(INT n, char **files, rgrid *out) {
 
   REAL x, y, z, r, phi, step_cyl, step = out->step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
   INT nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nynz = ny * nz;
   INT nphi , nr;
-  rgrid3d *cyl_pot, *cyl_k;
+  rgrid *cyl_pot, *cyl_k;
 
   cyl_pot = dft_common_pot_interpolate_read(n, files);    /* cyl_pot allocated */
   nr = cyl_pot->nx;
   nphi = cyl_pot->ny;
   step_cyl = cyl_pot->step;
 
-  cyl_k = rgrid3d_alloc(nr, nphi, 1, step_cyl, RGRID3D_PERIODIC_BOUNDARY, NULL, "cyl_k"); 
+  cyl_k = rgrid_alloc(nr, nphi, 1, step_cyl, RGRID_PERIODIC_BOUNDARY, NULL, "cyl_k"); 
 
   /* second derivative respect to theta */
   REAL inv_step2 = ((REAL) (nphi * nphi)) / (2.0 * 2.0 * M_PI * M_PI);
   for (i = 0; i < nr; i++) {
     for (j = 0; j < nphi ; j++) {
 	      cyl_k->value[i * nphi + j ] = inv_step2 * (
-			         rgrid3d_value_at_index(cyl_pot, i, j-1, 0)
-			  -2.0 * rgrid3d_value_at_index(cyl_pot, i, j  , 0)
-			  +      rgrid3d_value_at_index(cyl_pot, i, j+1, 0));
+			         rgrid_value_at_index(cyl_pot, i, j-1, 0)
+			  -2.0 * rgrid_value_at_index(cyl_pot, i, j  , 0)
+			  +      rgrid_value_at_index(cyl_pot, i, j+1, 0));
     }
   }
 
@@ -1176,8 +1176,8 @@ EXPORT void dft_common_pot_angularderiv(INT n, char **files, rgrid3d *out) {
     }
   }
 
-  rgrid3d_free(cyl_pot);
-  rgrid3d_free(cyl_k);
+  rgrid_free(cyl_pot);
+  rgrid_free(cyl_k);
 }
 
 /*
@@ -1197,7 +1197,7 @@ EXPORT void dft_common_pot_angularderiv(INT n, char **files, rgrid3d *out) {
  * out   = 3-D grid containing the angular interpolated potential grid. 
  * 
  */
-EXPORT void dft_common_pot_average(INT n, char **files, rgrid3d *out) {
+EXPORT void dft_common_pot_average(INT n, char **files, rgrid *out) {
   
   REAL x, y, z, r, step = out->step, pot_begin, pot_step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
   INT nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nr, pot_length, nynz = ny * nz;

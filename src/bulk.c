@@ -265,8 +265,8 @@ EXPORT REAL dft_ot_bulk_sound_speed(dft_ot_functional *otf, REAL rho) {
  *
  * Returns energy (omega; a.u.).
  *
- * NOTES: This uses driver3d and overwrites the otf structure there. So, do not use
- *        this routine at the same time when running simulations that employ driver3d.
+ * NOTES: This uses driver and overwrites the otf structure there. So, do not use
+ *        this routine at the same time when running simulations that employ driver.
  *
  *        k to Angs^-1: k / GRID_AUTOANG
  *        omega to K: omega * GRID_AUTOK
@@ -282,9 +282,9 @@ typedef struct sWaveParams_struct {
   REAL a, rho;
 } sWaveParams;
 
-static cgrid3d *Apotential_store = NULL;
-static wf3d *Agwf = NULL, *Agwfp = NULL;
-static rgrid3d *Adensity = NULL, *Apot = NULL;
+static cgrid *Apotential_store = NULL;
+static wf *Agwf = NULL, *Agwfp = NULL;
+static rgrid *Adensity = NULL, *Apot = NULL;
 
 static REAL complex Awave(void *arg, REAL x, REAL y, REAL z) {
 
@@ -318,11 +318,11 @@ EXPORT REAL dft_ot_dispersion(dft_ot_functional *otf, REAL *k, REAL rho0) {
   if(dft_ot_bulk_STEP != prev_step) {
     dft_ot_bulk_NX = 512;
     prev_step = dft_ot_bulk_STEP;
-    if(Apotential_store) cgrid3d_free(Apotential_store);
-    if(Apot) rgrid3d_free(Apot);
-    if(Agwf) grid3d_wf_free(Agwf);
-    if(Agwfp) grid3d_wf_free(Agwfp);
-    if(Adensity) rgrid3d_free(Adensity);
+    if(Apotential_store) cgrid_free(Apotential_store);
+    if(Apot) rgrid_free(Apot);
+    if(Agwf) grid_wf_free(Agwf);
+    if(Agwfp) grid_wf_free(Agwfp);
+    if(Adensity) rgrid_free(Adensity);
     if(rho0 < 0.0) return 0.0; /* just free the memeory */
     dft_driver_setup_grid(dft_ot_bulk_NX, dft_ot_bulk_NY, dft_ot_bulk_NZ, dft_ot_bulk_STEP, dft_ot_bulk_THR);
     dft_driver_setup_model(otf->model, DFT_DRIVER_REAL_TIME, rho0);
@@ -346,7 +346,7 @@ EXPORT REAL dft_ot_dispersion(dft_ot_functional *otf, REAL *k, REAL rho0) {
   otf->backflow_pot = dft_driver_otf->backflow_pot;
   bcopy(otf, dft_driver_otf, sizeof(dft_ot_functional));
   mu0 = dft_ot_bulk_chempot2(otf);
-  rgrid3d_constant(Apot, -mu0);
+  rgrid_constant(Apot, -mu0);
 
   tmp = 2.0 * M_PI / (((REAL) dft_ot_bulk_NX) * dft_ot_bulk_STEP);
   wave_params.kx = ((REAL) (((INT) (0.5 + *k / tmp)))) * tmp; // round to nearest k with the grid - should we return this also?
@@ -356,17 +356,17 @@ EXPORT REAL dft_ot_dispersion(dft_ot_functional *otf, REAL *k, REAL rho0) {
   wave_params.kz = 0.0;
   wave_params.a = dft_ot_bulk_AMP;
   wave_params.rho = rho0;
-  grid3d_wf_map(Agwf, Awave, &wave_params);
+  grid_wf_map(Agwf, Awave, &wave_params);
   pval = 1E11;
   for(l = 0; ; l++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, l);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, l);
-    grid3d_wf_density(Agwf, Adensity);
-    if(rgrid3d_value_at_index(Adensity, dft_ot_bulk_NX/2, dft_ot_bulk_NY/2, dft_ot_bulk_NZ/2) > pval) {
+    grid_wf_density(Agwf, Adensity);
+    if(rgrid_value_at_index(Adensity, dft_ot_bulk_NX/2, dft_ot_bulk_NY/2, dft_ot_bulk_NZ/2) > pval) {
       l--;
       break;
     }
-    pval = rgrid3d_value_at_index(Adensity, dft_ot_bulk_NX/2, dft_ot_bulk_NY/2, dft_ot_bulk_NZ/2);
+    pval = rgrid_value_at_index(Adensity, dft_ot_bulk_NX/2, dft_ot_bulk_NY/2, dft_ot_bulk_NZ/2);
   }
   dft_driver_verbose = 1;
   omega = (1.0 / (2.0 * ((REAL) l) * dft_ot_bulk_TS / GRID_AUTOFS));
@@ -382,8 +382,8 @@ EXPORT REAL dft_ot_dispersion(dft_ot_functional *otf, REAL *k, REAL rho0) {
  *
  * Returns energy (omega; a.u.).
  *
- * NOTES: This uses driver3d and overwrites the otf structure there. So, do not use
- *        this routine at the same time when running simulations that employ driver3d.
+ * NOTES: This uses driver and overwrites the otf structure there. So, do not use
+ *        this routine at the same time when running simulations that employ driver.
  *
  *        k to Angs^-1: k / GRID_AUTOANG
  *        omega to K: (omega / GRID_AUTOS) * GRID_HZTOCM1 * 1.439    (<- cm-1 to K)
@@ -504,11 +504,11 @@ EXPORT REAL dft_ot_bulk_surface_tension(dft_ot_functional *otf, REAL rho0) {
   if(dft_ot_bulk_STEP != prev_step) {
     dft_ot_bulk_NX = 128;
     prev_step = dft_ot_bulk_STEP;
-    if(Apotential_store) cgrid3d_free(Apotential_store);
-    if(Apot) rgrid3d_free(Apot);
-    if(Agwf) grid3d_wf_free(Agwf);
-    if(Agwfp) grid3d_wf_free(Agwfp);
-    if(Adensity) rgrid3d_free(Adensity); // not needed - remove
+    if(Apotential_store) cgrid_free(Apotential_store);
+    if(Apot) rgrid_free(Apot);
+    if(Agwf) grid_wf_free(Agwf);
+    if(Agwfp) grid_wf_free(Agwfp);
+    if(Adensity) rgrid_free(Adensity); // not needed - remove
     if(rho0 < 0.0) return 0.0; /* just free the memeory */
     dft_driver_setup_grid(dft_ot_bulk_NX, dft_ot_bulk_NY, dft_ot_bulk_NZ, dft_ot_bulk_STEP, dft_ot_bulk_THR);
     dft_driver_setup_model(otf->model, DFT_DRIVER_IMAG_TIME, rho0);
@@ -522,8 +522,8 @@ EXPORT REAL dft_ot_bulk_surface_tension(dft_ot_functional *otf, REAL rho0) {
     Agwf = dft_driver_alloc_wavefunction(otf->mass, "Agwf");
     Agwfp = dft_driver_alloc_wavefunction(otf->mass, "Agwfp");
     /* setup a free surface (slab around x = 0) */
-    grid3d_wf_map(Agwf, &Aslab, NULL);
-    cgrid3d_multiply(Agwf->grid, SQRT(rho0));
+    grid_wf_map(Agwf, &Aslab, NULL);
+    cgrid_multiply(Agwf->grid, SQRT(rho0));
   }
   /* Update driver otf structure - parameters in the given otf may have changed from last call */
   otf->lennard_jones = dft_driver_otf->lennard_jones;
@@ -535,7 +535,7 @@ EXPORT REAL dft_ot_bulk_surface_tension(dft_ot_functional *otf, REAL rho0) {
   otf->backflow_pot = dft_driver_otf->backflow_pot;
   bcopy(otf, dft_driver_otf, sizeof(dft_ot_functional));
   mu0 = dft_ot_bulk_chempot2(otf);
-  rgrid3d_constant(Apot, -mu0);
+  rgrid_constant(Apot, -mu0);
   prev_stens = 1E11;
   for(i = 1; ; i++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, i);
