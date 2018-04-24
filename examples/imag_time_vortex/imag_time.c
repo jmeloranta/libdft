@@ -36,7 +36,7 @@
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 #define HBAR 1.0        /* au */
 
-void zero_core(cgrid3d *grid) {
+void zero_core(cgrid *grid) {
 
   INT i, j, k;
   INT nx = grid->nx, ny = grid->ny, nz = grid->nz;
@@ -55,9 +55,9 @@ void zero_core(cgrid3d *grid) {
 
 int main(int argc, char **argv) {
 
-  cgrid3d *potential_store;
-  rgrid3d *ext_pot, *density, *px, *py, *pz;
-  wf3d *gwf, *gwfp;
+  cgrid *potential_store;
+  rgrid *ext_pot, *density, *px, *py, *pz;
+  wf *gwf, *gwfp;
   INT iter, N;
   REAL energy, natoms, mu0, rho0, width;
 
@@ -113,9 +113,9 @@ int main(int argc, char **argv) {
 #ifdef HE3PLUS
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "he3+-he-sph_ave.dat", "he3+-he-sph_ave.dat", "he3+-he-sph_ave.dat", ext_pot);
 #endif
-  //  rgrid3d_shift(ext_pot, density, 0.0, 0.0, 0.0);
+  //  rgrid_shift(ext_pot, density, 0.0, 0.0, 0.0);
 #ifdef VORTEX
-  rgrid3d_zero(ext_pot);
+  rgrid_zero(ext_pot);
 #endif
 
 #ifdef ONSAGER
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
 
 #if 1
   mu0 = dft_ot_bulk_chempot(dft_driver_otf);
-  rgrid3d_add(ext_pot, -mu0);
+  rgrid_add(ext_pot, -mu0);
   rho0 = dft_ot_bulk_density(dft_driver_otf);
 #else
   rho0 = 0.00323;  // for GP
@@ -135,8 +135,8 @@ int main(int argc, char **argv) {
 
   if(N != 0) {
     width = 1.0 / 20.0;
-    cgrid3d_map(gwf->grid, dft_common_cgaussian, (void *) &width);
-  } else cgrid3d_constant(gwf->grid, SQRT(rho0));
+    cgrid_map(gwf->grid, dft_common_cgaussian, (void *) &width);
+  } else cgrid_constant(gwf->grid, SQRT(rho0));
 
 #ifndef ONSAGER
 #if defined(VORTEX) || defined(BOTH)
@@ -148,7 +148,7 @@ int main(int argc, char **argv) {
     
     if(iter == 1 || !(iter % 200)) {
       char buf[512];
-      grid3d_wf_density(gwf, density);
+      grid_wf_density(gwf, density);
       sprintf(buf, "output-" FMT_I, iter);
       dft_driver_write_density(density, buf);
       sprintf(buf, "output-wf-" FMT_I, iter);
@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
       printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
       printf("Number of He atoms is " FMT_R ".\n", natoms);
       printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
-      grid3d_wf_probability_flux(gwf, px, py, pz);
+      grid_wf_probability_flux(gwf, px, py, pz);
       sprintf(buf, "flux_x-" FMT_I, iter);
       dft_driver_write_density(px, buf);
       sprintf(buf, "flux_y-" FMT_I, iter);
@@ -168,11 +168,11 @@ int main(int argc, char **argv) {
 #if 0
       { INT k;
 	dft_driver_veloc_field(gwf, px, py, pz);
-	grid3d_wf_density(gwf, density);
+	grid_wf_density(gwf, density);
 	for (k = 0; k < px->nx * px->ny * px->nz; k++)
 	  px->value[k] = px->value[k] * px->value[k] + py->value[k] * py->value[k] + pz->value[k] * pz->value[k];
-	rgrid3d_product(px, px, density);
-	rgrid3d_multiply(px, 0.5);
+	rgrid_product(px, px, density);
+	rgrid_multiply(px, 0.5);
 	sprintf(buf, "kinetic-" FMT_I, iter);
 	dft_driver_write_density(px, buf);
       }

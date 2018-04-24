@@ -43,10 +43,10 @@
 
 int main(int argc, char **argv) {
 
-  cgrid3d *potential_store;
-  rgrid3d *ext_pot, *density;
-  cgrid1d *spectrum;
-  wf3d *gwf, *gwfp;
+  cgrid *potential_store;
+  rgrid *ext_pot, *density;
+  cgrid *spectrum;
+  wf *gwf, *gwfp;
   INT iter;
   REAL energy, natoms, en, mu0;
   FILE *fp;
@@ -94,16 +94,16 @@ int main(int argc, char **argv) {
   printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
 
   dft_driver_setup_model(MODEL, DFT_DRIVER_REAL_TIME, RHO0);
-  rgrid3d_free(ext_pot);
+  rgrid_free(ext_pot);
   ext_pot = dft_driver_spectrum_init(NULL, REITER, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z);
-  rgrid3d_add(ext_pot, -mu0);
+  rgrid_add(ext_pot, -mu0);
   for (iter = 0; iter < REITER; iter++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
     dft_driver_spectrum_collect(gwf);
     if(!(iter % 10)) {
       char buf[512];
-      grid3d_wf_density(gwf, density);
+      grid_wf_density(gwf, density);
       sprintf(buf, "realtime-" FMT_I, iter);
       dft_driver_write_density(density, buf);
     }
@@ -115,8 +115,8 @@ int main(int argc, char **argv) {
     exit(1);
   }
   for (iter = 0, en = -0.5 * spectrum->step * spectrum->nx; iter < spectrum->nx; iter++, en += spectrum->step)
-    //    fprintf(fp, FMT_R " " FMT_R "\n", en, CREAL(cgrid1d_value_at_index(spectrum, iter)));
-    fprintf(fp, FMT_R " " FMT_R "\n", en, POW(CREAL(cgrid1d_value_at_index(spectrum, iter)), 2.0) + POW(CIMAG(cgrid1d_value_at_index(spectrum, iter)), 2.0));
+    //    fprintf(fp, FMT_R " " FMT_R "\n", en, CREAL(cgrid_value_at_index(spectrum, 1, 1, iter)));
+    fprintf(fp, FMT_R " " FMT_R "\n", en, POW(CREAL(cgrid_value_at_index(spectrum, 1, 1, iter)), 2.0) + POW(CIMAG(cgrid_value_at_index(spectrum, 1, 1, iter)), 2.0));
   fclose(fp);
   printf("Spectrum written to spectrum.dat\n");
   exit(0);

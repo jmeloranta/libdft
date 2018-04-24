@@ -129,13 +129,13 @@ typedef struct dft_ot_functional_struct {
   dft_common_lj lj_params; /* Lennard-Jones parameters */
   dft_ot_bf bf_params; /* Backflow parameters */
   INT model;
-  rgrid3d *lennard_jones;
-  rgrid3d *spherical_avg;
-  rgrid3d *gaussian_tf;
-  rgrid3d *gaussian_x_tf;
-  rgrid3d *gaussian_y_tf;
-  rgrid3d *gaussian_z_tf;
-  rgrid3d *backflow_pot;
+  rgrid *lennard_jones;
+  rgrid *spherical_avg;
+  rgrid *gaussian_tf;
+  rgrid *gaussian_x_tf;
+  rgrid *gaussian_y_tf;
+  rgrid *gaussian_z_tf;
+  rgrid *backflow_pot;
   REAL beta; /* Barranco */
   REAL rhom; /* Barranco */
   REAL C;    /* Barranco */
@@ -164,7 +164,7 @@ extern REAL complex (*dft_driver_bc_function)(void *, REAL complex, INT, INT, IN
 /* Density cutoff for backflow evaluation (was rho0 / 100 = 3E-5) */
 #define DFT_BF_EPS 1E-5
 
-/* Density cutoff for velocity calculation in driver3d.c */
+/* Density cutoff for velocity calculation in driver.c */
 #define DFT_VELOC_EPS (1E-8)
 
 #endif /* __DFT_OT__ */

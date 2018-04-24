@@ -4,7 +4,7 @@ all:
 	make prototypes
 	make libdft.a
 
-OBJS = ot3d.o common.o driver3d.o classical.o bulk3d.o
+OBJS = ot.o common.o driver.o classical.o bulk.o
 
 libdft.a: $(OBJS)
 	$(AR) cr libdft.a $(OBJS)
@@ -19,20 +19,20 @@ install:
 	cp dft.h ot.h proto.h $(ROOT)/include/dft
 	cp ../make.conf $(ROOT)/include/dft
 
-driver3d.o: driver3d.c ot.h
-	$(CC) -I. $(CFLAGS) -c driver3d.c
+driver.o: driver.c ot.h
+	$(CC) -I. $(CFLAGS) -c driver.c
 
 common.o: common.c dft.h
 	$(CC) -I. $(CFLAGS) -c common.c
 
-ot3d.o: ot3d.c ot.h dft.h
-	$(CC) -I. $(CFLAGS) -c ot3d.c
+ot.o: ot.c ot.h dft.h
+	$(CC) -I. $(CFLAGS) -c ot.c
 
 classical.o: classical.c dft.h
 	$(CC) -I. $(CFLAGS) -c classical.c
 
-bulk3d.o: bulk3d.c ot.h
-	$(CC) -I. $(CFLAGS) -c bulk3d.c
+bulk.o: bulk.c ot.h
+	$(CC) -I. $(CFLAGS) -c bulk.c
 
 clean:
 	-rm *.o libdft.a proto.h *~

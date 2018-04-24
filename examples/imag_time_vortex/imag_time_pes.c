@@ -33,7 +33,7 @@
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 #define HBAR 1.0        /* au */
 
-void zero_core(cgrid3d *grid) {
+void zero_core(cgrid *grid) {
 
   INT i, j, k;
   INT nx = grid->nx, ny = grid->ny, nz = grid->nz;
@@ -52,9 +52,9 @@ void zero_core(cgrid3d *grid) {
 
 int main(int argc, char **argv) {
 
-  cgrid3d *potential_store;
-  rgrid3d *ext_pot, *orig_pot, *density, *px, *py, *pz;
-  wf3d *gwf, *gwfp;
+  cgrid *potential_store;
+  rgrid *ext_pot, *orig_pot, *density, *px, *py, *pz;
+  wf *gwf, *gwfp;
   char buf[512];
   INT iter, N;
   REAL energy, natoms, mu0, rho0, width, R;
@@ -104,20 +104,20 @@ int main(int argc, char **argv) {
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "He-star-He.dat", "He-star-He.dat", "He-star-He.dat", orig_pot);
 #endif
   mu0 = dft_ot_bulk_chempot(dft_driver_otf);
-  rgrid3d_add(orig_pot, -mu0);
+  rgrid_add(orig_pot, -mu0);
   rho0 = dft_ot_bulk_density(dft_driver_otf);
 
   if(N != 0) {
     width = 1.0 / 20.0;
-    cgrid3d_map(gwf->grid, dft_common_cgaussian, (void *) &width);
-  } else cgrid3d_constant(gwf->grid, SQRT(rho0));
+    cgrid_map(gwf->grid, dft_common_cgaussian, (void *) &width);
+  } else cgrid_constant(gwf->grid, SQRT(rho0));
 
 #ifndef ONSAGER
   dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
 #endif
 
   for (R = IBEGIN; R >= IEND; R -= ISTEP) {
-    rgrid3d_shift(ext_pot, orig_pot, R, 0.0, 0.0);
+    rgrid_shift(ext_pot, orig_pot, R, 0.0, 0.0);
 #ifdef ONSAGER
     dft_driver_vortex(ext_pot, DFT_DRIVER_VORTEX_X);
 #endif
@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
     }
 
     printf("Results for R = " FMT_R "\n", R);
-    grid3d_wf_density(gwf, density);
+    grid_wf_density(gwf, density);
     sprintf(buf, "output-" FMT_R, R);
     dft_driver_write_density(density, buf);
     energy = dft_driver_energy(gwf, ext_pot);
@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
     printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
     printf("Number of He atoms is " FMT_R ".\n", natoms);
     printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
-    grid3d_wf_probability_flux(gwf, px, py, pz);
+    grid_wf_probability_flux(gwf, px, py, pz);
     sprintf(buf, "flux_x-" FMT_R, R);
     dft_driver_write_density(px, buf);
     sprintf(buf, "flux_y-" FMT_R, R);

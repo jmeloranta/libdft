@@ -62,9 +62,9 @@ REAL complex gauss(void *arg, REAL x, REAL y, REAL z) {
 int main(int argc, char **argv) {
 
   struct params sparams;
-  rgrid3d *ext_pot, *rworkspace;
-  cgrid3d *potential_store;
-  wf3d *gwf, *gwfp;
+  rgrid *ext_pot, *rworkspace;
+  cgrid *potential_store;
+  wf *gwf, *gwfp;
   INT iter;
   REAL rho0, mu0;
   char buf[512];
@@ -95,14 +95,14 @@ int main(int argc, char **argv) {
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
   rho0 = dft_driver_otf->rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
   mu0  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
-  rgrid3d_zero(ext_pot);
-  rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
+  rgrid_zero(ext_pot);
+  rgrid_add(ext_pot, -mu0); /* Add the chemical potential */
 
   sparams.delta = DELTA;
   sparams.rho0 = rho0;
   sparams.w = W;
   sparams.vz = VZ;
-  cgrid3d_map(gwf->grid, gauss, (void *) &sparams);  
+  cgrid_map(gwf->grid, gauss, (void *) &sparams);  
   
   //dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
 
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
     if(!(iter % OUTPUT)) {
       sprintf(buf, "final-" FMT_I, iter);
-      grid3d_wf_density(gwf, rworkspace);
+      grid_wf_density(gwf, rworkspace);
       dft_driver_write_density(rworkspace, buf);
     }
   }

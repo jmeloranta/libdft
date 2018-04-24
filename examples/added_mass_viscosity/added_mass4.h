@@ -13,7 +13,7 @@
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 #define IMP_MASS 1.0 /* electron mass */
 
-#define PSPOT "/home2/git/libdft/examples/3d/electron/jortner.dat"
+#define PSPOT "/home/git/libdft/examples/electron/jortner.dat"
 
 /* velocity components */
 #define KX	(1.0 * 2.0 * M_PI / (NX * STEP))

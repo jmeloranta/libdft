@@ -284,9 +284,9 @@ REAL global_time;
 
 int main(int argc, char *argv[]) {
 
-  wf3d *gwf, *gwfp;
-  cgrid3d *cworkspace;
-  rgrid3d *ext_pot, *density, *current;
+  wf *gwf, *gwfp;
+  cgrid *cworkspace;
+  rgrid *ext_pot, *density, *current;
   INT iter;
   char filename[2048];
   REAL kin, pot;
@@ -345,28 +345,28 @@ int main(int argc, char *argv[]) {
     /* Initial wavefunctions. Read from file or set to initial guess */
     /* Constant density (initial guess) */
     if(rho0 == 0.0) rho0 = DENSITY;  /* for GP testing */    
-    cgrid3d_constant(gwf->grid, SQRT(rho0));
+    cgrid_constant(gwf->grid, SQRT(rho0));
   } else if (argc == 2) {   /* restarting */
     printf("Initial guess read from a file.\n");
 #ifndef INITIAL_GUESS_FROM_DENSITY
     printf("Helium WF from %s.\n", argv[1]);
     dft_driver_read_grid(gwf->grid, argv[1]);      
-    cgrid3d_multiply(gwf->grid, SQRT(rho0) / gwf->grid->value[0]);
+    cgrid_multiply(gwf->grid, SQRT(rho0) / gwf->grid->value[0]);
 #else
     printf("Helium DENSITY from %s.\n", argv[1]);
     dft_driver_read_density(density, argv[1]);
-    rgrid3d_power(density, density, 0.5);
-    grid3d_real_to_complex_re(gwf->grid, density);
+    rgrid_power(density, density, 0.5);
+    grid_real_to_complex_re(gwf->grid, density);
 #endif
   }
   
   /* Read pair potential from file and do FFT */
 #if 1
-  rgrid3d_map(ext_pot, pot_func, NULL);
+  rgrid_map(ext_pot, pot_func, NULL);
 #else
   dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "pot.dat", "pot.dat", "pot.dat", ext_pot);
 #endif
-  rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
+  rgrid_add(ext_pot, -mu0); /* Add the chemical potential */
   
   for(iter = 1; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
 
@@ -388,11 +388,11 @@ int main(int argc, char *argv[]) {
       printf("Helium potential = " FMT_R "\n", pot * GRID_AUTOK);  /* Print result in K */
       printf("Helium energy    = " FMT_R "\n", (kin + pot) * GRID_AUTOK);  /* Print result in K */
 
-      grid3d_wf_probability_flux_x(gwf, current);
-      printf("Added mass = " FMT_R "\n", rgrid3d_integral(current) / VX); 
+      grid_wf_probability_flux_x(gwf, current);
+      printf("Added mass = " FMT_R "\n", rgrid_integral(current) / VX); 
 
-      grid3d_wf_density(gwf, density);                     /* Density from gwf */
-      force = rgrid3d_weighted_integral(density, dpot_func, NULL);   /* includes the minus already somehow (cmp FD below) */
+      grid_wf_density(gwf, density);                     /* Density from gwf */
+      force = rgrid_weighted_integral(density, dpot_func, NULL);   /* includes the minus already somehow (cmp FD below) */
 
       printf("Drag force on ion = " FMT_R " a.u.\n", force);
 

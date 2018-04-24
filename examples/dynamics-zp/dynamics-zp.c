@@ -32,10 +32,10 @@
 
 int main(int argc, char **argv) {
 
-  rgrid3d *ext_pot, *ext_pot2, *density;
-  cgrid3d *potential_store;
-  wf3d *gwf, *gwfp;
-  wf3d *imwf, *imwfp;
+  rgrid *ext_pot, *ext_pot2, *density;
+  cgrid *potential_store;
+  wf *gwf, *gwfp;
+  wf *imwf, *imwfp;
   INT iter;
   char buf[512];
 
@@ -72,14 +72,14 @@ int main(int argc, char **argv) {
   /* Step #1: Optimize structure */
   for (iter = 0; iter < 200; iter++) {
     /* convolute impurity density with ext_pot -> ext_pot2 */
-    grid3d_wf_density(imwf, density);
+    grid_wf_density(imwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
 
     /* convolute liquid density with ext_pot -> ext_pot2 */
-    grid3d_wf_density(gwf, density);
+    grid_wf_density(gwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
@@ -95,14 +95,14 @@ int main(int argc, char **argv) {
   dft_driver_convolution_prepare(NULL, ext_pot);
   for (iter = 0; iter < 200; iter++) {
     /* convolute impurity density with ext_pot -> ext_pot2 */
-    grid3d_wf_density(imwf, density);
+    grid_wf_density(imwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
 
     /* convolute liquid density with ext_pot -> ext_pot2 */
-    grid3d_wf_density(gwf, density);
+    grid_wf_density(gwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
