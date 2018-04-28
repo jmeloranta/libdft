@@ -1,6 +1,8 @@
 /*
  * Calculate the dispersion relation up to specified n.
  *
+ * TODO: This is sensitive to any numerical noise and may not be able to detect the turn over point correctly.
+ *
  */
 
 #include <stdlib.h>
@@ -13,16 +15,15 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 128
-#define NY 64
-#define NZ 64
-#define STEP 0.5 /* Bohr */
-#define TS 20.0 /* fs */
+#define NX 512
+#define NY 256
+#define NZ 256
+#define STEP 2.0 /* Bohr */
+#define TS 15.0 /* fs */
 #define AMP 1e-2 /* wave amplitude (of total rho0) */
+#define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
 
 #define THREADS 0
-
-#define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
@@ -36,11 +37,11 @@ REAL complex wave(void *arg, REAL x, REAL y, REAL z);
 int main(int argc, char **argv) {
 
   INT l, n, model;
-  REAL mu0, prev_val;
+  REAL mu0, ival;
   grid_timer timer;
   cgrid *potential_store;
   wf *gwf, *gwfp;
-  rgrid *density, *pot;
+  rgrid *pot;
   sWaveParams wave_params;
   
   /* parameters */
@@ -57,7 +58,7 @@ int main(int argc, char **argv) {
   cuda_enable(1);
 #endif
 
-  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD;
+  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW;
   dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, RHO0);
 //  dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
   dft_driver_kinetic = DFT_DRIVER_KINETIC_FFT;
@@ -66,7 +67,6 @@ int main(int argc, char **argv) {
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   dft_driver_initialize();
-  density = dft_driver_alloc_rgrid("density");
   potential_store = dft_driver_alloc_cgrid("potential_store");
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");
@@ -85,20 +85,19 @@ int main(int argc, char **argv) {
     wave_params.a = AMP;
     wave_params.rho = RHO0;
     grid_wf_map(gwf, wave, &wave_params);
-    prev_val = 1E10;
+    ival = 0.0;
     for(l = 0; ; l++) {
       grid_timer_start(&timer);
       dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
       dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
-      grid_wf_density(gwf, density);
-      if(rgrid_value_at_index(density, NX/2, NY/2, NZ/2) > prev_val) {
-	l--;
-	break;
-      }
-      prev_val = rgrid_value_at_index(density, NX/2, NY/2, NZ/2);
+      ival += (POW(CABS(cgrid_value_at_index(gwf->grid, NX/2, NY/2, NZ/2)), 2.0) - RHO0) / RHO0;
       fprintf(stderr, "One iteration = " FMT_R " wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
+      if(ival < 0.0) {
+        l--;
+        break;
+      }
     }
-    printf(FMT_R " " FMT_R "\n", wave_params.kx / GRID_AUTOANG, (1.0 / ((2.0 * ((REAL) l) * TS) * 1E-15)) * 3.335E-11 * 1.439);
+    printf(FMT_R " " FMT_R "\n", wave_params.kx / GRID_AUTOANG, (1.0 / (2.0 * (((REAL) l) * TS) * 1E-15)) * 3.335E-11 * 1.439);
     fflush(stdout);
   }
   return 0;
