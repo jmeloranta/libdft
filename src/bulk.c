@@ -35,7 +35,7 @@ EXPORT REAL dft_ot_bulk_energy(dft_ot_functional *otf, REAL rho) {
 
 /* 
  * Derivative of energy with respect to density in uniform bulk. 
- * In equilibirum, this is equal to the chemical potential.
+ * At equilibirum, this is equal to the chemical potential.
  *
  * otf = OT functional (df_ot_functional *; input).
  * rho = Bulk density (REAL; *).
@@ -102,7 +102,7 @@ EXPORT REAL dft_ot_bulk_chempot(dft_ot_functional *otf) {
  * Chemical potential of the uniform bulk. If this quantity
  * is substracted from the external potential, then the imaginary time
  * converges to a solution with the equilibrium density in the borders
- * of the box - no need for rescaling in ITP. The only difference compare
+ * of the box - no need for rescaling in ITP. The only difference compared
  * to the above is that the chemical potential is computed for the bulk density
  * provided in otf rather than the saturated vapor pressure.
  *

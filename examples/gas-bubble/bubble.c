@@ -101,7 +101,12 @@ int main(int argc, char *argv[]) {
 		  vx * 1000.0 * GRID_AUTOANG / GRID_AUTOFS, 0.0, 0.0);
   fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (m/s)\n", vx * GRID_AUTOMPS, 0.0, 0.0);
 
+#if SM == 0
   rgrid_map(ext_pot, pot_func, NULL); /* External potential */
+#else
+  fprintf(stderr, "Smooth mapping = " FMT_I ".\n", (INT) SM);
+  rgrid_smooth_map(ext_pot, pot_func, NULL, SM); /* External potential */
+#endif
   rgrid_add(ext_pot, -mu0);
 
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_USER_TIME, rho0);  /* mixed real & imag time iterations for warm up */
