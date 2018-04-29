@@ -257,119 +257,64 @@ EXPORT REAL dft_ot_bulk_sound_speed(dft_ot_functional *otf, REAL rho) {
 }
 
 /*
- * Calculate bulk dispersion relation (omega vs. k). Numerical solution.
+ * Calculate bulk dispersion relation (omega vs. k). Numerical solution for current otf.
  *
- * otf  = functional (dft_ot_functional *; input).
- * k    = momentum (REAL *; input/output). On output, contains the actual value of k used for computing omega.
- * rho0 = bulk density (REAL; input).
+ * ts   = Time step in fs (REAL; input).
+ * k    = Requested wavenumber in a.u. (REAL; input/output). 
+ * amp  = Amplitude relative to rho0 (REAL; input).
+ * pred = 1 = Use predict-correct, 0 = no predict-correct (char; input).
  *
  * Returns energy (omega; a.u.).
  *
- * NOTES: This uses driver and overwrites the otf structure there. So, do not use
- *        this routine at the same time when running simulations that employ driver.
- *
- *        k to Angs^-1: k / GRID_AUTOANG
- *        omega to K: omega * GRID_AUTOK
- *
- *        If rho0 < 0, the routine just frees the allocated memory.
- *
- *        This requires fairly dense grid to get the correct dispersion relation when KC/BF present.
- * 
  */
 
-typedef struct sWaveParams_struct {
-  REAL kx, ky, kz;
-  REAL a, rho;
-} sWaveParams;
+EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred) {
 
-static cgrid *Apotential_store = NULL;
-static wf *Agwf = NULL, *Agwfp = NULL;
-static rgrid *Adensity = NULL, *Apot = NULL;
-
-static REAL complex Awave(void *arg, REAL x, REAL y, REAL z) {
-
-  REAL kx = ((sWaveParams *) arg)->kx;
-  REAL ky = ((sWaveParams *) arg)->ky;
-  REAL kz = ((sWaveParams *) arg)->kz;
-  REAL a = ((sWaveParams *) arg)->a;
-  REAL psi = SQRT(((sWaveParams *) arg)->rho);
-  
-  return psi + 0.5 * a * psi * (CEXP(I * (kx * x + ky * y + kz * z)) + CEXP(-I*(kx * x + ky * y + kz * z)));
-}
-
-REAL dft_ot_bulk_TS = 50.0; /* fs */
-REAL dft_ot_bulk_AMP = 1.0E-3; /* amplitude of the excitation */
-INT dft_ot_bulk_NX = 128;
-INT dft_ot_bulk_NY = 32;
-INT dft_ot_bulk_NZ = 32;
-REAL dft_ot_bulk_STEP = 1.0; /* Bohr */
-INT dft_ot_bulk_THR = 0;    /* Number of threads */
-
-static REAL prev_step = 0.0;
-extern int dft_driver_verbose;
-
-EXPORT REAL dft_ot_dispersion(dft_ot_functional *otf, REAL *k, REAL rho0) {
-
-  REAL tmp, pval, mu0, omega;   /* TS in fs */
-  sWaveParams wave_params;
+  REAL tmp, ival, mu0, omega;   /* TS in fs */
+  dft_plane_wave wave_params;
   INT l;
-
-  dft_driver_verbose = 0;
-  if(dft_ot_bulk_STEP != prev_step) {
-    dft_ot_bulk_NX = 512;
-    prev_step = dft_ot_bulk_STEP;
-    if(Apotential_store) cgrid_free(Apotential_store);
-    if(Apot) rgrid_free(Apot);
-    if(Agwf) grid_wf_free(Agwf);
-    if(Agwfp) grid_wf_free(Agwfp);
-    if(Adensity) rgrid_free(Adensity);
-    if(rho0 < 0.0) return 0.0; /* just free the memeory */
-    dft_driver_setup_grid(dft_ot_bulk_NX, dft_ot_bulk_NY, dft_ot_bulk_NZ, dft_ot_bulk_STEP, dft_ot_bulk_THR);
-    dft_driver_setup_model(otf->model, DFT_DRIVER_REAL_TIME, rho0);
-    dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
-    dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
-    dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
-    dft_driver_initialize();
-    Apotential_store = dft_driver_alloc_cgrid("Apotential store");
-    Adensity = dft_driver_alloc_rgrid("Adensity");           /* avoid allocating separate space for density */
-    Apot = dft_driver_alloc_rgrid("Apot");
-    Agwf = dft_driver_alloc_wavefunction(otf->mass, "Agwf");
-    Agwfp = dft_driver_alloc_wavefunction(otf->mass, "Agwfp");
+  wf *gwf, *gwfp;
+  cgrid *cworkspace;
+  extern INT dft_driver_nx, dft_driver_ny, dft_driver_nz;
+  extern REAL dft_driver_step, dft_driver_rho0;
+  extern dft_ot_functional *dft_driver_otf;
+  
+  gwf = dft_driver_alloc_wavefunction(dft_driver_otf->mass, "gwf");
+  if(pred) {
+    gwfp = dft_driver_alloc_wavefunction(dft_driver_otf->mass, "gwfp");
+    cworkspace = dft_driver_alloc_cgrid("cworkspace");
   }
-  /* Update driver otf structure - parameters in the given otf may have changed from last call */
-  otf->lennard_jones = dft_driver_otf->lennard_jones;
-  otf->spherical_avg = dft_driver_otf->spherical_avg;
-  otf->gaussian_tf = dft_driver_otf->gaussian_tf;
-  otf->gaussian_x_tf = dft_driver_otf->gaussian_x_tf;
-  otf->gaussian_y_tf = dft_driver_otf->gaussian_y_tf;
-  otf->gaussian_z_tf = dft_driver_otf->gaussian_z_tf;
-  otf->backflow_pot = dft_driver_otf->backflow_pot;
-  bcopy(otf, dft_driver_otf, sizeof(dft_ot_functional));
-  mu0 = dft_ot_bulk_chempot2(otf);
-  rgrid_constant(Apot, -mu0);
-
-  tmp = 2.0 * M_PI / (((REAL) dft_ot_bulk_NX) * dft_ot_bulk_STEP);
+  dft_driver_otf->rho0 = dft_driver_rho0;
+  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
+  
+  tmp = 2.0 * M_PI / (((REAL) dft_driver_nx) * dft_driver_step);
   wave_params.kx = ((REAL) (((INT) (0.5 + *k / tmp)))) * tmp; // round to nearest k with the grid - should we return this also?
   *k = wave_params.kx;
   if(*k == 0.0) return 0.0;
   wave_params.ky = 0.0;
   wave_params.kz = 0.0;
-  wave_params.a = dft_ot_bulk_AMP;
-  wave_params.rho = rho0;
-  grid_wf_map(Agwf, Awave, &wave_params);
-  pval = 1E11;
+  wave_params.a = amp;
+  wave_params.rho = dft_driver_rho0;
+  grid_wf_map(gwf, dft_common_planewave, &wave_params);
+  ival = 0.0;
   for(l = 0; ; l++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, l);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, l);
-    grid_wf_density(Agwf, Adensity);
-    if(rgrid_value_at_index(Adensity, dft_ot_bulk_NX/2, dft_ot_bulk_NY/2, dft_ot_bulk_NZ/2) > pval) {
+    if(pred) {
+      dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, cworkspace, ts, l);
+      dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, cworkspace, ts, l);
+    } else
+      dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, ts, l);
+    ival += (POW(CABS(cgrid_value_at_index(gwf->grid, dft_driver_nx/2, dft_driver_ny/2, dft_driver_nz/2)), 2.0) - dft_driver_rho0);
+    if(ival < 0.0) {
       l--;
       break;
     }
-    pval = rgrid_value_at_index(Adensity, dft_ot_bulk_NX/2, dft_ot_bulk_NY/2, dft_ot_bulk_NZ/2);
   }
-  dft_driver_verbose = 1;
-  omega = (1.0 / (2.0 * ((REAL) l) * dft_ot_bulk_TS / GRID_AUTOFS));
+  omega = (1.0 / (2.0 * ((REAL) l) * ts / GRID_AUTOFS));
+  grid_wf_free(gwf);
+  if(pred) {
+    grid_wf_free(gwfp);
+    cgrid_free(cworkspace);
+  }
   return (omega / GRID_AUTOS) * GRID_HZTOCM1 * 1.439 /* cm-1 to K */ / GRID_AUTOK;
 }
 
@@ -485,65 +430,44 @@ EXPORT REAL dft_ot_bulk_istatic(dft_ot_functional *otf, REAL *k, REAL rho0) {
 /*
  * Calculate free (flat) surface tension.
  *
+ * TODO: Is this correct? propagate without potential??
+ * 
  */
 
-REAL dft_ot_bulk_slab_width = 80.0; /* Bohr */
+static REAL complex Aslab(void *param, REAL x, REAL y, REAL z) {
 
-static REAL complex Aslab(void *NA, REAL x, REAL y, REAL z) {
+  REAL width = *((REAL *) param);
 
-  if(FABS(x) < dft_ot_bulk_slab_width/2.0) return 1.0;
+  if(FABS(x) < width/2.0) return 1.0;
   else return 0.0;
 }
 
-EXPORT REAL dft_ot_bulk_surface_tension(dft_ot_functional *otf, REAL rho0) {
+EXPORT REAL dft_ot_bulk_surface_tension(REAL ts, REAL width, REAL rho0) {
 
   REAL mu0, stens, prev_stens;
   INT i;
+  rgrid *rworkspace;
+  wf *gwf;
+  extern INT dft_driver_nx, dft_driver_ny, dft_driver_nz;
+  extern REAL dft_driver_step, dft_driver_rho0;
+  extern dft_ot_functional *dft_driver_otf;
 
-  dft_driver_verbose = 0;
-  if(dft_ot_bulk_STEP != prev_step) {
-    dft_ot_bulk_NX = 128;
-    prev_step = dft_ot_bulk_STEP;
-    if(Apotential_store) cgrid_free(Apotential_store);
-    if(Apot) rgrid_free(Apot);
-    if(Agwf) grid_wf_free(Agwf);
-    if(Agwfp) grid_wf_free(Agwfp);
-    if(Adensity) rgrid_free(Adensity); // not needed - remove
-    if(rho0 < 0.0) return 0.0; /* just free the memeory */
-    dft_driver_setup_grid(dft_ot_bulk_NX, dft_ot_bulk_NY, dft_ot_bulk_NZ, dft_ot_bulk_STEP, dft_ot_bulk_THR);
-    dft_driver_setup_model(otf->model, DFT_DRIVER_IMAG_TIME, rho0);
-    dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
-    dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
-    dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
-    dft_driver_initialize();
-    Apotential_store = dft_driver_alloc_cgrid("Apotential store");
-    Adensity = dft_driver_alloc_rgrid("Adensity");           /* avoid allocating separate space for density */
-    Apot = dft_driver_alloc_rgrid("Apot");
-    Agwf = dft_driver_alloc_wavefunction(otf->mass, "Agwf");
-    Agwfp = dft_driver_alloc_wavefunction(otf->mass, "Agwfp");
-    /* setup a free surface (slab around x = 0) */
-    grid_wf_map(Agwf, &Aslab, NULL);
-    cgrid_multiply(Agwf->grid, SQRT(rho0));
-  }
-  /* Update driver otf structure - parameters in the given otf may have changed from last call */
-  otf->lennard_jones = dft_driver_otf->lennard_jones;
-  otf->spherical_avg = dft_driver_otf->spherical_avg;
-  otf->gaussian_tf = dft_driver_otf->gaussian_tf;
-  otf->gaussian_x_tf = dft_driver_otf->gaussian_x_tf;
-  otf->gaussian_y_tf = dft_driver_otf->gaussian_y_tf;
-  otf->gaussian_z_tf = dft_driver_otf->gaussian_z_tf;
-  otf->backflow_pot = dft_driver_otf->backflow_pot;
-  bcopy(otf, dft_driver_otf, sizeof(dft_ot_functional));
-  mu0 = dft_ot_bulk_chempot2(otf);
-  rgrid_constant(Apot, -mu0);
+  rworkspace = dft_driver_alloc_rgrid("rworkspace");
+  dft_driver_otf->rho0 = dft_driver_rho0;
+  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
+  gwf = dft_driver_alloc_wavefunction(dft_driver_otf->mass, "gwf");
+  grid_wf_map(gwf, &Aslab, NULL);
+  cgrid_multiply(gwf->grid, SQRT(rho0));
+
   prev_stens = 1E11;
   for(i = 1; ; i++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, i);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, Apot, Agwf, Agwfp, Apotential_store, dft_ot_bulk_TS, i);
-    stens = dft_driver_energy(Agwf, Apot) / (2.0 * ((REAL) dft_ot_bulk_NY) * ((REAL) dft_ot_bulk_NZ) * dft_ot_bulk_STEP * dft_ot_bulk_STEP);
+    dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, ts, i);
+    stens = dft_driver_energy(gwf, rworkspace) / (2.0 * ((REAL) dft_driver_ny) * ((REAL) dft_driver_nz) * dft_driver_step * dft_driver_step);
     if(FABS(stens - prev_stens) / stens < 0.03) break;
     prev_stens = stens;
   }
-  dft_driver_verbose = 1;
+  grid_wf_free(gwf);
+  rgrid_free(rworkspace);
   return stens;
 }
+

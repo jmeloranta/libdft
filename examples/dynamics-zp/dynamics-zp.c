@@ -75,15 +75,15 @@ int main(int argc, char **argv) {
     grid_wf_density(imwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, 0.0, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, 0.0, gwf, gwfp, potential_store, TS, iter);
 
     /* convolute liquid density with ext_pot -> ext_pot2 */
     grid_wf_density(gwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
   }
   /* At this point gwf contains the converged wavefunction */
   dft_driver_write_grid(gwf->grid, "initial1");
@@ -98,15 +98,15 @@ int main(int argc, char **argv) {
     grid_wf_density(imwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, 0.0, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, 0.0, gwf, gwfp, potential_store, TS, iter);
 
     /* convolute liquid density with ext_pot -> ext_pot2 */
     grid_wf_density(gwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
     if(!(iter % 10)) {
       sprintf(buf, "final1-" FMT_I, iter);
       dft_driver_write_grid(gwf->grid, buf);

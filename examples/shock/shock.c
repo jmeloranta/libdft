@@ -62,7 +62,7 @@ REAL complex gauss(void *arg, REAL x, REAL y, REAL z) {
 int main(int argc, char **argv) {
 
   struct params sparams;
-  rgrid *ext_pot, *rworkspace;
+  rgrid *rworkspace;
   cgrid *potential_store;
   wf *gwf, *gwfp;
   INT iter;
@@ -85,7 +85,6 @@ int main(int argc, char **argv) {
   dft_driver_initialize();
 
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid("Ext pot");
   rworkspace = dft_driver_alloc_rgrid("rworkspace");
   potential_store = dft_driver_alloc_cgrid("cworkspace"); /* temporary storage */
   /* Read initial external potential from file */
@@ -95,8 +94,6 @@ int main(int argc, char **argv) {
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
   rho0 = dft_driver_otf->rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
   mu0  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
-  rgrid_zero(ext_pot);
-  rgrid_add(ext_pot, -mu0); /* Add the chemical potential */
 
   sparams.delta = DELTA;
   sparams.rho0 = rho0;
@@ -107,8 +104,8 @@ int main(int argc, char **argv) {
   //dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
 
   for (iter = 0; iter < MAXITER; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
     if(!(iter % OUTPUT)) {
       sprintf(buf, "final-" FMT_I, iter);
       grid_wf_density(gwf, rworkspace);

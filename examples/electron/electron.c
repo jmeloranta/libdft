@@ -223,8 +223,8 @@ int main(int argc, char *argv[]) {
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(density, density, pseudo);
     /* It is OK to run just one step - in imaginary time but not in real time. */
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step_el, l);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, egwf, egwfp, potential_store, time_step_el, l);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, 0.0, egwf, egwfp, potential_store, time_step_el, l);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, 0.0, egwf, egwfp, potential_store, time_step_el, l);
 #else
     cgrid_zero(egwf->grid);
 #endif
@@ -237,9 +237,8 @@ int main(int argc, char *argv[]) {
 #else
     rgrid_zero(density);
 #endif
-    rgrid_add(density, -mu0);
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, gwf, gwfp, potential_store, time_step, l);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, gwf, gwfp, potential_store, time_step, l);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, mu0, gwf, gwfp, potential_store, time_step, l);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, mu0, gwf, gwfp, potential_store, time_step, l);
   }
   return 0;
 }

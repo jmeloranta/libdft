@@ -120,24 +120,22 @@ int main(int argc, char **argv) {
 
   /* map potential */
   rgrid_map(ext_pot, pot_func, NULL);
-  rgrid_add(ext_pot, -mu0); /* Add the chemical potential */
 
   /* Imag time iterations */
   for (iter = 0; iter < INITIAL; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 5.0 * TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, 5.0 * TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, 5.0 * TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, 5.0 * TS, iter);
   }
 
   /* Real time iterations */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
   for (iter = 0; iter < MAXITER; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS, iter);
     /* Move potential */
     if(piston_pos < PISTON_DIST) {
       piston_pos = piston(iter * TS / GRID_AUTOFS);
       rgrid_map(ext_pot, pot_func, NULL);
-      rgrid_add(ext_pot, -mu0); /* Add the chemical potential */
       /* end move */
     }
     if(!(iter % NTH)) {

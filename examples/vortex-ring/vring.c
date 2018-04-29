@@ -43,7 +43,6 @@ REAL complex vring(void *asd, REAL x, REAL y, REAL z) {
 
 int main(int argc, char **argv) {
 
-  rgrid *ext_pot;
   cgrid *potential_store;
   wf *gwf, *gwfp;
   INT iter;
@@ -70,7 +69,6 @@ int main(int argc, char **argv) {
   printf("rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG), mu0 * GRID_AUTOK);
 
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid("ext_pot");
   potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
 
   /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
@@ -79,17 +77,14 @@ int main(int argc, char **argv) {
   /* setup initial guess for vortex ring */
   cgrid_map(gwf->grid, vring, NULL);
 
-  /* Generate the excited potential */
-  rgrid_constant(ext_pot, -mu0); /* Add the chemical potential */
-
   for (iter = 1; iter < 800000; iter++) {
     if(iter == 1 || !(iter % NTH)) {
       sprintf(buf, "vring-" FMT_I, iter);
       dft_driver_write_grid(gwf->grid, buf);
-      dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
-      dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
+      dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
+      dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
       kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
-      pot = dft_driver_potential_energy(gwf, ext_pot); /* Potential energy for gwf */
+      pot = dft_driver_potential_energy(gwf, dft_driver_get_workspace(1, 1)); /* Potential energy for gwf */
       n = dft_driver_natoms(gwf);
       printf("Iteration " FMT_I " helium natoms    = " FMT_R " particles.\n", iter, n);   /* Energy / particle in K */
       printf("Iteration " FMT_I " helium kinetic   = " FMT_R "\n", iter, kin * GRID_AUTOK);  /* Print result in K */

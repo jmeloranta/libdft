@@ -107,7 +107,6 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Smooth mapping = " FMT_I ".\n", (INT) SM);
   rgrid_smooth_map(ext_pot, pot_func, NULL, SM); /* External potential */
 #endif
-  rgrid_add(ext_pot, -mu0);
 
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_USER_TIME, rho0);  /* mixed real & imag time iterations for warm up */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
@@ -116,8 +115,8 @@ int main(int argc, char *argv[]) {
     /* Mixed Imaginary & Real time iterations */
     fprintf(stderr, "Warm up iterations.\n");
     for(iter = 0; iter < STARTING_ITER; iter++) {
-      (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, tstep(TIME_STEP, iter), iter); /* PREDICT */ 
-      (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, tstep(TIME_STEP, iter), iter); /* CORRECT */ 
+      (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, tstep(TIME_STEP, iter), iter); /* PREDICT */ 
+      (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, tstep(TIME_STEP, iter), iter); /* CORRECT */ 
     }
   } else { /* restart from a file (.grd) */
     fprintf(stderr, "Continuing from checkpoint file %s.\n", argv[1]);
@@ -143,8 +142,8 @@ int main(int argc, char *argv[]) {
 #endif
       analyze(gwf, iter, vx);
     }
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
   }
 
   return 0;

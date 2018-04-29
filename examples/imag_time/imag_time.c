@@ -204,14 +204,13 @@ int main(int argc, char **argv) {
   rgrid_map(ext_pot, pot_func, NULL);
   //dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "cl-pot.dat", "cl-pot.dat", "cl-pot.dat", ext_pot);
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
-  rgrid_add(ext_pot, -mu0);
   rho0 = dft_driver_otf->rho0;
   printf("mu0 = %le K, rho0 = %le Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
   /* Run 200 iterations using imaginary time (10 fs time step) */
   for (iter = 0; iter < MAXITER; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS /* fs */, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS /* fs */, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS /* fs */, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS /* fs */, iter);
     if(!(iter % NTH)) {
       char buf[512];
       sprintf(buf, "output-" FMT_I, iter);

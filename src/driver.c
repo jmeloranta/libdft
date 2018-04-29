@@ -32,13 +32,14 @@ dft_ot_functional *dft_driver_otf = 0;
 char dft_driver_init_wavefunction = 1;
 char dft_driver_kinetic = 0; /* default FFT propagation for kinetic, TODO: FFT gives some numerical hash - bug? */
 
-static INT driver_nx = 0, driver_ny = 0, driver_nz = 0, driver_nx2 = 0, driver_ny2 = 0, driver_nz2 = 0, driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
+INT dft_driver_nx = 0, dft_driver_ny = 0, dft_driver_nz = 0, dft_driver_nx2 = 0, dft_driver_ny2 = 0, dft_driver_nz2 = 0;
+static INT driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
 static INT driver_norm_type = 0, driver_nhe = 0, center_release = 0, driver_rels = 0;
 static INT driver_bc_lx = 0, driver_bc_hx = 0, driver_bc_ly = 0, driver_bc_hy = 0, driver_bc_lz = 0, driver_bc_hz = 0;
 static char driver_bc = 0;
 static REAL driver_frad = 0.0, driver_omega = 0.0, driver_bc_amp = 1.0;
 static REAL viscosity = 0.0, viscosity_alpha = 1.0;
-static REAL driver_step = 0.0, driver_rho0 = 0.0;
+REAL dft_driver_step = 0.0, dft_driver_rho0 = 0.0;
 static REAL driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0;
 static REAL driver_kx0 = 0.0, driver_ky0 = 0.0, driver_kz0 = 0.0;
 static rgrid *density = 0, *workspace1 = 0, *workspace2 = 0, *workspace3 = 0, *workspace4 = 0, *workspace5 = 0, *workspace6 = 0;
@@ -87,26 +88,26 @@ inline static void scale_wf(char what, wf *gwf) {
   /* liquid helium */
   switch(driver_norm_type) {
   case DFT_DRIVER_NORMALIZE_BULK: /*bulk normalization */
-    norm = SQRT(driver_rho0) / CABS(cgrid_value_at_index(gwf->grid, 0, 0, 0));
+    norm = SQRT(dft_driver_rho0) / CABS(cgrid_value_at_index(gwf->grid, 0, 0, 0));
     cgrid_multiply(gwf->grid, norm);
     break;
   case DFT_DRIVER_NORMALIZE_ZEROB:
-    i = driver_nx / driver_nhe;
-    j = driver_ny / driver_nhe;
-    k = driver_nz / driver_nhe;
-    norm = SQRT(driver_rho0) / CABS(cgrid_value_at_index(gwf->grid, i, j, k));
+    i = dft_driver_nx / driver_nhe;
+    j = dft_driver_ny / driver_nhe;
+    k = dft_driver_nz / driver_nhe;
+    norm = SQRT(dft_driver_rho0) / CABS(cgrid_value_at_index(gwf->grid, i, j, k));
     cgrid_multiply(gwf->grid, norm);
     break;
   case DFT_DRIVER_NORMALIZE_DROPLET: /* helium droplet */
     if(!center_release) {
       REAL sq;
-      sq = SQRT(3.0*driver_rho0/4.0);
-      for (i = 0; i < driver_nx; i++) {
-	x = ((REAL) (i - driver_nx2)) * driver_step;
-	for (j = 0; j < driver_ny; j++) {
-	  y = ((REAL) (j - driver_ny2)) * driver_step;
-	  for (k = 0; k < driver_nz; k++) {
-	    z = ((REAL) (k - driver_nz2)) * driver_step;
+      sq = SQRT(3.0*dft_driver_rho0/4.0);
+      for (i = 0; i < dft_driver_nx; i++) {
+	x = ((REAL) (i - dft_driver_nx2)) * dft_driver_step;
+	for (j = 0; j < dft_driver_ny; j++) {
+	  y = ((REAL) (j - dft_driver_ny2)) * dft_driver_step;
+	  for (k = 0; k < dft_driver_nz; k++) {
+	    z = ((REAL) (k - dft_driver_nz2)) * dft_driver_step;
 	    if(SQRT(x*x + y*y + z*z) < driver_frad && CABS(cgrid_value_at_index(gwf->grid, i, j, k)) < sq)
               cgrid_value_to_index(gwf->grid, i, j, k, sq);
 	  }
@@ -119,13 +120,13 @@ inline static void scale_wf(char what, wf *gwf) {
   case DFT_DRIVER_NORMALIZE_COLUMN: /* column along y */
     if(!center_release) {
       REAL sq;
-      sq = SQRT(3.0*driver_rho0/4.0);
-      for (i = 0; i < driver_nx; i++) {
-	x = ((REAL) (i - driver_nx2)) * driver_step;
-	for (j = 0; j < driver_ny; j++) {
-	  y = ((REAL) (j - driver_ny2)) * driver_step;
-	  for (k = 0; k < driver_nz; k++) {
-	    z = ((REAL) (k - driver_nz2)) * driver_step;
+      sq = SQRT(3.0*dft_driver_rho0/4.0);
+      for (i = 0; i < dft_driver_nx; i++) {
+	x = ((REAL) (i - dft_driver_nx2)) * dft_driver_step;
+	for (j = 0; j < dft_driver_ny; j++) {
+	  y = ((REAL) (j - dft_driver_ny2)) * dft_driver_step;
+	  for (k = 0; k < dft_driver_nz; k++) {
+	    z = ((REAL) (k - dft_driver_nz2)) * dft_driver_step;
 	    if(SQRT(x * x + z * z) < driver_frad && CABS(cgrid_value_at_index(gwf->grid, i, j, k)) < sq)
               cgrid_value_to_index(gwf->grid, i, j, k, sq);
 	  }
@@ -137,10 +138,10 @@ inline static void scale_wf(char what, wf *gwf) {
     break;
   case DFT_DRIVER_NORMALIZE_SURFACE:   /* in (x,y) plane starting at z = 0 */
     if(!center_release) {
-      for (i = 0; i < driver_nx; i++)
-	for (j = 0; j < driver_ny; j++)
-	  for (k = 0; k < driver_nz; k++) {
-	    z = ((REAL) (k - driver_nz2)) * driver_step;
+      for (i = 0; i < dft_driver_nx; i++)
+	for (j = 0; j < dft_driver_ny; j++)
+	  for (k = 0; k < dft_driver_nz; k++) {
+	    z = ((REAL) (k - dft_driver_nz2)) * dft_driver_step;
 	    if(FABS(z) < driver_frad)
               cgrid_value_to_index(gwf->grid, i, j, k, 0.0);
 	  }
@@ -207,7 +208,7 @@ EXPORT void dft_driver_write_wisdom(char *file) {
 
 EXPORT void dft_driver_initialize() {
 
-  if(driver_nx == 0) {
+  if(dft_driver_nx == 0) {
     fprintf(stderr, "libdft: dft_driver not properly initialized.\n");
     exit(1);
   }
@@ -239,15 +240,15 @@ EXPORT void dft_driver_initialize() {
     workspace9 = dft_driver_alloc_rgrid("DR workspace9");
   }
   density = dft_driver_alloc_rgrid("DR density");
-  dft_driver_otf = dft_ot_alloc(driver_dft_model, driver_nx, driver_ny, driver_nz, driver_step, driver_bc, MIN_SUBSTEPS, MAX_SUBSTEPS);
-  if(driver_rho0 == 0.0) {
-    if(dft_driver_verbose) fprintf(stderr, "libdft: Setting driver_rho0 to " FMT_R "\n", dft_driver_otf->rho0);
-    driver_rho0 = dft_driver_otf->rho0;
+  dft_driver_otf = dft_ot_alloc(driver_dft_model, dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, driver_bc, MIN_SUBSTEPS, MAX_SUBSTEPS);
+  if(dft_driver_rho0 == 0.0) {
+    if(dft_driver_verbose) fprintf(stderr, "libdft: Setting dft_driver_rho0 to " FMT_R "\n", dft_driver_otf->rho0);
+    dft_driver_rho0 = dft_driver_otf->rho0;
   } else {
-    if(dft_driver_verbose) fprintf(stderr, "libdft: Overwritting dft_driver_otf->rho0 to " FMT_R ".\n", driver_rho0);
-    dft_driver_otf->rho0 = driver_rho0;
+    if(dft_driver_verbose) fprintf(stderr, "libdft: Overwritting dft_driver_otf->rho0 to " FMT_R ".\n", dft_driver_rho0);
+    dft_driver_otf->rho0 = dft_driver_rho0;
   }
-  if(dft_driver_verbose) fprintf(stderr, "libdft: rho0 = " FMT_R " Angs^-3.\n", driver_rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+  if(dft_driver_verbose) fprintf(stderr, "libdft: rho0 = " FMT_R " Angs^-3.\n", dft_driver_rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
   if(dft_driver_verbose) fprintf(stderr, "libdft: " FMT_R " wall clock seconds for initialization.\n", grid_timer_wall_clock_time(&timer));
 }
 
@@ -271,10 +272,10 @@ EXPORT void dft_driver_setup_grid(INT nx, INT ny, INT nz, REAL step, INT threads
   //    exit(1);
   //  }
 
-  driver_nx = nx; driver_nx2 = driver_nx / 2;
-  driver_ny = ny; driver_ny2 = driver_ny / 2;
-  driver_nz = nz; driver_nz2 = driver_nz / 2;
-  driver_step = step;
+  dft_driver_nx = nx; dft_driver_nx2 = dft_driver_nx / 2;
+  dft_driver_ny = ny; dft_driver_ny2 = dft_driver_ny / 2;
+  dft_driver_nz = nz; dft_driver_nz2 = dft_driver_nz / 2;
+  dft_driver_step = step;
   // Set the origin to its default value if it is not defined
   if(dft_driver_verbose) fprintf(stderr, "libdft: Grid size = (" FMT_I "," FMT_I "," FMT_I ") with step = " FMT_R ".\n", nx, ny, nz, step);
   driver_threads = threads;
@@ -352,8 +353,8 @@ EXPORT void dft_driver_setup_model(INT dft_model, INT iter_mode, REAL rho0) {
   driver_dft_model = dft_model;
   driver_iter_mode = iter_mode;
   if(dft_driver_verbose) fprintf(stderr, "libdft: %s time calculation.\n", iter_mode?"imaginary":"real");
-  if(bh && dft_driver_verbose) fprintf(stderr,"libdft: WARNING -- Overwritting driver_rho0 to " FMT_R "\n", rho0);
-  driver_rho0 = rho0;
+  if(bh && dft_driver_verbose) fprintf(stderr,"libdft: WARNING -- Overwritting dft_driver_rho0 to " FMT_R "\n", rho0);
+  dft_driver_rho0 = rho0;
   bh = 1;
 }
 
@@ -385,12 +386,12 @@ EXPORT void dft_driver_setup_boundary_type(INT boundary_type, REAL amp, REAL wid
       exit(1);
     }
   }
-  driver_bc_lx = (INT) (width_x / driver_step);
-  driver_bc_hx = driver_nx - driver_bc_lx - 1;
-  driver_bc_ly = (INT) (width_y / driver_step);
-  driver_bc_hy = driver_ny - driver_bc_ly - 1;
-  driver_bc_lz = (INT) (width_z / driver_step);
-  driver_bc_hz = driver_nz - driver_bc_lz - 1;
+  driver_bc_lx = (INT) (width_x / dft_driver_step);
+  driver_bc_hx = dft_driver_nx - driver_bc_lx - 1;
+  driver_bc_ly = (INT) (width_y / dft_driver_step);
+  driver_bc_hy = dft_driver_ny - driver_bc_ly - 1;
+  driver_bc_lz = (INT) (width_z / dft_driver_step);
+  driver_bc_hz = dft_driver_nz - driver_bc_lz - 1;
   fprintf(stderr, "libdft: Absorbing boundary indices: lx = " FMT_I ", hx = " FMT_I ", ly = " FMT_I ", hy = " FMT_I ", lz = " FMT_I ", hz = " FMT_I "\n",
     driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz);
   driver_bc_amp = amp;
@@ -563,7 +564,7 @@ EXPORT void dft_driver_ot_potential(wf *gwf, cgrid *pot) {
 
 static REAL visc_func(REAL rho, void *NA) {
 
-  return POW(rho / driver_rho0, viscosity_alpha) * viscosity;  // viscosity_alpha > 0
+  return POW(rho / dft_driver_rho0, viscosity_alpha) * viscosity;  // viscosity_alpha > 0
 }
 
 EXPORT void dft_driver_viscous_potential(wf *gwf, cgrid *pot) {
@@ -667,7 +668,7 @@ EXPORT void dft_driver_viscous_potential(wf *gwf, cgrid *pot) {
   grid_add_real_to_complex_re(pot, workspace8);
 #else
   // NOT IN USE
-  REAL tot = -(4.0 / 3.0) * viscosity / driver_rho0;
+  REAL tot = -(4.0 / 3.0) * viscosity / dft_driver_rho0;
   
   dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, DFT_BF_EPS); // Watch out! workspace1 used by veloc_field
   rgrid_div(workspace1, workspace2, workspace3, workspace4);  
@@ -696,15 +697,13 @@ EXPORT void dft_driver_propagate_potential(char what, wf *gwf, cgrid *pot, REAL 
 }
 
 /*
- * Predict step: propagate the given wf in time.
+ * Propagate step: propagate the given wf in time. No predict/correct. Must use smaller time step but uses less memory.
  *
  * what      = DFT_DRIVER_PROPAGATE_HELIUM  or DFT_DRIVER_PROPAGATE_OTHER (char; input).
  * ext_pot   = present external potential grid (rgrid *; input) (NULL = no ext. pot).
+ * chempot   = chemical potential (REAL).
  * gwf       = liquid wavefunction to propagate (wf *; input).
  *             Note that gwf is NOT changed by this routine.
- * gwfp      = predicted wavefunction (wf *; output).
- * potential = storage space for the potential (cgrid *; output).
- *             Do not overwrite this before calling the correct routine.
  * ctstep    = time step in FS (REAL complex; input).
  * iter      = current iteration (INT; input).
  *
@@ -716,7 +715,7 @@ EXPORT void dft_driver_propagate_potential(char what, wf *gwf, cgrid *pot, REAL 
  *
  */
 
-EXPORT inline void dft_driver_propagate_predict(char what, rgrid *ext_pot, wf *gwf, wf *gwfp, cgrid *potential, REAL complex ctstep, INT iter) {
+EXPORT inline void dft_driver_propagate(char what, rgrid *ext_pot, REAL chempot, wf *gwf, REAL complex ctstep, INT iter) {
 
   ctstep /= GRID_AUTOFS;
   switch(driver_iter_mode) {
@@ -736,7 +735,97 @@ EXPORT inline void dft_driver_propagate_predict(char what, rgrid *ext_pot, wf *g
 
   grid_timer_start(&timer);  
 
-  if(driver_nx == 0) {
+  if(dft_driver_nx == 0) {
+    fprintf(stderr, "libdft: dft_driver not setup.\n");
+    exit(1);
+  }
+
+  if(!iter && driver_iter_mode == DFT_DRIVER_IMAG_TIME && what < DFT_DRIVER_PROPAGATE_OTHER && dft_driver_init_wavefunction == 1) {
+    if(dft_driver_verbose) fprintf(stderr, "libdft: first imag. time iteration - initializing the wavefunction.\n");
+    grid_wf_constant(gwf, SQRT(dft_driver_otf->rho0));
+  }
+
+  /* droplet & column center release */
+  if(driver_rels && iter > driver_rels && driver_norm_type > 0 && what < DFT_DRIVER_PROPAGATE_OTHER) {
+    if(!center_release && dft_driver_verbose) fprintf(stderr, "libdft: center release activated.\n");
+    center_release = 1;
+  } else center_release = 0;
+
+  dft_driver_propagate_kinetic_first(what, gwf, ctstep);  // possibly uses cworkspace as temp
+
+  if(!cworkspace)
+    cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
+
+  cgrid_zero(cworkspace);
+  switch(what) {
+  case DFT_DRIVER_PROPAGATE_HELIUM:
+    dft_driver_ot_potential(gwf, cworkspace);
+    if(viscosity != 0.0) {
+      if(dft_driver_verbose) fprintf(stderr, "libdft: Including viscous potential.\n");
+      dft_driver_viscous_potential(gwf, cworkspace);
+    }
+    break;
+  case DFT_DRIVER_PROPAGATE_OTHER:
+  case DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT:
+    break;
+  default:
+    fprintf(stderr, "libdft: Unknown propagator flag.\n");
+    exit(1);
+  }
+  if(ext_pot) grid_add_real_to_complex_re(cworkspace, ext_pot);
+  cgrid_add(cworkspace, (REAL complex) -chempot);
+
+  dft_driver_propagate_potential(what, gwf, cworkspace, ctstep);
+
+  dft_driver_propagate_kinetic_second(what, gwf, ctstep);  // possibly uses cworkspace as temp
+
+  if(dft_driver_verbose) fprintf(stderr, "libdft: Propagate step " FMT_R " wall clock seconds (iter = " FMT_I ").\n", grid_timer_wall_clock_time(&timer), iter);
+  fflush(stderr);
+}
+
+/*
+ * Predict step: propagate the given wf in time.
+ *
+ * what      = DFT_DRIVER_PROPAGATE_HELIUM  or DFT_DRIVER_PROPAGATE_OTHER (char; input).
+ * ext_pot   = present external potential grid (rgrid *; input) (NULL = no ext. pot).
+ * chempot   = chemical potential (REAL).
+ * gwf       = liquid wavefunction to propagate (wf *; input).
+ *             Note that gwf is NOT changed by this routine.
+ * gwfp      = predicted wavefunction (wf *; output).
+ * potential = storage space for the potential (cgrid *; output).
+ *             Do not overwrite this before calling the correct routine.
+ * ctstep    = time step in FS (REAL complex; input).
+ * iter      = current iteration (INT; input).
+ *
+ * If what == DFT_DRIVER_PROPAGATE_HELIUM, the liquid potential is added automatically. Both kinetic and potential propagated.
+ * If what == DFT_DIRVER_PROPAGATE_OTHER, propagate only with the external potential (i.e., impurity). Both kin + ext pot. propagated.
+ * If what == DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT, propagate only with the external potential - no kinetic energy (Lappacian).
+ *
+ * No return value.
+ *
+ */
+
+EXPORT inline void dft_driver_propagate_predict(char what, rgrid *ext_pot, REAL chempot, wf *gwf, wf *gwfp, cgrid *potential, REAL complex ctstep, INT iter) {
+
+  ctstep /= GRID_AUTOFS;
+  switch(driver_iter_mode) {
+    case DFT_DRIVER_REAL_TIME:
+      ctstep = CREAL(ctstep);
+      break;
+    case DFT_DRIVER_IMAG_TIME:
+      ctstep = -I * CREAL(ctstep);
+    break;
+    case DFT_DRIVER_USER_TIME:
+      /* Use whatever we were given */
+    break;
+    default:
+      fprintf(stderr, "libdft: Illegal value for driver_iter_mode.\n");
+      exit(1);
+  }
+
+  grid_timer_start(&timer);  
+
+  if(dft_driver_nx == 0) {
     fprintf(stderr, "libdft: dft_driver not setup.\n");
     exit(1);
   }
@@ -771,6 +860,7 @@ EXPORT inline void dft_driver_propagate_predict(char what, rgrid *ext_pot, wf *g
     exit(1);
   }
   if(ext_pot) grid_add_real_to_complex_re(potential, ext_pot);
+  cgrid_add(potential, (REAL complex) -chempot);
 
   cgrid_copy(gwfp->grid, gwf->grid);
 
@@ -785,6 +875,7 @@ EXPORT inline void dft_driver_propagate_predict(char what, rgrid *ext_pot, wf *g
  *
  * what      = DFT_DRIVER_PROPAGATE_HELIUM  or DFT_DRIVER_PROPAGATE_OTHER (char; input).
  * ext_pot   = present external potential grid (rgrid *) (NULL = no ext. pot).
+ * chempot   = chemical potential (REAL; input).
  * gwf       = liquid wavefunction to propagate (wf *).
  *             Note that gwf is NOT changed by this routine.
  * gwfp      = predicted wavefunction (wf *; output).
@@ -800,7 +891,7 @@ EXPORT inline void dft_driver_propagate_predict(char what, rgrid *ext_pot, wf *g
  *
  */
 
-EXPORT inline void dft_driver_propagate_correct(char what, rgrid *ext_pot, wf *gwf, wf *gwfp, cgrid *potential, REAL complex ctstep, INT iter) {
+EXPORT inline void dft_driver_propagate_correct(char what, rgrid *ext_pot, REAL chempot, wf *gwf, wf *gwfp, cgrid *potential, REAL complex ctstep, INT iter) {
 
   ctstep /= GRID_AUTOFS;
   switch(driver_iter_mode) {
@@ -836,6 +927,8 @@ EXPORT inline void dft_driver_propagate_correct(char what, rgrid *ext_pot, wf *g
     exit(1);
   }
   if(ext_pot) grid_add_real_to_complex_re(potential, ext_pot);
+  cgrid_add(potential, (REAL complex) -chempot);
+
   cgrid_multiply(potential, 0.5);
   dft_driver_propagate_potential(what, gwf, potential, ctstep);
 
@@ -894,7 +987,7 @@ EXPORT cgrid *dft_driver_alloc_cgrid(char *id) {
   REAL complex (*grid_type)(cgrid *, INT, INT, INT);
   cgrid *tmp;
 
-  if(driver_nx == 0) {
+  if(dft_driver_nx == 0) {
     fprintf(stderr, "libdft: dft_driver routines must be initialized first.\n");
     exit(1);
   }
@@ -920,7 +1013,7 @@ EXPORT cgrid *dft_driver_alloc_cgrid(char *id) {
     exit(1);
   }
 
-  tmp = cgrid_alloc(driver_nx, driver_ny, driver_nz, driver_step, grid_type, 0, id);
+  tmp = cgrid_alloc(dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, grid_type, 0, id);
   cgrid_set_origin(tmp, driver_x0, driver_y0, driver_z0);
   cgrid_set_momentum(tmp, driver_kx0, driver_ky0, driver_kz0);
   return tmp;
@@ -941,7 +1034,7 @@ EXPORT rgrid *dft_driver_alloc_rgrid(char *id) {
   REAL (*grid_type)(rgrid *, INT, INT, INT);
   rgrid *tmp;
 
-  if(driver_nx == 0) {
+  if(dft_driver_nx == 0) {
     fprintf(stderr, "libdft: dft_driver routines must be initialized first.\n");
     exit(1);
   }
@@ -962,7 +1055,7 @@ EXPORT rgrid *dft_driver_alloc_rgrid(char *id) {
     exit(1);
   }
 
-  tmp = rgrid_alloc(driver_nx, driver_ny, driver_nz, driver_step, grid_type, 0, id);
+  tmp = rgrid_alloc(dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, grid_type, 0, id);
   rgrid_set_origin(tmp, driver_x0, driver_y0, driver_z0);
   rgrid_set_momentum(tmp, driver_kx0, driver_ky0, driver_kz0);
   return tmp;
@@ -982,7 +1075,7 @@ EXPORT wf *dft_driver_alloc_wavefunction(REAL mass, char *id) {
   wf *tmp;
   char grid_type;
   
-  if(driver_nx == 0) {
+  if(dft_driver_nx == 0) {
     fprintf(stderr, "libdft: dft_driver routines must be initialized first.\n");
     exit(1);
   }
@@ -1008,10 +1101,10 @@ EXPORT wf *dft_driver_alloc_wavefunction(REAL mass, char *id) {
     exit(1);
   }
 
-  tmp = grid_wf_alloc(driver_nx, driver_ny, driver_nz, driver_step, mass, grid_type, WF_2ND_ORDER_PROPAGATOR, id);
+  tmp = grid_wf_alloc(dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, mass, grid_type, WF_2ND_ORDER_PROPAGATOR, id);
   cgrid_set_origin(tmp->grid, driver_x0, driver_y0, driver_z0);
   cgrid_set_momentum(tmp->grid, driver_kx0, driver_ky0, driver_kz0);
-  cgrid_constant(tmp->grid, SQRT(driver_rho0));
+  cgrid_constant(tmp->grid, SQRT(dft_driver_rho0));
   return tmp;
 }
 
@@ -1406,10 +1499,10 @@ EXPORT void dft_driver_write_grid(cgrid *grid, char *base) {
     fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
     exit(1);
   }
-  j = driver_ny2;
-  k = driver_nz2;
-  for(i = 0; i < driver_nx; i++) { 
-    x = ((REAL) (i - driver_nx2)) * driver_step;
+  j = dft_driver_ny2;
+  k = dft_driver_nz2;
+  for(i = 0; i < dft_driver_nx; i++) { 
+    x = ((REAL) (i - dft_driver_nx2)) * dft_driver_step;
     fprintf(fp, FMT_R " " FMT_R " " FMT_R "\n", x, CREAL(cgrid_value_at_index(grid, i, j, k)), CIMAG(cgrid_value_at_index(grid, i, j, k)));
   }
   fclose(fp);
@@ -1419,10 +1512,10 @@ EXPORT void dft_driver_write_grid(cgrid *grid, char *base) {
     fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
     exit(1);
   }
-  i = driver_nx2;
-  k = driver_nz2;
-  for(j = 0; j < driver_ny; j++) {
-    y = ((REAL) (j - driver_ny2)) * driver_step;
+  i = dft_driver_nx2;
+  k = dft_driver_nz2;
+  for(j = 0; j < dft_driver_ny; j++) {
+    y = ((REAL) (j - dft_driver_ny2)) * dft_driver_step;
     fprintf(fp, FMT_R " " FMT_R " " FMT_R "\n", y, CREAL(cgrid_value_at_index(grid, i, j, k)), CIMAG(cgrid_value_at_index(grid, i, j, k)));
   }
   fclose(fp);
@@ -1432,10 +1525,10 @@ EXPORT void dft_driver_write_grid(cgrid *grid, char *base) {
     fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
     exit(1);
   }
-  i = driver_nx2;
-  j = driver_ny2;
-  for(k = 0; k < driver_nz; k++) {
-    z = ((REAL) (k - driver_nz2)) * driver_step;
+  i = dft_driver_nx2;
+  j = dft_driver_ny2;
+  for(k = 0; k < dft_driver_nz; k++) {
+    z = ((REAL) (k - dft_driver_nz2)) * dft_driver_step;
     fprintf(fp, FMT_R " " FMT_R " " FMT_R "\n", z, CREAL(cgrid_value_at_index(grid, i, j, k)), CIMAG(cgrid_value_at_index(grid, i, j, k)));
   }
   fclose(fp);
@@ -1867,9 +1960,9 @@ EXPORT rgrid *dft_driver_spectrum_init(rgrid *idensity, INT nt, INT zf, char upp
     tdpot = cgrid_alloc(1, 1, ntime + zf, 0.1, CGRID_PERIODIC_BOUNDARY, 0, "tdpot");
   if(upperx == NULL) return NULL;   /* potentials not given */
   if(!xxdiff)
-    xxdiff = rgrid_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID_PERIODIC_BOUNDARY, 0, "xxdiff");
+    xxdiff = rgrid_alloc(dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, RGRID_PERIODIC_BOUNDARY, 0, "xxdiff");
   if(!xxave)
-    xxave = rgrid_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID_PERIODIC_BOUNDARY, 0, "xxave");
+    xxave = rgrid_alloc(dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, RGRID_PERIODIC_BOUNDARY, 0, "xxave");
   fprintf(stderr, "libdft: Upper level potential.\n");
   dft_common_potential_map(upperave, upperx, uppery, upperz, workspace1);
   fprintf(stderr, "libdft: Lower level potential.\n");
@@ -1912,9 +2005,9 @@ EXPORT rgrid *dft_driver_spectrum_init2(INT nt, INT zf, rgrid *upper, rgrid *low
     tdpot = cgrid_alloc(1, 1, ntime + zf, 0.1, CGRID_PERIODIC_BOUNDARY, 0, "tdpot");
   if(upper == NULL) return NULL; /* not given */
   if(!xxdiff)
-    xxdiff = rgrid_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID_PERIODIC_BOUNDARY, 0, "xxdiff");
+    xxdiff = rgrid_alloc(dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, RGRID_PERIODIC_BOUNDARY, 0, "xxdiff");
   if(!xxave)
-    xxave = rgrid_alloc(driver_nx, driver_ny, driver_nz, driver_step, RGRID_PERIODIC_BOUNDARY, 0, "xxave");
+    xxave = rgrid_alloc(dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, RGRID_PERIODIC_BOUNDARY, 0, "xxave");
   rgrid_difference(xxdiff, upper, lower);
   rgrid_sum(xxave, workspace1, workspace2);
   rgrid_multiply(xxave, 0.5);
@@ -2484,12 +2577,12 @@ EXPORT REAL dft_driver_spherical_rb(rgrid *density) {
   REAL disp;
 
   rgrid_multiply(density, -1.0);
-  rgrid_add(density, driver_rho0);
+  rgrid_add(density, dft_driver_rho0);
   disp = rgrid_integral(density);
-  rgrid_add(density, -driver_rho0);
+  rgrid_add(density, -dft_driver_rho0);
   rgrid_multiply(density, -1.0);
 
-  return POW(disp * 3.0 / (4.0 * M_PI * driver_rho0), 1.0 / 3.0);
+  return POW(disp * 3.0 / (4.0 * M_PI * dft_driver_rho0), 1.0 / 3.0);
 }
 
 /*
