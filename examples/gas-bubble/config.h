@@ -12,6 +12,7 @@
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))
 /* #define OUTPUT_GRID                  /* Output grid at each iteration (takes lots of space) (leave undefined if not needed) */
 #define CUDA                            /* Use CUDA ? */
+#define PC                              /* Predict-Correct (accurate but uses more memory) */
 
 #define VX (85.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
@@ -25,8 +26,6 @@
 #define ABS_WIDTH_X 60.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Y 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Z 25.0  /* Width of the absorbing boundary */
-
-#define SM 5              /* External potential smooth map divisions (0 = none) */
 
 /* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT (unstable) */
 #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson (stable, but slower) */
@@ -44,3 +43,5 @@
 #define A5 0.0
 #define RMIN 2.0
 #define RADD 6.0
+
+#define SM 5              /* External potential smooth map divisions (0 = none) */

@@ -1,3 +1,4 @@
 - is there a problem with examples/dispersion/dispersion3.c? It seems to give roton minimum that is slightly too low!? (OT+BF+KC)
+- use the common propagate entry points in libgrid rather than calling aux routines directly.
 
 

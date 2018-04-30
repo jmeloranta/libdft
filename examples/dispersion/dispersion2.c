@@ -18,10 +18,11 @@
 #define NX 512
 #define NY 256
 #define NZ 256
-#define STEP 0.5 /* Bohr */
+#define STEP 2.0 /* Bohr */
 #define TS 15.0 /* fs */
 #define AMP 1e-2 /* wave amplitude (of total rho0) */
 #define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
+#define PRED 0
 
 #define THREADS 0
 
@@ -44,8 +45,9 @@ int main(int argc, char **argv) {
   cuda_enable(1);
 #endif
 
-  model = DFT_OT_PLAIN;
+  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW;
   dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, RHO0);
+  // Note: CN_NBC has really wrong BC for this but it will not hit the center of the box within the first cycle...
 //  dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
   dft_driver_kinetic = DFT_DRIVER_KINETIC_FFT;
 
@@ -59,7 +61,7 @@ int main(int argc, char **argv) {
   printf("0 0\n");
   for (k = (REAL) atof(argv[1]) * GRID_AUTOANG; k < (REAL) atof(argv[2]) * GRID_AUTOANG; k += (REAL) atof(argv[3]) * GRID_AUTOANG) {
     kk = k;
-    e = dft_ot_dispersion(TS, &kk, AMP);
+    e = dft_ot_dispersion(TS, &kk, AMP, PRED);
     printf(FMT_R " " FMT_R "\n", kk / GRID_AUTOANG, e * GRID_AUTOK);
     fflush(stdout);
   }
