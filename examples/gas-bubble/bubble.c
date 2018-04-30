@@ -33,8 +33,11 @@ REAL complex tstep(REAL complex tstep, INT iter) {
 
 int main(int argc, char *argv[]) {
 
-  wf *gwf, *gwfp;
+  wf *gwf;
+#ifdef PC
+  wf *gwfp;
   cgrid *cworkspace;
+#endif
   rgrid *ext_pot;
 #ifdef OUTPUT_GRID
   char filename[2048];
@@ -48,7 +51,6 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
 #ifdef USE_CUDA
   cuda_enable(1);
-//  cuda_debug(1);
 #endif
 
   /* FFTW planner flags */
@@ -81,9 +83,10 @@ int main(int argc, char *argv[]) {
   
   /* Allocate wavefunctions and grids */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");  /* order parameter for current time (He liquid) */
+#ifdef PC
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) (He liquid) */
-
   cworkspace = dft_driver_alloc_cgrid("cworkspace");             /* allocate complex workspace */
+#endif
   ext_pot = dft_driver_alloc_rgrid("ext_pot");                /* allocate real external potential grid */
   
   /* Setup frame of reference momentum (for both imaginary & real time) */
@@ -91,8 +94,10 @@ int main(int argc, char *argv[]) {
   kx = momentum(vx);
   dft_driver_setup_momentum(kx, 0.0, 0.0);
   cgrid_set_momentum(gwf->grid, kx, 0.0, 0.0);
+#ifdef PC
   cgrid_set_momentum(gwfp->grid, kx, 0.0, 0.0);
   cgrid_set_momentum(cworkspace, kx, 0.0, 0.0);
+#endif
 
   fprintf(stderr, "Time step in fs   = " FMT_R "\n", TIME_STEP);
   fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
@@ -115,8 +120,12 @@ int main(int argc, char *argv[]) {
     /* Mixed Imaginary & Real time iterations */
     fprintf(stderr, "Warm up iterations.\n");
     for(iter = 0; iter < STARTING_ITER; iter++) {
+#ifdef PC
       (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, tstep(TIME_STEP, iter), iter); /* PREDICT */ 
       (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, tstep(TIME_STEP, iter), iter); /* CORRECT */ 
+#else
+      (void) dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, tstep(TIME_STEP, iter), iter);
+#endif
     }
   } else { /* restart from a file (.grd) */
     fprintf(stderr, "Continuing from checkpoint file %s.\n", argv[1]);
@@ -142,8 +151,12 @@ int main(int argc, char *argv[]) {
 #endif
       analyze(gwf, iter, vx);
     }
+#ifdef PC
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
     (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+#else
+    (void) dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, TIME_STEP, iter);
+#endif
   }
 
   return 0;
