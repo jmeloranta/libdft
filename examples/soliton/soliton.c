@@ -47,7 +47,7 @@ REAL soliton(void *asd, REAL x, REAL y, REAL z) {
 
 int main(int argc, char **argv) {
 
-  rgrid *ext_pot, *rworkspace;
+  rgrid *rworkspace;
   cgrid *potential_store;
   wf *gwf, *gwfp;
   INT iter;
@@ -73,7 +73,6 @@ int main(int argc, char **argv) {
   mu0 = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
 
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid("ext pot");
   rworkspace = dft_driver_alloc_rgrid("rworkspace");
   potential_store = dft_driver_alloc_cgrid("cworkspace"); /* temporary storage */
 
@@ -81,18 +80,17 @@ int main(int argc, char **argv) {
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
   /* setup soliton (ext_pot is temp here) */
-  rgrid_map(ext_pot, soliton, NULL);
-  rgrid_multiply(ext_pot, rho0);
-  rgrid_power(ext_pot, ext_pot, 0.5);
+  rgrid_map(rworkspace, soliton, NULL);
+  rgrid_multiply(rworkspace, rho0);
+  rgrid_power(rworkspace, rworkspace, 0.5);
   cgrid_zero(gwf->grid);   /* copy rho to wf real part */
-  grid_real_to_complex_re(gwf->grid, ext_pot);
+  grid_real_to_complex_re(gwf->grid, rworkspace);
 
   /* Generate the excited potential */
-  rgrid_constant(ext_pot, -mu0); /* Add the chemical potential */
 
   for (iter = 0; iter < 80000; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
     if(!(iter % NTH)) {
       sprintf(buf, "soliton-" FMT_I, iter);
       grid_wf_density(gwf, rworkspace);

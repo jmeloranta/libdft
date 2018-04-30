@@ -126,7 +126,6 @@ int main(int argc, char **argv) {
 
 #if 1
   mu0 = dft_ot_bulk_chempot(dft_driver_otf);
-  rgrid_add(ext_pot, -mu0);
   rho0 = dft_ot_bulk_density(dft_driver_otf);
 #else
   rho0 = 0.00323;  // for GP
@@ -178,8 +177,8 @@ int main(int argc, char **argv) {
       }
 #endif
     }
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TIME_STEP, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TIME_STEP, iter);
 
 #if defined(VORTEX) || defined(BOTH)
     zero_core(gwf->grid);

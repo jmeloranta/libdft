@@ -366,13 +366,12 @@ int main(int argc, char *argv[]) {
 #else
   dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "pot.dat", "pot.dat", "pot.dat", ext_pot);
 #endif
-  rgrid_add(ext_pot, -mu0); /* Add the chemical potential */
   
   for(iter = 1; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
 
     /*2. Predict + correct */
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
     
     if(iter && !(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       REAL force, mobility;

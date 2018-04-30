@@ -97,7 +97,6 @@ int main(int argc, char **argv) {
   /* Generate the initial potential */
   offset = 0.0;
   rgrid_map(ext_pot, pot_func, (void *) &offset);
-  rgrid_add(ext_pot, -mu0); /* Add the chemical potential */
 
   /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
@@ -106,8 +105,8 @@ int main(int argc, char **argv) {
 
   /* Step #1: Run 200 iterations using imaginary time for the initial state */
   for (iter = 0; iter < 200; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS, iter);
   }
   /* At this point gwf contains the converged wavefunction */
   grid_wf_density(gwf, rworkspace);
@@ -119,11 +118,10 @@ int main(int argc, char **argv) {
   /* Generate the excited potential */
   offset = EXCITED_OFFSET;
   rgrid_map(ext_pot, pot_func, (void *) &offset);
-  rgrid_add(ext_pot, -mu0); /* Add the chemical potential */
 
   for (iter = 0; iter < 80000; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS/10.0, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TS/10.0, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS/10.0, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS/10.0, iter);
     if(!(iter % NTH)) {
       sprintf(buf, "final-" FMT_I, iter);
       grid_wf_density(gwf, rworkspace);

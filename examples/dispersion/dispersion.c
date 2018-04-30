@@ -29,11 +29,6 @@
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
-typedef struct sWaveParams_struct {
-  REAL kx, ky, kz;
-  REAL a, rho;
-} sWaveParams;
-
 REAL complex wave(void *arg, REAL x, REAL y, REAL z);
 
 int main(int argc, char **argv) {
@@ -43,8 +38,7 @@ int main(int argc, char **argv) {
   grid_timer timer;
   cgrid *potential_store;
   wf *gwf, *gwfp;
-  rgrid *density, *pot;
-  sWaveParams wave_params;
+  dft_plane_wave wave_params;
   
   /* parameters */
   if (argc != 6) {
@@ -75,23 +69,19 @@ int main(int argc, char **argv) {
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   dft_driver_initialize();
-  density = dft_driver_alloc_rgrid("density");
   potential_store = dft_driver_alloc_cgrid("potential_store");
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");
-  pot = dft_driver_alloc_rgrid("pot");
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
-  rgrid_constant(pot, -mu0);
     
   wave_params.rho = dft_ot_bulk_density(dft_driver_otf);
-  grid_wf_map(gwf, wave, &wave_params);
+  grid_wf_map(gwf, dft_common_planewave, &wave_params);
 
   for(l = 0; l < iterations; l++) {
     grid_timer_start(&timer);
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, pot, gwf, gwfp, potential_store, TS /* fs */, l);
-    grid_wf_density(gwf, density);
-    printf(FMT_R " " FMT_R "\n", ((REAL) l) * TS, rgrid_value_at_index(density, NX/2, NY/2, NZ/2));
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS /* fs */, l);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS /* fs */, l);
+    printf(FMT_R " " FMT_R "\n", ((REAL) l) * TS, POW(CABS(cgrid_value_at_index(gwf->grid, NX/2, NY/2, NZ/2)), 2.0));
     fflush(stdout);
     fprintf(stderr, "One iteration = " FMT_R " wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
   }
@@ -99,14 +89,3 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-
-REAL complex wave(void *arg, REAL x, REAL y, REAL z) {
-
-  REAL kx = ((sWaveParams *) arg)->kx;
-  REAL ky = ((sWaveParams *) arg)->ky;
-  REAL kz = ((sWaveParams *) arg)->kz;
-  REAL a = ((sWaveParams *) arg)->a;
-  REAL psi = SQRT(((sWaveParams *) arg)->rho);
-  
-  return psi + 0.5 * a * psi * (CEXP(I * (kx * x + ky * y + kz * z)) + CEXP(-I*(kx * x + ky * y + kz * z)));
-}

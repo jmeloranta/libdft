@@ -1252,3 +1252,21 @@ EXPORT void dft_common_pot_average(INT n, char **files, rgrid *out) {
     }
   }
 }
+
+/*
+ * Plane wave suitable for grid_map() functions.
+ *
+ * arg specifies the plane wave params according to dft_plane_wave structure.
+ *
+ */
+
+EXPORT REAL complex dft_common_planewave(void *arg, REAL x, REAL y, REAL z) {
+
+  REAL kx = ((dft_plane_wave *) arg)->kx;
+  REAL ky = ((dft_plane_wave *) arg)->ky;
+  REAL kz = ((dft_plane_wave *) arg)->kz;
+  REAL a = ((dft_plane_wave *) arg)->a;
+  REAL psi = SQRT(((dft_plane_wave *) arg)->rho);
+  
+  return psi + 0.5 * a * psi * (CEXP(I * (kx * x + ky * y + kz * z)) + CEXP(-I*(kx * x + ky * y + kz * z)));
+}
