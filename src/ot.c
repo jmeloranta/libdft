@@ -249,7 +249,7 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf, r
     /* the potential part is: \lambda \left|\psi\right|^2\psi - \mu\psi */
     /* with \lambda < 0 and \mu < 0. For bulk: \lambda\rho_0 - \mu = 0 and \lambda = \frac{\mu}{\rho_0} (which is < 0) */
     rgrid_copy(workspace1, density);
-    rgrid_multiply(workspace1, otf->mu0 / otf->rho0);   // test - sign
+    rgrid_multiply(workspace1, otf->mu0 / otf->rho0);
     grid_add_real_to_complex_re(potential, workspace1);
     if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
       /* Barranco's penalty term */
@@ -1109,8 +1109,8 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
 
   if((model & DFT_GP) || (model & DFT_ZERO)) {
     otf->temp = 0.0;
-    otf->rho0 = 0.0218360;
-    otf->mu0 = 7.0 / GRID_AUTOK;  // DEBUG: sign
+    otf->rho0 = 0.021816;
+    otf->mu0 = 6.0575 / GRID_AUTOK;
     otf->c2 = otf->c2_exp = otf->c3 = otf->c3_exp = 0.0;
     /* most of the parameters are unused */
   }
