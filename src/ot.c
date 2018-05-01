@@ -71,6 +71,10 @@ EXPORT REAL dft_ot_backflow_pot(void *arg, REAL x, REAL y, REAL z) {
  *
  * Return value: pointer to the allocated OT DFT structure.
  *
+ * Basic OT allocates 2 real grids
+ *       KC adds 4 real grids
+ *       BF adds 1 real grid
+ *
  */
 
 EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL step, char bc, INT min_substeps, INT max_substeps) {
@@ -146,7 +150,7 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
     } else otf->backflow_pot = NULL;
   
     /* pre-calculate */
-    fprintf(stderr, "libdft: LJ according to SD - ");
+    fprintf(stderr, "libdft: LJ according to OT - ");
     rgrid_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     rgrid_fft(otf->lennard_jones);
     /* Scaling of LJ so that the integral is exactly b */
@@ -208,9 +212,9 @@ EXPORT void dft_ot_free(dft_ot_functional *otf) {
     if (otf->lennard_jones) rgrid_free(otf->lennard_jones);
     if (otf->spherical_avg) rgrid_free(otf->spherical_avg);
     if (otf->gaussian_tf) rgrid_free(otf->gaussian_tf);
-    if (otf->gaussian_x_tf) rgrid_free(otf->gaussian_tf);
-    if (otf->gaussian_y_tf) rgrid_free(otf->gaussian_tf);
-    if (otf->gaussian_z_tf) rgrid_free(otf->gaussian_tf);
+    if (otf->gaussian_x_tf) rgrid_free(otf->gaussian_x_tf);
+    if (otf->gaussian_y_tf) rgrid_free(otf->gaussian_y_tf);
+    if (otf->gaussian_z_tf) rgrid_free(otf->gaussian_z_tf);
     if (otf->backflow_pot) rgrid_free(otf->backflow_pot);
     free(otf);
   }
@@ -223,15 +227,15 @@ EXPORT void dft_ot_free(dft_ot_functional *otf) {
  * potential  = Potential grid where the result will be stored (output). NOTE: the potential will be added to this (may want to zero it first)
  * wf         = Wavefunction (input; used only for backflow).
  * density    = Liquid helium density grid (input).
- * workspace1 = Workspace grid (must be allocated by the user).
+ * workspace1 = Workspace grid (must be allocated by the user). GP access up to this point.
  * workspace2 = Workspace grid (must be allocated by the user).
  * workspace3 = Workspace grid (must be allocated by the user).
- * workspace4 = Workspace grid (must be allocated by the user).
+ * workspace4 = Workspace grid (must be allocated by the user). Basic OT access up to this point.
  * workspace5 = Workspace grid (must be allocated by the user).
- * workspace6 = Workspace grid (must be allocated by the user).
- * workspace7 = Workspace grid (must be allocated by the user; accessed only with backflow).
- * workspace8 = Workspace grid (must be allocated by the user; accessed only with backflow).
- * workspace9 = Workspace grid (must be allocated by the user; accessed only with backflow).
+ * workspace6 = Workspace grid (must be allocated by the user). KC access up to this point.
+ * workspace7 = Workspace grid (must be allocated by the user). 
+ * workspace8 = Workspace grid (must be allocated by the user). 
+ * workspace9 = Workspace grid (must be allocated by the user). BF access up to this point.
  *
  * No return value.
  *
@@ -246,17 +250,9 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf, r
   }
 
   if(otf->model & DFT_GP) {
-    /* the potential part is: \lambda \left|\psi\right|^2\psi - \mu\psi */
-    /* with \lambda < 0 and \mu < 0. For bulk: \lambda\rho_0 - \mu = 0 and \lambda = \frac{\mu}{\rho_0} (which is < 0) */
     rgrid_copy(workspace1, density);
-    rgrid_multiply(workspace1, otf->mu0 / otf->rho0);
+    rgrid_multiply(workspace1, otf->mu0 / otf->rho0); // positive
     grid_add_real_to_complex_re(potential, workspace1);
-    if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
-      /* Barranco's penalty term */
-      rgrid_copy(workspace1, density);
-      rgrid_fft(workspace1);
-      dft_ot_add_barranco(otf, potential, density, workspace1);
-    }
     return;
   }
 

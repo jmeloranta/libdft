@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
   cuda_enable(1);
 #endif
 
-  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW;
+  model = DFT_GP;
   dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, RHO0);
   // Note: CN_NBC has really wrong BC for this but it will not hit the center of the box within the first cycle...
 //  dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;

@@ -4,7 +4,7 @@
  */
 
 #define TIME_STEP 15.0                  /* Time step in imag/real iterations (fs) */
-#define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
+#define FUNCTIONAL (DFT_GP)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 #define STARTING_TIME 400000.0         /* Start real time simulation at this time (fs) - 10 ps (was 400,000) */
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP))
 #define MAXITER 80000000                /* Maximum number of real time iterations */
@@ -12,7 +12,7 @@
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))
 /* #define OUTPUT_GRID                  /* Output grid at each iteration (takes lots of space) (leave undefined if not needed) */
 #define CUDA                            /* Use CUDA ? */
-#define PC                              /* Predict-Correct (accurate but uses more memory) */
+/* #define PC                              /* Predict-Correct (accurate but uses more memory) */
 
 #define VX (85.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
@@ -27,8 +27,8 @@
 #define ABS_WIDTH_Y 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Z 25.0  /* Width of the absorbing boundary */
 
-/* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT (unstable) */
-#define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson (stable, but slower) */
+#define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT (unstable) */
+/* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson (stable, but slower) */
 
 #define FFTW_PLANNER 1 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
 
