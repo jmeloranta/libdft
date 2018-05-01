@@ -29,6 +29,7 @@
  * DFT_OT_T2800MK  Thermal model 2.8 K
  * DFT_OT_T3000MK  Thermal model 3.0 K
  * DFT_GP          Gross-Pitaevskii potential
+ * DFT_DR          Dupont-Roc functional   
  *
  */
 

@@ -150,11 +150,17 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
     } else otf->backflow_pot = NULL;
   
     /* pre-calculate */
-    fprintf(stderr, "libdft: LJ according to OT - ");
-    rgrid_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
-    rgrid_fft(otf->lennard_jones);
-    /* Scaling of LJ so that the integral is exactly b */
-    rgrid_multiply_fft(otf->lennard_jones, otf->b / (step * step * step * (REAL) rgrid_cvalue_at_index(otf->lennard_jones, 0, 0, 0)));
+    if(otf->model & DFT_DR) {
+      fprintf(stderr, "libdft: LJ according to DR - ");
+      rgrid_adaptive_map(otf->lennard_jones, dft_common_lennard_jones_smooth, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+      rgrid_fft(otf->lennard_jones);
+    } else {
+      fprintf(stderr, "libdft: LJ according to OT - ");
+      rgrid_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+      rgrid_fft(otf->lennard_jones);
+      /* Scaling of LJ so that the integral is exactly b */
+      rgrid_multiply_fft(otf->lennard_jones, otf->b / (step * step * step * (REAL) rgrid_cvalue_at_index(otf->lennard_jones, 0, 0, 0)));
+    }
     fprintf(stderr, "Done.\n");
 
     if(otf->model & DFT_OT_HD2) {
@@ -307,18 +313,18 @@ EXPORT inline void dft_ot_add_local_correlation_potential(dft_ot_functional *otf
   rgrid_inverse_fft(workspace1); 
 
   /* C2.1 */
-  rgrid_ipower(workspace2, workspace1, (INT) otf->c2_exp);
+  rgrid_power(workspace2, workspace1, otf->c2_exp);
   rgrid_multiply(workspace2, otf->c2 / 2.0);
   grid_add_real_to_complex_re(potential, workspace2);
 
   /* C3.1 */
-  rgrid_ipower(workspace2, workspace1, (INT) otf->c3_exp);
+  rgrid_power(workspace2, workspace1, otf->c3_exp);
   rgrid_multiply(workspace2, otf->c3 / 3.0);
   grid_add_real_to_complex_re(potential, workspace2);
 
   /* C2.2 & C3.2 */
-  rgrid_ipower(workspace2, workspace1, (INT) (otf->c2_exp - 1));
-  rgrid_ipower(workspace3, workspace1, (INT) (otf->c3_exp - 1));
+  rgrid_power(workspace2, workspace1, otf->c2_exp - 1.0);
+  rgrid_power(workspace3, workspace1, otf->c3_exp - 1.0);
   rgrid_multiply(workspace2, otf->c2 * otf->c2_exp / 2.0);  // For OT, c2_exp / 2 = 1
   rgrid_multiply(workspace3, otf->c3 * otf->c3_exp / 3.0);  // For OT, c3_exp / 3 = 1
   rgrid_sum(workspace2, workspace2, workspace3);
@@ -579,12 +585,12 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
   rgrid_inverse_fft(workspace1);
 
   /* C2 */
-  rgrid_ipower(workspace2, workspace1, (INT) otf->c2_exp);
+  rgrid_power(workspace2, workspace1, otf->c2_exp);
   rgrid_product(workspace2, workspace2, density);
   rgrid_add_scaled(energy_density, otf->c2 / 2.0, workspace2);
 
   /* C3 */
-  rgrid_ipower(workspace2, workspace1, (INT) otf->c3_exp);
+  rgrid_power(workspace2, workspace1, otf->c3_exp);
   rgrid_product(workspace2, workspace2, density);
   rgrid_add_scaled(energy_density, otf->c3 / 3.0, workspace2);
 
@@ -911,6 +917,18 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
     otf->C = 0.0;
   }
 
+  if(model & DFT_DR) { /* Dupont-Roc */
+    otf->b = 0.0;
+    otf->c2 = 10455400.0; /* K Angs^(3 + 3\gamma) */
+    otf->c2_exp = 1.0 + 2.8; /* 1 + gamma */
+    otf->c3 = 0.0; /* not used */
+    otf->c3_exp = 1.0;
+    otf->c4 = 0.0;  
+    otf->temp = 0.0;
+    otf->rho0 = 0.0218360;
+    otf->lj_params.h = 2.377;    /* Angs */
+  }                                                                                                                                    
+  
   if(model < DFT_OT_T0MK) { /* 0 */
     otf->b = -718.99;
     otf->c2 = -2.411857E4;
@@ -1138,11 +1156,11 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   otf->bf_params.a2  = 0.14912 * (GRID_AUTOANG*GRID_AUTOANG);
 
   fprintf(stderr, "libdft: C2 = " FMT_R " K Angs^" FMT_R "\n",
-	  otf->c2 * GRID_AUTOK * ipow(GRID_AUTOANG, (INT) (3.0 * otf->c2_exp)),
+	  otf->c2 * GRID_AUTOK * pow(GRID_AUTOANG, 3.0 * otf->c2_exp),
 	  3.0 * otf->c2_exp);
   
   fprintf(stderr, "libdft: C3 = " FMT_R " K Angs^" FMT_R "\n", 
-	  otf->c3 * GRID_AUTOK * ipow(GRID_AUTOANG, (INT) (3.0 * otf->c3_exp)),
+	  otf->c3 * GRID_AUTOK * pow(GRID_AUTOANG, 3.0 * otf->c3_exp),
 	  3.0 * otf->c3_exp);
   
   otf->model = model;
