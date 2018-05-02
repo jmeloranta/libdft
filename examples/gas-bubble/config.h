@@ -4,7 +4,7 @@
  */
 
 #define TIME_STEP 15.0                  /* Time step in imag/real iterations (fs) */
-#define FUNCTIONAL (DFT_GP)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
+#define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 #define STARTING_TIME 400000.0         /* Start real time simulation at this time (fs) - 10 ps (was 400,000) */
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP))
 #define MAXITER 80000000                /* Maximum number of real time iterations */
@@ -12,9 +12,9 @@
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))
 /* #define OUTPUT_GRID                  /* Output grid at each iteration (takes lots of space) (leave undefined if not needed) */
 #define CUDA                            /* Use CUDA ? */
-/* #define PC                              /* Predict-Correct (accurate but uses more memory) */
+#define PC                              /* Predict-Correct (accurate but uses more memory) */
 
-#define VX (85.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
+#define VX (70.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
@@ -42,6 +42,6 @@
 #define A4 0.0
 #define A5 0.0
 #define RMIN 2.0
-#define RADD 6.0
+#define RADD 19.0
 
 #define SM 5              /* External potential smooth map divisions (0 = none) */
