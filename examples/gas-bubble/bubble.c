@@ -144,13 +144,13 @@ int main(int argc, char *argv[]) {
 
   fprintf(stderr, "Real time propagation.\n");
   for(iter = 0; iter < MAXITER; iter++) {
-    if(!(iter % OUTPUT_ITER)) {   /* every OUTPUT_ITER iterations, write output */
 #ifdef OUTPUT_GRID
+    if(!(iter % OUTPUT_GRID)) {
       sprintf(filename, "liquid-" FMT_I, iter);
       dft_driver_write_grid(gwf->grid, filename);
-#endif
-      analyze(gwf, iter, vx);
     }
+#endif
+    if(!(iter % OUTPUT_ITER)) analyze(gwf, iter, vx);
 #ifdef PC
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
     (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
