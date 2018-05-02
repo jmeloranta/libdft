@@ -15,7 +15,7 @@ bubble.o: bubble.c bubble.h config.h
 pot.o: pot.c
 	        $(CC) $(CFLAGS) -c pot.c
 
-analyze.o: analyze.c
+analyze.o: analyze.c config.h
 	        $(CC) $(CFLAGS) -c analyze.c
 
 clean:

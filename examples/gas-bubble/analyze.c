@@ -5,7 +5,7 @@
 
 #include "bubble.h"
 
-void analyze(wf *wf, INT iter, double vx) {
+void analyze(wf *wf, INT iter, REAL vx) {
 
   static REAL cur_mom = 0.0, prev_mom = 0.0;
   rgrid *cur_x, *cur_y, *cur_z, *circ;

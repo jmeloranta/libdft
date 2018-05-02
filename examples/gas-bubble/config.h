@@ -14,7 +14,7 @@
 #define CUDA                            /* Use CUDA ? */
 #define PC                              /* Predict-Correct (accurate but uses more memory) */
 
-#define VX (70.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
+#define VX (65.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
