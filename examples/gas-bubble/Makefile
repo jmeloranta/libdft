@@ -12,7 +12,7 @@ bubble: bubble.o pot.o analyze.o
 bubble.o: bubble.c bubble.h config.h
 	        $(CC) $(CFLAGS) -c bubble.c
 
-pot.o: pot.c
+pot.o: pot.c config.h
 	        $(CC) $(CFLAGS) -c pot.c
 
 analyze.o: analyze.c config.h
