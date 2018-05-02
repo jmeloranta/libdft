@@ -313,18 +313,29 @@ EXPORT inline void dft_ot_add_local_correlation_potential(dft_ot_functional *otf
   rgrid_inverse_fft(workspace1); 
 
   /* C2.1 */
-  rgrid_power(workspace2, workspace1, otf->c2_exp);
+  if(otf->model & DFT_DR)
+    rgrid_power(workspace2, workspace1, otf->c2_exp);
+  else
+    rgrid_ipower(workspace2, workspace1, (INT) otf->c2_exp);
   rgrid_multiply(workspace2, otf->c2 / 2.0);
   grid_add_real_to_complex_re(potential, workspace2);
 
   /* C3.1 */
-  rgrid_power(workspace2, workspace1, otf->c3_exp);
+  if(otf->model & DFT_DR)
+    rgrid_power(workspace2, workspace1, otf->c3_exp);
+  else
+    rgrid_ipower(workspace2, workspace1, (INT) otf->c3_exp);
   rgrid_multiply(workspace2, otf->c3 / 3.0);
   grid_add_real_to_complex_re(potential, workspace2);
 
   /* C2.2 & C3.2 */
-  rgrid_power(workspace2, workspace1, otf->c2_exp - 1.0);
-  rgrid_power(workspace3, workspace1, otf->c3_exp - 1.0);
+  if(otf->model & DFT_DR)  {
+    rgrid_power(workspace2, workspace1, otf->c2_exp - 1.0);
+    rgrid_power(workspace3, workspace1, otf->c3_exp - 1.0);
+  } else {
+    rgrid_ipower(workspace2, workspace1, (INT) (otf->c2_exp - 1.0));
+    rgrid_ipower(workspace3, workspace1, (INT) (otf->c3_exp - 1.0));
+  }
   rgrid_multiply(workspace2, otf->c2 * otf->c2_exp / 2.0);  // For OT, c2_exp / 2 = 1
   rgrid_multiply(workspace3, otf->c3 * otf->c3_exp / 3.0);  // For OT, c3_exp / 3 = 1
   rgrid_sum(workspace2, workspace2, workspace3);
@@ -585,12 +596,18 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
   rgrid_inverse_fft(workspace1);
 
   /* C2 */
-  rgrid_power(workspace2, workspace1, otf->c2_exp);
+  if(otf->model & DFT_DR) 
+    rgrid_power(workspace2, workspace1, otf->c2_exp);
+  else
+    rgrid_ipower(workspace2, workspace1, (INT) otf->c2_exp);
   rgrid_product(workspace2, workspace2, density);
   rgrid_add_scaled(energy_density, otf->c2 / 2.0, workspace2);
 
   /* C3 */
-  rgrid_power(workspace2, workspace1, otf->c3_exp);
+  if(otf->model & DFT_DR) 
+    rgrid_power(workspace2, workspace1, otf->c3_exp);
+  else
+    rgrid_ipower(workspace2, workspace1, (INT) otf->c3_exp);
   rgrid_product(workspace2, workspace2, density);
   rgrid_add_scaled(energy_density, otf->c3 / 3.0, workspace2);
 
