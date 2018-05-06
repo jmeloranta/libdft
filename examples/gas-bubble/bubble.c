@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
   
   /* Setup frame of reference momentum (for both imaginary & real time) */
   vx = round_veloc(VX);     /* Round velocity to fit the spatial grid */
-  mu0 += 0.5 * VX * VX * HELIUM_MASS;  // Correction due to the moving background
+  mu0 += 0.5 * vx * vx * HELIUM_MASS;  // Correction due to the moving background
   kx = momentum(vx);
   dft_driver_setup_momentum(kx, 0.0, 0.0);
   cgrid_set_momentum(gwf->grid, kx, 0.0, 0.0);

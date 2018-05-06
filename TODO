@@ -1,4 +1,6 @@
-- is there a problem with examples/dispersion/dispersion3.c? It seems to give roton minimum that is slightly too low!? (OT+BF+KC)
+- vector contributions to drag and circulation in gas-bubble
+- Include moving background contribution to chemical potential automatically in driver.c so that abs boundaries and imag time
+  work properly with it.
 - use the common propagate entry points in libgrid rather than calling aux routines directly.
 
 
