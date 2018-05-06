@@ -11,7 +11,7 @@ REAL round_veloc(REAL veloc) {   // Round to fit the simulation box
   INT n;
   REAL v;
 
-  n = (INT) (0.5 + (NX * STEP * HELIUM_MASS * VX) / (HBAR * 2.0 * M_PI));
+  n = (INT) (0.5 + (NX * STEP * HELIUM_MASS * veloc) / (HBAR * 2.0 * M_PI));
   v = ((REAL) n) * HBAR * 2.0 * M_PI / (NX * STEP * HELIUM_MASS);
   fprintf(stderr, "Requested velocity = %le m/s.\n", veloc * GRID_AUTOMPS);
   fprintf(stderr, "Nearest velocity compatible with PBC = %le m/s.\n", v * GRID_AUTOMPS);
@@ -71,9 +71,7 @@ int main(int argc, char *argv[]) {
   if(dft_driver_kinetic == DFT_DRIVER_KINETIC_FFT) fprintf(stderr, "Kinetic propagator = FFT\n"); 
 
   /* bulk normalization (requires the correct chem. pot.) */
-  /* TODO: when vx != 0, mu0 is affected. For now just use bulk renormalization - v contributes to mu0? */
-//  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
-  dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 4, 0.0, 0);
+  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
   
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -91,6 +89,7 @@ int main(int argc, char *argv[]) {
   
   /* Setup frame of reference momentum (for both imaginary & real time) */
   vx = round_veloc(VX);     /* Round velocity to fit the spatial grid */
+  mu0 += 0.5 * VX * VX * HELIUM_MASS;  // Correction due to the moving background
   kx = momentum(vx);
   dft_driver_setup_momentum(kx, 0.0, 0.0);
   cgrid_set_momentum(gwf->grid, kx, 0.0, 0.0);
@@ -135,6 +134,8 @@ int main(int argc, char *argv[]) {
   /* Real time iterations */
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);
 #if KINETIC_PROPAGATOR == DFT_DRIVER_KINETIC_FFT
+//  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, ABS_AMP, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
+//  fprintf(stderr, "Absorption begins at (" FMT_R "," FMT_R "," FMT_R ") Bohr from the boundary\n",  ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
   fprintf(stderr, "FFT propagator, no absorbing boundaries.\n");
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
 #else
@@ -146,7 +147,7 @@ int main(int argc, char *argv[]) {
   for(iter = 0; iter < MAXITER; iter++) {
 #ifdef OUTPUT_GRID
     if(!(iter % OUTPUT_GRID)) {
-      sprintf(filename, "liquid-" FMT_I, iter);
+      sprintf(filename, "liquid-" FMT_R, iter * TIME_STEP);
       dft_driver_write_grid(gwf->grid, filename);
     }
 #endif

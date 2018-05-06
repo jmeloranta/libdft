@@ -18,7 +18,7 @@
 #define NX 512
 #define NY 256
 #define NZ 256
-#define STEP 1.0 /* Bohr */
+#define STEP 2.0 /* Bohr */
 #define TS 15.0 /* fs */
 #define AMP 1e-2 /* wave amplitude (of total rho0) */
 #define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
