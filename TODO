@@ -1,5 +1,9 @@
+- Introduce GP2 with params that match the speed of sound
 - Include moving background contribution to chemical potential automatically in driver.c so that abs boundaries and imag time
   work properly with it.
+- offer possibility to use potential function rather than grid
+  (saves memory)
+- look into eliminating workspaces in ot3d (spherical average): avoid storing
+  intermediates. Perhaps adding special routines like add_ipower() etc.
+  would avoid using workspaces.
 - use the common propagate entry points in libgrid rather than calling aux routines directly.
-
-

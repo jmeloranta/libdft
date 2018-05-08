@@ -14,12 +14,19 @@
 #include "dft.h"
 #include "ot.h"
 
+/* Local functions */
+
 static void dft_ot_add_nonlocal_correlation_potential(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *rho_tf, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4, rgrid *workspace5);
 static void dft_ot_add_nonlocal_correlation_potential_x(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *rho_tf, rgrid *rho_st, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4);
 static void dft_ot_add_nonlocal_correlation_potential_y(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *rho_tf, rgrid *rho_st, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4);
 static void dft_ot_add_nonlocal_correlation_potential_z(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *rho_tf, rgrid *rho_st, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4);
 static void dft_ot_add_barranco(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *workspace1);
 static void dft_ot_add_ancilotto(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *workspace1);
+
+/*
+ * Backflow potential function.
+ *
+ */
 
 EXPORT REAL dft_ot_backflow_pot(void *arg, REAL x, REAL y, REAL z) {
 
@@ -97,6 +104,7 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
    * instead of [-L/2,L/2]. This can be done by setting the
    * appropiate origin x0,y0,z0
    */ 
+
   switch(bc) {
   case DFT_DRIVER_BC_NORMAL: 
   case DFT_DRIVER_BC_NEUMANN:   /* TODO: This should belong to the case below */
@@ -235,8 +243,8 @@ EXPORT void dft_ot_free(dft_ot_functional *otf) {
  * density    = Liquid helium density grid (input).
  * workspace1 = Workspace grid (must be allocated by the user). GP access up to this point.
  * workspace2 = Workspace grid (must be allocated by the user).
- * workspace3 = Workspace grid (must be allocated by the user).
- * workspace4 = Workspace grid (must be allocated by the user). Basic OT access up to this point.
+ * workspace3 = Workspace grid (must be allocated by the user). Basic OT access up to this point.
+ * workspace4 = Workspace grid (must be allocated by the user).
  * workspace5 = Workspace grid (must be allocated by the user).
  * workspace6 = Workspace grid (must be allocated by the user). KC access up to this point.
  * workspace7 = Workspace grid (must be allocated by the user). 
@@ -257,7 +265,7 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf, r
 
   if(otf->model & DFT_GP) {
     rgrid_copy(workspace1, density);
-    rgrid_multiply(workspace1, otf->mu0 / otf->rho0); // positive
+    rgrid_multiply(workspace1, otf->mu0 / otf->rho0); // positive value
     grid_add_real_to_complex_re(potential, workspace1);
     return;
   }
@@ -269,7 +277,7 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf, r
 
   /* Non-linear local correlation */
   /* note workspace1 = fft of \rho */
-  dft_ot_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4);
+  dft_ot_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3);
 
   /* Non-local correlation for kinetic energy (workspace1 = FFT(rho)) */
   if(otf->model & DFT_OT_KC)
@@ -295,6 +303,11 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf, r
     dft_ot_add_ancilotto(otf, potential, density, workspace1);
 }
 
+/*
+ * Lennard-Jones potential.
+ *
+ */
+
 EXPORT inline void dft_ot_add_lennard_jones_potential(dft_ot_functional *otf, cgrid *potential, rgrid *density, rgrid *workspace1, rgrid *workspace2) {
 
   rgrid_copy(workspace1, density);
@@ -306,7 +319,12 @@ EXPORT inline void dft_ot_add_lennard_jones_potential(dft_ot_functional *otf, cg
   /* leave FFT(rho) in workspace1 (used later in local correlation potential as rho_tf) */
 }
 
-EXPORT inline void dft_ot_add_local_correlation_potential(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *rho_tf, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3) {
+/*
+ * Local correlation potential.
+ *
+ */
+
+EXPORT inline void dft_ot_add_local_correlation_potential(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *rho_tf, rgrid *workspace1, rgrid *workspace2) {
 
   /* workspace1 = \bar{\rho} */
   rgrid_fft_convolute(workspace1, rho_tf, otf->spherical_avg);
@@ -328,7 +346,8 @@ EXPORT inline void dft_ot_add_local_correlation_potential(dft_ot_functional *otf
   rgrid_multiply(workspace2, otf->c3 / 3.0);
   grid_add_real_to_complex_re(potential, workspace2);
 
-  /* C2.2 & C3.2 */
+#if 0
+  /* C2.2 & C3.2 (Old code) */
   if(otf->model & DFT_DR)  {
     rgrid_power(workspace2, workspace1, otf->c2_exp - 1.0);
     rgrid_power(workspace3, workspace1, otf->c3_exp - 1.0);
@@ -338,7 +357,21 @@ EXPORT inline void dft_ot_add_local_correlation_potential(dft_ot_functional *otf
   }
   rgrid_multiply(workspace2, otf->c2 * otf->c2_exp / 2.0);  // For OT, c2_exp / 2 = 1
   rgrid_multiply(workspace3, otf->c3 * otf->c3_exp / 3.0);  // For OT, c3_exp / 3 = 1
-  rgrid_sum(workspace2, workspace2, workspace3);
+  rgrid_sum(workspace2, workspace2, workspace3); 
+#else
+  /* C2.2 & C3.2 (New code - eliminated workspace3) */
+  if(otf->model & DFT_DR)  {
+    rgrid_power(workspace2, workspace1, otf->c2_exp - 1.0);
+    rgrid_power(workspace1, workspace1, otf->c3_exp - 1.0);
+  } else {
+    rgrid_ipower(workspace2, workspace1, (INT) (otf->c2_exp - 1.0));
+    rgrid_ipower(workspace1, workspace1, (INT) (otf->c3_exp - 1.0));
+  }
+  rgrid_multiply(workspace2, otf->c2 * otf->c2_exp / 2.0);  // For OT, c2_exp / 2 = 1
+  rgrid_multiply(workspace1, otf->c3 * otf->c3_exp / 3.0);  // For OT, c3_exp / 3 = 1
+  rgrid_sum(workspace2, workspace2, workspace1);
+#endif
+
   rgrid_product(workspace2, workspace2, rho);
   rgrid_fft(workspace2);
   rgrid_fft_convolute(workspace2, workspace2, otf->spherical_avg);
@@ -346,7 +379,11 @@ EXPORT inline void dft_ot_add_local_correlation_potential(dft_ot_functional *otf
   grid_add_real_to_complex_re(potential, workspace2);
 }
 
-/* local function */
+/* 
+ * Nonlocal correlation potential.
+ *
+ */
+
 static inline void dft_ot_add_nonlocal_correlation_potential(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *rho_tf, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4, rgrid *workspace5) {
 
   /* rho^tilde(r) = int F(r-r') rho(r') dr' */
@@ -362,7 +399,11 @@ static inline void dft_ot_add_nonlocal_correlation_potential(dft_ot_functional *
   dft_ot_add_nonlocal_correlation_potential_z(otf, potential, rho, rho_tf, workspace1 /* rho_st */, workspace2, workspace3, workspace4, workspace5);
 }
 
-/* local function */
+/*
+ * X component to nonlocal correlation potential.
+ *
+ */
+
 static inline void dft_ot_add_nonlocal_correlation_potential_x(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *rho_tf, rgrid *rho_st, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4) {
 
   REAL c;
@@ -416,7 +457,11 @@ static inline void dft_ot_add_nonlocal_correlation_potential_x(dft_ot_functional
   grid_add_real_to_complex_re(potential, workspace2);
 }
 
-/* local function */
+/*
+ * Y component to nonlocal correlation potential.
+ *
+ */
+
 static inline void dft_ot_add_nonlocal_correlation_potential_y(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *rho_tf, rgrid *rho_st, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4) {
 
   REAL c;
@@ -471,7 +516,11 @@ static inline void dft_ot_add_nonlocal_correlation_potential_y(dft_ot_functional
   grid_add_real_to_complex_re(potential, workspace2);
 }
 
-/* local function */
+/*
+ * Z component to nonlocal correlation potential.
+ *
+ */
+
 static inline void dft_ot_add_nonlocal_correlation_potential_z(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *rho_tf, rgrid *rho_st, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4) {
 
   REAL c;
@@ -526,7 +575,11 @@ static inline void dft_ot_add_nonlocal_correlation_potential_z(dft_ot_functional
   grid_add_real_to_complex_re(potential, workspace2);
 }
 
-/* local function (potential) */
+/* 
+ * Thermal DFT.
+ *
+ */
+
 static inline void dft_ot_add_ancilotto(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *workspace1) {
 
   grid_func6a_operate_one(workspace1, rho, otf->mass, otf->temp, otf->c4);
@@ -534,7 +587,11 @@ static inline void dft_ot_add_ancilotto(dft_ot_functional *otf, cgrid *potential
   grid_add_real_to_complex_re(potential, workspace1);
 }
 
-/* local function */
+/* 
+ * High density correction.
+ *
+ */
+
 static inline void dft_ot_add_barranco(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *workspace1) {
 
   grid_func4_operate_one(workspace1, rho, otf->beta, otf->rhom, otf->C);
@@ -919,6 +976,11 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
 
   grid_add_real_to_complex_im(potential, workspace6);
 }
+
+/*
+ * Initialize the OTF structure.
+ *
+ */
 
 EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
 

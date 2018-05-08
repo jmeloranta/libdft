@@ -3,7 +3,7 @@
  *
  */
 
-#define TIME_STEP 20.0                  /* Time step in imag/real iterations (fs) */
+#define TIME_STEP 15.0                  /* Time step in imag/real iterations (fs) */
 #define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 #define STARTING_TIME 400000.0          /* Start real time simulation at this time (fs) - (400,000) */
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP))
@@ -16,7 +16,7 @@
 #endif
 /* #define PC                              /* Predict-Correct (accurate but uses more memory) */
 
-#define VX (65.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
+#define VX (75.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
@@ -29,8 +29,8 @@
 #define ABS_WIDTH_Y 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Z 25.0  /* Width of the absorbing boundary */
 
-/* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT */
-#define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson */
+#define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT */
+/* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson */
 
 #define FFTW_PLANNER 1 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
 
@@ -44,6 +44,6 @@
 #define A4 0.0
 #define A5 0.0
 #define RMIN 2.0
-#define RADD 19.0
+#define RADD 6.0
 
 #define SM 3              /* External potential smooth map divisions (0 = none) */
