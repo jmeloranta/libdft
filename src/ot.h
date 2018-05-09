@@ -56,6 +56,7 @@
 #define DFT_GP         524288
 #define DFT_DR         1048576
 #define DFT_ZERO       2097152
+#define DFT_GP2        4194304
 
 /*
  * Driver defines.

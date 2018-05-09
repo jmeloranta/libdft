@@ -32,8 +32,8 @@
 
 /* velocity components */
 #define KX	(1.0 * 2.0 * M_PI / (NX * STEP))
-#define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
-#define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
+#define KY	(0.0 * 2.0 * M_PI / (NY * STEP))
+#define KZ	(0.0 * 2.0 * M_PI / (NZ * STEP))
 #define VX	(KX * HBAR / HELIUM_MASS)
 #define VY	(KY * HBAR / HELIUM_MASS)
 #define VZ	(KZ * HBAR / HELIUM_MASS)

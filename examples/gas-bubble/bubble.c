@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
   /* get bulk density and chemical potential */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
   dft_driver_otf->rho0 = rho0;
-  mu0  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
+  mu0 = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
   fprintf(stderr, "rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
   
   /* Allocate wavefunctions and grids */
@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
   
   /* Setup frame of reference momentum (for both imaginary & real time) */
   vx = round_veloc(VX);     /* Round velocity to fit the spatial grid */
-  mu0 += 0.5 * vx * vx * HELIUM_MASS;  // Correction due to the moving background
+  mu0 += 0.5 * vx * vx * HELIUM_MASS;  // TODO: this will yield overall - sign for this term as a part of mu0
   kx = momentum(vx);
   dft_driver_setup_momentum(kx, 0.0, 0.0);
   cgrid_set_momentum(gwf->grid, kx, 0.0, 0.0);

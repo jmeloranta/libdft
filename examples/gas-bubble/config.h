@@ -10,13 +10,13 @@
 #define MAXITER 80000000                /* Maximum number of real time iterations */
 #define OUTPUT_TIME 2500.0              /* Output interval time (fs) (2500) */
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))
-#define OUTPUT_GRID (4*OUTPUT_ITER)     /* Output grid at given iterations (10,000) (leave undefined if not needed) */
+/* #define OUTPUT_GRID (4*OUTPUT_ITER)     /* Output grid at given iterations (10,000) (leave undefined if not needed) */
 #ifdef USE_CUDA
 #define CUDA                            /* Use CUDA ? (auto detect) */
 #endif
 /* #define PC                              /* Predict-Correct (accurate but uses more memory) */
 
-#define VX (75.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
+#define VX (77.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */

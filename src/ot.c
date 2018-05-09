@@ -64,7 +64,8 @@ EXPORT REAL dft_ot_backflow_pot(void *arg, REAL x, REAL y, REAL z) {
  *         DFT_OT_T2600MK  Thermal model 2.6 K
  *         DFT_OT_T2800MK  Thermal model 2.8 K
  *         DFT_OT_T3000MK  Thermal model 3.0 K
- *         DFT_GP          Gross-Pitaevskii equation
+ *         DFT_GP          Gross-Pitaevskii equation  ("works" for ions)
+ *         DFT_GP2         Gross-Pitaevskii equation  (gives the correct speed of sound)
  *         DFT_ZERO        No potential
  *
  *           If multiple options are needed, use and (&).
@@ -127,7 +128,7 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
 
   dft_ot_temperature(otf, model);
   /* these grids are not needed for GP */
-  if(!(model & DFT_GP) && !(model & DFT_ZERO)) {
+  if(!(model & DFT_GP) && !(model & DFT_ZERO) && !(model & DFT_GP2)) {
     otf->lennard_jones = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT Lennard-Jones");
     rgrid_set_origin(otf->lennard_jones, x0, y0, z0);
     otf->spherical_avg = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT Sph. average");
@@ -263,7 +264,7 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf, r
     return;
   }
 
-  if(otf->model & DFT_GP) {
+  if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) {
     rgrid_copy(workspace1, density);
     rgrid_multiply(workspace1, otf->mu0 / otf->rho0); // positive value
     grid_add_real_to_complex_re(potential, workspace1);
@@ -629,7 +630,7 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
     return;
   }
 
-  if(otf->model & DFT_GP) {
+  if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) {
     rgrid_copy(energy_density, density);
     rgrid_product(energy_density, energy_density, density);
     /* the energy functional is: (\lambda/2)\int \left|\psi\right|^4 d\tau */
@@ -1200,10 +1201,18 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
     otf->lj_params.h = 2.18562;
   }
 
-  if((model & DFT_GP) || (model & DFT_ZERO)) {
+  if((model & DFT_GP) || (model & DFT_ZERO)) {  // GP tweaked to give the "right answer" for ions
     otf->temp = 0.0;
     otf->rho0 = 0.021816;
     otf->mu0 = 6.0575 / GRID_AUTOK;
+    otf->c2 = otf->c2_exp = otf->c3 = otf->c3_exp = 0.0;
+    /* most of the parameters are unused */
+  }
+
+  if(model & DFT_GP2) {   // GP with the correct speed of sound
+    otf->temp = 0.0;
+    otf->rho0 = 0.021816;
+    otf->mu0 = 27.2613 / GRID_AUTOK;
     otf->c2 = otf->c2_exp = otf->c3 = otf->c3_exp = 0.0;
     /* most of the parameters are unused */
   }

@@ -25,7 +25,7 @@ EXPORT REAL dft_ot_bulk_energy(dft_ot_functional *otf, REAL rho) {
 
   if(otf->model & DFT_ZERO) return 0.0;
 
-  if(otf->model & DFT_GP) return otf->mu0 * rho;
+  if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) return otf->mu0 * rho;
 
   tmp = (1.0 / 2.0) * otf->b * rho * rho + (1.0 / 2.0) * otf->c2 * rho * rho * rho + (1.0 / 3.0) * otf->c3 * rho * rho * rho * rho;
   if(otf->c4 != 0.0)
@@ -50,7 +50,7 @@ EXPORT REAL dft_ot_bulk_dEdRho(dft_ot_functional *otf, REAL rho) {
 
   if(otf->model & DFT_ZERO) return 0.0;
 
-  if(otf->model & DFT_GP) return otf->mu0;
+  if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) return otf->mu0;
 
   tmp = otf->b * rho + (3.0 / 2.0) * otf->c2 * rho * rho + (4.0 / 3.0) * otf->c3 * rho * rho * rho;
   if(otf->c4 != 0.0)
@@ -75,7 +75,7 @@ EXPORT REAL dft_ot_bulk_dEdRho(dft_ot_functional *otf, REAL rho) {
 EXPORT REAL dft_ot_bulk_density(dft_ot_functional *otf) {
 
   if(otf->model & DFT_ZERO) return 0.0;
-  if(otf->model & DFT_GP) return otf->rho0;
+  if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) return otf->rho0;
 
   return dft_ot_bulk_density_pressurized(otf, 0.0);
 }
@@ -94,7 +94,7 @@ EXPORT REAL dft_ot_bulk_density(dft_ot_functional *otf) {
 
 EXPORT REAL dft_ot_bulk_chempot(dft_ot_functional *otf) {
 
-  if(otf->model & DFT_GP) return otf->mu0;
+  if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) return otf->mu0;
   return dft_ot_bulk_dEdRho(otf, dft_ot_bulk_density(otf));
 }
 
@@ -114,7 +114,7 @@ EXPORT REAL dft_ot_bulk_chempot(dft_ot_functional *otf) {
 
 EXPORT REAL dft_ot_bulk_chempot2(dft_ot_functional *otf) {
 
-  if(otf->model & DFT_GP) return otf->mu0;
+  if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) return otf->mu0;
   return dft_ot_bulk_dEdRho(otf, otf->rho0);
 }
 
@@ -135,7 +135,7 @@ EXPORT REAL dft_ot_bulk_chempot2(dft_ot_functional *otf) {
 
 EXPORT REAL dft_ot_bulk_chempot3(dft_ot_functional *otf, REAL rho0) {
 
-  if(otf->model & DFT_GP) return otf->mu0;
+  if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) return otf->mu0;
   return dft_ot_bulk_dEdRho(otf, rho0);
 }
 
@@ -202,7 +202,7 @@ EXPORT REAL dft_ot_bulk_density_pressurized(dft_ot_functional *otf, REAL pressur
 
   if(otf->model & DFT_ZERO) return 0.0;
 
-  if(otf->model & DFT_GP) return otf->rho0;  // no density dep.
+  if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) return otf->rho0;  // no density dep.
   
   /*
    * Newton-Rapson to solve for rho:

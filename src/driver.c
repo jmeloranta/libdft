@@ -230,7 +230,7 @@ EXPORT void dft_driver_initialize() {
   dft_driver_read_wisdom(dft_driver_wisfile());
   density = dft_driver_get_workspace(10, 1);
   workspace1 = dft_driver_get_workspace(1, 1);
-  if((driver_dft_model != DFT_GP) && (driver_dft_model != DFT_ZERO)) {
+  if((driver_dft_model != DFT_GP) && (driver_dft_model != DFT_GP2) && (driver_dft_model != DFT_ZERO)) {
     workspace2 = dft_driver_get_workspace(2, 1);
     workspace3 = dft_driver_get_workspace(3, 1);
     workspace4 = dft_driver_get_workspace(4, 1);
