@@ -770,6 +770,9 @@ EXPORT inline void dft_driver_propagate(char what, rgrid *ext_pot, REAL chempot,
     exit(1);
   }
   if(ext_pot) grid_add_real_to_complex_re(cworkspace, ext_pot);
+  if(gwf->grid->kx0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kx0 * gwf->grid->kx0 / (2.0 * gwf->mass);
+  if(gwf->grid->ky0 != 0.0) chempot += HBAR * HBAR * gwf->grid->ky0 * gwf->grid->ky0 / (2.0 * gwf->mass);
+  if(gwf->grid->kz0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kz0 * gwf->grid->kz0 / (2.0 * gwf->mass);
   cgrid_add(cworkspace, (REAL complex) -chempot);
 
   dft_driver_propagate_potential(what, gwf, cworkspace, ctstep);
@@ -857,6 +860,9 @@ EXPORT inline void dft_driver_propagate_predict(char what, rgrid *ext_pot, REAL 
     exit(1);
   }
   if(ext_pot) grid_add_real_to_complex_re(potential, ext_pot);
+  if(gwf->grid->kx0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kx0 * gwf->grid->kx0 / (2.0 * gwf->mass);
+  if(gwf->grid->ky0 != 0.0) chempot += HBAR * HBAR * gwf->grid->ky0 * gwf->grid->ky0 / (2.0 * gwf->mass);
+  if(gwf->grid->kz0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kz0 * gwf->grid->kz0 / (2.0 * gwf->mass);
   cgrid_add(potential, (REAL complex) -chempot);
 
   cgrid_copy(gwfp->grid, gwf->grid);
@@ -924,6 +930,9 @@ EXPORT inline void dft_driver_propagate_correct(char what, rgrid *ext_pot, REAL 
     exit(1);
   }
   if(ext_pot) grid_add_real_to_complex_re(potential, ext_pot);
+  if(gwf->grid->kx0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kx0 * gwf->grid->kx0 / (2.0 * gwf->mass);
+  if(gwf->grid->ky0 != 0.0) chempot += HBAR * HBAR * gwf->grid->ky0 * gwf->grid->ky0 / (2.0 * gwf->mass);
+  if(gwf->grid->kz0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kz0 * gwf->grid->kz0 / (2.0 * gwf->mass);
   cgrid_add(potential, (REAL complex) -chempot);
 
   cgrid_multiply(potential, 0.5);
