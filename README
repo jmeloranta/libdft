@@ -3,6 +3,9 @@ Compilation parameters are taken from libgrid make.conf.
 
 Needs: libgrid and fftw.
 
+Note: Although libgrid supports single precision floating point numbers, these are often not adequate
+for calculations that propagate systems over long periods of time.
+
 List of people how contributed to the code:
 
 1) Lauri Lehtovaara

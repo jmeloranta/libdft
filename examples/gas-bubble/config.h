@@ -10,7 +10,7 @@
 #define MAXITER 80000000                /* Maximum number of real time iterations */
 #define OUTPUT_TIME 2500.0              /* Output interval time (fs) (2500) */
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))
-#define OUTPUT_GRID (4*OUTPUT_ITER)     /* Output grid at given iterations (10,000) (leave undefined if not needed) */
+/* #define OUTPUT_GRID (4*OUTPUT_ITER)     /* Output grid at given iterations (10,000) (leave undefined if not needed) */
 #ifdef USE_CUDA
 #define CUDA                            /* Use CUDA ? (auto detect) */
 #endif
@@ -32,7 +32,7 @@
 #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT */
 /* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson */
 
-#define FFTW_PLANNER 1 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
+#define FFTW_PLANNER 2 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
 
 #define NN 2.0    /* Exponent for circulation (1, 2, 3...) */
 
@@ -46,4 +46,4 @@
 #define RMIN 2.0
 #define RADD 6.0
 
-/* #define SM 3                    /* Potential smooth (0 = no smooth). Leave undefined for on-demand calculation of the potential */
+#define SM 3                    /* Potential smooth (0 = no smooth). Leave undefined for on-demand calculation of the potential */
