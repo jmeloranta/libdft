@@ -46,6 +46,7 @@ static rgrid *density = 0, *workspace1 = 0, *workspace2 = 0, *workspace3 = 0, *w
 static rgrid *workspace7 = 0, *workspace8 = 0, *workspace9 = 0;
 static cgrid *cworkspace = 0, *cworkspace2 = 0;
 static grid_timer timer;
+static REAL driver_rmin = -1.0, driver_radd = 0.0, driver_a0 = 0.0, driver_a1 = 0.0, driver_a2 = 0.0, driver_a3 = 0.0, driver_a4 = 0.0, driver_a5 = 0.0;
 
 /*
  * Return default wisdom file name.
@@ -271,12 +272,6 @@ EXPORT void dft_driver_initialize() {
 
 EXPORT void dft_driver_setup_grid(INT nx, INT ny, INT nz, REAL step, INT threads) {
   
-  // TODO: fixme
-  //  if((nx % 2) || (ny % 2) || (nz % 2)) {
-  //    fprintf(stderr, "libdft: Currently works only with array sizes of multiples of two.\n");
-  //    exit(1);
-  //  }
-
   dft_driver_nx = nx; dft_driver_nx2 = dft_driver_nx / 2;
   dft_driver_ny = ny; dft_driver_ny2 = dft_driver_ny / 2;
   dft_driver_nz = nz; dft_driver_nz2 = dft_driver_nz / 2;
@@ -336,6 +331,44 @@ EXPORT void dft_driver_setup_viscosity(REAL visc, REAL alpha) {
   viscosity = (visc / GRID_AUTOPAS);
   viscosity_alpha = alpha;
   if(dft_driver_verbose) fprintf(stderr, "libdft: Effective viscosity set to " FMT_R " a.u, alpha = " FMT_R ".\n", visc / GRID_AUTOPAS, alpha);
+}
+
+/*
+ * Set up potential parameters (for libgrid external function #7).
+ *
+ * If potential grid == NULL and a0 == -1: No external potential will be used.
+ * If potential grid == NULL and a0 != -1: External potential is based on funcion #7.
+ * If potential grid != NULL that grid will specify the external potential.
+ *
+ * The potential function #7 is:
+ *
+ *              V(R) = A0*exp(-A1*R) - A2 / R^3 - A3 / R^6 - A4 / R^8 - A5 / R^10
+ * 
+ * The potential parameters are:
+ *
+ * rmin = Minimum distance where the potential will be evaluated (REAL; input). To disable this function, set to -1.0.
+ * radd = Additive constant to R (increasing radd shifts the potential to longer R) (REAL; input).
+ * a0   = Parameter A0 above (REAL; input).
+ * a1   = Parameter A1 above (REAL; input).
+ * a2   = Parameter A2 above (REAL; input).
+ * a3   = Parameter A3 above (REAL; input).
+ * a4   = Parameter A4 above (REAL; input).
+ * a5   = Parameter A5 above (REAL; input).
+ *
+ * No return value.
+ *
+ */
+
+EXPORT void dft_driver_setup_potential(REAL rmin, REAL radd, REAL a0, REAL a1, REAL a2, REAL a3, REAL a4, REAL a5) {
+
+  driver_rmin = rmin;
+  driver_radd = radd;
+  driver_a0 = a0;
+  driver_a1 = a1;
+  driver_a2 = a2;
+  driver_a3 = a3;
+  driver_a4 = a4;
+  driver_a5 = a5;
 }
 
 /*
@@ -769,7 +802,9 @@ EXPORT inline void dft_driver_propagate(char what, rgrid *ext_pot, REAL chempot,
     fprintf(stderr, "libdft: Unknown propagator flag.\n");
     exit(1);
   }
+  if(ext_pot && driver_rmin != -1.0) fprintf(stderr, "libdft(warning): Both external potential and potential function in use!\n");
   if(ext_pot) grid_add_real_to_complex_re(cworkspace, ext_pot);
+  else if(driver_rmin != -1.0) grid_func7a_operate_one(cworkspace, driver_rmin, driver_radd, driver_a0, driver_a1, driver_a2, driver_a3, driver_a4, driver_a5);
   if(gwf->grid->kx0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kx0 * gwf->grid->kx0 / (2.0 * gwf->mass);
   if(gwf->grid->ky0 != 0.0) chempot += HBAR * HBAR * gwf->grid->ky0 * gwf->grid->ky0 / (2.0 * gwf->mass);
   if(gwf->grid->kz0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kz0 * gwf->grid->kz0 / (2.0 * gwf->mass);
@@ -859,7 +894,9 @@ EXPORT inline void dft_driver_propagate_predict(char what, rgrid *ext_pot, REAL 
     fprintf(stderr, "libdft: Unknown propagator flag.\n");
     exit(1);
   }
+  if(ext_pot && driver_rmin != -1.0) fprintf(stderr, "libdft(warning): Both external potential and potential function in use!\n");
   if(ext_pot) grid_add_real_to_complex_re(potential, ext_pot);
+  else if(driver_rmin != -1.0) grid_func7a_operate_one(potential, driver_rmin, driver_radd, driver_a0, driver_a1, driver_a2, driver_a3, driver_a4, driver_a5);
   if(gwf->grid->kx0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kx0 * gwf->grid->kx0 / (2.0 * gwf->mass);
   if(gwf->grid->ky0 != 0.0) chempot += HBAR * HBAR * gwf->grid->ky0 * gwf->grid->ky0 / (2.0 * gwf->mass);
   if(gwf->grid->kz0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kz0 * gwf->grid->kz0 / (2.0 * gwf->mass);
@@ -929,7 +966,9 @@ EXPORT inline void dft_driver_propagate_correct(char what, rgrid *ext_pot, REAL 
     fprintf(stderr, "libdft: Unknown propagator flag.\n");
     exit(1);
   }
+  if(ext_pot && driver_rmin != -1.0) fprintf(stderr, "libdft(warning): Both external potential and potential function in use!\n");
   if(ext_pot) grid_add_real_to_complex_re(potential, ext_pot);
+  else if(driver_rmin != -1.0) grid_func7a_operate_one(potential, driver_rmin, driver_radd, driver_a0, driver_a1, driver_a2, driver_a3, driver_a4, driver_a5);
   if(gwf->grid->kx0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kx0 * gwf->grid->kx0 / (2.0 * gwf->mass);
   if(gwf->grid->ky0 != 0.0) chempot += HBAR * HBAR * gwf->grid->ky0 * gwf->grid->ky0 / (2.0 * gwf->mass);
   if(gwf->grid->kz0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kz0 * gwf->grid->kz0 / (2.0 * gwf->mass);

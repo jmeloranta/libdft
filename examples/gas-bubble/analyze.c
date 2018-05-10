@@ -1,6 +1,8 @@
 /*
  * Analyze wavefunction files from grid files on disk.
  *
+ * TODO: Use libgrid ext #7 functions for drag force1 (will run on GPU). Or maybe not needed....(?) This is not executed often...
+ *
  */
 
 #include "bubble.h"

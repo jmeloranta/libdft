@@ -38,7 +38,9 @@ int main(int argc, char *argv[]) {
   wf *gwfp;
   cgrid *cworkspace;
 #endif
+#ifdef SM
   rgrid *ext_pot;
+#endif
 #ifdef OUTPUT_GRID
   char filename[2048];
 #endif
@@ -85,7 +87,11 @@ int main(int argc, char *argv[]) {
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) (He liquid) */
   cworkspace = dft_driver_alloc_cgrid("cworkspace");             /* allocate complex workspace */
 #endif
+#ifdef SM
   ext_pot = dft_driver_alloc_rgrid("ext_pot");                /* allocate real external potential grid */
+#else
+  dft_driver_setup_potential(RMIN, RADD, A0, A1, A2, A3, A4, A5);
+#endif
   
   /* Setup frame of reference momentum (for both imaginary & real time) */
   vx = round_veloc(VX);     /* Round velocity to fit the spatial grid */
@@ -104,11 +110,13 @@ int main(int argc, char *argv[]) {
 		  vx * 1000.0 * GRID_AUTOANG / GRID_AUTOFS, 0.0, 0.0);
   fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (m/s)\n", vx * GRID_AUTOMPS, 0.0, 0.0);
 
+#ifdef SM
 #if SM == 0
   rgrid_map(ext_pot, pot_func, NULL); /* External potential */
 #else
   fprintf(stderr, "Smooth mapping = " FMT_I ".\n", (INT) SM);
   rgrid_smooth_map(ext_pot, pot_func, NULL, SM); /* External potential */
+#endif
 #endif
 
   dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_USER_TIME, rho0);  /* mixed real & imag time iterations for warm up */
@@ -119,10 +127,19 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Warm up iterations.\n");
     for(iter = 0; iter < STARTING_ITER; iter++) {
 #ifdef PC
+#ifdef SM
       (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, tstep(TIME_STEP, iter), iter); /* PREDICT */ 
       (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, tstep(TIME_STEP, iter), iter); /* CORRECT */ 
 #else
+      (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, cworkspace, tstep(TIME_STEP, iter), iter); /* PREDICT */ 
+      (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, cworkspace, tstep(TIME_STEP, iter), iter); /* CORRECT */ 
+#endif
+#else
+#ifdef SM
       (void) dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, tstep(TIME_STEP, iter), iter);
+#else
+      (void) dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, tstep(TIME_STEP, iter), iter);
+#endif
 #endif
     }
   } else { /* restart from a file (.grd) */
@@ -152,10 +169,19 @@ int main(int argc, char *argv[]) {
 #endif
     if(!(iter % OUTPUT_ITER)) analyze(gwf, iter, vx);
 #ifdef PC
+#ifdef SM
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
     (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
 #else
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+#endif
+#else
+#ifdef SM
     (void) dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, TIME_STEP, iter);
+#else
+    (void) dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, TIME_STEP, iter);
+#endif
 #endif
   }
 
