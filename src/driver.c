@@ -234,8 +234,8 @@ EXPORT void dft_driver_initialize() {
   if((driver_dft_model != DFT_GP) && (driver_dft_model != DFT_GP2) && (driver_dft_model != DFT_ZERO)) {
     workspace2 = dft_driver_get_workspace(2, 1);
     workspace3 = dft_driver_get_workspace(3, 1);
-    workspace4 = dft_driver_get_workspace(4, 1);
     if((driver_dft_model & DFT_OT_KC) || (driver_dft_model & DFT_OT_BACKFLOW)) {
+      workspace4 = dft_driver_get_workspace(4, 1);
       workspace5 = dft_driver_get_workspace(5, 1);
       workspace6 = dft_driver_get_workspace(6, 1);
     }
