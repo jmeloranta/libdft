@@ -16,7 +16,7 @@
 #endif
 /* #define PC                              /* Predict-Correct (accurate but uses more memory) (at ts = 15 fs, no PC needed) */
 
-#define VX (70.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
+#define VX (80.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
@@ -44,6 +44,6 @@
 #define A4 0.0
 #define A5 0.0
 #define RMIN 2.0
-#define RADD 19.0
+#define RADD 10.0
 
 #define SM 3                    /* Potential smooth (0 = no smooth). Leave undefined for on-demand calculation of the potential */

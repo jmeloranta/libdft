@@ -92,6 +92,7 @@ int main(int argc, char *argv[]) {
 #else
   dft_driver_setup_potential(RMIN, RADD, A0, A1, A2, A3, A4, A5);
 #endif
+  fprintf(stderr, "Potential: RMIN = " FMT_R ", RADD = " FMT_R ", A0 = " FMT_R ", A1 = " FMT_R ", A2 = " FMT_R ", A3 = " FMT_R ", A4 = " FMT_R ", A5 = " FMT_R, RMIN, RADD, A0, A1, A2, A3, A4, A5);
   
   /* Setup frame of reference momentum (for both imaginary & real time) */
   vx = round_veloc(VX);     /* Round velocity to fit the spatial grid */
