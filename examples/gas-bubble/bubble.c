@@ -79,6 +79,7 @@ int main(int argc, char *argv[]) {
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
   dft_driver_otf->rho0 = rho0;
   mu0 = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
+  fprintf(stderr, "Pressure = %le\n", PRESSURE * GRID_AUTOBAR);
   fprintf(stderr, "rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
   
   /* Allocate wavefunctions and grids */
@@ -92,7 +93,7 @@ int main(int argc, char *argv[]) {
 #else
   dft_driver_setup_potential(RMIN, RADD, A0, A1, A2, A3, A4, A5);
 #endif
-  fprintf(stderr, "Potential: RMIN = " FMT_R ", RADD = " FMT_R ", A0 = " FMT_R ", A1 = " FMT_R ", A2 = " FMT_R ", A3 = " FMT_R ", A4 = " FMT_R ", A5 = " FMT_R, RMIN, RADD, A0, A1, A2, A3, A4, A5);
+  fprintf(stderr, "Potential: RMIN = " FMT_R ", RADD = " FMT_R ", A0 = " FMT_R ", A1 = " FMT_R ", A2 = " FMT_R ", A3 = " FMT_R ", A4 = " FMT_R ", A5 = " FMT_R "\n", RMIN, RADD, A0, A1, A2, A3, A4, A5);
   
   /* Setup frame of reference momentum (for both imaginary & real time) */
   vx = round_veloc(VX);     /* Round velocity to fit the spatial grid */

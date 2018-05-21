@@ -43,8 +43,8 @@ void zero_core(cgrid *grid) {
   for (i = 0; i < nx; i++)
     for (j = 0; j < ny; j++)
       for (k = 0; k < nz; k++) {
-	x = (i - nx/2) * step;
-	y = (j - ny/2) * step;
+	x = ((REAL) (i - nx/2)) * step;
+	y = ((REAL) (j - ny/2)) * step;
 	if(SQRT(x * x + y * y) < step/2.0)
 	  val[i * ny * nz + j * nz + k] = 0.0;
       }
@@ -104,7 +104,6 @@ int main(int argc, char **argv) {
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "He-star-He.dat", "He-star-He.dat", "He-star-He.dat", orig_pot);
 #endif
   mu0 = dft_ot_bulk_chempot(dft_driver_otf);
-  rgrid_add(orig_pot, -mu0);
   rho0 = dft_ot_bulk_density(dft_driver_otf);
 
   if(N != 0) {
@@ -124,8 +123,8 @@ int main(int argc, char **argv) {
     // TODO: Do we need to enforce the vortex solution at each R?
 
     for (iter = 1; iter < ((R == IBEGIN)?10*MAXITER:MAXITER); iter++) {      
-      dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
-      dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
+      dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TIME_STEP, iter);
+      dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TIME_STEP, iter);
       zero_core(gwf->grid);
     }
 

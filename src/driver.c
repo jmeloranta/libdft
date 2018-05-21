@@ -1608,6 +1608,16 @@ EXPORT REAL dft_driver_potential_energy(wf *gwf, rgrid *ext_pot) {
 
   grid_wf_density(gwf, density);
 
+  // TODO: only allocate workspaces needed for the current functional...
+  if(!workspace1) workspace1 = dft_driver_get_workspace(1, 1);
+  if(!workspace2) workspace2 = dft_driver_get_workspace(2, 1);
+  if(!workspace3) workspace3 = dft_driver_get_workspace(3, 1);
+  if(!workspace4) workspace4 = dft_driver_get_workspace(4, 1);
+  if(!workspace5) workspace5 = dft_driver_get_workspace(5, 1);
+  if(!workspace6) workspace6 = dft_driver_get_workspace(6, 1);
+  if(!workspace7) workspace7 = dft_driver_get_workspace(7, 1);
+  if(!workspace8) workspace8 = dft_driver_get_workspace(8, 1);
+  if(!workspace9) workspace9 = dft_driver_get_workspace(9, 1);
   dft_ot_energy_density(dft_driver_otf, workspace9, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
 
   if(ext_pot) rgrid_add_scaled_product(workspace9, 1.0, density, ext_pot);

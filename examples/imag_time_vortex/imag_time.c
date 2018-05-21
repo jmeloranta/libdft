@@ -46,8 +46,8 @@ void zero_core(cgrid *grid) {
   for (i = 0; i < nx; i++)
     for (j = 0; j < ny; j++)
       for (k = 0; k < nz; k++) {
-	x = (i - nx/2) * step;
-	y = (j - ny/2) * step;
+	x = ((REAL) (i - nx/2)) * step;
+	y = ((REAL) (j - ny/2)) * step;
 	if(SQRT(x * x + y * y) < step/2.0)
 	  val[i * ny * nz + j * nz + k] = 0.0;
       }
@@ -64,7 +64,8 @@ int main(int argc, char **argv) {
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 32 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
+//  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_GP2, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   /* Neumann boundaries */
@@ -152,6 +153,14 @@ int main(int argc, char **argv) {
       dft_driver_write_density(density, buf);
       sprintf(buf, "output-wf-" FMT_I, iter);
       dft_driver_write_grid(gwf->grid, buf);
+
+      dft_driver_veloc_field(gwf, px, py, pz);
+      rgrid_multiply(px, GRID_AUTOMPS);
+      rgrid_multiply(py, GRID_AUTOMPS);
+      rgrid_multiply(pz, GRID_AUTOMPS);
+      sprintf(buf, "output-veloc-" FMT_I, iter);
+      dft_driver_write_density(px, buf);
+
       energy = dft_driver_energy(gwf, ext_pot);
       natoms = dft_driver_natoms(gwf);
       printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);

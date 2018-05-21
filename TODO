@@ -1,2 +1,1 @@
-- offer possibility to use potential function rather than grid (saves memory)
 - use the common propagate entry points in libgrid rather than calling aux routines directly.
