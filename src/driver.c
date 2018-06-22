@@ -608,61 +608,61 @@ EXPORT void dft_driver_viscous_potential(wf *gwf, cgrid *pot) {
 
   /* Stress tensor elements (without viscosity) */
   /* 1 (diagonal; workspace2) */
-  dft_driver_veloc_field_x_eps(gwf, workspace8, POISSON_EPS); // Watch out! workspace1 used by veloc_field
+  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_x(workspace8, workspace2);
   rgrid_multiply(workspace2, 4.0/3.0);
-  dft_driver_veloc_field_y_eps(gwf, workspace8, POISSON_EPS);
+  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_y(workspace8, workspace1);
   rgrid_multiply(workspace1, -2.0/3.0);
   rgrid_sum(workspace2, workspace2, workspace1);
-  dft_driver_veloc_field_z_eps(gwf, workspace8, POISSON_EPS);
+  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_z(workspace8, workspace1);
   rgrid_multiply(workspace1, -2.0/3.0);
   rgrid_sum(workspace2, workspace2, workspace1);
 
   /* 2 = 4 (symmetry; workspace3) */
-  dft_driver_veloc_field_y_eps(gwf, workspace8, POISSON_EPS); // Watch out! workspace1 used by veloc_field
+  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_x(workspace8, workspace3);
-  dft_driver_veloc_field_x_eps(gwf, workspace8, POISSON_EPS);
+  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_y(workspace8, workspace1);
   rgrid_sum(workspace3, workspace3, workspace1);
   
   /* 3 = 7 (symmetry; workspace4) */
-  dft_driver_veloc_field_z_eps(gwf, workspace8, POISSON_EPS); // Watch out! workspace1 used by veloc_field
+  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_x(workspace8, workspace4);
-  dft_driver_veloc_field_x_eps(gwf, workspace8, POISSON_EPS);
+  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_z(workspace8, workspace1);
   rgrid_sum(workspace4, workspace4, workspace1);
 
   /* 5 (diagonal; workspace5) */
-  dft_driver_veloc_field_y_eps(gwf, workspace8, POISSON_EPS); // Watch out! workspace1 used by veloc_field
+  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_y(workspace8, workspace5);
   rgrid_multiply(workspace5, 4.0/3.0);
-  dft_driver_veloc_field_x_eps(gwf, workspace8, POISSON_EPS);
+  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_x(workspace8, workspace1);
   rgrid_multiply(workspace1, -2.0/3.0);
   rgrid_sum(workspace5, workspace5, workspace1);
-  dft_driver_veloc_field_z_eps(gwf, workspace8, POISSON_EPS);
+  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_z(workspace8, workspace1);
   rgrid_multiply(workspace1, -2.0/3.0);
   rgrid_sum(workspace5, workspace5, workspace1);
   
   /* 6 = 8 (symmetryl workspace6) */
-  dft_driver_veloc_field_z_eps(gwf, workspace8, POISSON_EPS); // Watch out! workspace1 used by veloc_field
+  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_y(workspace8, workspace6);
-  dft_driver_veloc_field_y_eps(gwf, workspace8, POISSON_EPS);
+  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_z(workspace8, workspace1);
   rgrid_sum(workspace6, workspace6, workspace1);
 
   /* 9 = (diagonal; workspace7) */
-  dft_driver_veloc_field_z_eps(gwf, workspace8, POISSON_EPS); // Watch out! workspace1 used by veloc_field
+  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_z(workspace8, workspace7);
   rgrid_multiply(workspace7, 4.0/3.0);
-  dft_driver_veloc_field_x_eps(gwf, workspace8, POISSON_EPS);
+  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_x(workspace8, workspace1);
   rgrid_multiply(workspace1, -2.0/3.0);
   rgrid_sum(workspace7, workspace7, workspace1);
-  dft_driver_veloc_field_y_eps(gwf, workspace8, POISSON_EPS);
+  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
   rgrid_fd_gradient_y(workspace8, workspace1);
   rgrid_multiply(workspace1, -2.0/3.0);
   rgrid_sum(workspace7, workspace7, workspace1);
@@ -701,7 +701,7 @@ EXPORT void dft_driver_viscous_potential(wf *gwf, cgrid *pot) {
   // NOT IN USE
   REAL tot = -(4.0 / 3.0) * viscosity / dft_driver_rho0;
   
-  dft_driver_veloc_field_eps(gwf, workspace2, workspace3, workspace4, DFT_BF_EPS); // Watch out! workspace1 used by veloc_field
+  grid_wf_velocity(gwf, workspace2, workspace3, workspace4, DFT_VELOC_CUTOFF);
   rgrid_div(workspace1, workspace2, workspace3, workspace4);  
   rgrid_multiply(workspace1, tot);
   grid_add_real_to_complex_re(pot, workspace1);
@@ -1484,7 +1484,7 @@ EXPORT void dft_driver_write_current(wf *wf, char *base) {
 
 EXPORT void dft_driver_write_velocity(wf *wf, char *base) {
 
-  dft_driver_veloc_field(wf, workspace1, workspace2, workspace3);
+  grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_VELOC_CUTOFF);
   dft_driver_write_vectorfield(workspace1, workspace2, workspace3, base);
 }
 
@@ -2165,148 +2165,6 @@ EXPORT cgrid *dft_driver_spectrum_evaluate(REAL tstep, REAL tc) {
 }
 
 /*
- * Evaluate the liquid velocity field for a given order paremeter (X component),
- * $v = \vec{J}/\rho$.
- *
- * gwf  = Order parameter for which the velocity field is evaluated (input; wf *).
- * vx   = Velocity field x component (output; rgrid *).
- * eps  = Epsilon to add to rho when dividing (input; REAL).
- *
- */
-
-EXPORT void dft_driver_veloc_field_x_eps(wf *wf, rgrid *vx, REAL eps) {
-
-  grid_wf_probability_flux_x(wf, vx);
-  grid_wf_density(wf, workspace1);
-  rgrid_division_eps(vx, vx, workspace1, eps);
-}
-
-/*
- * Evaluate the liquid velocity field for a given order paremeter (Y component),
- * $v = \vec{J}/\rho$.
- *
- * gwf  = Order parameter for which the velocity field is evaluated (input; wf *).
- * vy   = Velocity field y component (output; rgrid *).
- * eps  = Epsilon to add to rho when dividing (inputl REAL).
- *
- */
-
-EXPORT void dft_driver_veloc_field_y_eps(wf *wf, rgrid *vy, REAL eps) {
-
-  grid_wf_probability_flux_y(wf, vy);
-  grid_wf_density(wf, workspace1);
-  rgrid_division_eps(vy, vy, workspace1, eps);
-}
-
-/*
- * Evaluate the liquid velocity field for a given order paremeter (Z compinent),
- * $v = \vec{J}/\rho$.
- *
- * gwf  = Order parameter for which the velocity field is evaluated (input; wf *).
- * vz   = Velocity field z component (output; rgrid *).
- * eps  = Epsilon to add to rho when dividing (input; REAL).
- *
- */
-
-EXPORT void dft_driver_veloc_field_z_eps(wf *wf, rgrid *vz, REAL eps) {
-
-  grid_wf_probability_flux_z(wf, vz);
-  grid_wf_density(wf, workspace1);
-  rgrid_division_eps(vz, vz, workspace1, eps);
-}
-
-/*
- * Evaluate the liquid velocity field for a given order paremeter,
- * $v = \vec{J}/\rho$.
- *
- * gwf  = Order parameter for which the velocity field is evaluated (input; wf *).
- * vx    = Velocity field x component (output; rgrid *).
- * vy    = Velocity field y component (output; rgrid *).
- * vz    = Velocity field z component (output; rgrid *).
- * eps   = Epsilon to add to rho when dividing (input; REAL).
- *
- */
-
-EXPORT void dft_driver_veloc_field_eps(wf *wf, rgrid *vx, rgrid *vy, rgrid *vz, REAL eps) {
-
-  grid_wf_probability_flux(wf, vx, vy, vz);
-  grid_wf_density(wf, workspace1);
-  rgrid_division_eps(vx, vx, workspace1, eps);
-  rgrid_division_eps(vy, vy, workspace1, eps);
-  rgrid_division_eps(vz, vz, workspace1, eps);
-}
-
-/*
- * Evaluate the liquid velocity field for a given order paremeter (X component),
- * $v = \vec{J}/\rho$.
- *
- * gwf  = Order parameter for which the velocity field is evaluated (input; wf *).
- * vx    = Velocity field x component (output; rgrid *).
- *
- * Note: This routine caps the maximum liquid velocity using
- *       DFT_VELOC_EPS.
- *
- */
-
-EXPORT void dft_driver_veloc_field_x(wf *wf, rgrid *vx) {
-
-  dft_driver_veloc_field_x_eps(wf, vx, DFT_VELOC_EPS);
-}
-
-/*
- * Evaluate the liquid velocity field for a given order paremeter (Y component),
- * $v = \vec{J}/\rho$.
- *
- * gwf  = Order parameter for which the velocity field is evaluated (input; wf *).
- * vy    = Velocity field y component (output; rgrid *).
- *
- * Note: This routine caps the maximum liquid velocity using
- *       DFT_VELOC_EPS.
- *
- */
-
-EXPORT void dft_driver_veloc_field_y(wf *wf, rgrid *vy) {
-
-  dft_driver_veloc_field_y_eps(wf, vy, DFT_VELOC_EPS);
-}
-
-/*
- * Evaluate the liquid velocity field for a given order paremeter (Z compinent),
- * $v = \vec{J}/\rho$.
- *
- * gwf  = Order parameter for which the velocity field is evaluated (input; wf *).
- * vz    = Velocity field z component (output; rgrid *).
- *
- * Note: This routine caps the maximum liquid velocity using
- *       DFT_VELOC_EPS.
- *
- */
-
-EXPORT void dft_driver_veloc_field_z(wf *wf, rgrid *vz) {
-
-  dft_driver_veloc_field_z_eps(wf, vz, DFT_VELOC_EPS);
-}
-
-/*
- * Evaluate the liquid velocity field for a given order paremeter,
- * $v = \vec{J}/\rho$.
- *
- * gwf  = Order parameter for which the velocity field is evaluated (input; wf *).
- * vx    = Velocity field x component (output; rgrid *).
- * vy    = Velocity field y component (output; rgrid *).
- * vz    = Velocity field z component (output; rgrid *).
- *
- * Note: This routine caps the maximum liquid velocity using
- *       DFT_VELOC_EPS.
- *
- */
-
-EXPORT void dft_driver_veloc_field(wf *wf, rgrid *vx, rgrid *vy, rgrid *vz) {
-
-  dft_driver_veloc_field_eps(wf, vx, vy, vz, DFT_VELOC_EPS);
-}
-
-/*
  * Evaluate liquid momentum according to:
  * $\int\rho\v_idr$ where $i = x,y,z$.
  *
@@ -2394,7 +2252,7 @@ EXPORT REAL dft_driver_Pz(wf *wf) {
 
 EXPORT REAL dft_driver_KE(wf *wf) {
 
-  dft_driver_veloc_field(wf, workspace1, workspace2, workspace3);
+  grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_VELOC_CUTOFF);
   rgrid_product(workspace1, workspace1, workspace1);
   rgrid_product(workspace2, workspace2, workspace2);
   rgrid_product(workspace3, workspace3, workspace3);
@@ -2857,6 +2715,32 @@ EXPORT void dft_driver_vortex(rgrid *potential, int direction) {
 }
 
 /*
+ * This routine will limit the given potential exceeds the specified max value.
+ *
+ * potential = Potential that determines the points to be zeroed (rgrid *).
+ * ul        = Limit for the potential above which the wf will be zeroed (REAL).
+ * ll        = Limit for the potential below which the wf will be zeroed (REAL).
+ * 
+ */
+
+EXPORT void dft_driver_clear_pot(rgrid *potential, REAL ul, REAL ll) {
+
+  rgrid_threshold_clear(potential, potential, ul, ll, 0.0, 0.0);
+}
+
+/*
+ * Zero part of a given grid based on a given density treshold.
+ *
+ */
+
+EXPORT void dft_driver_clear_core(rgrid *grid, rgrid *density, REAL thr) {
+
+  rgrid_threshold_clear(grid, density, thr, -1E99, 0.0, 0.0);
+}
+
+/****** TODO: These need to into libgrid ***********/
+
+/*
  * This routine will zero a given wavefunction at points where the given potential exceeds the specified limit.
  *
  * gwf       = Wavefunction to be operated on (wf *).
@@ -2877,44 +2761,6 @@ EXPORT void dft_driver_clear(wf *gwf, rgrid *potential, REAL ul) {
     for(j = 0; j < potential->ny; j++)
       for(k = 0; k < potential->nz; k++)
         if(rgrid_value_at_index(potential, i, j, k) >= ul) cgrid_value_to_index(gwf->grid, i, j, k, 0.0);
-}
-
-/*
- * This routine will limit the given potential exceeds the specified max value.
- *
- * potential = Potential that determines the points to be zeroed (rgrid *).
- * ul        = Limit for the potential above which the wf will be zeroed (REAL).
- * ll        = Limit for the potential below which the wf will be zeroed (REAL).
- * 
- */
-
-EXPORT void dft_driver_clear_pot(rgrid *potential, REAL ul, REAL ll) {
-
-  INT i, j, k;
-  REAL tmp;
-
-  for(i = 0; i < potential->nx; i++)
-    for(j = 0; j < potential->ny; j++)
-      for(k = 0; k < potential->nz; k++) {
-        tmp = rgrid_value_at_index(potential, i, j, k);
-        if(tmp > ul) rgrid_value_to_index(potential, i, j, k, ul);
-        if(tmp < ll) rgrid_value_to_index(potential, i, j, k, ll);
-      }
-}
-
-/*
- * Zero part of a given grid based on a given density treshold.
- *
- */
-
-EXPORT void dft_driver_clear_core(rgrid *grid, rgrid *density, REAL thr) {
-
-  INT i, j, k;
-
-  for(i = 0; i < grid->nx; i++)
-    for(j = 0; j < grid->ny; j++)
-      for(k = 0; k < grid->nz; j++)
-        if(rgrid_value_at_index(density, i, j, k) < thr) rgrid_value_to_index(grid, i, j, k, 0.0);
 }
 
 /*
@@ -2966,6 +2812,8 @@ EXPORT void dft_driver_npoint_smooth(rgrid *dest, rgrid *source, int npts) {
         rgrid_value_to_index(dest, i, j, k, ave);
       }
 }
+
+/*******************************************************/
 
 /*
  * Allocate workspaces and allow outside access to workspaces.

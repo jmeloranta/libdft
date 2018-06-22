@@ -291,10 +291,15 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf, r
   if(otf->model & DFT_OT_BACKFLOW) {
     /* wf, veloc_x(1), veloc_y(2), veloc_z(3), wrk(4) */
     // grid_wf_momentum(wf, workspace1, workspace2, workspace3, ...);   But can't do since we don't have cmplx workspaces
+#if 0
+    // OLD CODE
     grid_wf_probability_flux(wf, workspace1, workspace2, workspace3);    /* finite difference */
     rgrid_division_eps(workspace1, workspace1, density, DFT_BF_EPS);  /* velocity = flux / rho */
-    rgrid_division_eps(workspace2, workspace2, density, DFT_BF_EPS);
+    rgrid_division_eps(workspace2, workspace2, density, DFT_BF_EPS);  // EPS was about 1E-3
     rgrid_division_eps(workspace3, workspace3, density, DFT_BF_EPS);
+#else
+    grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_VELOC_CUTOFF);
+#endif
 
     dft_ot_backflow_potential(otf, potential, density, workspace1 /* veloc_x */, workspace2 /* veloc_y */, workspace3 /* veloc_z */, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
   }
@@ -748,10 +753,14 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
     // workspace7 = density from this on
     
     // grid_wf_momentum(wf, workspace1, workspace2, workspace3, ...); But can't do since we don't have cmplx workspaces
+#if 0
     grid_wf_probability_flux(wf, workspace1, workspace2, workspace3);    /* finite difference */
     rgrid_division_eps(workspace1, workspace1, workspace7, DFT_BF_EPS);  /* velocity = flux / rho, v_x */
     rgrid_division_eps(workspace2, workspace2, workspace7, DFT_BF_EPS);  /* v_y */
     rgrid_division_eps(workspace3, workspace3, workspace7, DFT_BF_EPS);  /* v_z */
+#else
+    grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_VELOC_CUTOFF);
+#endif
     rgrid_product(workspace4, workspace1, workspace1);   /* v_x^2 */
     rgrid_product(workspace5, workspace2, workspace2);   /* v_y^2 */
     rgrid_sum(workspace4, workspace4, workspace5);
@@ -831,7 +840,6 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
     /* Original BF code (without the MM density cutoff) */
     rgrid_copy(workspace1, density);   /* just rho */
   }
-
   rgrid_fft(workspace1);
   rgrid_fft_convolute(workspace1, workspace1, otf->backflow_pot);
   rgrid_inverse_fft(workspace1);
@@ -894,7 +902,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   rgrid_add_scaled_product(workspace6, -2.0, veloc_x, workspace3);
   rgrid_add_scaled_product(workspace6, -2.0, veloc_y, workspace4);
   rgrid_add_scaled_product(workspace6, -2.0, veloc_z, workspace5);
-  rgrid_sum(workspace6, workspace6, workspace2);
+  rgrid_sum(workspace6, workspace6, workspace2);   // TODO: wrk2 could be eliminated?
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
     /* multiply by [rho x (dG/drho)(rho) + G(rho)] (dft_ot_bf_pi_op) */
     grid_func3_operate_one_product(workspace6, workspace6, density, otf->xi, otf->rhobf);
@@ -902,6 +910,8 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   }
   rgrid_multiply(workspace6, -0.5 * otf->mass);
 
+// Zero potential in regions where density is nearly zero
+  rgrid_threshold_clear(workspace6, density, 1.0, 8E-4, 0.0, 0.0);
   grid_add_real_to_complex_re(potential, workspace6);
 
   /* workspace2 (C), workspace6 not used after this point */
@@ -926,7 +936,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   } else {
     rgrid_fd_gradient_x(density, workspace2);
   }
-  rgrid_division_eps(workspace2, workspace2, density, DFT_BF_EPS);
+  rgrid_division_eps(workspace2, workspace2, density, DFT_EPS);
   rgrid_add_scaled_product(workspace6, 0.5, workspace2, veloc_x);
 
   /* 1.2 (1/2) (drho/dy)/rho * (v_yA - B_y) */
@@ -937,7 +947,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   } else {
     rgrid_fd_gradient_y(density, workspace2);
   }
-  rgrid_division_eps(workspace2, workspace2, density, DFT_BF_EPS);
+  rgrid_division_eps(workspace2, workspace2, density, DFT_EPS);
   rgrid_add_scaled_product(workspace6, 0.5, workspace2, veloc_y);
 
   /* 1.3 (1/2) (drho/dz)/rho * (v_zA - B_z) */
@@ -948,7 +958,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   } else {
     rgrid_fd_gradient_z(density, workspace2);
   }
-  rgrid_division_eps(workspace2, workspace2, density, DFT_BF_EPS);
+  rgrid_division_eps(workspace2, workspace2, density, DFT_EPS);
   rgrid_add_scaled_product(workspace6, 0.5, workspace2, veloc_z);
 
   /* 2.1 (1/2) (d/dx) (v_xA - B_x) */
@@ -975,6 +985,8 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   }
   rgrid_add_scaled(workspace6, 0.5, workspace2);
 
+// Zero potential in regions where density is nearly zero
+  rgrid_threshold_clear(workspace6, density, 1.0, 8E-4, 0.0, 0.0);
   grid_add_real_to_complex_im(potential, workspace6);
 }
 

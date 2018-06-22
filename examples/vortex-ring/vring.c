@@ -49,10 +49,14 @@ int main(int argc, char **argv) {
   REAL mu0, kin, pot, n;
   char buf[512];
 
+#ifdef USE_CUDA
+  cuda_enable(1);  // enable CUDA ?
+#endif
+
   /* Setup DFT driver parameters (grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN|DFT_OT_KC|DFT_OT_BACKFLOW, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   /* Normalization condition */

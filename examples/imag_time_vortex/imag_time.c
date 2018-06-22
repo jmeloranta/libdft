@@ -16,9 +16,9 @@
 
 #define TIME_STEP 20.0 /* fs */
 #define MAXITER 10000000
-#define NX 128
-#define NY 128
-#define NZ 128
+#define NX 256
+#define NY 256
+#define NZ 256
 #define STEP 0.5
 
 #define HE2STAR 1 /**/
@@ -61,13 +61,17 @@ int main(int argc, char **argv) {
   INT iter, N;
   REAL energy, natoms, mu0, rho0, width;
 
+#ifdef USE_CUDA
+  cuda_enable(1);  // enable CUDA ?
+#endif
+
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 32 /* threads */);
+  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 0 /* threads */);
   /* Plain Orsay-Trento in imaginary time */
-//  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
-  dft_driver_setup_model(DFT_GP2, DFT_DRIVER_IMAG_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW, DFT_DRIVER_IMAG_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
+//  dft_driver_setup_boundary_type(DFT_DRIVER_BC_Z, 0.0, 0.0, 0.0, 0.0);
   /* Neumann boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
 
@@ -154,12 +158,14 @@ int main(int argc, char **argv) {
       sprintf(buf, "output-wf-" FMT_I, iter);
       dft_driver_write_grid(gwf->grid, buf);
 
-      dft_driver_veloc_field(gwf, px, py, pz);
+#if 0
+      grid_wf_velocity(gwf, px, py, pz, DFT_VELOC_CUTOFF);
       rgrid_multiply(px, GRID_AUTOMPS);
       rgrid_multiply(py, GRID_AUTOMPS);
       rgrid_multiply(pz, GRID_AUTOMPS);
       sprintf(buf, "output-veloc-" FMT_I, iter);
       dft_driver_write_density(px, buf);
+#endif
 
       energy = dft_driver_energy(gwf, ext_pot);
       natoms = dft_driver_natoms(gwf);

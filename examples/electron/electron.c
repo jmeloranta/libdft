@@ -19,8 +19,8 @@
 /* Initial guess for bubble radius */
 #define BUBBLE_RADIUS 1.0
 
-/* #define INCLUDE_VORTEX 1 /**/
-#define INCLUDE_ELECTRON 1 /**/
+#define INCLUDE_VORTEX 1 /**/
+/* #define INCLUDE_ELECTRON 1 /**/
 
 REAL rho0;
 

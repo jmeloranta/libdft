@@ -31,6 +31,13 @@ REAL complex tstep(REAL complex tstep, INT iter) {
   return (-I * (1.0 - x) + x) * CABS(tstep);  // not called with x > 1
 }
 
+/* -I * cabs(tstep) = full imag time, cabs(tstep) = full real time */
+REAL complex tstep2(REAL complex tstep, INT iter) {
+ 
+  return CABS(tstep);
+//  return CABS(tstep) * (1.0 - 3E-2 * I);  // introduce small imag part
+}
+
 int main(int argc, char *argv[]) {
 
   wf *gwf;
@@ -52,7 +59,7 @@ int main(int argc, char *argv[]) {
   /* Setup DFT driver parameters */
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
 #ifdef USE_CUDA
-  cuda_enable(1);
+//  cuda_enable(1);
 #endif
 
   /* FFTW planner flags */
@@ -150,7 +157,7 @@ int main(int argc, char *argv[]) {
   }
 
   /* Real time iterations */
-  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_REAL_TIME, rho0);
+  dft_driver_setup_model(FUNCTIONAL, DFT_DRIVER_USER_TIME, rho0);
 #if KINETIC_PROPAGATOR == DFT_DRIVER_KINETIC_FFT
 //  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, ABS_AMP, ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
 //  fprintf(stderr, "Absorption begins at (" FMT_R "," FMT_R "," FMT_R ") Bohr from the boundary\n",  ABS_WIDTH_X, ABS_WIDTH_Y, ABS_WIDTH_Z);
@@ -165,24 +172,24 @@ int main(int argc, char *argv[]) {
   for(iter = 0; iter < MAXITER; iter++) {
 #ifdef OUTPUT_GRID
     if(!(iter % OUTPUT_GRID)) {
-      sprintf(filename, "liquid-" FMT_R, iter * TIME_STEP);
+      sprintf(filename, "liquid-" FMT_R, ((REAL) iter) * TIME_STEP);
       dft_driver_write_grid(gwf->grid, filename);
     }
 #endif
     if(!(iter % OUTPUT_ITER)) analyze(gwf, iter, vx);
 #ifdef PC
 #ifdef SM
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, tstep2(TIME_STEP, iter), iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, tstep2(TIME_STEP, iter), iter); /* CORRECT */ 
 #else
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, cworkspace, tstep2(TIME_STEP, iter), iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, cworkspace, tstep2(TIME_STEP, iter), iter); /* CORRECT */ 
 #endif
 #else
 #ifdef SM
-    (void) dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, TIME_STEP, iter);
+    (void) dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, tstep2(TIME_STEP, iter), iter);
 #else
-    (void) dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, TIME_STEP, iter);
+    (void) dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, tstep2(TIME_STEP, iter), iter);
 #endif
 #endif
   }

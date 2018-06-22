@@ -163,10 +163,10 @@ extern REAL complex (*dft_driver_bc_function)(void *, REAL complex, INT, INT, IN
 /* Helium mass */
 #define DFT_HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
-/* Density cutoff for backflow evaluation (was rho0 / 100 = 3E-5) */
-#define DFT_BF_EPS 1E-5
+/* Velocity cutoff for evaluating velocity (when density is close to zero, velocity becomes ill defined) */
+#define DFT_VELOC_CUTOFF (300.0 / GRID_AUTOMPS)
 
-/* Density cutoff for velocity calculation in driver.c */
-#define DFT_VELOC_EPS (1E-8)
+/* General division epsilon (when dividing by rho) */
+#define DFT_EPS 1E-5
 
 #endif /* __DFT_OT__ */
