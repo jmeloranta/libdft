@@ -15,18 +15,18 @@
 #include <dft/ot.h>
 
 #define TS 5.0 /* fs */
-#define NX 256
-#define NY 128
-#define NZ 128
-#define STEP 2.0
-#define NTH 100
+#define NX 16384
+#define NY 32
+#define NZ 32
+#define STEP 1.0
+#define NTH 1000
 
-#define PRESSURE (1.0 / GRID_AUTOBAR)
+#define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* #define SMOOTH    /* by +-2 x LAMBDA_C */
 
-#define SOLITON_AMP (0.02)   /* 10% of bulk */
-#define SOLITON_N  5       /* width (in N * LAMBDA_C) */
+#define SOLITON_AMP (0.2)   /* 10% of bulk */
+#define SOLITON_N  300       /* width (in N * LAMBDA_C) */
 #define LAMBDA_C (3.58 / GRID_AUTOANG)
 
 #define THREADS 0
@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
 
   /* Generate the excited potential */
 
-  for (iter = 0; iter < 80000; iter++) {
+  for (iter = 0; iter < 800000; iter++) {
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
     if(!(iter % NTH)) {

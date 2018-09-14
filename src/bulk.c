@@ -279,6 +279,11 @@ EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred) {
   extern REAL dft_driver_step, dft_driver_rho0;
   extern dft_ot_functional *dft_driver_otf;
   
+  if(dft_driver_nx == 1) {
+    fprintf(stderr, "libdft: The plane wave is along X but only one point allocated in that direction.\n");
+    exit(1);
+  }
+
   gwf = dft_driver_alloc_wavefunction(dft_driver_otf->mass, "gwf");
   if(pred) {
     gwfp = dft_driver_alloc_wavefunction(dft_driver_otf->mass, "gwfp");

@@ -151,6 +151,7 @@ extern dft_ot_functional *dft_driver_otf;
 extern char dft_driver_init_wavefunction;
 extern char dft_driver_kinetic;
 extern REAL complex (*dft_driver_bc_function)(void *, REAL complex, INT, INT, INT);
+extern char dft_driver_init_ot;
 
 /* Prototypes (in wrong place; TODO separate common and OT specific prototypes) */
 #include "proto.h"

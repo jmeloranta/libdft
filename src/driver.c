@@ -31,6 +31,7 @@ char dft_driver_verbose = 1;   /* set to zero to eliminate informative print out
 dft_ot_functional *dft_driver_otf = 0;
 char dft_driver_init_wavefunction = 1;
 char dft_driver_kinetic = 0; /* default FFT propagation for kinetic, TODO: FFT gives some numerical hash - bug? */
+char dft_driver_init_ot = 1; /* Init OT ? */
 
 INT dft_driver_nx = 0, dft_driver_ny = 0, dft_driver_nz = 0, dft_driver_nx2 = 0, dft_driver_ny2 = 0, dft_driver_nz2 = 0;
 static INT driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;

@@ -127,6 +127,9 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
   }
 
   dft_ot_temperature(otf, model);
+
+  if(!dft_driver_init_ot) return otf;
+
   /* these grids are not needed for GP */
   if(!(model & DFT_GP) && !(model & DFT_ZERO) && !(model & DFT_GP2)) {
     otf->lennard_jones = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT Lennard-Jones");
