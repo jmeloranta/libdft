@@ -173,10 +173,12 @@ inline static void scale_wf(char what, wf *gwf) {
 EXPORT void dft_driver_read_wisdom(char *file) {
 
   /* Attempt to use wisdom (FFTW) from previous runs */
-#ifdef SINGLE_PREC
+#if defined(SINGLE_PREC)
   if(fftwf_import_wisdom_from_filename(file) == 1) {
-#else
+#elif defined(DOUBLE_PREC)
   if(fftw_import_wisdom_from_filename(file) == 1) {
+#elif defined(QUAD_PREC)
+  if(fftwl_import_wisdom_from_filename(file) == 1) {
 #endif
     if(dft_driver_verbose) fprintf(stderr, "libdft: Using wisdom stored in %s.\n", file);
   } else {
@@ -193,10 +195,12 @@ EXPORT void dft_driver_read_wisdom(char *file) {
 
 EXPORT void dft_driver_write_wisdom(char *file) {
 
-#ifdef SINGLE_PREC
+#if defined(SINGLE_PREC)
   fftwf_export_wisdom_to_filename(file);
-#else
+#elif defined(DOUBLE_PREC)
   fftw_export_wisdom_to_filename(file);
+#elif defined(QUAD_PREC)
+  fftwl_export_wisdom_to_filename(file);
 #endif
 }
 
