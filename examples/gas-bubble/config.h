@@ -4,7 +4,7 @@
  */
 
 #define TIME_STEP 15.0                  /* Time step in imag/real iterations (fs) */
-#define FUNCTIONAL (DFT_OT_PLAIN|DFT_OT_KC|DFT_OT_BACKFLOW)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
+#define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 #define STARTING_TIME 400000.0          /* Start real time simulation at this time (fs) - (400,000) */
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP))
 #define MAXITER 80000000              /* Maximum number of real time iterations */
@@ -20,7 +20,7 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 512       	/* # of grid points along x */ /* Largest: 729x384x384 */
+#define NX 512    	/* # of grid points along x */ /* Largest: 729x384x384 */
 #define NY 256          /* # of grid points along y */
 #define NZ 256        	/* # of grid points along z */
 #define STEP 1.0        /* spatial step length (Bohr) */

@@ -503,6 +503,9 @@ EXPORT void dft_driver_setup_rotation_omega(REAL omega) {
 
 EXPORT void dft_driver_propagate_kinetic_first(char what, wf *gwf, REAL complex ctstep) {
 
+  struct grid_abs ab;
+  INT wrklen = gwf->grid->nx * gwf->grid->ny * gwf->grid->nz * (INT) sizeof(REAL complex);
+
   if(what == DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT) return;   /* skip kinetic */
 
   /* 1/2 x kinetic */
@@ -511,37 +514,22 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf *gwf, REAL complex 
     grid_wf_propagate_kinetic_fft(gwf, ctstep / 2.0);  // skip possible imag boundary but keep it for potential
     break;
   case DFT_DRIVER_KINETIC_CN_DBC:
-    cworkspace = dft_driver_get_workspace(11, 1);
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
-      fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
-    grid_wf_propagate_kinetic_cn_dbc(gwf, ctstep / 2.0, cworkspace);
-    break;
   case DFT_DRIVER_KINETIC_CN_NBC:
-    cworkspace = dft_driver_get_workspace(11, 1);
-    cworkspace2 = dft_driver_get_workspace(12, 1);
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) // do not apply in imag time
-      grid_wf_propagate_kinetic_cn_nbc_abs(gwf, ctstep / 2.0, driver_bc_amp, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz, cworkspace, cworkspace2);
-    else grid_wf_propagate_kinetic_cn_nbc(gwf, ctstep / 2.0, cworkspace, cworkspace2);
-    break;
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
-    cworkspace = dft_driver_get_workspace(11, 1);
-    cworkspace2 = dft_driver_get_workspace(12, 1);
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
-      fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
-    grid_wf_propagate_kinetic_cn_nbc_rot(gwf, ctstep / 2.0, driver_omega, cworkspace, cworkspace2);
-    break;
   case DFT_DRIVER_KINETIC_CN_PBC:
     cworkspace = dft_driver_get_workspace(11, 1);
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_IMAG_TIME)
-      fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
-    grid_wf_propagate_kinetic_cn_pbc(gwf, ctstep / 2.0, cworkspace);
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
+      ab.amp = driver_bc_amp;
+      ab.data[0] = driver_bc_lx;
+      ab.data[1] = driver_bc_hx;
+      ab.data[2] = driver_bc_ly;
+      ab.data[3] = driver_bc_hy;
+      ab.data[4] = driver_bc_lz;
+      ab.data[5] = driver_bc_hz;
+      grid_wf_propagate_cn(gwf, grid_wf_absorb, ctstep / 2.0, &ab, NULL, cworkspace->value, wrklen);
+    } else 
+      grid_wf_propagate_cn(gwf, NULL, ctstep / 2.0, NULL, NULL, cworkspace->value, wrklen);
     break;
-#if 0
-  case DFT_DRIVER_KINETIC_CN_APBC:
-    cworkspace = dft_driver_get_workspace(11, 1);
-    grid_wf_propagate_kinetic_cn_apbc(gwf, ctstep / 2.0, cworkspace);
-    break;
-#endif
   default:
     fprintf(stderr, "libdft: Unknown BC for kinetic energy propagation.\n");
     exit(1);
@@ -725,9 +713,19 @@ EXPORT void dft_driver_viscous_potential(wf *gwf, cgrid *pot) {
 
 EXPORT void dft_driver_propagate_potential(char what, wf *gwf, cgrid *pot, REAL complex ctstep) {
 
-  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME)
-    grid_wf_propagate_potential_abs(gwf, pot, ctstep, driver_bc_amp, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz);
-  else grid_wf_propagate_potential(gwf, pot, ctstep);
+  struct grid_abs ab;
+
+  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME) {
+    ab.amp = driver_bc_amp;
+    ab.data[0] = driver_bc_lx;
+    ab.data[1] = driver_bc_hx;
+    ab.data[2] = driver_bc_ly;
+    ab.data[3] = driver_bc_hy;
+    ab.data[4] = driver_bc_lz;
+    ab.data[5] = driver_bc_hz;
+    grid_wf_propagate_potential(gwf, grid_wf_absorb, ctstep, &ab, pot);
+  } else 
+    grid_wf_propagate_potential(gwf, NULL, ctstep, NULL, pot);
 
   if(driver_iter_mode != DFT_DRIVER_REAL_TIME) scale_wf(what, gwf);
 }
