@@ -20,10 +20,17 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
+<<<<<<< HEAD
 #define NX 128    	/* # of grid points along x */ /* Largest: 729x384x384 */
 #define NY 128          /* # of grid points along y */
 #define NZ 128        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
+=======
+#define NX 512    	/* # of grid points along x */ /* Largest: 729x384x384 */
+#define NY 256          /* # of grid points along y */
+#define NZ 256        	/* # of grid points along z */
+#define STEP 1.0        /* spatial step length (Bohr) */
+>>>>>>> 5c5e782e85b50a49afd3b2b18e1210c9cc7bd3f3
 #define ABS_AMP 2.0     /* Absorption strength */
 #define ABS_WIDTH_X 60.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Y 25.0  /* Width of the absorbing boundary */
