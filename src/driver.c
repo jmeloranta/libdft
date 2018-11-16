@@ -4,8 +4,6 @@
  * TODO: Add comments to show which internal workspaces are used by 
  * each function.
  *
- * TODO: DFT_DRIVER_BC_NEUMANN generates problems with DFT_DRIVER_KINETIC_CN_NBC_ROT .
- *
  */
 
 #include <stdlib.h>
@@ -503,6 +501,9 @@ EXPORT void dft_driver_setup_rotation_omega(REAL omega) {
 
 EXPORT void dft_driver_propagate_kinetic_first(char what, wf *gwf, REAL complex ctstep) {
 
+  struct grid_abs ab;
+  INT wrklen;
+
   if(what == DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT) return;   /* skip kinetic */
 
   /* 1/2 x kinetic */
@@ -511,37 +512,23 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf *gwf, REAL complex 
     grid_wf_propagate_kinetic_fft(gwf, ctstep / 2.0);  // skip possible imag boundary but keep it for potential
     break;
   case DFT_DRIVER_KINETIC_CN_DBC:
-    cworkspace = dft_driver_get_workspace(11, 1);
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
-      fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
-    grid_wf_propagate_kinetic_cn_dbc(gwf, ctstep / 2.0, cworkspace);
-    break;
   case DFT_DRIVER_KINETIC_CN_NBC:
-    cworkspace = dft_driver_get_workspace(11, 1);
-    cworkspace2 = dft_driver_get_workspace(12, 1);
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) // do not apply in imag time
-      grid_wf_propagate_kinetic_cn_nbc_abs(gwf, ctstep / 2.0, driver_bc_amp, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz, cworkspace, cworkspace2);
-    else grid_wf_propagate_kinetic_cn_nbc(gwf, ctstep / 2.0, cworkspace, cworkspace2);
-    break;
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
-    cworkspace = dft_driver_get_workspace(11, 1);
-    cworkspace2 = dft_driver_get_workspace(12, 1);
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME)
-      fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
-    grid_wf_propagate_kinetic_cn_nbc_rot(gwf, ctstep / 2.0, driver_omega, cworkspace, cworkspace2);
-    break;
   case DFT_DRIVER_KINETIC_CN_PBC:
-    cworkspace = dft_driver_get_workspace(11, 1);
-    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_IMAG_TIME)
-      fprintf(stderr, "libdft: CN_DBC absorbing boundary not implemented.\n");
-    grid_wf_propagate_kinetic_cn_pbc(gwf, ctstep / 2.0, cworkspace);
+    cworkspace2 = dft_driver_get_workspace(12, 1);
+    wrklen = cworkspace2->nx * cworkspace2->ny * cworkspace2->nz * (INT) sizeof(REAL complex);
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
+      ab.amp = driver_bc_amp;
+      ab.data[0] = driver_bc_lx;
+      ab.data[1] = driver_bc_hx;
+      ab.data[2] = driver_bc_ly;
+      ab.data[3] = driver_bc_hy;
+      ab.data[4] = driver_bc_lz;
+      ab.data[5] = driver_bc_hz;
+      grid_wf_propagate_cn(gwf, grid_wf_absorb, ctstep / 2.0, &ab, NULL, cworkspace2->value, wrklen);
+    } else 
+      grid_wf_propagate_cn(gwf, NULL, ctstep / 2.0, NULL, NULL, cworkspace2->value, wrklen);
     break;
-#if 0
-  case DFT_DRIVER_KINETIC_CN_APBC:
-    cworkspace = dft_driver_get_workspace(11, 1);
-    grid_wf_propagate_kinetic_cn_apbc(gwf, ctstep / 2.0, cworkspace);
-    break;
-#endif
   default:
     fprintf(stderr, "libdft: Unknown BC for kinetic energy propagation.\n");
     exit(1);
@@ -725,9 +712,19 @@ EXPORT void dft_driver_viscous_potential(wf *gwf, cgrid *pot) {
 
 EXPORT void dft_driver_propagate_potential(char what, wf *gwf, cgrid *pot, REAL complex ctstep) {
 
-  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME)
-    grid_wf_propagate_potential_abs(gwf, pot, ctstep, driver_bc_amp, driver_bc_lx, driver_bc_hx, driver_bc_ly, driver_bc_hy, driver_bc_lz, driver_bc_hz);
-  else grid_wf_propagate_potential(gwf, pot, ctstep);
+  struct grid_abs ab;
+
+  if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode != DFT_DRIVER_IMAG_TIME) {
+    ab.amp = driver_bc_amp;
+    ab.data[0] = driver_bc_lx;
+    ab.data[1] = driver_bc_hx;
+    ab.data[2] = driver_bc_ly;
+    ab.data[3] = driver_bc_hy;
+    ab.data[4] = driver_bc_lz;
+    ab.data[5] = driver_bc_hz;
+    grid_wf_propagate_potential(gwf, grid_wf_absorb, ctstep, &ab, pot);
+  } else 
+    grid_wf_propagate_potential(gwf, NULL, ctstep, NULL, pot);
 
   if(driver_iter_mode != DFT_DRIVER_REAL_TIME) scale_wf(what, gwf);
 }
@@ -2834,6 +2831,8 @@ EXPORT void dft_driver_npoint_smooth(rgrid *dest, rgrid *source, int npts) {
  * workspace10            : density storage (rgrid). Same applies as for the above.
  * All space is safe to use everywhere (but will be overwritten by either predict/correct propagation calls or possibly other driver.c functions).
  * 
+ * cworkspace12 is special with dimensions (3NX, NY, NZ). This is large enough for GPU based Crank-Nicolson.
+ * 
  * Returns NULL if the requrested work space has not been allocated.
  *
  */
@@ -2879,7 +2878,12 @@ EXPORT void *dft_driver_get_workspace(char w, char alloc) {
       if(!cworkspace && alloc) cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
       return (void *) cworkspace;
     case 12:
-      if(!cworkspace2 && alloc) cworkspace2 = dft_driver_alloc_cgrid("DR cworkspace2");
+      if(!cworkspace2 && alloc) {
+        cworkspace2 = cgrid_alloc(3 * dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, CGRID_PERIODIC_BOUNDARY, 0, 
+                                  "DR cworkspace2");
+        cgrid_set_origin(cworkspace2, driver_x0, driver_y0, driver_z0);
+        cgrid_set_momentum(cworkspace2, driver_kx0, driver_ky0, driver_kz0);
+      }
       return (void *) cworkspace2;
    }
    return NULL;

@@ -59,6 +59,10 @@ int main(int argc, char **argv) {
 
   dft_driver_init_ot = 0;   /* We allocate the grids manually */
 
+#ifdef USE_CUDA
+  cuda_enable(1);
+#endif
+
   /* Setup DFT driver parameters (grid) */
   dft_driver_setup_grid(1, 1, NZ, STEP, THREADS);
 // NOTE: This does nothing - external potential from ot-1d.c
