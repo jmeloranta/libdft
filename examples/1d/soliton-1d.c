@@ -16,7 +16,7 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 15.0 /* fs */
+#define TS 5.0 /* fs */
 #define NZ (5*8*32768)
 #define STEP 0.2
 #define NTH 1000
