@@ -750,6 +750,10 @@ EXPORT void dft_driver_propagate_potential(char what, wf *gwf, cgrid *pot, REAL 
 
 EXPORT inline void dft_driver_propagate(char what, rgrid *ext_pot, REAL chempot, wf *gwf, REAL complex ctstep, INT iter) {
 
+  struct grid_abs ab;
+  INT wrklen;
+  
+
   ctstep /= GRID_AUTOFS;
   switch(driver_iter_mode) {
     case DFT_DRIVER_REAL_TIME:
@@ -812,9 +816,28 @@ EXPORT inline void dft_driver_propagate(char what, rgrid *ext_pot, REAL chempot,
   if(gwf->grid->kz0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kz0 * gwf->grid->kz0 / (2.0 * gwf->mass);
   cgrid_add(cworkspace, (REAL complex) -chempot);
 
-  dft_driver_propagate_potential(what, gwf, cworkspace, ctstep);
-
-  dft_driver_propagate_kinetic_second(what, gwf, ctstep);  // possibly uses cworkspace as temp
+  if((dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC || dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC_ROT
+     || dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_DBC || dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_PBC)
+     && what != DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT) {
+    fprintf(stderr, "lidft(INFO): Simultaneous propagation of kinetic & potential using CN.\n");
+    /* Avoid operator splitting: propagate both kinetic and potential simultaneously with CN */
+    cworkspace2 = dft_driver_get_workspace(12, 1);
+    wrklen = cworkspace2->nx * cworkspace2->ny * cworkspace2->nz * (INT) sizeof(REAL complex);
+    if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
+      ab.amp = driver_bc_amp;
+      ab.data[0] = driver_bc_lx;
+      ab.data[1] = driver_bc_hx;
+      ab.data[2] = driver_bc_ly;
+      ab.data[3] = driver_bc_hy;
+      ab.data[4] = driver_bc_lz;
+      ab.data[5] = driver_bc_hz;
+      grid_wf_propagate_cn(gwf, grid_wf_absorb, ctstep / 2.0, &ab, cworkspace, cworkspace2->value, wrklen);
+    } else 
+      grid_wf_propagate_cn(gwf, NULL, ctstep / 2.0, NULL, cworkspace, cworkspace2->value, wrklen);
+  } else {
+    dft_driver_propagate_potential(what, gwf, cworkspace, ctstep);
+    dft_driver_propagate_kinetic_second(what, gwf, ctstep);  // possibly uses cworkspace as temp
+  }
 
   if(dft_driver_verbose) fprintf(stderr, "libdft: Propagate step " FMT_R " wall clock seconds (iter = " FMT_I ").\n", grid_timer_wall_clock_time(&timer), iter);
   fflush(stderr);

@@ -1,5 +1,5 @@
 /*
- * 1-D OT potential.
+ * 1-D OT potential (no kc or bf).
  *
  */
 
@@ -12,25 +12,19 @@
 #define OT_H (2.1903 / GRID_AUTOANG)
 #define OT_SIGMA (2.556 / GRID_AUTOANG)
 #define OT_EPS (10.22 / GRID_AUTOK)
-#define OT_C2 (-2.411857E4 / (GRID_AUTOK * POW(GRID_AUTOANG, 3.0 * 2.0)))
-#define OT_C3 (1.858496E6 / (GRID_AUTOK * POW(GRID_AUTOANG, 3.0 * 3.0)))
-
-#define EPS 1E-18
+#define OT_C2 (-2.411857E4 / (GRID_AUTOK * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG))
+#define OT_C3 (1.858496E6 / (GRID_AUTOK * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG))
 
 #define POWH6 (OT_H * OT_H * OT_H * OT_H * OT_H * OT_H)
 #define POWH10 (OT_H * OT_H * OT_H * OT_H * OT_H * OT_H * OT_H * OT_H * OT_H * OT_H)
+#define OT_SIGMA6 (OT_SIGMA * OT_SIGMA * OT_SIGMA * OT_SIGMA * OT_SIGMA * OT_SIGMA)
 
 REAL T_LJ(void *na, REAL x, REAL y, REAL z) { /* (z, zp) */
 
-  REAL eps = OT_EPS;
-  REAL s = OT_SIGMA;
-  REAL h = OT_H;
   REAL zzp = FABS(z); /* z - zp */
-  REAL tmp;
 
-  tmp = POW(s, 6.0);
-  if(zzp < h) return 2.0 * M_PI * eps * tmp * (2.0 * tmp - 5.0 * POWH6) / (5.0 * POWH10);
-  return 2.0 * M_PI * eps * tmp * (2.0 * tmp - 5.0 * POW(zzp, 6.0)) / (EPS + 5.0 * POW(zzp, 10.0));
+  if(zzp < OT_H) return 2.0 * M_PI * OT_EPS * OT_SIGMA6 * (2.0 * OT_SIGMA6 - 5.0 * POWH6) / (5.0 * POWH10);
+  return 2.0 * M_PI * OT_EPS * OT_SIGMA6 * (2.0 * OT_SIGMA6 - 5.0 * POW(zzp, 6.0)) / (5.0 * POW(zzp, 10.0));
 }
 
 REAL T_SP(void *na, REAL x, REAL y, REAL z) {
@@ -113,12 +107,16 @@ void OT_POT(rgrid *potential, rgrid *density, rgrid *density_tf, rgrid *spave, r
 
   T_1(workspace, density_tf, lj_tf);
   rgrid_sum(potential, potential, workspace);
+
   T_2(workspace, spave);
   rgrid_sum(potential, potential, workspace);
+
   T_3(workspace, density, spave, rd_tf);
   rgrid_sum(potential, potential, workspace);
+
   T_4(workspace, spave);
   rgrid_sum(potential, potential, workspace);
+
   T_5(workspace, density, spave, rd_tf);
   rgrid_sum(potential, potential, workspace);
 }

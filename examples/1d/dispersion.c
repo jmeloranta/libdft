@@ -18,15 +18,13 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define N 2048
-#define STEP 0.2 /* Bohr */
-#define TS 1.0 /* fs */
+#define N 8192
+#define STEP 0.5 /* Bohr */
+#define TS 5.0 /* fs */
 
 #define THREADS 0
 
-/* #define PREDIC_CORRECT /**/
-
-#define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
+#define PREDICT_CORRECT /**/
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
@@ -91,8 +89,8 @@ int main(int argc, char **argv) {
   potential_store = dft_driver_alloc_cgrid("cworkspace"); /* temporary storage */
 #endif
 
-// problem with CN in 1D?
-//  dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;  
+  /* Propagator (default FFT) */
+//  dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_PBC;  
 
   rho0 = dft_ot_bulk_density(dft_driver_otf);
   wave_params.rho = rho0;
@@ -107,7 +105,7 @@ int main(int argc, char **argv) {
 
   rgrid_constant(rworkspace, rho0);
   OT_POT(ot_pot, rworkspace, density_tf, rworkspace2, spave_tf, lj_tf, rd_tf, rworkspace3);
-  mu0 = rgrid_value_at_index(ot_pot, 0, 0, N/2);
+  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
   fprintf(stderr, "Calculated mu0 = " FMT_R " K; Analytical mu0 = " FMT_R " K.\n", mu0 * GRID_AUTOK, dft_ot_bulk_chempot2(dft_driver_otf) * GRID_AUTOK);
 
   for(l = 0; l < iterations; l++) {
@@ -127,10 +125,10 @@ int main(int argc, char **argv) {
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ot_pot, mu0, gwf, gwfp, potential_store, TS /* fs */, l);
 #endif
 
-    printf(FMT_R " " FMT_R "\n", ((REAL) l) * TS, POW(CABS(cgrid_value_at_index(gwf->grid, 0, 0, N/2)), 2.0));
+    printf(FMT_R " %.20le\n", ((REAL) l) * TS, POW(CABS(cgrid_value_at_index(gwf->grid, 0, 0, N/2)), 2.0));
     fflush(stdout);
     fprintf(stderr, "One iteration = " FMT_R " wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
-//    if(!(l % 1000)) {
+//    if(!(l % 10000)) {
 //      char buf[512];
 //      grid_wf_density(gwf, rworkspace);
 //      sprintf(buf, "disp-" FMT_I, l);

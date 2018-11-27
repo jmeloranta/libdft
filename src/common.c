@@ -1268,5 +1268,6 @@ EXPORT REAL complex dft_common_planewave(void *arg, REAL x, REAL y, REAL z) {
   REAL a = ((dft_plane_wave *) arg)->a;
   REAL psi = SQRT(((dft_plane_wave *) arg)->rho);
   
-  return psi + 0.5 * a * psi * (CEXP(I * (kx * x + ky * y + kz * z)) + CEXP(-I*(kx * x + ky * y + kz * z)));
+//  return psi + 0.5 * a * psi * (CEXP(I * (kx * x + ky * y + kz * z)) + CEXP(-I * (kx * x + ky * y + kz * z)));
+  return psi + a * psi * COS(kx * x + ky * y + kz * z);
 }
