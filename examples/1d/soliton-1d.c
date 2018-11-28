@@ -16,10 +16,11 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 5.0 /* fs */
+#define TS 1.0 /* fs */
 #define NZ (5*8*32768)
 #define STEP 0.2
-#define NTH 1000
+#define MAXITER 8000000
+#define NTH 10000
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
@@ -108,12 +109,16 @@ int main(int argc, char **argv) {
 
   /* Generate the excited potential */
 
-  for (iter = 0; iter < 800000; iter++) {
+  for (iter = 0; iter < MAXITER; iter++) {
 
     grid_wf_density(gwf, rworkspace);
     OT_POT(ot_pot, rworkspace, density_tf, rworkspace2, spave_tf, lj_tf, rd_tf, rworkspace3);
 
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ot_pot, mu0, gwf, gwfp, potential_store, TS, iter);
+
+    grid_wf_density(gwfp, rworkspace);
+    OT_POT(ot_pot, rworkspace, density_tf, rworkspace2, spave_tf, lj_tf, rd_tf, rworkspace3);
+
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ot_pot, mu0, gwf, gwfp, potential_store, TS, iter);
     if(!(iter % NTH)) {
       sprintf(buf, "soliton-" FMT_I, iter);
