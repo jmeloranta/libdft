@@ -16,17 +16,17 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 1.0 /* fs */
+#define TS 0.1 /* fs */
 #define NZ (5*8*32768)
 #define STEP 0.2
-#define MAXITER 8000000
-#define NTH 10000
+#define MAXITER 80000000
+#define NTH 500000
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* #define SMOOTH    /* by +-2 x LAMBDA_C */
 
-#define SOLITON_AMP (0.2)   /* 10% of bulk */
+#define SOLITON_AMP (0.05)   /* 10% of bulk */
 #define SOLITON_N  200       /* width (in N * LAMBDA_C) */
 #define LAMBDA_C (3.58 / GRID_AUTOANG)
 
@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
 
   /* Setup DFT driver parameters (grid) */
   dft_driver_setup_grid(1, 1, NZ, STEP, THREADS);
-// NOTE: This does nothing - external potential from ot-1d.c
+// NOTE: This does nothing - external potential from ot-1d.c is used instead
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
 //
@@ -106,8 +106,6 @@ int main(int argc, char **argv) {
   spave_tf = dft_driver_get_workspace(4, 1);
   ot_pot = dft_driver_get_workspace(5, 1);  
   OT_INIT(lj_tf, rd_tf);
-
-  /* Generate the excited potential */
 
   for (iter = 0; iter < MAXITER; iter++) {
 

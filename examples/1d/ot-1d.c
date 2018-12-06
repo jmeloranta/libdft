@@ -54,7 +54,8 @@ void T_2(rgrid *output, rgrid *spave) {
 void T_3(rgrid *output, rgrid *density, rgrid *spave, rgrid *rd_tf) {
 
   rgrid_product(output, density, spave);
-  rgrid_fft(output);
+  rgrid_fft(output);  
+
   dft_driver_convolution_eval(output, output, rd_tf);
   rgrid_multiply(output, OT_C2);
 }
@@ -70,6 +71,7 @@ void T_5(rgrid *output, rgrid *density, rgrid *spave, rgrid *rd_tf) {
   rgrid_product(output, density, spave);
   rgrid_product(output, output, spave);
   rgrid_fft(output);
+
   dft_driver_convolution_eval(output, output, rd_tf);
   rgrid_multiply(output, OT_C3);
 }
