@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
   /* super */
   grid_wf_density(gwf, density);
   dft_driver_write_density(density, "helium");
-  dft_driver_veloc_field(gwf, vx, vy, vz);
+  grid_wf_velocity(gwf, vx, vy, vz, 200.0 / GRID_AUTOMPS);
   rgrid_add(vx, -VX);
   dft_driver_write_density(vx, "helium-vx");
   dft_driver_write_density(vy, "helium-vy");
@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
   /* electron */
   grid_wf_density(impwf, density);
   dft_driver_write_density(density, "electron");
-  dft_driver_veloc_field(impwf, vx, vy, vz);
+  grid_wf_velocity(impwf, vx, vy, vz, 200.0 / GRID_AUTOMPS);
   dft_driver_write_density(vx, "electron-vx");
   dft_driver_write_density(vy, "electron-vy");
   dft_driver_write_density(vz, "electron-vz");

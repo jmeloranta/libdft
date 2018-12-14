@@ -97,15 +97,15 @@ int main(int argc, char **argv) {
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
     rgrid_add(ext_pot2, -mu0);
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, mu0, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, mu0, gwf, gwfp, potential_store, TS, iter);
 
     /* convolute liquid density with ext_pot -> ext_pot2 */
     grid_wf_density(gwf, density);
     dft_driver_convolution_prepare(density, NULL);
     dft_driver_convolution_eval(ext_pot2, ext_pot, density);
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, imwf, imwfp, potential_store, TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
   }
 
   /* At this point gwf contains the converged wavefunction */
@@ -126,8 +126,8 @@ int main(int argc, char **argv) {
   ext_pot = dft_driver_spectrum_init(density, REITER, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z);
   rgrid_add(ext_pot, -mu0);
   for (iter = 0; iter < REITER; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, mu0, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, mu0, gwf, gwfp, potential_store, TS, iter);
     dft_driver_spectrum_collect(gwf);
     if(!(iter % 10)) {
       char buf[512];

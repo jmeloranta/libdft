@@ -26,7 +26,7 @@
 
 /* #define SMOOTH    /* by +-2 x LAMBDA_C */
 
-#define SOLITON_AMP (0.05)   /* 10% of bulk */
+#define SOLITON_AMP (0.15)   /* 10% of bulk */
 #define SOLITON_N  200       /* width (in N * LAMBDA_C) */
 #define LAMBDA_C (3.58 / GRID_AUTOANG)
 
