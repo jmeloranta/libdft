@@ -93,6 +93,7 @@ int main(int argc, char **argv) {
   /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+
   /* setup soliton (ext_pot is temp here) */
   rgrid_map(rworkspace, soliton, NULL);
   rgrid_multiply(rworkspace, rho0);

@@ -30,6 +30,7 @@ dft_ot_functional *dft_driver_otf = 0;
 char dft_driver_init_wavefunction = 1;
 char dft_driver_kinetic = 0; /* default FFT propagation for kinetic, TODO: FFT gives some numerical hash - bug? */
 char dft_driver_init_ot = 1; /* Init OT ? */
+int dft_driver_temp_disable_other_normalization = 0;
 
 INT dft_driver_nx = 0, dft_driver_ny = 0, dft_driver_nz = 0, dft_driver_nx2 = 0, dft_driver_ny2 = 0, dft_driver_nz2 = 0;
 static INT driver_threads = 0, driver_dft_model = 0, driver_iter_mode = 0, driver_boundary_type = 0;
@@ -71,8 +72,6 @@ static char *dft_driver_wisfile() {
  * Wave function normalization (for imaginary time).
  *
  */
-
-int dft_driver_temp_disable_other_normalization = 0;
 
 inline static void scale_wf(char what, wf *gwf) {
 
@@ -534,7 +533,7 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf *gwf, REAL complex 
     exit(1);
   }
 
-  if(driver_iter_mode != DFT_DRIVER_REAL_TIME) scale_wf(what, gwf);
+  if(driver_iter_mode == DFT_DRIVER_REAL_TIME) scale_wf(what, gwf);
 }
 
 /*
@@ -753,7 +752,6 @@ EXPORT inline void dft_driver_propagate(char what, rgrid *ext_pot, REAL chempot,
   struct grid_abs ab;
   INT wrklen;
   
-
   ctstep /= GRID_AUTOFS;
   switch(driver_iter_mode) {
     case DFT_DRIVER_REAL_TIME:

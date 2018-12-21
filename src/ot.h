@@ -147,11 +147,12 @@ typedef struct dft_ot_functional_struct {
 } dft_ot_functional;
 
 /* Global user accessible variables */
+extern char dft_driver_verbose;
 extern dft_ot_functional *dft_driver_otf;
 extern char dft_driver_init_wavefunction;
 extern char dft_driver_kinetic;
-extern REAL complex (*dft_driver_bc_function)(void *, REAL complex, INT, INT, INT);
 extern char dft_driver_init_ot;
+extern int dft_driver_temp_disable_other_normalization;
 
 /* Prototypes (in wrong place; TODO separate common and OT specific prototypes) */
 #include "proto.h"
