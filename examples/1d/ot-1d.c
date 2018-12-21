@@ -9,6 +9,7 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
+/* Adaptive mapping of the aux functions */
 // #define ADAPTIVE 
 
 #define OT_H (2.1903 / GRID_AUTOANG)
