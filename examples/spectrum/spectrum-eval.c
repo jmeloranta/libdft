@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
     iter++;
   }
   rewind(fp);
-  dft_driver_spectrum_init(NDIV*iter, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, NULL, NULL, NULL, DFT_DRIVER_AVERAGE_NONE, NULL, NULL, NULL);
+  dft_driver_spectrum_init(NULL, NDIV*iter, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, NULL, NULL, NULL, DFT_DRIVER_AVERAGE_NONE, NULL, NULL, NULL);
   while(!feof(stdin)) {
     if(fscanf(fp, " " FMT_R, &val) != 1) break;
     for(i = 0; i < NDIV; i++)

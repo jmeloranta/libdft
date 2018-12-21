@@ -20,6 +20,8 @@
 #define NZ 128
 #define STEP 0.5
 
+#define PRESSURE 0.0
+
 #define OCS 1 /* OCS molecule */
 /* #define HCN 1 /* HCN molecule */
 
@@ -70,7 +72,7 @@ int main(int argc, char **argv) {
   rgrid *ext_pot, *density, *px, *py, *pz;
   wf *gwf, *gwfp;
   INT iter, N, i;
-  REAL energy, natoms, omega, beff, i_add, lx, ly, lz, i_free, b_free, mass, cmx, cmy, cmz;
+  REAL energy, natoms, omega, beff, i_add, lx, ly, lz, i_free, b_free, mass, cmx, cmy, cmz, mu0;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 32 /* threads */);
@@ -126,6 +128,7 @@ int main(int argc, char **argv) {
   dft_driver_setup_rotation_omega(omega);
 
   cgrid_constant(gwf->grid, 1.0);
+  mu0 = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
 
   for (iter = 1; iter < MAXITER; iter++) {
     
@@ -167,8 +170,8 @@ int main(int argc, char **argv) {
     beff =  HBAR * HBAR / (2.0 * (i_free + i_add));
     printf("B_eff = " FMT_R " cm-1.\n", beff * GRID_AUTOCM1);
 
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, potential_store, TIME_STEP, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TIME_STEP, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TIME_STEP, iter);
 
     if(!(iter % 100)) {
       char buf[512];
