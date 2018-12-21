@@ -9,6 +9,8 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
+// #define ADAPTIVE 
+
 #define OT_H (2.1903 / GRID_AUTOANG)
 #define OT_SIGMA (2.556 / GRID_AUTOANG)
 #define OT_EPS (10.22 / GRID_AUTOK)
@@ -90,9 +92,18 @@ void T_5(rgrid *output, rgrid *density, rgrid *spave, rgrid *rd_tf) {
  
 void OT_INIT(rgrid *lj_tf, rgrid *rd_tf) {
 
+#ifndef ADAPTIVE
   rgrid_map(lj_tf, &T_LJ, NULL);
+#else
+  rgrid_adaptive_map(lj_tf, &T_LJ, NULL, 4, 32, 0.01 / GRID_AUTOK);
+#endif
   rgrid_fft(lj_tf);
+
+#ifndef ADAPTIVE
   rgrid_map(rd_tf, &T_SP, NULL);
+#else
+  rgrid_adaptive_map(rd_tf, &T_SP, NULL, 4, 32, 0.01 / GRID_AUTOK);
+#endif
   rgrid_fft(rd_tf);
 }
 

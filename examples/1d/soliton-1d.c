@@ -17,7 +17,7 @@
 #include <dft/ot.h>
 
 #define TS 0.1 /* fs */
-#define NZ (5*8*32768)
+#define NZ (10*32768)
 #define STEP 0.2
 #define MAXITER 80000000
 #define NTH 500000
@@ -26,7 +26,7 @@
 
 /* #define SMOOTH    /* by +-2 x LAMBDA_C */
 
-#define SOLITON_AMP (0.05)   /* 10% of bulk */
+#define SOLITON_AMP (0.1)   /* 10% of bulk */
 #define SOLITON_N  200       /* width (in N * LAMBDA_C) */
 #define LAMBDA_C (3.58 / GRID_AUTOANG)
 
