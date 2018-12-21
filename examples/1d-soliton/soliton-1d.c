@@ -1,7 +1,7 @@
 
 /*
- * Create planar soliton in superfluid helium (propagating along X).
- * 1-D version with Y & Z coordinates integrated over in the non-linear
+ * Create planar soliton in superfluid helium (propagating along Z).
+ * 1-D version with X & Y coordinates integrated over in the non-linear
  * potential.
  *
  * All input in a.u. except the time step, which is fs.
