@@ -22,7 +22,7 @@
 #define IITER 2000
 #define MAXITER 80000000
 #define NTH 500
-#define VZ (50.0 / GRID_AUTOMPS)
+#define VZ (80.0 / GRID_AUTOMPS)
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 #define THREADS 0
@@ -68,7 +68,7 @@ REAL momentum(REAL vz) {
   return HELIUM_MASS * vz / HBAR;
 }
 
-/* Bubble potential */
+/* Bubble potential (centered at origin, z = 0) */
 REAL bubble(void *asd, REAL x, REAL y, REAL z) {
 
   REAL r, r2, r4, r6, r8, r10;
@@ -140,11 +140,7 @@ int main(int argc, char **argv) {
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
   /* set up external potential */
-#if 0
   rgrid_map(ext_pot, bubble, NULL);
-#else
-  rgrid_zero(ext_pot);
-#endif
 
   /* set up initial density */
   cgrid_map(gwf->grid, bubble_init, NULL);
