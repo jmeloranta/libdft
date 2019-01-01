@@ -149,8 +149,8 @@ int main(int argc, char **argv) {
     if(iter < IITER) tstep = -I * TS;
     else tstep = TS;
 
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, mu0, gwf, gwfp, potential_store, tstep, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, mu0, gwf, gwfp, potential_store, tstep, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, tstep, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, tstep, iter);
   }
   return 0;
 }

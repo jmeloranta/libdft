@@ -17,7 +17,7 @@
 #include <dft/ot.h>
 
 #define TS 0.1 /* fs */
-#define NZ (5*8*32768)
+#define NZ (32768)
 #define STEP 0.2
 #define MAXITER 80000000
 #define NTH 500000
@@ -94,8 +94,8 @@ int main(int argc, char **argv) {
 
   for (iter = 0; iter < MAXITER; iter++) {
 
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
 
     if(!(iter % NTH)) {
       sprintf(buf, "soliton-" FMT_I, iter);
