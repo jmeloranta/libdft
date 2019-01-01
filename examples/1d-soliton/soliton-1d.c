@@ -53,8 +53,6 @@ int main(int argc, char **argv) {
   REAL mu0, rho0;
   char buf[512];
 
-  dft_driver_init_ot = 0;   /* We allocate the grids manually */
-
 #ifdef USE_CUDA
   cuda_enable(1);
 #endif

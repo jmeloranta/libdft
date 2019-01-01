@@ -158,12 +158,14 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
 
     if(model & DFT_OT_KC) {
       otf->gaussian_tf = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT KC Gauss TF");
-      otf->gaussian_x_tf = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT KC Gauss TF_x");
-      otf->gaussian_y_tf = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT KC Gauss TF_y");
-      otf->gaussian_z_tf = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT KC Gauss TF_z");
       rgrid_set_origin(otf->gaussian_tf, x0, y0, z0);
-      rgrid_set_origin(otf->gaussian_x_tf, x0, y0, z0);
-      rgrid_set_origin(otf->gaussian_y_tf, x0, y0, z0);
+      if(nx != 1 || ny != 1) {
+        otf->gaussian_x_tf = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT KC Gauss TF_x");
+        rgrid_set_origin(otf->gaussian_x_tf, x0, y0, z0);
+        otf->gaussian_y_tf = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT KC Gauss TF_y");
+        rgrid_set_origin(otf->gaussian_y_tf, x0, y0, z0);
+      } else otf->gaussian_x_tf = otf->gaussian_y_tf = NULL;
+      otf->gaussian_z_tf = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT KC Gauss TF_z");
       rgrid_set_origin(otf->gaussian_z_tf, x0, y0, z0);
 
       if(!otf->gaussian_x_tf || !otf->gaussian_y_tf || !otf->gaussian_z_tf || !otf->gaussian_tf) {

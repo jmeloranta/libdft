@@ -92,8 +92,6 @@ int main(int argc, char **argv) {
   char buf[512];
   REAL complex tstep;
 
-  dft_driver_init_ot = 0;   /* We allocate the grids manually */
-
 #ifdef USE_CUDA
   cuda_enable(1);
 #endif
