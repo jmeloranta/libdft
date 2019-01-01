@@ -1,1 +1,3 @@
 - use the common propagate entry points in libgrid rather than calling aux routines directly.
+- For 1D: remove BF vector components for X, Y. Check energy density.
+- Add 2D (cylindrical symmetry)
