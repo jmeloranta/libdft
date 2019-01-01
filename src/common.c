@@ -93,6 +93,33 @@ EXPORT inline REAL dft_common_lennard_jones(void *arg, REAL x, REAL y, REAL z) {
 }
 
 /*
+ * Effective 1D Lennard-Jones potential to be used with grid map() routines
+ * Note that the LJ potential has zero core when r < h.
+ *
+ * The potential paramegers are passed in arg (ot_common_lh data type).
+ *
+ * arg = pointer to dft_common_lj structure (void *).
+ * x   = x-coordinate (REAL). (= 0)
+ * y   = y-coordinate (REAL). (= 0)
+ * z   = z-coordinate (REAL).
+ *
+ * Returns Lennard-Jones potential at (0,0,z).
+ *
+ */
+
+EXPORT inline REAL dft_common_lennard_jones_1d(void *arg, REAL x, REAL y, REAL z) {
+
+  REAL h = ((dft_common_lj *) arg)->h;
+  REAL sig = ((dft_common_lj *) arg)->sigma;
+  REAL eps = ((dft_common_lj *) arg)->epsilon;
+  REAL s6 = POW(sig, 6.0);
+
+  z = FABS(z);
+  if(z < h) z = h;
+  return 2.0 * M_PI * eps * s6 * (2.0 * s6 - 5.0 * POW(z, 6.0)) / (5.0 * POW(z, 10.0));
+}
+
+/*
  * Lennard-Jones potential with smoothed core to be used with grid map().
  * routines. Parameters passed in arg (see the regular LJ above).
  *
@@ -144,6 +171,27 @@ EXPORT inline REAL dft_common_spherical_avg(void *arg, REAL x, REAL y, REAL z) {
   return 0.0;
 }
 
+/*
+ * 1-D Spherical average function to be used with grid map() routines.
+ * The sphere radius is passed in arg.
+ *
+ * arg = pointer to the radius of the sphere (REAL *).
+ * x   = x-coordinate (REAL). (= 0)
+ * y   = y-coordinate (REAL). (= 0)
+ * z   = z-coordinate (REAL).
+ *
+ * Returns the value of the spherical average function at (0, 0, z).
+ *
+ */
+
+EXPORT inline REAL dft_common_spherical_avg_1d(void *arg, REAL x, REAL y, REAL z) {
+
+  REAL h = *((REAL *) arg), h2 = h * h;
+
+  z = FABS(z);
+  if(z > h) return 0.0;
+  else return 3.0 * (h2 - z * z) / (4.0 * h2 *h);
+}
 
 /*
  * Spherical average function IN MOMENTUM SPACE to be used with grid map() routines.
@@ -186,6 +234,27 @@ EXPORT inline REAL dft_common_gaussian(void *arg, REAL x, REAL y, REAL z) {
 
   norm = norm * norm * norm;
   return norm * EXP(-(x * x + y * y + z * z) * inv_width * inv_width);
+}
+
+/*
+ * Effective 1D Gaussian function to be used with grid map() functions.
+ * The gaussian is centered at (0,0,0) and width is given in arg.
+ *
+ * arg = Inverse width of the gaussian function (REAL *).
+ * x   = x-coordinate (REAL). (= 0)
+ * y   = y-coordinate (REAL). (= 0)
+ * z   = z-coordinate (REAL).
+ *
+ * Returns the value of the value of the gaussian function at (0, 0, z).
+ * 
+ */ 
+
+EXPORT inline REAL dft_common_gaussian_1d(void *arg, REAL x, REAL y, REAL z) {
+
+  REAL inv_width = *((REAL *) arg);
+  REAL norm = 0.5 * M_2_SQRTPI * inv_width;
+
+  return norm * EXP(-(z * z) * inv_width * inv_width);
 }
 
 /*

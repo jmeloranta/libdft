@@ -42,6 +42,25 @@ EXPORT REAL dft_ot_backflow_pot(void *arg, REAL x, REAL y, REAL z) {
 }
 
 /*
+ * Backflow potential function (1-D).
+ *
+ */
+
+EXPORT REAL dft_ot_backflow_pot_1d(void *arg, REAL x, REAL y, REAL z) {
+
+  REAL g11 = ((dft_ot_bf *) arg)->g11;
+  REAL g12 = ((dft_ot_bf *) arg)->g12;
+  REAL g21 = ((dft_ot_bf *) arg)->g21;
+  REAL g22 = ((dft_ot_bf *) arg)->g22;
+  REAL a1 = ((dft_ot_bf *) arg)->a1;
+  REAL a2 = ((dft_ot_bf *) arg)->a2;
+  REAL z2 = z * z;
+  
+  return M_PI * ((g11 + g12 * (1.0 + a1 * z2) / a1) * EXP(-a1 * z2) / a1
+               + (g21 + g22 * (1.0 + a2 * z2) / a2) * EXP(-a2 * z2) / a2);
+}
+
+/*
  * Allocate  OT functional. This must be called first.
  * 
  * model = which OT functional variant to use:
@@ -160,18 +179,29 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
 	return 0;
       }
     } else otf->backflow_pot = NULL;
+
+    if(nx == 1 && ny == 1)
+      fprintf(stderr, "libdft: Using 1-D model with effective 3-D potential.\n");
   
     /* pre-calculate */
     if(otf->model & DFT_DR) {
+      if(nx == 1 && ny == 1) {
+        fprintf(stderr, "libdft: DFT_DR not implemented for 1-D.\n");
+        exit(1);
+      }
       fprintf(stderr, "libdft: LJ according to DR - ");
       rgrid_adaptive_map(otf->lennard_jones, dft_common_lennard_jones_smooth, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid_fft(otf->lennard_jones);
     } else {
       fprintf(stderr, "libdft: LJ according to OT - ");
-      rgrid_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+      if(nx == 1 && ny == 1)
+        rgrid_adaptive_map(otf->lennard_jones, dft_common_lennard_jones_1d, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+      else 
+        rgrid_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);      
       rgrid_fft(otf->lennard_jones);
       /* Scaling of LJ so that the integral is exactly b */
-      rgrid_multiply_fft(otf->lennard_jones, otf->b / (step * step * step * (REAL) rgrid_cvalue_at_index(otf->lennard_jones, 0, 0, 0)));
+      if(nx != 1 || ny != 1)      
+        rgrid_multiply_fft(otf->lennard_jones, otf->b / (step * step * step * (REAL) rgrid_cvalue_at_index(otf->lennard_jones, 0, 0, 0)));
     }
     fprintf(stderr, "Done.\n");
 
@@ -183,29 +213,44 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
       fprintf(stderr, "libdft: Spherical average (original) - ");
     }
 
-    rgrid_adaptive_map(otf->spherical_avg, dft_common_spherical_avg, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+    if(nx == 1 && ny == 1)
+      rgrid_adaptive_map(otf->spherical_avg, dft_common_spherical_avg_1d, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+    else 
+      rgrid_adaptive_map(otf->spherical_avg, dft_common_spherical_avg, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     rgrid_fft(otf->spherical_avg);
     /* Scaling of sph. avg. so that the integral is exactly 1 */
-    rgrid_multiply_fft(otf->spherical_avg, 1.0 / (step * step * step * (REAL) rgrid_cvalue_at_index(otf->spherical_avg, 0, 0, 0)));
+    if(nx != 1 || ny != 1)      
+      rgrid_multiply_fft(otf->spherical_avg, 1.0 / (step * step * step * (REAL) rgrid_cvalue_at_index(otf->spherical_avg, 0, 0, 0)));
     fprintf(stderr, "Done.\n");
     
     if(model & DFT_OT_KC) {
-      inv_width = 1.0 / otf->l_g;
       fprintf(stderr, "libdft: Kinetic correlation - ");	
-      rgrid_adaptive_map(otf->gaussian_tf, dft_common_gaussian, &inv_width, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
-      rgrid_fd_gradient_x(otf->gaussian_tf, otf->gaussian_x_tf);
-      rgrid_fd_gradient_y(otf->gaussian_tf, otf->gaussian_y_tf);
-      rgrid_fd_gradient_z(otf->gaussian_tf, otf->gaussian_z_tf);
-      rgrid_fft(otf->gaussian_x_tf);
-      rgrid_fft(otf->gaussian_y_tf);
-      rgrid_fft(otf->gaussian_z_tf);
-      rgrid_fft(otf->gaussian_tf);
+      if(nx == 1 && ny == 1) {
+        inv_width = 1.0 / otf->l_g;
+        rgrid_adaptive_map(otf->gaussian_tf, dft_common_gaussian_1d, &inv_width, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+        rgrid_fd_gradient_z(otf->gaussian_tf, otf->gaussian_z_tf);
+        rgrid_fft(otf->gaussian_z_tf);
+        rgrid_fft(otf->gaussian_tf);
+      } else {
+        inv_width = 1.0 / otf->l_g;
+        rgrid_adaptive_map(otf->gaussian_tf, dft_common_gaussian, &inv_width, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+        rgrid_fd_gradient_x(otf->gaussian_tf, otf->gaussian_x_tf);
+        rgrid_fd_gradient_y(otf->gaussian_tf, otf->gaussian_y_tf);
+        rgrid_fd_gradient_z(otf->gaussian_tf, otf->gaussian_z_tf);
+        rgrid_fft(otf->gaussian_x_tf);
+        rgrid_fft(otf->gaussian_y_tf);
+        rgrid_fft(otf->gaussian_z_tf);
+        rgrid_fft(otf->gaussian_tf);
+      }
       fprintf(stderr, "Done.\n");
     }
     
     if(model & DFT_OT_BACKFLOW) {
       fprintf(stderr, "libdft: Backflow - ");
-      rgrid_adaptive_map(otf->backflow_pot, dft_ot_backflow_pot, &(otf->bf_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+      if(nx == 1 && ny == 1)
+        rgrid_adaptive_map(otf->backflow_pot, dft_ot_backflow_pot_1d, &(otf->bf_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
+      else
+        rgrid_adaptive_map(otf->backflow_pot, dft_ot_backflow_pot, &(otf->bf_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid_fft(otf->backflow_pot);
       fprintf(stderr, "Done.\n");
     }
@@ -403,8 +448,10 @@ static inline void dft_ot_add_nonlocal_correlation_potential(dft_ot_functional *
   rgrid_multiply(workspace1, -1.0 / otf->rho_0s);
   rgrid_add(workspace1, 1.0);
 
-  dft_ot_add_nonlocal_correlation_potential_x(otf, potential, rho, rho_tf, workspace1 /* rho_st */, workspace2, workspace3, workspace4, workspace5);
-  dft_ot_add_nonlocal_correlation_potential_y(otf, potential, rho, rho_tf, workspace1 /* rho_st */, workspace2, workspace3, workspace4, workspace5);
+  if(rho->nx != 1 || rho->ny != 1) {
+    dft_ot_add_nonlocal_correlation_potential_x(otf, potential, rho, rho_tf, workspace1 /* rho_st */, workspace2, workspace3, workspace4, workspace5);
+    dft_ot_add_nonlocal_correlation_potential_y(otf, potential, rho, rho_tf, workspace1 /* rho_st */, workspace2, workspace3, workspace4, workspace5);
+  }
   dft_ot_add_nonlocal_correlation_potential_z(otf, potential, rho, rho_tf, workspace1 /* rho_st */, workspace2, workspace3, workspace4, workspace5);
 }
 
@@ -1246,17 +1293,17 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   otf->lj_params.sigma   = 2.556 / GRID_AUTOANG;
   otf->lj_params.epsilon = 10.22 / GRID_AUTOK;
   otf->lj_params.cval = 0.0;
-  otf->rho_0s = 0.04 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
+  otf->rho_0s = 0.04 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG;
   otf->alpha_s = 54.31 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
   otf->l_g = 1.0 / GRID_AUTOANG;
   otf->mass = 4.0026 / GRID_AUTOAMU;
-  otf->rho_eps = 1E-7 * 0.0218360 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
+  otf->rho_eps = 1E-7 * 0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG;
   otf->bf_params.g11 = -19.7544;
-  otf->bf_params.g12 = 12.5616 * (GRID_AUTOANG*GRID_AUTOANG);
-  otf->bf_params.a1  = 1.023 * (GRID_AUTOANG*GRID_AUTOANG);
+  otf->bf_params.g12 = 12.5616 * GRID_AUTOANG * GRID_AUTOANG;
+  otf->bf_params.a1  = 1.023 * GRID_AUTOANG * GRID_AUTOANG;
   otf->bf_params.g21 = -0.2395;
-  otf->bf_params.g22 = 0.0312 * (GRID_AUTOANG*GRID_AUTOANG);
-  otf->bf_params.a2  = 0.14912 * (GRID_AUTOANG*GRID_AUTOANG);
+  otf->bf_params.g22 = 0.0312 * GRID_AUTOANG * GRID_AUTOANG;
+  otf->bf_params.a2  = 0.14912 * GRID_AUTOANG * GRID_AUTOANG;
 
   fprintf(stderr, "libdft: C2 = " FMT_R " K Angs^" FMT_R "\n",
 	  otf->c2 * GRID_AUTOK * POW(GRID_AUTOANG, 3.0 * otf->c2_exp),

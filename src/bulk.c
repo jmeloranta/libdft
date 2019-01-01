@@ -279,8 +279,8 @@ EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred) {
   extern REAL dft_driver_step, dft_driver_rho0;
   extern dft_ot_functional *dft_driver_otf;
   
-  if(dft_driver_nx == 1) {
-    fprintf(stderr, "libdft: The plane wave is along X but only one point allocated in that direction.\n");
+  if(dft_driver_nz == 1) {
+    fprintf(stderr, "libdft: The plane wave is along Z but only one point allocated in that direction.\n");
     exit(1);
   }
 
@@ -292,12 +292,12 @@ EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred) {
   dft_driver_otf->rho0 = dft_driver_rho0;
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
   
-  tmp = 2.0 * M_PI / (((REAL) dft_driver_nx) * dft_driver_step);
-  wave_params.kx = ((REAL) (((INT) (0.5 + *k / tmp)))) * tmp; // round to nearest k with the grid - should we return this also?
-  *k = wave_params.kx;
+  tmp = 2.0 * M_PI / (((REAL) dft_driver_nz) * dft_driver_step);
+  wave_params.kz = ((REAL) (((INT) (0.5 + *k / tmp)))) * tmp; // round to nearest k with the grid - should we return this also?
+  *k = wave_params.kz;
   if(*k == 0.0) return 0.0;
+  wave_params.kx = 0.0;
   wave_params.ky = 0.0;
-  wave_params.kz = 0.0;
   wave_params.a = amp;
   wave_params.rho = dft_driver_rho0;
   grid_wf_map(gwf, dft_common_planewave, &wave_params);

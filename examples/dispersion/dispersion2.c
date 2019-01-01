@@ -15,10 +15,10 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 128
-#define NY 64
-#define NZ 64
-#define STEP 0.5 /* Bohr */
+#define NX 1
+#define NY 1
+#define NZ 1024
+#define STEP 0.1 /* Bohr */
 #define TS 15.0 /* fs */
 #define AMP 1e-2 /* wave amplitude (of total rho0) */
 #define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
@@ -45,6 +45,7 @@ int main(int argc, char **argv) {
   cuda_enable(1);
 #endif
 
+//  model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
   model = DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC;
   dft_driver_setup_model(model, DFT_DRIVER_REAL_TIME, RHO0);
   // Note: CN_NBC has really wrong BC for this but it will not hit the center of the box within the first cycle...

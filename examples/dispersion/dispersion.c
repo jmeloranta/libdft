@@ -17,9 +17,9 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 128
-#define NY 128
-#define NZ 128
+#define NX 1
+#define NY 1
+#define NZ 512
 #define STEP 1.0 /* Bohr */
 #define TS 15.0 /* fs */
 
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
   dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
 //  dft_driver_setup_model(DFT_OT_PLAIN | DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
   // dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
-  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_BACKFLOW, DFT_DRIVER_REAL_TIME, 0.0);
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);

@@ -20,7 +20,7 @@
 #define NZ (10*32768)
 #define STEP 0.2
 #define MAXITER 80000000
-#define NTH 500000
+#define NTH 50
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
@@ -33,9 +33,6 @@
 #define THREADS 0
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
-
-extern void OT_INIT(rgrid *, rgrid *);
-extern void OT_POT(rgrid *, rgrid *, rgrid *, rgrid *, rgrid *, rgrid *, rgrid *, rgrid *);
 
 /* Francesco's soliton initial guess - plane along z*/
 REAL soliton(void *asd, REAL x, REAL y, REAL z) {
@@ -51,7 +48,7 @@ REAL soliton(void *asd, REAL x, REAL y, REAL z) {
 
 int main(int argc, char **argv) {
 
-  rgrid *rworkspace, *rworkspace2, *rworkspace3, *lj_tf, *rd_tf, *density_tf, *spave_tf, *ot_pot;
+  rgrid *density;
   cgrid *potential_store;
   wf *gwf, *gwfp;
   INT iter;
@@ -66,10 +63,8 @@ int main(int argc, char **argv) {
 
   /* Setup DFT driver parameters (grid) */
   dft_driver_setup_grid(1, 1, NZ, STEP, THREADS);
-// NOTE: This does nothing - external potential from ot-1d.c is used instead
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
-//
+  dft_driver_setup_model(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   /* Normalization condition */
@@ -85,49 +80,29 @@ int main(int argc, char **argv) {
   mu0 = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
 
   /* Allocate space for external potential */
-  rworkspace = dft_driver_alloc_rgrid("rworkspace");
-  rworkspace2 = dft_driver_alloc_rgrid("rworkspace2");
-  rworkspace3 = dft_driver_alloc_rgrid("rworkspace3");
   potential_store = dft_driver_alloc_cgrid("cworkspace"); /* temporary storage */
+  density = dft_driver_alloc_rgrid("density");
 
   /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
-  /* setup soliton (ext_pot is temp here) */
-  rgrid_map(rworkspace, soliton, NULL);
-  rgrid_multiply(rworkspace, rho0);
-  rgrid_power(rworkspace, rworkspace, 0.5);
+  /* setup soliton (density is temp here) */
+  rgrid_map(density, soliton, NULL);
+  rgrid_multiply(density, rho0);
+  rgrid_power(density, density, 0.5);
   cgrid_zero(gwf->grid);   /* copy rho to wf real part */
-  grid_real_to_complex_re(gwf->grid, rworkspace);
-
-  lj_tf = dft_driver_get_workspace(1, 1);
-  rd_tf = dft_driver_get_workspace(2, 1);
-  density_tf = dft_driver_get_workspace(3, 1);
-  spave_tf = dft_driver_get_workspace(4, 1);
-  ot_pot = dft_driver_get_workspace(5, 1);  
-  OT_INIT(lj_tf, rd_tf);
+  grid_real_to_complex_re(gwf->grid, density);
 
   for (iter = 0; iter < MAXITER; iter++) {
 
-    grid_wf_density(gwf, rworkspace);
-    OT_POT(ot_pot, rworkspace, density_tf, rworkspace2, spave_tf, lj_tf, rd_tf, rworkspace3);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
 
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ot_pot, mu0, gwf, gwfp, potential_store, TS, iter);
-
-    grid_wf_density(gwfp, rworkspace);
-    OT_POT(ot_pot, rworkspace, density_tf, rworkspace2, spave_tf, lj_tf, rd_tf, rworkspace3);
-
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ot_pot, mu0, gwf, gwfp, potential_store, TS, iter);
     if(!(iter % NTH)) {
       sprintf(buf, "soliton-" FMT_I, iter);
-      grid_wf_density(gwf, rworkspace);
-#ifdef SMOOTH
-      dft_driver_npoint_smooth(rworkspace2, rworkspace, (INT) (2.0 * LAMBDA_C / STEP));
-      dft_driver_write_density(rworkspace2, buf);
-#else
-      dft_driver_write_density(rworkspace, buf);
-#endif
+      grid_wf_density(gwf, density);
+      dft_driver_write_density(density, buf);
     }
   }
   return 0;
