@@ -260,7 +260,7 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
 }
 
 /*
- * Free OT  functional structure.
+ * Free OT functional structure.
  *
  * otf = functional structure to be freed (allocated previously
  *       by dft_ot_alloc()).

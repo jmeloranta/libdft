@@ -17,16 +17,14 @@
 #include <dft/ot.h>
 
 #define TS 0.1 /* fs */
-#define NZ (10*32768)
+#define NZ (5*8*32768)
 #define STEP 0.2
 #define MAXITER 80000000
-#define NTH 50
+#define NTH 500000
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
-/* #define SMOOTH    /* by +-2 x LAMBDA_C */
-
-#define SOLITON_AMP (0.1)   /* 10% of bulk */
+#define SOLITON_AMP 0.2   /* 10% of bulk */
 #define SOLITON_N  200       /* width (in N * LAMBDA_C) */
 #define LAMBDA_C (3.58 / GRID_AUTOANG)
 
@@ -64,7 +62,7 @@ int main(int argc, char **argv) {
   /* Setup DFT driver parameters (grid) */
   dft_driver_setup_grid(1, 1, NZ, STEP, THREADS);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC, DFT_DRIVER_REAL_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   /* Normalization condition */
