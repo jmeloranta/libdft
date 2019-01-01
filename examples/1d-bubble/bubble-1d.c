@@ -40,9 +40,6 @@
 #define RADD 6.0
 #define BUBBLE_RADIUS (17.0 / GRID_AUTOANG)
 
-extern void OT_INIT(rgrid *, rgrid *);
-extern void OT_POT(rgrid *, rgrid *, rgrid *, rgrid *, rgrid *, rgrid *, rgrid *, rgrid *);
-
 REAL rho0;
 
 REAL complex bubble_init(void *NA, REAL x, REAL y, REAL z) {
@@ -87,7 +84,7 @@ REAL bubble(void *asd, REAL x, REAL y, REAL z) {
 
 int main(int argc, char **argv) {
 
-  rgrid *rworkspace, *rworkspace2, *rworkspace3, *lj_tf, *rd_tf, *density_tf, *spave_tf, *ot_pot, *ext_pot;
+  rgrid *density, *ext_pot;
   cgrid *potential_store;
   wf *gwf, *gwfp;
   INT iter;
@@ -103,10 +100,8 @@ int main(int argc, char **argv) {
 
   /* Setup DFT driver parameters (grid) */
   dft_driver_setup_grid(1, 1, NZ, STEP, THREADS);
-// NOTE: This does nothing - external potential from ot-1d.c is used instead
   /* Plain Orsay-Trento in imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_USER_TIME, 0.0);
-//
   /* No absorbing boundary */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   /* Normalization condition */
@@ -129,9 +124,7 @@ int main(int argc, char **argv) {
   dft_driver_setup_momentum(0.0, 0.0, kz);
 
   /* Allocate space for external potential */
-  rworkspace = dft_driver_alloc_rgrid("rworkspace");
-  rworkspace2 = dft_driver_alloc_rgrid("rworkspace2");
-  rworkspace3 = dft_driver_alloc_rgrid("rworkspace3");
+  density = dft_driver_alloc_rgrid("rworkspace");
   potential_store = dft_driver_alloc_cgrid("cworkspace"); /* temporary storage */
   ext_pot = dft_driver_alloc_rgrid("ext_pot");
 
@@ -145,33 +138,19 @@ int main(int argc, char **argv) {
   /* set up initial density */
   cgrid_map(gwf->grid, bubble_init, NULL);
 
-  lj_tf = dft_driver_get_workspace(1, 1);
-  rd_tf = dft_driver_get_workspace(2, 1);
-  density_tf = dft_driver_get_workspace(3, 1);
-  spave_tf = dft_driver_get_workspace(4, 1);
-  ot_pot = dft_driver_get_workspace(5, 1);  
-  OT_INIT(lj_tf, rd_tf);
-
   for (iter = 0; iter < MAXITER; iter++) {
 
     if(!(iter % NTH)) {
       sprintf(buf, "bubble-" FMT_I, iter);
-      grid_wf_density(gwf, rworkspace);
-      dft_driver_write_density(rworkspace, buf);
+      grid_wf_density(gwf, density);
+      dft_driver_write_density(density, buf);
     }
 
     if(iter < IITER) tstep = -I * TS;
     else tstep = TS;
 
-    grid_wf_density(gwf, rworkspace);
-    OT_POT(ot_pot, rworkspace, density_tf, rworkspace2, spave_tf, lj_tf, rd_tf, rworkspace3);
-    rgrid_sum(ot_pot, ot_pot, ext_pot);
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ot_pot, mu0, gwf, gwfp, potential_store, tstep, iter);
-
-    grid_wf_density(gwfp, rworkspace);
-    OT_POT(ot_pot, rworkspace, density_tf, rworkspace2, spave_tf, lj_tf, rd_tf, rworkspace3);
-    rgrid_sum(ot_pot, ot_pot, ext_pot);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ot_pot, mu0, gwf, gwfp, potential_store, tstep, iter);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, mu0, gwf, gwfp, potential_store, tstep, iter);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, mu0, gwf, gwfp, potential_store, tstep, iter);
   }
   return 0;
 }
