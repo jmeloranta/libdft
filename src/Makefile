@@ -4,7 +4,7 @@ all:
 	make prototypes
 	make libdft.a
 
-OBJS = ot.o common.o driver.o classical.o bulk.o
+OBJS = ot.o ot-energy.o common.o driver.o classical.o bulk.o
 
 libdft.a: $(OBJS)
 	$(AR) cr libdft.a $(OBJS)
@@ -27,6 +27,9 @@ common.o: common.c dft.h
 
 ot.o: ot.c ot.h dft.h
 	$(CC) -I. $(CFLAGS) -c ot.c
+
+ot-energy.o: ot-energy.c ot.h dft.h
+	$(CC) -I. $(CFLAGS) -c ot-energy.c
 
 classical.o: classical.c dft.h
 	$(CC) -I. $(CFLAGS) -c classical.c
