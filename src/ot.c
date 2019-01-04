@@ -392,6 +392,18 @@ EXPORT inline void dft_ot_add_local_correlation_potential(dft_ot_functional *otf
   rgrid_multiply(workspace2, otf->c3 / 3.0);
   grid_add_real_to_complex_re(potential, workspace2);
 
+  /* C2.2 & C3.2 (New code - eliminated workspace3) */
+  if(otf->model & DFT_DR)  {
+    rgrid_power(workspace2, workspace1, otf->c2_exp - 1.0);
+    rgrid_power(workspace1, workspace1, otf->c3_exp - 1.0);
+  } else {  
+    rgrid_ipower(workspace2, workspace1, (INT) (otf->c2_exp - 1.0));
+    rgrid_ipower(workspace1, workspace1, (INT) (otf->c3_exp - 1.0));
+  }   
+  rgrid_multiply(workspace2, otf->c2 * otf->c2_exp / 2.0);  // For OT, c2_exp / 2 = 1
+  rgrid_multiply(workspace1, otf->c3 * otf->c3_exp / 3.0);  // For OT, c3_exp / 3 = 1
+  rgrid_sum(workspace2, workspace2, workspace1);
+
   rgrid_product(workspace2, workspace2, rho);
   rgrid_fft(workspace2);
   rgrid_fft_convolute(workspace2, workspace2, otf->spherical_avg);

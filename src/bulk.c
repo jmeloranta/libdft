@@ -300,7 +300,7 @@ EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred, char dir) {
       if(*k == 0.0) return 0.0;
       wave_params.ky = 0.0;
       wave_params.kz = 0.0;
-    break;
+      break;
     case 1: /* Y direction */
       if(dft_driver_ny == 1) {
         fprintf(stderr, "libdft: The plane wave is along Y but only one point allocated in that direction.\n");
@@ -312,7 +312,7 @@ EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred, char dir) {
       if(*k == 0.0) return 0.0;
       wave_params.kx = 0.0;
       wave_params.kz = 0.0;
-    break;
+      break;
     case 2: /* Z direction */
       if(dft_driver_nz == 1) {
         fprintf(stderr, "libdft: The plane wave is along Z but only one point allocated in that direction.\n");
@@ -324,7 +324,7 @@ EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred, char dir) {
       if(*k == 0.0) return 0.0;
       wave_params.kx = 0.0;
       wave_params.ky = 0.0;
-    break;
+      break;
     default:
       fprintf(stderr, "libdft: Error in pane wave direction (only 0, 1, 2 allowed).\n");
       exit(1);
