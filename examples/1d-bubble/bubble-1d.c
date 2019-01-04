@@ -16,12 +16,12 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 10.0 /* fs */
+#define TS 1.0 /* fs */
 #define NZ (32768)
 #define STEP 0.2
-#define IITER 2000
+#define IITER 20000
 #define MAXITER 80000000
-#define NTH 500
+#define NTH 5000
 #define VZ (80.0 / GRID_AUTOMPS)
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
