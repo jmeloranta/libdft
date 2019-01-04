@@ -4,6 +4,8 @@
  * NOTE: This code uses FFT for evaluating all the integrals, which
  *       implies periodic boundary conditions!
  *
+ * TODO: For 1-D, do not compute X, Y components of vector fields.
+ *
  */
 
 #include <stdlib.h>
@@ -37,6 +39,10 @@
 
 EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density, wf *wf, rgrid *density, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4, rgrid *workspace5, rgrid *workspace6, rgrid *workspace7, rgrid *workspace8) {
   
+  rgrid_claim(workspace1); rgrid_claim(workspace2); rgrid_claim(workspace3);
+  rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6);
+  rgrid_claim(workspace7); rgrid_claim(workspace8);
+
   rgrid_zero(energy_density);
 
   if(otf->model & DFT_ZERO) {
@@ -86,14 +92,12 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
   /* Barranco's contribution (high density) */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
     grid_func5_operate_one(workspace1, density, otf->beta, otf->rhom, otf->C);
-//    rgrid_operate_one(workspace1, density, dft_ot_barranco_energy_op, otf);
     rgrid_sum(energy_density, energy_density, workspace1);
   }
 
   /* Ideal gas contribution (thermal) */
   if(otf->model >= DFT_OT_T400MK && otf->model < DFT_GP) { /* do not add this for DR */
     grid_func6b_operate_one(workspace1, density, otf->mass, otf->temp, otf->c4);
-//    rgrid_operate_one(workspace1, density, dft_common_bose_idealgas_energy, otf);
     rgrid_sum(energy_density, energy_density, workspace1);
   }
   
@@ -217,4 +221,7 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
     rgrid_product(workspace6, workspace6, workspace7);
     rgrid_add_scaled(energy_density, -otf->mass / 4.0, workspace6);
   }
+  rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
+  rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6);
+  rgrid_release(workspace7); rgrid_release(workspace8);
 }

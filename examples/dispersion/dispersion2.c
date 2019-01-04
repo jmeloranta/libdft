@@ -15,14 +15,15 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 1
-#define NY 1
-#define NZ 1024
-#define STEP 0.1 /* Bohr */
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 0.5 /* Bohr */
 #define TS 15.0 /* fs */
 #define AMP 1e-2 /* wave amplitude (of total rho0) */
 #define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
 #define PRED 0
+#define DIRECTION 0     /* Plane wave direction: X = 0, Y = 1, Z = 2 */
 
 #define THREADS 0
 
@@ -62,7 +63,7 @@ int main(int argc, char **argv) {
   printf("0 0\n");
   for (k = (REAL) atof(argv[1]) * GRID_AUTOANG; k < (REAL) atof(argv[2]) * GRID_AUTOANG; k += (REAL) atof(argv[3]) * GRID_AUTOANG) {
     kk = k;
-    e = dft_ot_dispersion(TS, &kk, AMP, PRED);
+    e = dft_ot_dispersion(TS, &kk, AMP, PRED, DIRECTION);
     printf(FMT_R " " FMT_R "\n", kk / GRID_AUTOANG, e * GRID_AUTOK);
     fflush(stdout);
   }

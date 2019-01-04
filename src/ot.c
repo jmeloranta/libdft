@@ -13,6 +13,7 @@
 #include <grid/au.h>
 #include "dft.h"
 #include "ot.h"
+#include "ot-private.h"
 
 /* Local functions */
 
@@ -22,43 +23,6 @@ static void dft_ot_add_nonlocal_correlation_potential_y(dft_ot_functional *otf, 
 static void dft_ot_add_nonlocal_correlation_potential_z(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *rho_tf, rgrid *rho_st, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4);
 static void dft_ot_add_barranco(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *workspace1);
 static void dft_ot_add_ancilotto(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *workspace1);
-
-/*
- * Backflow potential function.
- *
- */
-
-EXPORT REAL dft_ot_backflow_pot(void *arg, REAL x, REAL y, REAL z) {
-
-  REAL g11 = ((dft_ot_bf *) arg)->g11;
-  REAL g12 = ((dft_ot_bf *) arg)->g12;
-  REAL g21 = ((dft_ot_bf *) arg)->g21;
-  REAL g22 = ((dft_ot_bf *) arg)->g22;
-  REAL a1 = ((dft_ot_bf *) arg)->a1;
-  REAL a2 = ((dft_ot_bf *) arg)->a2;
-  REAL r2 = x * x + y * y + z * z;
-  
-  return (g11 + g12 * r2) * EXP(-a1 * r2) + (g21 + g22 * r2) * EXP(-a2 * r2);
-}
-
-/*
- * Backflow potential function (1-D).
- *
- */
-
-EXPORT REAL dft_ot_backflow_pot_1d(void *arg, REAL x, REAL y, REAL z) {
-
-  REAL g11 = ((dft_ot_bf *) arg)->g11;
-  REAL g12 = ((dft_ot_bf *) arg)->g12;
-  REAL g21 = ((dft_ot_bf *) arg)->g21;
-  REAL g22 = ((dft_ot_bf *) arg)->g22;
-  REAL a1 = ((dft_ot_bf *) arg)->a1;
-  REAL a2 = ((dft_ot_bf *) arg)->a2;
-  REAL z2 = z * z;
-  
-  return M_PI * ((g11 + g12 * (1.0 + a1 * z2) / a1) * EXP(-a1 * z2) / a1
-               + (g21 + g22 * (1.0 + a2 * z2) / a2) * EXP(-a2 * z2) / a2);
-}
 
 /*
  * Allocate  OT functional. This must be called first.
@@ -322,48 +286,67 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf, r
   }
 
   if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) {
+    rgrid_claim(workspace1);
     rgrid_copy(workspace1, density);
     rgrid_multiply(workspace1, otf->mu0 / otf->rho0); // positive value
     grid_add_real_to_complex_re(potential, workspace1);
+    rgrid_release(workspace1);
     return;
   }
 
   /* Lennard-Jones */  
   /* int rho(r') Vlj(r-r') dr' */
-  dft_ot_add_lennard_jones_potential(otf, potential, density, workspace1, workspace2);
   /* workspace1 = FFT of density */
+  rgrid_claim(workspace1);
+  rgrid_claim(workspace2);
+  dft_ot_add_lennard_jones_potential(otf, potential, density, workspace1, workspace2);
+  rgrid_release(workspace2);
 
   /* Non-linear local correlation */
   /* note workspace1 = fft of \rho */
+  rgrid_claim(workspace2);
+  rgrid_claim(workspace3);
   dft_ot_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3);
+  rgrid_release(workspace2);
+  rgrid_release(workspace3);
 
   /* Non-local correlation for kinetic energy (workspace1 = FFT(rho)) */
-  if(otf->model & DFT_OT_KC)
+  if(otf->model & DFT_OT_KC) {
+    rgrid_claim(workspace2); rgrid_claim(workspace3); rgrid_claim(workspace4);
+    rgrid_claim(workspace5); rgrid_claim(workspace6);
     dft_ot_add_nonlocal_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4, workspace5, workspace6);
+    rgrid_release(workspace2); rgrid_release(workspace3); rgrid_release(workspace4);
+    rgrid_release(workspace5); rgrid_release(workspace6);
+  }
+  /* workspace1 no longer needed */
+  rgrid_release(workspace1);
 
   /* Barranco's penalty term */
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
+    rgrid_claim(workspace1);
     dft_ot_add_barranco(otf, potential, density, workspace1);
+    rgrid_release(workspace1);
+  }
 
   if(otf->model & DFT_OT_BACKFLOW) {
     /* wf, veloc_x(1), veloc_y(2), veloc_z(3), wrk(4) */
     // grid_wf_momentum(wf, workspace1, workspace2, workspace3, ...);   But can't do since we don't have cmplx workspaces
-#if 0
-    // OLD CODE
-    grid_wf_probability_flux(wf, workspace1, workspace2, workspace3);    /* finite difference */
-    rgrid_division_eps(workspace1, workspace1, density, DFT_BF_EPS);  /* velocity = flux / rho */
-    rgrid_division_eps(workspace2, workspace2, density, DFT_BF_EPS);  // EPS was about 1E-3
-    rgrid_division_eps(workspace3, workspace3, density, DFT_BF_EPS);
-#else
+    rgrid_claim(workspace1); rgrid_claim(workspace2); rgrid_claim(workspace3);
+    rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6);
+    rgrid_claim(workspace7); rgrid_claim(workspace8); rgrid_claim(workspace9);
     grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_VELOC_CUTOFF);
-#endif
-
     dft_ot_backflow_potential(otf, potential, density, workspace1 /* veloc_x */, workspace2 /* veloc_y */, workspace3 /* veloc_z */, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
+    rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
+    rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6);
+    rgrid_release(workspace7); rgrid_release(workspace8); rgrid_release(workspace9);
   }
 
-  if(otf->model >= DFT_OT_T400MK && !(otf->model & DFT_DR))
+  if(otf->model >= DFT_OT_T400MK && !(otf->model & DFT_DR)) {
     /* include the ideal gas contribution */
+    rgrid_claim(workspace1);
     dft_ot_add_ancilotto(otf, potential, density, workspace1);
+    rgrid_release(workspace1);
+  }
 }
 
 /*
@@ -409,32 +392,6 @@ EXPORT inline void dft_ot_add_local_correlation_potential(dft_ot_functional *otf
   rgrid_multiply(workspace2, otf->c3 / 3.0);
   grid_add_real_to_complex_re(potential, workspace2);
 
-#if 0
-  /* C2.2 & C3.2 (Old code) */
-  if(otf->model & DFT_DR)  {
-    rgrid_power(workspace2, workspace1, otf->c2_exp - 1.0);
-    rgrid_power(workspace3, workspace1, otf->c3_exp - 1.0);
-  } else {
-    rgrid_ipower(workspace2, workspace1, (INT) (otf->c2_exp - 1.0));
-    rgrid_ipower(workspace3, workspace1, (INT) (otf->c3_exp - 1.0));
-  }
-  rgrid_multiply(workspace2, otf->c2 * otf->c2_exp / 2.0);  // For OT, c2_exp / 2 = 1
-  rgrid_multiply(workspace3, otf->c3 * otf->c3_exp / 3.0);  // For OT, c3_exp / 3 = 1
-  rgrid_sum(workspace2, workspace2, workspace3); 
-#else
-  /* C2.2 & C3.2 (New code - eliminated workspace3) */
-  if(otf->model & DFT_DR)  {
-    rgrid_power(workspace2, workspace1, otf->c2_exp - 1.0);
-    rgrid_power(workspace1, workspace1, otf->c3_exp - 1.0);
-  } else {
-    rgrid_ipower(workspace2, workspace1, (INT) (otf->c2_exp - 1.0));
-    rgrid_ipower(workspace1, workspace1, (INT) (otf->c3_exp - 1.0));
-  }
-  rgrid_multiply(workspace2, otf->c2 * otf->c2_exp / 2.0);  // For OT, c2_exp / 2 = 1
-  rgrid_multiply(workspace1, otf->c3 * otf->c3_exp / 3.0);  // For OT, c3_exp / 3 = 1
-  rgrid_sum(workspace2, workspace2, workspace1);
-#endif
-
   rgrid_product(workspace2, workspace2, rho);
   rgrid_fft(workspace2);
   rgrid_fft_convolute(workspace2, workspace2, otf->spherical_avg);
@@ -473,6 +430,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_x(dft_ot_functional
 
   REAL c;
 
+  // All workspaces already claimed above
   c = otf->alpha_s / (2.0 * otf->mass);
 
   /* workspace1 = (d/dx) rho */
@@ -531,6 +489,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_y(dft_ot_functional
 
   REAL c;
 
+  // All workspaces already claimed above
   c = otf->alpha_s / (2.0 * otf->mass);
 
   /* workspace1 = (d/dy) rho */
@@ -590,6 +549,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_z(dft_ot_functional
 
   REAL c;
 
+  // All workspaces already claimed above
   c = otf->alpha_s / (2.0 * otf->mass);
 
   /* workspace1 = (d/dz) rho */
@@ -687,61 +647,54 @@ static inline void dft_ot_add_barranco(dft_ot_functional *otf, cgrid *potential,
 EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, rgrid *density, rgrid *veloc_x, rgrid *veloc_y, rgrid *veloc_z, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4, rgrid *workspace5, rgrid *workspace6) {
 
   /* Calculate A (workspace1) [scalar] */
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
-    grid_func2_operate_one(workspace1, density, otf->xi, otf->rhobf);
-//    rgrid_operate_one(workspace1, density, dft_ot_bf_pi_energy_op, otf); /* g rho */
-  } else {
-    /* Original BF code (without the MM density cutoff) */
-    rgrid_copy(workspace1, density);   /* just rho */
-  }
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
+    grid_func2_operate_one(workspace1, density, otf->xi, otf->rhobf); /* rho -> g rho */
+  else
+    rgrid_copy(workspace1, density);   /* Original BF code (without the MM density cutoff), just rho */
   rgrid_fft(workspace1);
   rgrid_fft_convolute(workspace1, workspace1, otf->backflow_pot);
   rgrid_inverse_fft(workspace1);
 
   /* Calculate C (workspace2) [scalar] */
-  rgrid_product(workspace2, veloc_x, veloc_x);
-  rgrid_add_scaled_product(workspace2, 1.0, veloc_y, veloc_y);
-  rgrid_add_scaled_product(workspace2, 1.0, veloc_z, veloc_z);
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    grid_func2_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);  /* g rho */
-//    rgrid_operate_one_product(workspace2, workspace2, density, dft_ot_bf_pi_energy_op, otf); /* g rho */
-  } else {
-    rgrid_product(workspace2, workspace2, density);
+  rgrid_product(workspace2, veloc_z, veloc_z);
+  if(density->nx != 1 || density->ny != 1) { // 1-D x & y velocity components zero
+    rgrid_add_scaled_product(workspace2, 1.0, veloc_y, veloc_y);
+    rgrid_add_scaled_product(workspace2, 1.0, veloc_x, veloc_x);
   }
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
+    grid_func2_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);  /* multiply by g rho */
+  else
+    rgrid_product(workspace2, workspace2, density);  /* orignal: multiply by just rho */
   rgrid_fft(workspace2);
   rgrid_fft_convolute(workspace2, workspace2, otf->backflow_pot);
   rgrid_inverse_fft(workspace2);
 
-  /* Calculate B (workspace3 (x), workspace4 (y), workspace5 (z)) [vector] */
-  /* B_X */
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    grid_func2_operate_one_product(workspace3, veloc_x, density, otf->xi, otf->rhobf);
-//    rgrid_operate_one_product(workspace3, veloc_x, density, dft_ot_bf_pi_energy_op, otf); /* g rho */
-  } else {
-    rgrid_product(workspace3, veloc_x, density);
+  /* Calculate B (workspace3 (B_x), workspace4 (B_y), workspace5 (B_z)) [vector] */
+  if(density->nx != 1 || density->ny != 1) {
+    /* B_X */
+    if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
+      grid_func2_operate_one_product(workspace3, veloc_x, density, otf->xi, otf->rhobf); /* MM: g rho */
+    else
+      rgrid_product(workspace3, veloc_x, density); /* original: just rho */
+    rgrid_fft(workspace3);
+    rgrid_fft_convolute(workspace3, workspace3, otf->backflow_pot);
+    rgrid_inverse_fft(workspace3);
+  
+    /* B_Y */
+    if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
+      grid_func2_operate_one_product(workspace4, veloc_y, density, otf->xi, otf->rhobf); /* MM: g rho */
+    else
+      rgrid_product(workspace4, veloc_y, density); /* original: just rho */
+    rgrid_fft(workspace4);
+    rgrid_fft_convolute(workspace4, workspace4, otf->backflow_pot);
+    rgrid_inverse_fft(workspace4);
   }
-  rgrid_fft(workspace3);
-  rgrid_fft_convolute(workspace3, workspace3, otf->backflow_pot);
-  rgrid_inverse_fft(workspace3);
-
-  /* B_Y */
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    grid_func2_operate_one_product(workspace4, veloc_y, density, otf->xi, otf->rhobf);
-//    rgrid_operate_one_product(workspace4, veloc_y, density, dft_ot_bf_pi_energy_op, otf); /* g rho */
-  } else {
-    rgrid_product(workspace4, veloc_y, density);
-  }
-  rgrid_fft(workspace4);
-  rgrid_fft_convolute(workspace4, workspace4, otf->backflow_pot);
-  rgrid_inverse_fft(workspace4);
 
   /* B_Z */
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    grid_func2_operate_one_product(workspace5, veloc_z, density, otf->xi, otf->rhobf);
-//    rgrid_operate_one_product(workspace5, veloc_z, density, dft_ot_bf_pi_energy_op, otf); /* g rho */
-  } else {
-    rgrid_product(workspace5, veloc_z, density);
-  }
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
+    grid_func2_operate_one_product(workspace5, veloc_z, density, otf->xi, otf->rhobf); /* MM: g rho */
+  else
+    rgrid_product(workspace5, veloc_z, density); /* original: just rho */
   rgrid_fft(workspace5);
   rgrid_fft_convolute(workspace5, workspace5, otf->backflow_pot);
   rgrid_inverse_fft(workspace5);
@@ -749,23 +702,22 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   /* 1. Calculate the real part of the potential */
 
   /* -(m/2) (v(r) . (v(r)A(r) - 2B(r)) + C(r))  = -(m/2) [ A(v_x^2 + v_y^2 + v_z^2) - 2v_x B_x - 2v_y B_y - 2v_z B_z + C] */
-  rgrid_product(workspace6, veloc_x, veloc_x);
-  rgrid_add_scaled_product(workspace6, 1.0, veloc_y, veloc_y);
-  rgrid_add_scaled_product(workspace6, 1.0, veloc_z, veloc_z);
-  rgrid_product(workspace6, workspace6, workspace1);
-  rgrid_add_scaled_product(workspace6, -2.0, veloc_x, workspace3);
-  rgrid_add_scaled_product(workspace6, -2.0, veloc_y, workspace4);
-  rgrid_add_scaled_product(workspace6, -2.0, veloc_z, workspace5);
-  rgrid_sum(workspace6, workspace6, workspace2);   // TODO: wrk2 could be eliminated?
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    /* multiply by [rho x (dG/drho)(rho) + G(rho)] (dft_ot_bf_pi_op) */
-    grid_func3_operate_one_product(workspace6, workspace6, density, otf->xi, otf->rhobf);
-//    rgrid_operate_one_product(workspace6, workspace6, density, dft_ot_bf_pi_op, otf);
+  rgrid_product(workspace6, veloc_z, veloc_z);
+  if(density->nx != 1 || density->ny != 1) {
+    rgrid_add_scaled_product(workspace6, 1.0, veloc_y, veloc_y);
+    rgrid_add_scaled_product(workspace6, 1.0, veloc_x, veloc_x);
   }
+  rgrid_product(workspace6, workspace6, workspace1);
+  if(density->nx != 1 || density->ny != 1) {
+    rgrid_add_scaled_product(workspace6, -2.0, veloc_x, workspace3);
+    rgrid_add_scaled_product(workspace6, -2.0, veloc_y, workspace4);
+  }
+  rgrid_add_scaled_product(workspace6, -2.0, veloc_z, workspace5);
+  rgrid_sum(workspace6, workspace6, workspace2);
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) /* multiply by [rho x (dG/drho)(rho) + G(rho)] (dft_ot_bf_pi_op) */
+    grid_func3_operate_one_product(workspace6, workspace6, density, otf->xi, otf->rhobf);
   rgrid_multiply(workspace6, -0.5 * otf->mass);
 
-// Zero potential in regions where density is nearly zero
-  rgrid_threshold_clear(workspace6, density, 1.0, 8E-4, 0.0, 0.0);
   grid_add_real_to_complex_re(potential, workspace6);
 
   /* workspace2 (C), workspace6 not used after this point */
@@ -775,72 +727,68 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   rgrid_zero(workspace6);
   
   /* v_x -> v_xA - B_x, v_y -> v_yA - B_y, v_z -> v_zA - B_z (velocities are overwritten here) */
-  rgrid_product(veloc_x, veloc_x, workspace1);
-  rgrid_add_scaled(veloc_x, -1.0, workspace3);
-  rgrid_product(veloc_y, veloc_y, workspace1);
-  rgrid_add_scaled(veloc_y, -1.0, workspace4);
+  if(density->nx != 1 || density->ny != 1) {
+    rgrid_product(veloc_x, veloc_x, workspace1);
+    rgrid_add_scaled(veloc_x, -1.0, workspace3);
+    rgrid_product(veloc_y, veloc_y, workspace1);
+    rgrid_add_scaled(veloc_y, -1.0, workspace4);
+  }
   rgrid_product(veloc_z, veloc_z, workspace1);
   rgrid_add_scaled(veloc_z, -1.0, workspace5);
 
   /* 1.1 (1/2) (drho/dx)/rho * (v_xA - B_x) */  
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    grid_func2_operate_one(workspace1, density, otf->xi, otf->rhobf);
-//    rgrid_operate_one(workspace1, density, dft_ot_bf_pi_energy_op, otf);
-    rgrid_fd_gradient_x(workspace1, workspace2);
-  } else {
-    rgrid_fd_gradient_x(density, workspace2);
+  if(density->nx != 1 || density->ny != 1) {
+    if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
+      grid_func2_operate_one(workspace1, density, otf->xi, otf->rhobf);
+      rgrid_fd_gradient_x(workspace1, workspace2);
+    } else
+      rgrid_fd_gradient_x(density, workspace2);
+    rgrid_division_eps(workspace2, workspace2, density, DFT_EPS);
+    rgrid_add_scaled_product(workspace6, 0.5, workspace2, veloc_x);
   }
-  rgrid_division_eps(workspace2, workspace2, density, DFT_EPS);
-  rgrid_add_scaled_product(workspace6, 0.5, workspace2, veloc_x);
 
   /* 1.2 (1/2) (drho/dy)/rho * (v_yA - B_y) */
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    /* grid_func2_operate_one(workspace1, density, otf->xi, otf->rhobf); */ /* already done above */
-    /* rgrid_operate_one(workspace1, density, dft_ot_bf_pi_energy_op, otf); */ /* already done above */
-    rgrid_fd_gradient_y(workspace1, workspace2);  
-  } else {
-    rgrid_fd_gradient_y(density, workspace2);
+  if(density->nx != 1 || density->ny != 1) {
+    if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
+      /* grid_func2_operate_one(workspace1, density, otf->xi, otf->rhobf); */ /* already done above */
+      rgrid_fd_gradient_y(workspace1, workspace2);  
+    else
+      rgrid_fd_gradient_y(density, workspace2);
+    rgrid_division_eps(workspace2, workspace2, density, DFT_EPS);
+    rgrid_add_scaled_product(workspace6, 0.5, workspace2, veloc_y);
   }
-  rgrid_division_eps(workspace2, workspace2, density, DFT_EPS);
-  rgrid_add_scaled_product(workspace6, 0.5, workspace2, veloc_y);
 
   /* 1.3 (1/2) (drho/dz)/rho * (v_zA - B_z) */
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
     /* grid_func2_operate_one(workspace1, density, otf->xi, otf->rhobf); */ /* already done above */
-    /* rgrid_operate_one(workspace1, density, dft_ot_bf_pi_energy_op, otf); */ /* already done above */
     rgrid_fd_gradient_z(workspace1, workspace2);  
-  } else {
+  else
     rgrid_fd_gradient_z(density, workspace2);
-  }
   rgrid_division_eps(workspace2, workspace2, density, DFT_EPS);
   rgrid_add_scaled_product(workspace6, 0.5, workspace2, veloc_z);
 
   /* 2.1 (1/2) (d/dx) (v_xA - B_x) */
-  rgrid_fd_gradient_x(veloc_x, workspace2);
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    grid_func1_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);   /* multiply by g */
-//    rgrid_operate_one_product(workspace2, workspace2, density, dft_ot_bf_pi_energy_op2, otf); /* multiply by g */
+  if(density->nx != 1 || density->ny != 1) {
+    rgrid_fd_gradient_x(veloc_x, workspace2);
+    if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
+      grid_func1_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);   /* multiply by g */
+    rgrid_add_scaled(workspace6, 0.5, workspace2);
   }
-  rgrid_add_scaled(workspace6, 0.5, workspace2);
 
   /* 2.2 (1/2) (d/dy) (v_yA - B_y) */
-  rgrid_fd_gradient_y(veloc_y, workspace2);
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    grid_func1_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);
-//    rgrid_operate_one_product(workspace2, workspace2, density, dft_ot_bf_pi_energy_op2, otf);  /* multiply by g */
+  if(density->nx != 1 || density->ny != 1) {
+    rgrid_fd_gradient_y(veloc_y, workspace2);
+    if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
+      grid_func1_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);   /* multiply by g */
+    rgrid_add_scaled(workspace6, 0.5, workspace2);
   }
-  rgrid_add_scaled(workspace6, 0.5, workspace2);
 
   /* 2.3 (1/2) (d/dz) (v_zA - B_z) */
   rgrid_fd_gradient_z(veloc_z, workspace2);
-  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { 
-    grid_func1_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);
-//    rgrid_operate_one_product(workspace2, workspace2, density, dft_ot_bf_pi_energy_op2, otf);  /* multiply by g */
-  }
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
+    grid_func1_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);   /* multiply by g */
   rgrid_add_scaled(workspace6, 0.5, workspace2);
 
-// Zero potential in regions where density is nearly zero
-  rgrid_threshold_clear(workspace6, density, 1.0, 8E-4, 0.0, 0.0);
   grid_add_real_to_complex_im(potential, workspace6);
 }
 

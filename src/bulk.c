@@ -263,12 +263,13 @@ EXPORT REAL dft_ot_bulk_sound_speed(dft_ot_functional *otf, REAL rho) {
  * k    = Requested wavenumber in a.u. (REAL; input/output). 
  * amp  = Amplitude relative to rho0 (REAL; input).
  * pred = 1 = Use predict-correct, 0 = no predict-correct (char; input).
+ * dir  = Direction for plane wave excitation (0 = X, 1 = Y, 2 = Z; char).
  *
  * Returns energy (omega; a.u.).
  *
  */
 
-EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred) {
+EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred, char dir) {
 
   REAL tmp, ival, mu0, omega;   /* TS in fs */
   dft_plane_wave wave_params;
@@ -279,11 +280,6 @@ EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred) {
   extern REAL dft_driver_step, dft_driver_rho0;
   extern dft_ot_functional *dft_driver_otf;
   
-  if(dft_driver_nz == 1) {
-    fprintf(stderr, "libdft: The plane wave is along Z but only one point allocated in that direction.\n");
-    exit(1);
-  }
-
   gwf = dft_driver_alloc_wavefunction(dft_driver_otf->mass, "gwf");
   if(pred) {
     gwfp = dft_driver_alloc_wavefunction(dft_driver_otf->mass, "gwfp");
@@ -292,12 +288,47 @@ EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred) {
   dft_driver_otf->rho0 = dft_driver_rho0;
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
   
-  tmp = 2.0 * M_PI / (((REAL) dft_driver_nz) * dft_driver_step);
-  wave_params.kz = ((REAL) (((INT) (0.5 + *k / tmp)))) * tmp; // round to nearest k with the grid - should we return this also?
-  *k = wave_params.kz;
-  if(*k == 0.0) return 0.0;
-  wave_params.kx = 0.0;
-  wave_params.ky = 0.0;
+  switch(dir) {
+    case 0: /* X direction */
+      if(dft_driver_nx == 1) {
+        fprintf(stderr, "libdft: The plane wave is along X but only one point allocated in that direction.\n");
+        exit(1);
+      }
+      tmp = 2.0 * M_PI / (((REAL) dft_driver_nx) * dft_driver_step);
+      wave_params.kx = ((REAL) (((INT) (0.5 + *k / tmp)))) * tmp; // round to nearest k with the grid - should we return this also?
+      *k = wave_params.kx;
+      if(*k == 0.0) return 0.0;
+      wave_params.ky = 0.0;
+      wave_params.kz = 0.0;
+    break;
+    case 1: /* Y direction */
+      if(dft_driver_ny == 1) {
+        fprintf(stderr, "libdft: The plane wave is along Y but only one point allocated in that direction.\n");
+        exit(1);
+      }
+      tmp = 2.0 * M_PI / (((REAL) dft_driver_ny) * dft_driver_step);
+      wave_params.ky = ((REAL) (((INT) (0.5 + *k / tmp)))) * tmp; // round to nearest k with the grid - should we return this also?
+      *k = wave_params.ky;
+      if(*k == 0.0) return 0.0;
+      wave_params.kx = 0.0;
+      wave_params.kz = 0.0;
+    break;
+    case 2: /* Z direction */
+      if(dft_driver_nz == 1) {
+        fprintf(stderr, "libdft: The plane wave is along Z but only one point allocated in that direction.\n");
+        exit(1);
+      }
+      tmp = 2.0 * M_PI / (((REAL) dft_driver_nz) * dft_driver_step);
+      wave_params.kz = ((REAL) (((INT) (0.5 + *k / tmp)))) * tmp; // round to nearest k with the grid - should we return this also?
+      *k = wave_params.kz;
+      if(*k == 0.0) return 0.0;
+      wave_params.kx = 0.0;
+      wave_params.ky = 0.0;
+    break;
+    default:
+      fprintf(stderr, "libdft: Error in pane wave direction (only 0, 1, 2 allowed).\n");
+      exit(1);
+  }
   wave_params.a = amp;
   wave_params.rho = dft_driver_rho0;
   grid_wf_map(gwf, dft_common_planewave, &wave_params);

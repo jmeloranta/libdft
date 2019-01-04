@@ -25,7 +25,7 @@ driver.o: driver.c ot.h
 common.o: common.c dft.h
 	$(CC) -I. $(CFLAGS) -c common.c
 
-ot.o: ot.c ot.h dft.h
+ot.o: ot.c ot.h ot-private.h dft.h
 	$(CC) -I. $(CFLAGS) -c ot.c
 
 ot-energy.o: ot-energy.c ot.h dft.h
