@@ -334,7 +334,10 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf, r
     rgrid_claim(workspace1); rgrid_claim(workspace2); rgrid_claim(workspace3);
     rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6);
     rgrid_claim(workspace7); rgrid_claim(workspace8); rgrid_claim(workspace9);
-    grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_VELOC_CUTOFF);
+    if(density->nx == 1 && density->ny == 1) 
+      grid_wf_velocity_z(wf, workspace3, DFT_VELOC_CUTOFF);
+    else
+      grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_VELOC_CUTOFF);
     dft_ot_backflow_potential(otf, potential, density, workspace1 /* veloc_x */, workspace2 /* veloc_y */, workspace3 /* veloc_z */, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
     rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
     rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6);

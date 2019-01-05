@@ -21,7 +21,7 @@
 #define STEP 0.2
 #define IITER 20000
 #define MAXITER 80000000
-#define NTH 5000
+#define NTH 200
 #define VZ (80.0 / GRID_AUTOMPS)
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
   /* Setup DFT driver parameters (grid) */
   dft_driver_setup_grid(1, 1, NZ, STEP, THREADS);
   /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_USER_TIME, 0.0);
+  dft_driver_setup_model(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC, DFT_DRIVER_USER_TIME, 0.0);
   /* No absorbing boundary */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   /* Normalization condition */
