@@ -21,8 +21,8 @@
 #define STEP 0.2
 #define IITER 20000
 #define MAXITER 80000000
-#define NTH 200
-#define VZ (80.0 / GRID_AUTOMPS)
+#define NTH 1000
+#define VZ (45.0 / GRID_AUTOMPS)
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 #define THREADS 0

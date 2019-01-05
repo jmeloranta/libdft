@@ -19,10 +19,10 @@ install:
 	cp dft.h ot.h proto.h $(ROOT)/include/dft
 	cp ../make.conf $(ROOT)/include/dft
 
-driver.o: driver.c ot.h
+driver.o: driver.c ot.h dft.h
 	$(CC) -I. $(CFLAGS) -c driver.c
 
-common.o: common.c dft.h
+common.o: common.c ot.h dft.h
 	$(CC) -I. $(CFLAGS) -c common.c
 
 ot.o: ot.c ot.h ot-private.h dft.h
@@ -34,7 +34,7 @@ ot-energy.o: ot-energy.c ot.h dft.h
 classical.o: classical.c dft.h
 	$(CC) -I. $(CFLAGS) -c classical.c
 
-bulk.o: bulk.c ot.h
+bulk.o: bulk.c dft.h ot.h
 	$(CC) -I. $(CFLAGS) -c bulk.c
 
 clean:
