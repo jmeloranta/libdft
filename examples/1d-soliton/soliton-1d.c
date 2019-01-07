@@ -83,14 +83,27 @@ int main(int argc, char **argv) {
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
-  /* setup soliton (density is temp here) */
-  rgrid_map(density, soliton, NULL);
-  rgrid_multiply(density, rho0);
-  rgrid_power(density, density, 0.5);
-  cgrid_zero(gwf->grid);   /* copy rho to wf real part */
-  grid_real_to_complex_re(gwf->grid, density);
+  if(argc == 2) {
+    FILE *fp;
+    if(!(fp = fopen(argv[1], "r"))) {
+      fprintf(stderr, "Can't open checkpoint .grd file.\n");
+      exit(1);
+    }
+    sscanf(argv[1], "bubble-" FMT_I ".grd", &iter);
+    cgrid_read(gwf->grid, fp);
+    fclose(fp);
+    fprintf(stderr, "Check point from %s with iteration = " FMT_I "\n", argv[1], iter);
+  } else {
+    /* setup soliton (density is temp here) */
+    rgrid_map(density, soliton, NULL);
+    rgrid_multiply(density, rho0);
+    rgrid_power(density, density, 0.5);
+    cgrid_zero(gwf->grid);   /* copy rho to wf real part */
+    grid_real_to_complex_re(gwf->grid, density);
+    iter = 0;
+  }
 
-  for (iter = 0; iter < MAXITER; iter++) {
+  for ( ; iter < MAXITER; iter++) {
 
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);

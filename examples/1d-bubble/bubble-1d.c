@@ -19,10 +19,10 @@
 #define TS 1.0 /* fs */
 #define NZ (32768)
 #define STEP 0.2
-#define IITER 20000
+#define IITER 200000
 #define MAXITER 80000000
-#define NTH 1000
-#define VZ (45.0 / GRID_AUTOMPS)
+#define NTH 2000
+#define VZ (2.0 / GRID_AUTOMPS)
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 #define THREADS 0
@@ -38,7 +38,7 @@
 #define A5 0.0
 #define RMIN 2.0
 #define RADD 6.0
-#define BUBBLE_RADIUS (17.0 / GRID_AUTOANG)
+#define BUBBLE_RADIUS (15.0 / GRID_AUTOANG)
 
 REAL rho0;
 
@@ -134,9 +134,22 @@ int main(int argc, char **argv) {
   rgrid_map(ext_pot, bubble, NULL);
 
   /* set up initial density */
-  cgrid_map(gwf->grid, bubble_init, NULL);
+  if(argc == 2) {
+    FILE *fp;
+    if(!(fp = fopen(argv[1], "r"))) {
+      fprintf(stderr, "Can't open checkpoint .grd file.\n");
+      exit(1);
+    }
+    sscanf(argv[1], "bubble-" FMT_I ".grd", &iter);
+    cgrid_read(gwf->grid, fp);
+    fclose(fp);
+    fprintf(stderr, "Check point from %s with iteration = " FMT_I "\n", argv[1], iter);
+  } else {
+    cgrid_map(gwf->grid, bubble_init, NULL);
+    iter = 0;
+  }
 
-  for (iter = 0; iter < MAXITER; iter++) {
+  for ( ; iter < MAXITER; iter++) {
 
     if(!(iter % NTH)) {
       sprintf(buf, "bubble-" FMT_I, iter);

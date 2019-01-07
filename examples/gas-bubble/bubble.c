@@ -151,8 +151,10 @@ int main(int argc, char *argv[]) {
 #endif
 #endif
     }
+    iter = 0;
   } else { /* restart from a file (.grd) */
-    fprintf(stderr, "Continuing from checkpoint file %s.\n", argv[1]);
+    sscanf(argv[1], "bubble-" FMT_I ".grd", &iter);
+    fprintf(stderr, "Continuing from checkpoint file %s at iteration " FMT_I ".\n", argv[1], iter);
     dft_driver_read_grid(gwf->grid, argv[1]);
   }
 
@@ -169,7 +171,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   fprintf(stderr, "Real time propagation.\n");
-  for(iter = 0; iter < MAXITER; iter++) {
+  for( ; iter < MAXITER; iter++) {
 #ifdef OUTPUT_GRID
     if(!(iter % OUTPUT_GRID)) {
       sprintf(filename, "liquid-" FMT_R, ((REAL) iter) * TIME_STEP);
