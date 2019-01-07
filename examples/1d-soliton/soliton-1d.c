@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "Can't open checkpoint .grd file.\n");
       exit(1);
     }
-    sscanf(argv[1], "bubble-" FMT_I ".grd", &iter);
+    sscanf(argv[1], "soliton-" FMT_I ".grd", &iter);
     cgrid_read(gwf->grid, fp);
     fclose(fp);
     fprintf(stderr, "Check point from %s with iteration = " FMT_I "\n", argv[1], iter);
