@@ -43,10 +43,10 @@ int main() {
   for(pressure = MIN_PRES; pressure <= MAX_PRES; pressure += DELTA_PRES) {
     rho = dft_ot_bulk_density_pressurized(dft_driver_otf, pressure);
     mu  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, pressure);
-    printf("Pressure:\t" FMT_R " (bar)\t density:\t" FMT_R " (A**-3)\tchempot:\t" FMT_R " (K)\n",
+    printf("Pressure: " FMT_R " (bar)\t density: " FMT_R " (A**-3)\tchempot: " FMT_R " (K)\tSound (m/s): " FMT_R "\n",
 	   pressure * GRID_AUTOBAR,
 	   rho / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG),
-	   mu * GRID_AUTOK);
+	   mu * GRID_AUTOK, dft_ot_bulk_sound_speed(dft_driver_otf, rho) * GRID_AUTOMPS);
   }
   return 0;
 }
