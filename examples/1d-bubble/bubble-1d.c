@@ -20,6 +20,7 @@
 #define NZ (32768)
 #define STEP 0.2
 #define IITER 200000
+#define SITER 250000
 #define MAXITER 80000000
 #define NTH 2000
 #define VZ (2.0 / GRID_AUTOMPS)
@@ -159,6 +160,11 @@ int main(int argc, char **argv) {
 
     if(iter < IITER) tstep = -I * TS;
     else tstep = TS;
+
+    if(iter > SITER) {
+      cgrid_set_momentum(gwf->grid, 0.0, 0.0, 0.0);
+      cgrid_set_momentum(gwfp->grid, 0.0, 0.0, 0.0);
+    }
 
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, tstep, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, tstep, iter);
