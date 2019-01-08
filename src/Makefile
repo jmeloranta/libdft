@@ -7,14 +7,14 @@ all:
 OBJS = ot.o ot-energy.o common.o driver.o classical.o bulk.o
 
 libdft.a: $(OBJS)
-	$(AR) cr libdft.a $(OBJS)
+	ar cr libdft.a $(OBJS)
 
 prototypes:
 	egrep -h \^EXPORT *.c | tr \{ \; | sed -e "s/EXPORT //g" > proto.h
 
 install: 
 	cp libdft.a $(ROOT)/lib
-	-$(RANLIB) $(ROOT)/lib/libdft.a
+	-ranlib $(ROOT)/lib/libdft.a
 	-mkdir $(ROOT)/include/dft
 	cp dft.h ot.h proto.h $(ROOT)/include/dft
 	cp ../make.conf $(ROOT)/include/dft
