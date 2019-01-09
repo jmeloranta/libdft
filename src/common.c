@@ -18,29 +18,6 @@
 #define EPS 1.0E-8
 #define CUTOFF (50.0 / GRID_AUTOK)
 
-/* 
- * pow() function that uses integer exponents (fast): x^y
- *
- * x = variable x above (REAL).
- * y = exponent (INT).
- *
- * TODO: Change things back everywhere so that ipow is mostly used (except for DR).
- *
- * Returns x^y.
- *
- */
-
-EXPORT inline REAL dft_common_ipow(REAL x, INT y) {
-  
-  INT i;
-  REAL v = 1.0;
-
-  for (i = 0; i < y; i++)
-    v *= x;
-
-  return v;
-}
-
 /*
  * Lennard-Jones function (r2 = r^2).
  *
