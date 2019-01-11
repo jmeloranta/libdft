@@ -3017,7 +3017,7 @@ EXPORT void *dft_driver_get_workspace(char w, char alloc) {
  *
  * gwf     = Wave function to be analyzed (wf *; input).
  * bins    = Averages in k-space (REAL *; output). The array length is nbins.
- * binstep = Step length in k-space (REAL; input).
+ * binstep = Step length in k-space in atomic units (REAL; input).
  * nbins   = Number of bins to use (INT; input).
  *
  * No return value.
@@ -3026,6 +3026,11 @@ EXPORT void *dft_driver_get_workspace(char w, char alloc) {
 
 EXPORT void dft_driver_incompressible_KE(wf *gwf, REAL *bins, REAL binstep, INT nbins) {
 
+  INT i;
+
+  rgrid_claim(workspace1); rgrid_claim(workspace2); rgrid_claim(workspace3);
+  rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6);
+  rgrid_claim(workspace7); rgrid_claim(workspace8); rgrid_claim(workspace9);
   grid_wf_probability_flux(gwf, workspace1, workspace2, workspace3);
   grid_wf_density(gwf, workspace4);
   rgrid_power(workspace4, workspace4, 0.5);
@@ -3036,11 +3041,17 @@ EXPORT void dft_driver_incompressible_KE(wf *gwf, REAL *bins, REAL binstep, INT 
   /* workspace2 = flux_y / sqrt(rho) = sqrt(rho) * v_y */
   /* workspace3 = flux_z / sqrt(rho) = sqrt(rho) * v_z */
   rgrid_hodge(workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
-  /* workspace4, 5, 6 = compressible; workspace7, 8, 9 = incompressible */
-  rgrid_sum(workspace7, workspace7, workspace8);
-  rgrid_sum(workspace7, workspace7, workspace9);
+  /* workspaces 4, 5, 6 = compressible; workspaces 7, 8, 9 = incompressible */
+  /* FFT each component */
   rgrid_fft(workspace7);
-  rgrid_multiply(workspace7, gwf->grid->step * gwf->mass / 2.0);
-  rgrid_spherical_average_reciprocal(workspace7, bins, binstep, nbins);
+  rgrid_fft(workspace8);
+  rgrid_fft(workspace9);
+  rgrid_spherical_average_reciprocal(workspace7, workspace8, workspace9, bins, binstep, nbins, 1);
+  rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
+  rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6);
+  rgrid_release(workspace7); rgrid_release(workspace8); rgrid_release(workspace9);
+  
+  for (i = 0; i < nbins; i++)
+    bins[i] = bins[i] * 0.5 * gwf->mass / (4.0 * M_PI);
 }
 
