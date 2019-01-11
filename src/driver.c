@@ -3011,3 +3011,36 @@ EXPORT void *dft_driver_get_workspace(char w, char alloc) {
    }
    return NULL;
 }
+
+/*
+ * Calculate incompressible kinetic energy density as a function of wave vector k (atomic unis).
+ *
+ * gwf     = Wave function to be analyzed (wf *; input).
+ * bins    = Averages in k-space (REAL *; output). The array length is nbins.
+ * binstep = Step length in k-space (REAL; input).
+ * nbins   = Number of bins to use (INT; input).
+ *
+ * No return value.
+ *
+ */
+
+EXPORT void dft_driver_incompressible_KE(wf *gwf, REAL *bins, REAL binstep, INT nbins) {
+
+  grid_wf_probability_flux(gwf, workspace1, workspace2, workspace3);
+  grid_wf_density(gwf, workspace4);
+  rgrid_power(workspace4, workspace4, 0.5);
+  rgrid_division_eps(workspace1, workspace1, workspace4, 1E-12);
+  rgrid_division_eps(workspace2, workspace2, workspace4, 1E-12);
+  rgrid_division_eps(workspace3, workspace3, workspace4, 1E-12);
+  /* workspace1 = flux_x / sqrt(rho) = sqrt(rho) * v_x */
+  /* workspace2 = flux_y / sqrt(rho) = sqrt(rho) * v_y */
+  /* workspace3 = flux_z / sqrt(rho) = sqrt(rho) * v_z */
+  rgrid_hodge(workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
+  /* workspace4, 5, 6 = compressible; workspace7, 8, 9 = incompressible */
+  rgrid_sum(workspace7, workspace7, workspace8);
+  rgrid_sum(workspace7, workspace7, workspace9);
+  rgrid_fft(workspace7);
+  rgrid_multiply(workspace7, gwf->grid->step * gwf->mass / 2.0);
+  rgrid_spherical_average_reciprocal(workspace7, bins, binstep, nbins);
+}
+
