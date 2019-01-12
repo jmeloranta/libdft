@@ -19,6 +19,6 @@ analyze.o: analyze.c config.h
 	        $(CC) $(CFLAGS) -c analyze.c
 
 clean:
-	-rm bubble *.[oxyz] *.grd *.x *.y *.z *~
+	-rm bubble *.[oxyz] *.grd *.x *.y *.z *~ *.dat
 
 

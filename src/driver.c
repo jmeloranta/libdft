@@ -3028,6 +3028,15 @@ EXPORT void dft_driver_incompressible_KE(wf *gwf, REAL *bins, REAL binstep, INT 
 
   INT i;
 
+  if(!workspace1) workspace1 = dft_driver_get_workspace(1, 1);
+  if(!workspace2) workspace2 = dft_driver_get_workspace(2, 1);
+  if(!workspace3) workspace3 = dft_driver_get_workspace(3, 1);
+  if(!workspace4) workspace4 = dft_driver_get_workspace(4, 1);
+  if(!workspace5) workspace5 = dft_driver_get_workspace(5, 1);
+  if(!workspace6) workspace6 = dft_driver_get_workspace(6, 1);
+  if(!workspace7) workspace7 = dft_driver_get_workspace(7, 1);
+  if(!workspace8) workspace8 = dft_driver_get_workspace(8, 1);
+  if(!workspace9) workspace9 = dft_driver_get_workspace(9, 1);
   rgrid_claim(workspace1); rgrid_claim(workspace2); rgrid_claim(workspace3);
   rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6);
   rgrid_claim(workspace7); rgrid_claim(workspace8); rgrid_claim(workspace9);
@@ -3043,9 +3052,9 @@ EXPORT void dft_driver_incompressible_KE(wf *gwf, REAL *bins, REAL binstep, INT 
   rgrid_hodge(workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
   /* workspaces 4, 5, 6 = compressible; workspaces 7, 8, 9 = incompressible */
   /* FFT each component */
-  rgrid_fft(workspace7);
-  rgrid_fft(workspace8);
-  rgrid_fft(workspace9);
+  rgrid_fft(workspace7); rgrid_multiply(workspace7, workspace7->step);
+  rgrid_fft(workspace8); rgrid_multiply(workspace8, workspace8->step);
+  rgrid_fft(workspace9); rgrid_multiply(workspace9, workspace9->step);
   rgrid_spherical_average_reciprocal(workspace7, workspace8, workspace9, bins, binstep, nbins, 1);
   rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
   rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6);
