@@ -3046,7 +3046,15 @@ EXPORT void dft_driver_incompressible_KE(wf *gwf, REAL *bins, REAL binstep, INT 
   /* workspace1 = flux_x / sqrt(rho) = sqrt(rho) * v_x */
   /* workspace2 = flux_y / sqrt(rho) = sqrt(rho) * v_y */
   /* workspace3 = flux_z / sqrt(rho) = sqrt(rho) * v_z */
+  // DEBUG!!
+#if 0
   rgrid_hodge(workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
+#else
+  rgrid_copy(workspace7, workspace1);
+  rgrid_copy(workspace8, workspace2);
+  rgrid_copy(workspace9, workspace3);
+#endif
+
   /* workspaces 4, 5, 6 = compressible; workspaces 7, 8, 9 = incompressible */
   /* FFT each component */
   rgrid_fft(workspace7); rgrid_multiply(workspace7, workspace7->step);
