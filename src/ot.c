@@ -1062,7 +1062,6 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   otf->alpha_s = 54.31 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
   otf->l_g = 1.0 / GRID_AUTOANG;
   otf->mass = 4.0026 / GRID_AUTOAMU;
-  otf->rho_eps = 1E-7 * 0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG;
   otf->bf_params.g11 = -19.7544;
   otf->bf_params.g12 = 12.5616 * GRID_AUTOANG * GRID_AUTOANG;
   otf->bf_params.a1  = 1.023 * GRID_AUTOANG * GRID_AUTOANG;

@@ -1,9 +1,6 @@
 /*
  * Simple driver routines to propagate the liquid.
  *
- * TODO: Add comments to show which internal workspaces are used by 
- * each function.
- *
  */
 
 #include <stdlib.h>
