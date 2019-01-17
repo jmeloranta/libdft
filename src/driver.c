@@ -3040,20 +3040,13 @@ EXPORT void dft_driver_incompressible_KE(wf *gwf, REAL *bins, REAL binstep, INT 
   grid_wf_probability_flux(gwf, workspace1, workspace2, workspace3);
   grid_wf_density(gwf, workspace4);
   rgrid_power(workspace4, workspace4, 0.5);
-  rgrid_division_eps(workspace1, workspace1, workspace4, 1E-12);
-  rgrid_division_eps(workspace2, workspace2, workspace4, 1E-12);
-  rgrid_division_eps(workspace3, workspace3, workspace4, 1E-12);
+  rgrid_division_eps(workspace1, workspace1, workspace4, 1E-5);
+  rgrid_division_eps(workspace2, workspace2, workspace4, 1E-5);
+  rgrid_division_eps(workspace3, workspace3, workspace4, 1E-5);
   /* workspace1 = flux_x / sqrt(rho) = sqrt(rho) * v_x */
   /* workspace2 = flux_y / sqrt(rho) = sqrt(rho) * v_y */
   /* workspace3 = flux_z / sqrt(rho) = sqrt(rho) * v_z */
-  // DEBUG!!
-#if 0
   rgrid_hodge(workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
-#else
-  rgrid_copy(workspace7, workspace1);
-  rgrid_copy(workspace8, workspace2);
-  rgrid_copy(workspace9, workspace3);
-#endif
 
   /* workspaces 4, 5, 6 = compressible; workspaces 7, 8, 9 = incompressible */
   /* FFT each component */
