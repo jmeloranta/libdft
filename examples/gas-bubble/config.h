@@ -5,10 +5,10 @@
 
 #define TIME_STEP 15.0                  /* Time step in imag/real iterations (fs) */
 #define FUNCTIONAL (DFT_OT_PLAIN)       /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
-#define STARTING_TIME 40.0          /* Start real time simulation at this time (fs) - (400,000) */
+#define STARTING_TIME 100.0          /* Start real time simulation at this time (fs) - (400,000) */
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP))
 #define MAXITER 80000000              /* Maximum number of real time iterations */
-#define OUTPUT_TIME 2500.0              /* Output interval time (fs) (2500) */
+#define OUTPUT_TIME 500.0              /* Output interval time (fs) (2500) */
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))
 #define OUTPUT_GRID (4*OUTPUT_ITER)     /* Output grid at given iterations (10,000) (leave undefined if not needed) */
 #ifdef USE_CUDA

@@ -11,6 +11,7 @@ libdft.a: $(OBJS)
 
 prototypes:
 	egrep -h \^EXPORT *.c | tr \{ \; | sed -e "s/EXPORT //g" > proto.h
+	echo "#define VERSION \""`git rev-parse master`"\"" > git-version.h
 
 install: 
 	cp libdft.a $(ROOT)/lib
@@ -38,4 +39,4 @@ bulk.o: bulk.c dft.h ot.h
 	$(CC) -I. $(CFLAGS) -c bulk.c
 
 clean:
-	-rm *.o libdft.a proto.h *~
+	-rm *.o libdft.a proto.h git-version.h *~

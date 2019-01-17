@@ -10,6 +10,7 @@
 #include <grid/au.h>
 #include "dft.h"
 #include "ot.h"
+#include "git-version.h"
 
 /*
  * Parameters for evaluating the potential grid (no need to play with these).
@@ -207,6 +208,8 @@ EXPORT void dft_driver_write_wisdom(char *file) {
  */
 
 EXPORT void dft_driver_initialize() {
+
+  fprintf(stderr, "libdft: GIT version ID %s.\n", VERSION);
 
   if(dft_driver_nx == 0) {
     fprintf(stderr, "libdft: dft_driver not properly initialized.\n");

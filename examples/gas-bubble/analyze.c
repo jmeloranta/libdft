@@ -7,6 +7,31 @@
 
 #include "bubble.h"
 
+/* Output incompressible kinetic energy distribution in the k-space */
+void do_ke(wf *gwf, REAL tim) {
+
+  static REAL *bins = NULL;
+  FILE *fp;
+  char file[256];
+  INT i;
+
+  if(!bins) {
+    if(!(bins = (REAL *) malloc(sizeof(REAL) * NBINS))) {
+      fprintf(stderr, "Can't allocate memory for bins.\n");
+      exit(1);
+    }
+  }
+  dft_driver_incompressible_KE(gwf, bins, BINSTEP, NBINS);
+  sprintf(file, "ke-" FMT_R ".dat", tim);
+  if(!(fp = fopen(file, "w"))) {
+    fprintf(stderr, "Can't open %s.\n", file);
+    exit(1);
+  }
+  for(i = 1; i < NBINS; i++)  /* Leave out the DC component (= zero) */
+    fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
+  fclose(fp);
+}
+
 void analyze(wf *wf, INT iter, REAL vx) {
 
   static REAL cur_mom_x = 0.0, cur_mom_y = 0.0, cur_mom_z = 0.0;
