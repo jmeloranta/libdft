@@ -16,21 +16,21 @@
 #endif
 /* #define PC                              /* Predict-Correct (accurate but uses more memory) (at ts = 15 fs, no PC needed) */
 
-#define VX (75.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
+#define VX (100.0 / GRID_AUTOMPS)        /* Flow velocity (m/s) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)   /* External pressure in bar (normal = 0) */
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 256    	/* # of grid points along x */ /* Largest: 729x384x384 */
-#define NY 128          /* # of grid points along y */
-#define NZ 128        	/* # of grid points along z */
+#define NX 512    	/* # of grid points along x */ /* Largest: 729x384x384 */
+#define NY 256          /* # of grid points along y */
+#define NZ 256        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 #define ABS_AMP 2.0     /* Absorption strength */
 #define ABS_WIDTH_X 60.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Y 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Z 25.0  /* Width of the absorbing boundary */
 
-#define NBINS 128          /* Number of bins for kinetic energy */
-#define BINSTEP 0.05        /* Bin step */
+#define NBINS 32                          /* Number of bins for kinetic energy */
+#define BINSTEP (0.1 * GRID_AUTOANG)      /* Bin step */
 
 #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_FFT      /* FFT */
 /* #define KINETIC_PROPAGATOR DFT_DRIVER_KINETIC_CN_NBC /* Crank-Nicolson */

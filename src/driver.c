@@ -209,7 +209,7 @@ EXPORT void dft_driver_write_wisdom(char *file) {
 
 EXPORT void dft_driver_initialize() {
 
-  fprintf(stderr, "libdft: GIT version ID %s.\n", VERSION);
+  fprintf(stderr, "libdft: GIT version ID %s\n", VERSION);
 
   if(dft_driver_nx == 0) {
     fprintf(stderr, "libdft: dft_driver not properly initialized.\n");
