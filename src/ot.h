@@ -182,7 +182,7 @@ extern int dft_driver_temp_disable_other_normalization;
 /* Constants */
 #define DFT_KB 3.1668773658e-06                   /* Boltzmann constant in atomic units */
 #define DFT_HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* Helium mass in atomic units */
-#define DFT_VELOC_CUTOFF (300.0 / GRID_AUTOMPS)   /* Velocity cutoff for evaluating velocity */
+#define DFT_VELOC_CUTOFF (900.0 / GRID_AUTOMPS)   /* Velocity cutoff for evaluating velocity */
                                                   /* When density is close to zero, velocity becomes ill defined */
 #define DFT_EPS 1E-5                              /* General division epsilon (usually when dividing by \rho) */
 
