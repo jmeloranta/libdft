@@ -1,3 +1,10 @@
-- use the common propagate entry points in libgrid rather than calling aux routines directly.
-- For 1D: remove BF vector components for X, Y. Check energy density.
-- Add 2D (cylindrical symmetry)
+- For 1D: Check energy density.
+
+In progress: Eliminating driver.c as it adds an unnecessary extra level of complexity. This will also force the user
+             to manage workspaces (avoid conflicts). Also the messy global variables will go away.
+- Many things will move to libgrid
+- Use libgrid routines for propagation directly (add predict-correct there etc.)
+- Potential routines should be in common.c
+- Initial condition routines -> initial.c
+
+What will be left: common.c, bulk.c, initial.c, ot.c, ot-energy.c.

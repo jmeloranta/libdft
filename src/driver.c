@@ -2768,8 +2768,6 @@ EXPORT void dft_driver_clear_core(rgrid *grid, rgrid *density, REAL thr) {
   rgrid_threshold_clear(grid, density, thr, -1E99, 0.0, 0.0);
 }
 
-/****** TODO: These need to into libgrid ***********/
-
 /*
  * This routine will zero a given wavefunction at points where the given potential exceeds the specified limit.
  *
