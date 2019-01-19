@@ -47,26 +47,6 @@ static grid_timer timer;
 static REAL driver_rmin = -1.0, driver_radd = 0.0, driver_a0 = 0.0, driver_a1 = 0.0, driver_a2 = 0.0, driver_a3 = 0.0, driver_a4 = 0.0, driver_a5 = 0.0;
 
 /*
- * Return default wisdom file name.
- *
- */
-
-static char *dft_driver_wisfile() {
-
-  char hn[128];
-  static char *buf = NULL;
-
-  if(buf == NULL && !(buf = (char *) malloc(128))) {
-    fprintf(stderr, "libdft: memory allocation failure (wisfile).\n");
-    exit(1);
-  }
-  gethostname(hn, sizeof(hn));
-  sprintf(buf, "fftw-%s.wis", hn);  
-  fprintf(stderr, "libdft: Wisdom file = %s.\n", buf);
-  return buf;
-}
-
-/*
  * Wave function normalization (for imaginary time).
  *
  */
@@ -159,47 +139,6 @@ inline static void scale_wf(char what, wf *gwf) {
 }
 
 /*
- * FFTW Wisdom interface - import wisdom.
- *
- * file = file name for reading wisdom data (input; char *).
- *
- */
-
-EXPORT void dft_driver_read_wisdom(char *file) {
-
-  /* Attempt to use wisdom (FFTW) from previous runs */
-#if defined(SINGLE_PREC)
-  if(fftwf_import_wisdom_from_filename(file) == 1) {
-#elif defined(DOUBLE_PREC)
-  if(fftw_import_wisdom_from_filename(file) == 1) {
-#elif defined(QUAD_PREC)
-  if(fftwl_import_wisdom_from_filename(file) == 1) {
-#endif
-    if(dft_driver_verbose) fprintf(stderr, "libdft: Using wisdom stored in %s.\n", file);
-  } else {
-    if(dft_driver_verbose) fprintf(stderr, "libdft: No existing wisdom file.\n");
-  }
-}
-
-/*
- * FFTW Wisdom interface - export wisdom.
- *
- * file = file name for saving wisdom data (input, char *).
- *
- */
-
-EXPORT void dft_driver_write_wisdom(char *file) {
-
-#if defined(SINGLE_PREC)
-  fftwf_export_wisdom_to_filename(file);
-#elif defined(DOUBLE_PREC)
-  fftw_export_wisdom_to_filename(file);
-#elif defined(QUAD_PREC)
-  fftwl_export_wisdom_to_filename(file);
-#endif
-}
-
-/*
  * Initialize dft_driver routines. This must always be called after the
  * parameters have been set.
  *
@@ -230,7 +169,7 @@ EXPORT void dft_driver_initialize() {
 
   grid_timer_start(&timer);
   grid_threads_init(driver_threads);
-  dft_driver_read_wisdom(dft_driver_wisfile());
+  grid_fft_read_wisdom(NULL);
   density = dft_driver_get_workspace(10, 1);
   workspace1 = dft_driver_get_workspace(1, 1);
   if((driver_dft_model != DFT_GP) && (driver_dft_model != DFT_GP2) && (driver_dft_model != DFT_ZERO)) {
@@ -560,7 +499,7 @@ EXPORT void dft_driver_propagate_kinetic_second(char what, wf *gwf, REAL complex
 
   if(!local_been_here) {
     local_been_here = 1;
-    dft_driver_write_wisdom(dft_driver_wisfile()); // we have done many FFTs at this point
+    grid_fft_write_wisdom(NULL); // we have done many FFTs at this point
   }
 }
 
