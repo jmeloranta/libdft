@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
 #ifdef INCLUDE_ELECTRON  
   fprintf(stderr,"Electron included.\n");
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "jortner.dat", "jortner.dat", "jortner.dat", pseudo);
-  dft_driver_convolution_prepare(pseudo, NULL);
+  rgrid_fft(pseudo);
 #else
   rgrid_zero(pseudo);
 #endif
@@ -187,8 +187,9 @@ int main(int argc, char *argv[]) {
 #ifdef INCLUDE_ELECTRON      
       energy += dft_driver_kinetic_energy(egwf); /* Liquid E + impurity kinetic E */
       grid_wf_density(gwf, density);
-      dft_driver_convolution_prepare(density, NULL);
-      dft_driver_convolution_eval(temp, density, pseudo);  // px is temp here
+      rgrid_fft(density);
+      rgrid_fft_convolute(temp, density, pseudo);
+      rgrid_inverse_fft(temp);
       
       grid_wf_density(egwf, density);
       rgrid_product(density, density, temp);
@@ -220,8 +221,9 @@ int main(int argc, char *argv[]) {
 #ifdef INCLUDE_ELECTRON
     /***** Electron *****/
     grid_wf_density(gwf, density);
-    dft_driver_convolution_prepare(density, NULL);
-    dft_driver_convolution_eval(density, density, pseudo);
+    rgrid_fft(density);
+    rgrid_fft_convolute(density, density, pseudo);
+    rgrid_inverse_fft(density);
     /* It is OK to run just one step - in imaginary time but not in real time. */
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, 0.0, egwf, egwfp, potential_store, time_step_el, l);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, 0.0, egwf, egwfp, potential_store, time_step_el, l);
@@ -232,8 +234,9 @@ int main(int argc, char *argv[]) {
     /***** Helium *****/
 #ifdef INCLUDE_ELECTRON
     grid_wf_density(egwf, density);
-    dft_driver_convolution_prepare(density, NULL);
-    dft_driver_convolution_eval(density, density, pseudo);
+    rgrid_fft(density);
+    rgrid_fft_convolute(density, density, pseudo);
+    rgrid_inverse_fft(density);
 #else
     rgrid_zero(density);
 #endif

@@ -962,43 +962,6 @@ EXPORT inline void dft_driver_propagate_correct(char what, rgrid *ext_pot, REAL 
 }
 
 /*
- * Prepare for convoluting potential and density.
- *
- * pot  = potential to be convoluted with (kernel) (input/output. rgrid *).
- * dens = denisity to be convoluted with (function) (input/output, rgrid *).
- *
- * This must be called before cgrid_driver_convolute_eval().
- * Both pot and dens are overwritten with their FFTs.
- * if either is specified as NULL, no transform is done for that grid.
- *
- * No return value.
- *
- */
-
-EXPORT void dft_driver_convolution_prepare(rgrid *pot, rgrid *dens) {
-
-  if(pot) rgrid_fft(pot);
-  if(dens) rgrid_fft(dens);
-}
-
-/*
- * Convolute density and potential.
- *
- * out  = output from convolution (output, cgrid *).
- * pot  = potential grid that has been prepared with cgrid_driver_convolute_prepare() (input, rgrid *).
- * dens = density against which has been prepared with cgrid_driver_convolute_prepare() (input, rgrid *).
- *
- * No return value.
- *
- */
-
-EXPORT void dft_driver_convolution_eval(rgrid *out, rgrid *pot, rgrid *dens) {
-
-  rgrid_fft_convolute(out, pot, dens);
-  rgrid_inverse_fft(out);
-}
-
-/*
  * Allocate a complex grid.
  *
  * Returns a pointer to new grid.
@@ -2009,10 +1972,13 @@ EXPORT rgrid *dft_driver_spectrum_init(rgrid *idensity, INT nt, INT zf, char upp
   dft_common_potential_map(lowerave, lowerx, lowery, lowerz, workspace2);
   fprintf(stderr, "libdft: spectrum init complete.\n");
   if(idensity) {
-    dft_driver_convolution_prepare(idensity, workspace1);
-    dft_driver_convolution_eval(workspace3, workspace1, idensity);
-    dft_driver_convolution_prepare(NULL, workspace2);
-    dft_driver_convolution_eval(workspace4, workspace2, idensity);    
+    rgrid_fft(idensity);
+    rgrid_fft(workspace1);
+    rgrid_fft_convolute(workspace3, workspace1, idensity);
+    rgrid_inverse_fft(workspace3);
+    rgrid_fft(workspace2);
+    rgrid_fft_convolute(workspace4, workspace2, idensity);
+    rgrid_inverse_fft(workspace4);
   } else {
     rgrid_copy(workspace3, workspace1);
     rgrid_copy(workspace4, workspace2);

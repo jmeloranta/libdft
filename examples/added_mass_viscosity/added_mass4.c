@@ -181,16 +181,18 @@ REAL eval_force(wf *gwf, wf *impwf, rgrid *pair_pot, rgrid *dpair_pot, rgrid *wo
 
 #if 1
   grid_wf_density(impwf, workspace1);
-  dft_driver_convolution_prepare(workspace1, NULL);
-  dft_driver_convolution_eval(workspace2, pair_pot, workspace1);
+  rgrid_fft(workspace1);
+  rgrid_fft_convolute(workspace2, pair_pot, workspace1);
+  rgrid_inverse_fft(workspace2);
   rgrid_fd_gradient_x(workspace2, workspace1);
   grid_wf_density(gwf, workspace2);
   rgrid_product(workspace1, workspace1, workspace2);
   tmp = rgrid_integral(workspace1);   /* minus -> plus */
 #else
   grid_wf_density(gwf, workspace1);
-  dft_driver_convolution_prepare(workspace1, NULL);
-  dft_driver_convolution_eval(workspace2, dpair_pot, workspace1);
+  rgrid_fft(workspace1);
+  rgrid_fft_convolute(workspace2, dpair_pot, workspace1)
+  rgrid_inverse_fft(workspace2);
   grid_wf_density(impwf, workspace1);
   rgrid_product(workspace1, workspace1, workspace2);
   tmp = -rgrid_integral(workspace1);
@@ -303,7 +305,8 @@ int main(int argc, char *argv[]) {
   /* Read pair potential from file and do FFT */
   dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, PSPOT, PSPOT, PSPOT, pair_pot);
   rgrid_fd_gradient_x(pair_pot, dpair_pot);
-  dft_driver_convolution_prepare(pair_pot, dpair_pot);
+  rgrid_fft(pair_pot);
+  rgrid_fft(dpair_pot);
   
   for(iter = 1; iter < MAXITER; iter++) {
     grid_timer_start(&timer);
@@ -317,8 +320,9 @@ int main(int argc, char *argv[]) {
 
     /* electron external potential */
     grid_wf_density(gwf, density);
-    dft_driver_convolution_prepare(NULL, density);      
-    dft_driver_convolution_eval(ext_pot, density, pair_pot);
+    rgrid_fft(density);
+    rgrid_fft_convolute(ext_pot, density, pair_pot);
+    rgrid_inverse_fft(ext_pot);
     cgrid_copy(impwfp->grid, impwf->grid);
     grid_real_to_complex_re(cpot_el, ext_pot);
     dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_OTHER, impwfp, cpot_el, IMP_STEP);
@@ -328,8 +332,9 @@ int main(int argc, char *argv[]) {
     dft_driver_ot_potential(gwf, cpot);
     dft_driver_viscous_potential(gwf, cpot);
     grid_wf_density(impwf, density);
-    dft_driver_convolution_prepare(NULL, density);
-    dft_driver_convolution_eval(ext_pot, density, pair_pot);
+    rgrid_fft(density);
+    rgrid_fft_convolute(ext_pot, density, pair_pot);
+    rgrid_inverse_fft(ext_pot);
     rgrid_add(ext_pot, -mu0); // chemical potential (same for super & normal)
     grid_add_real_to_complex_re(cpot, ext_pot);
     cgrid_copy(gwfp->grid, gwf->grid);
@@ -339,8 +344,9 @@ int main(int argc, char *argv[]) {
 
     /* electron external potential */
     grid_wf_density(gwfp, density);
-    dft_driver_convolution_prepare(NULL, density);      
-    dft_driver_convolution_eval(ext_pot, density, pair_pot);
+    rgrid_fft(density);
+    rgrid_fft_convolute(ext_pot, density, pair_pot);
+    rgrid_inverse_fft(ext_pot);
     grid_add_real_to_complex_re(cpot_el, ext_pot);
     cgrid_multiply(cpot_el, 0.5);
     dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_OTHER, impwf, cpot_el, IMP_STEP);
@@ -349,8 +355,9 @@ int main(int argc, char *argv[]) {
     dft_driver_ot_potential(gwfp, cpot);
     dft_driver_viscous_potential(gwfp, cpot);
     grid_wf_density(impwfp, density);
-    dft_driver_convolution_prepare(NULL, density);
-    dft_driver_convolution_eval(ext_pot, density, pair_pot);
+    rgrid_fft(density);
+    rgrid_fft_convolute(ext_pot, density, pair_pot);
+    rgrid_inverse_fft(ext_pot);
     rgrid_add(ext_pot, -mu0);
     grid_add_real_to_complex_re(cpot, ext_pot);
     cgrid_multiply(cpot, 0.5);
@@ -392,8 +399,9 @@ int main(int argc, char *argv[]) {
 	grid_wf_density(impwf, density);
 	
 	/* Helium energy */
-	dft_driver_convolution_prepare(NULL, density);
-	dft_driver_convolution_eval(ext_pot, density, pair_pot);
+        rgrid_fft(density);
+        rgrid_fft_convolute(ext_pot, density, pair_pot);
+        rgrid_inverse_fft(ext_pot);
 	kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
 	pot = dft_driver_potential_energy(gwf, ext_pot); /* Potential energy for gwf */
 	n = dft_driver_natoms(gwf);
@@ -419,4 +427,3 @@ int main(int argc, char *argv[]) {
   }
   return 0;
 }
-

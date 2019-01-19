@@ -17,7 +17,7 @@
 #include <dft/ot.h>
 
 /* Only imaginary time */
-#define TIME_STEP 20.	/* Time step in fs (5 for real, 10 for imag) */
+#define TIME_STEP 20.0	/* Time step in fs (5 for real, 10 for imag) */
 #define IMP_STEP 0.2	/* Time step in fs (5 for real, 10 for imag) */
 #define STARTING_ITER 1 /* Starting iteration - be careful if set to zero */
 #define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
@@ -31,14 +31,13 @@
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
 #define IMP_MASS 1. /* electron mass */
 
-#define KX	( VEL * 2. * M_PI / (NX * STEP ) )
-#define KY	(  0. * 2. * M_PI / (NX * STEP ) )
-#define KZ	(  0. * 2. * M_PI / (NX * STEP ) )
-#define VX	(  KX * HBAR / HELIUM_MASS )
-#define VY	(  KY * HBAR / HELIUM_MASS )
-#define VZ	(  KZ * HBAR / HELIUM_MASS )
-#define EKIN	( .5 * HELIUM_MASS * ( VX*VX + VY*VY + VZ*VZ) )
-
+#define KX	(VEL * 2.0 * M_PI / (NX * STEP))
+#define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
+#define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
+#define VX	(KX * HBAR / HELIUM_MASS)
+#define VY	(KY * HBAR / HELIUM_MASS)
+#define VZ	(KZ * HBAR / HELIUM_MASS)
+#define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
 REAL global_time;
 
@@ -51,13 +50,13 @@ int main(int argc, char *argv[]) {
   INT iter;
   char filename[2048];
   REAL kin, pot;
-  REAL rho0 , mu0 , n ;
+  REAL rho0, mu0, n;
   INT itime;
 
   /* Setup DFT driver parameters (256 x 256 x 256 grid) */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
   /* Setup frame of reference momentum */
-  dft_driver_setup_momentum(KX, KY, KZ );
+  dft_driver_setup_momentum(KX, KY, KZ);
 
   /* Plain Orsay-Trento in real or imaginary time */
   dft_driver_setup_model(DFT_OT_PLAIN, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
@@ -65,7 +64,7 @@ int main(int argc, char *argv[]) {
   /* Regular boundaries */
   dft_driver_setup_boundaries(DFT_DRIVER_BOUNDARY_REGULAR, 0.0);   /* regular periodic boundaries */
   dft_driver_setup_boundaries_damp(0.00);                          /* damping coeff., only needed for absorbing boundaries */
-  dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL );
+  dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   
   /* Initialize */
   dft_driver_initialize();
@@ -94,7 +93,7 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (A/ps)\n", 
 		  VX * 1000. * GRID_AUTOANG / GRID_AUTOFS,
 		  VY * 1000. * GRID_AUTOANG / GRID_AUTOFS,
-		  VZ * 1000. * GRID_AUTOANG / GRID_AUTOFS );
+		  VZ * 1000. * GRID_AUTOANG / GRID_AUTOFS);
 
   /* Initial wavefunctions. Read from file or set to initial guess */
 #if 0
@@ -102,7 +101,7 @@ int main(int argc, char *argv[]) {
   cgrid3d_constant( gwf->grid, SQRT(rho0));
   /* Gaussian for impurity (initial guess) */
   REAL inv_width = 0.5;
-  cgrid3d_map(impwf->grid, dft_common_cgaussian, &inv_width) ;  
+  cgrid3d_map(impwf->grid, dft_common_cgaussian, &inv_width);  
 #else
   /* Read liquid wavefunction from file */ 
   dft_driver_read_grid(gwf->grid, "../liquid_final");
@@ -118,75 +117,73 @@ int main(int argc, char *argv[]) {
   
   /* Read pair potential from file and do FFT */
   dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "../ehe-pot", "../ehe-pot", "../ehe-pot", pair_pot);
-  dft_driver_convolution_prepare(pair_pot,NULL) ;
+  rgrid_fft(pair_pot);
 
-
-  for(iter = STARTING_ITER ; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
+  for(iter = STARTING_ITER; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
     /*** IMPURITY ***/
-	  /* 1. update potential */
-	  grid3d_wf_density(gwf, density);
-	  dft_driver_convolution_prepare(NULL, density);
-	  dft_driver_convolution_eval(ext_pot, density, pair_pot );
-	  /* no chemical potential for impurity */
-	  /*2. Predict + correct */
+    /* 1. update potential */
+    grid3d_wf_density(gwf, density);
+    rgrid_fft(density);
+    rgrid_fft_convolution(ext_pot, density, pair_pot);
+    rgrid_inverse_fft(ext_pot);
+    /* no chemical potential for impurity */
+    /* 2. Predict + correct */
 #if 0
-	  for(itime=0; itime < SUBTIME ; itime++){
-	  	(void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, TIME_STEP/SUBTIME, iter); /* PREDICT */ 
-	  	(void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, TIME_STEP/SUBTIME, iter); /* CORRECT */
-	  }
+    for(itime = 0; itime < SUBTIME; itime++) {
+      (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, TIME_STEP/SUBTIME, iter); /* PREDICT */ 
+      (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, TIME_STEP/SUBTIME, iter); /* CORRECT */
+    }
 #else
-	  (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, IMP_STEP, iter); /* PREDICT */ 
-	  (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, IMP_STEP, iter); /* CORRECT */
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, IMP_STEP, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, impwf, impwfp, cworkspace, IMP_STEP, iter); /* CORRECT */
 #endif
-	  /*3. if OUTPUT, compute energy*/
-	  if(!(iter % OUTPUT)){	
-		  /* Impurity energy */
-		  grid3d_wf_density(impwf, density);
-		  kin = grid3d_wf_energy(impwf, NULL, cworkspace) ;     /*kinetic*/ 
-		  pot = rgrid3d_integral_of_product(ext_pot, density) ; /*potential*/
-		  printf("Iteration " FMT_I " impurity kinetic   = " FMT_R "\n", iter, kin * GRID_AUTOK);  /* Print result in K */
-		  printf("Iteration " FMT_I " impurity potential = " FMT_R "\n", iter, pot * GRID_AUTOK);  /* Print result in K */
-		  printf("Iteration " FMT_I " impurity energy    = " FMT_R "\n", iter, (kin+pot) * GRID_AUTOK);  /* Print result in K */
-		  /* Impurity density */
-		  sprintf(filename, "ebubble_imp-" FMT_I, iter);
-		  //dft_driver_write_2d_density(density, filename);  /* Write 2D density slices to file */
-		  dft_driver_write_grid(impwf->grid, filename);      /* Write wavefunction to file */
-	  }
+    /*3. if OUTPUT, compute energy*/
+    if(!(iter % OUTPUT)){	
+      /* Impurity energy */
+      grid3d_wf_density(impwf, density);
+      kin = grid3d_wf_energy(impwf, NULL, cworkspace);     /*kinetic*/ 
+      pot = rgrid3d_integral_of_product(ext_pot, density); /*potential*/
+      printf("Iteration " FMT_I " impurity kinetic   = " FMT_R "\n", iter, kin * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration " FMT_I " impurity potential = " FMT_R "\n", iter, pot * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration " FMT_I " impurity energy    = " FMT_R "\n", iter, (kin+pot) * GRID_AUTOK);  /* Print result in K */
+      /* Impurity density */
+      sprintf(filename, "ebubble_imp-" FMT_I, iter);
+      //dft_driver_write_2d_density(density, filename);  /* Write 2D density slices to file */
+      dft_driver_write_grid(impwf->grid, filename);      /* Write wavefunction to file */
+    }
 
     /***  HELIUM  ***/
-	  /* 1. update potential */
-	  grid3d_wf_density(impwf, density);
-	  dft_driver_convolution_prepare(NULL, density);
-	  dft_driver_convolution_eval(ext_pot, density, pair_pot );
-	  rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
-	  /*2. Predict + correct */
-	  (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-	  (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+    /* 1. update potential */
+    grid3d_wf_density(impwf, density);
+    rgrid_fft(density);
+    rgrid_fft_convolute(ext_pot, density, pair_pot);
+    rgrid_inverse_fft(ext_pot);
+    rgrid3d_add(ext_pot, -mu0); /* Add the chemical potential */
+    /* 2. Predict + correct */
+    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
+    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
 
-	  if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
-	    /* Helium energy */
-	    kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
-	    pot = dft_driver_potential_energy(gwf, ext_pot); /* Potential energy for gwf */
-	    //ene = kin + pot;           /* Total energy for gwf */
-      	    n = dft_driver_natoms(gwf);
-      	    printf("Iteration " FMT_I " background kinetic = " FMT_R "\n", iter, n * EKIN * GRID_AUTOK);
-      	    printf("Iteration " FMT_I " helium natoms    = " FMT_R " particles.\n", iter, n );
-	    printf("Iteration " FMT_I " helium kinetic   = " FMT_R "\n", iter, kin * GRID_AUTOK);
-	    printf("Iteration " FMT_I " helium potential = " FMT_R "\n", iter, pot * GRID_AUTOK);
-	    printf("Iteration " FMT_I " helium energy    = " FMT_R "\n", iter, (kin + pot) * GRID_AUTOK);
+    if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
+      /* Helium energy */
+      kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
+      pot = dft_driver_potential_energy(gwf, ext_pot); /* Potential energy for gwf */
+      //ene = kin + pot;           /* Total energy for gwf */
+      n = dft_driver_natoms(gwf);
+      printf("Iteration " FMT_I " background kinetic = " FMT_R "\n", iter, n * EKIN * GRID_AUTOK);
+      printf("Iteration " FMT_I " helium natoms    = " FMT_R " particles.\n", iter, n);
+      printf("Iteration " FMT_I " helium kinetic   = " FMT_R "\n", iter, kin * GRID_AUTOK);
+      printf("Iteration " FMT_I " helium potential = " FMT_R "\n", iter, pot * GRID_AUTOK);
+      printf("Iteration " FMT_I " helium energy    = " FMT_R "\n", iter, (kin + pot) * GRID_AUTOK);
       
-	    /* Helium density */
-	    if(VX)
-      	    	grid3d_wf_probability_flux_x(gwf, current);
-	    else if(VY)
-      	    	grid3d_wf_probability_flux_y(gwf, current);
-	    else
-      	    	grid3d_wf_probability_flux_z(gwf, current);
-     	    printf("Iteration " FMT_R " added mass = " FMT_R "\n", iter, rgrid3d_integral(current) / VX ); 
-	    grid3d_wf_density(gwf, density);                     /* Density from gwf */
-	    sprintf(filename, "ebubble_liquid-" FMT_I, iter);              
-	    //dft_driver_write_2d_density(density, filename);  /* Write 2D density slices to file */
-	    dft_driver_write_grid(gwf->grid, filename);      /* Write wavefunction to file */
+      /* Helium density */
+      if(VX) grid3d_wf_probability_flux_x(gwf, current);
+      else if(VY) grid3d_wf_probability_flux_y(gwf, current);
+      else grid3d_wf_probability_flux_z(gwf, current);
+      printf("Iteration " FMT_R " added mass = " FMT_R "\n", iter, rgrid3d_integral(current) / VX); 
+      grid3d_wf_density(gwf, density);                     /* Density from gwf */
+      sprintf(filename, "ebubble_liquid-" FMT_I, iter);              
+      //dft_driver_write_2d_density(density, filename);  /* Write 2D density slices to file */
+      dft_driver_write_grid(gwf->grid, filename);      /* Write wavefunction to file */
     }
   }
   return 0;

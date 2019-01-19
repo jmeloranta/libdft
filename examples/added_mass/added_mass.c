@@ -121,15 +121,16 @@ int main(int argc, char *argv[]) {
   
   /* Read pair potential from file and do FFT */
   dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "../electron/jortner.dat", "../electron/jortner.dat", "../electron/jortner.dat", pair_pot);
-  dft_driver_convolution_prepare(pair_pot, NULL);
+  rgrid_fft(pair_pot);
 
   for(iter = STARTING_ITER; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
     printf("Iteration = " FMT_I "\n", iter);
     /*** IMPURITY ***/
     /* 1. update potential */
     grid_wf_density(gwf, density);
-    dft_driver_convolution_prepare(NULL, density);
-    dft_driver_convolution_eval(ext_pot, density, pair_pot);
+    rgrid_fft(density);
+    rgrid_fft_convolute(ext_pot, density, pair_pot);
+    rgrid_inverse_fft(ext_pot);
     /* no chemical potential for impurity */
     /* 2. Predict + correct */
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot, 0.0, impwf, impwfp, cworkspace, IMP_STEP, iter); /* PREDICT */ 
@@ -154,8 +155,9 @@ int main(int argc, char *argv[]) {
     /***  HELIUM  ***/
     /* 1. update potential */
     grid_wf_density(impwf, density);
-    dft_driver_convolution_prepare(NULL, density);
-    dft_driver_convolution_eval(ext_pot, density, pair_pot);
+    rgrid_fft(density);
+    rgrid_fft_convolute(ext_pot, density, pair_pot);
+    rgrid_inverse_fft(ext_pot);
 
     /* 2. Predict + correct */
     (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 

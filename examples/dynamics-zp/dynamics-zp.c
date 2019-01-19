@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
 
   /* Read external potential from file */
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, INITIAL_POT_X, INITIAL_POT_Y, INITIAL_POT_Z, ext_pot);
-  dft_driver_convolution_prepare(NULL, ext_pot);
+  rgrid_fft(ext_pot);
 
   /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
@@ -73,15 +73,17 @@ int main(int argc, char **argv) {
   for (iter = 0; iter < 200; iter++) {
     /* convolute impurity density with ext_pot -> ext_pot2 */
     grid_wf_density(imwf, density);
-    dft_driver_convolution_prepare(density, NULL);
-    dft_driver_convolution_eval(ext_pot2, ext_pot, density);
+    rgrid_fft(density);
+    rgrid_fft_convolute(ext_pot2, ext_pot, density);
+    rgrid_inverse_fft(ext_pot2);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, 0.0, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, 0.0, gwf, gwfp, potential_store, TS, iter);
 
     /* convolute liquid density with ext_pot -> ext_pot2 */
     grid_wf_density(gwf, density);
-    dft_driver_convolution_prepare(density, NULL);
-    dft_driver_convolution_eval(ext_pot2, ext_pot, density);
+    rgrid_fft(density);
+    rgrid_fft_convolute(ext_pot2, ext_pot, density);
+    rgrid_inverse_fft(ext_pot2);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
   }
@@ -92,19 +94,21 @@ int main(int argc, char **argv) {
   /* Step #2: Propagate using the final state potential */
   dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_T1600MK, DFT_DRIVER_REAL_TIME, 0.0218360 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, FINAL_POT_X, FINAL_POT_Y, FINAL_POT_Z, ext_pot);
-  dft_driver_convolution_prepare(NULL, ext_pot);
+  rgrid_fft(ext_pot);
   for (iter = 0; iter < 200; iter++) {
     /* convolute impurity density with ext_pot -> ext_pot2 */
     grid_wf_density(imwf, density);
-    dft_driver_convolution_prepare(density, NULL);
-    dft_driver_convolution_eval(ext_pot2, ext_pot, density);
+    rgrid_fft(density);
+    rgrid_fft_convolute(ext_pot2, ext_pot, density);
+    rgrid_inverse_fft(ext_pot2);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, 0.0, gwf, gwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, 0.0, gwf, gwfp, potential_store, TS, iter);
 
     /* convolute liquid density with ext_pot -> ext_pot2 */
     grid_wf_density(gwf, density);
-    dft_driver_convolution_prepare(density, NULL);
-    dft_driver_convolution_eval(ext_pot2, ext_pot, density);
+    rgrid_fft(density);
+    rgrid_fft_convolute(ext_pot2, ext_pot, density);
+    rgrid_inverse_fft(ext_pot2);
     dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
     if(!(iter % 10)) {
