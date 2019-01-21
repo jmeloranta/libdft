@@ -161,6 +161,16 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
   REAL mu0;                 /* Determines Gross-Pitaevskii contact strength: \mu_0 / \rho_0 */
   REAL xi;                  /* High density correction parameter for backflow \xi */
   REAL rhobf;               /* High density correction parameter for backflow \rho_{bf} */
+  rgrid *workspace1;        /* Workspace 1 (these may be NULL if not allocated) */
+  rgrid *workspace2;        /* Workspace 2 */
+  rgrid *workspace3;        /* Workspace 3 */
+  rgrid *workspace4;        /* Workspace 4 */
+  rgrid *workspace5;        /* Workspace 5 */
+  rgrid *workspace6;        /* Workspace 6 */
+  rgrid *workspace7;        /* Workspace 7 */
+  rgrid *workspace8;        /* Workspace 8 */
+  rgrid *workspace9;        /* Workspace 9 */
+  rgrid *density;           /* Liquid density */
 } dft_ot_functional;
 
 /* Global user accessible variables */

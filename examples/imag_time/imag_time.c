@@ -215,12 +215,13 @@ int main(int argc, char **argv) {
       char buf[512];
       sprintf(buf, "output-" FMT_I, iter);
       grid_wf_density(gwf, density);
-      dft_driver_write_density(density, buf);
+      rgrid_write_grid(buf, density);
       sprintf(buf, "wf-output-" FMT_I, iter);
-      dft_driver_write_grid(gwf->grid, buf);
+      cgrid_write_grid(buf, gwf->grid);
     }
-    energy = dft_driver_energy(gwf, ext_pot);
-    natoms = dft_driver_natoms(gwf);
+    dft_ot_energy_density(dft_driver_otf, density, gwf);
+    energy = grid_wf_energy(gwf, density);
+    natoms = grid_wf_norm(gwf);
     printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
     printf("Number of He atoms is " FMT_R ".\n", natoms);
     printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
@@ -228,6 +229,6 @@ int main(int argc, char **argv) {
   }
   /* At this point gwf contains the converged wavefunction */
   grid_wf_density(gwf, density);
-  dft_driver_write_density(density, "output");
+  rgrid_write_grid("output", density);
   return 0;
 }

@@ -33,6 +33,7 @@ int main(int argc, char **argv) {
 
   INT model;
   REAL k, kk, e;
+  wf *gwf;
   
   /* parameters */
   if (argc != 4) {
@@ -56,7 +57,8 @@ int main(int argc, char **argv) {
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
-  dft_driver_initialize();
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");
+  dft_driver_initialize(gwf);
   fprintf(stderr, "Applied P = " FMT_R " MPa.\n", dft_ot_bulk_pressure(dft_driver_otf, RHO0) * GRID_AUTOPA / 1E6);
 
   printf("# Dispersion relation for functional " FMT_I ".\n", model);

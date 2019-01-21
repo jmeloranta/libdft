@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
   }
   /* At this point gwf contains the converged wavefunction */
   grid_wf_density(gwf, rworkspace);
-  dft_driver_write_density(rworkspace, "initial");
+  rgrid_write_grid("initial", rworkspace);
 
   /* Step #2: Run real time simulation using the final state potential */
   dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
     if(!(iter % NTH)) {
       sprintf(buf, "final-" FMT_I, iter);
       grid_wf_density(gwf, rworkspace);
-      dft_driver_write_density(rworkspace, buf);
+      rgrid_write_grid(buf, rworkspace);
     }
   }
   return 0;

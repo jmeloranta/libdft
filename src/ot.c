@@ -52,11 +52,7 @@ static void dft_ot_add_ancilotto(dft_ot_functional *otf, cgrid *potential, rgrid
  *         DFT_ZERO        No potential
  *
  *           If multiple options are needed, use and (&).
- * nx    = Number of grid points along X-axis.
- * ny    = Number of grid points along Y-axis.
- * nz    = Number of grid points along Z-axis.
- * step  = Spatial grid step (same along all axis).
- * bc    = Boundary condition: DFT_DRIVER_BC_X.
+ * wf           = Wavefunction to be used with this OT (wf *; input).
  * min_substeps = minimum substeps for function smoothing over the grid.
  * max_substeps = maximum substeps for function smoothing over the grid.
  *
@@ -68,12 +64,13 @@ static void dft_ot_add_ancilotto(dft_ot_functional *otf, cgrid *potential, rgrid
  *
  */
 
-EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL step, char bc, INT min_substeps, INT max_substeps) {
+EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT max_substeps) {
 
   REAL radius, inv_width;
   dft_ot_functional *otf;
-  REAL (*grid_type)(rgrid *, INT, INT, INT);
-  REAL x0, y0, z0;
+  REAL x0 = gwf->grid->x0, y0 = gwf->grid->y0, z0 = gwf->grid->z0;
+  REAL step = gwf->grid->step;
+  INT nx = gwf->grid->nx, ny = gwf->grid->ny, nz = gwf->grid->nz;
   
   otf = (dft_ot_functional *) malloc(sizeof(dft_ot_functional));
   otf->model = model;
@@ -82,30 +79,10 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
     return 0;
   }
  
-  /*
-   * If we have symmetric/antisymmetric b.c. the 'kernel' grids
-   * (those used for convolution) must be mapped from [0,L]
-   * instead of [-L/2,L/2]. This can be done by setting the
-   * appropiate origin x0,y0,z0
-   */ 
+  /* TODO: There is code for other BCs too */
 
-  switch(bc) {
-  case DFT_DRIVER_BC_NORMAL: 
-  case DFT_DRIVER_BC_NEUMANN:   /* TODO: This should belong to the case below */
-    grid_type = RGRID_PERIODIC_BOUNDARY;
-    x0 = y0 = z0 = 0.0;
-    break;
-  case DFT_DRIVER_BC_X:
-  case DFT_DRIVER_BC_Y:
-  case DFT_DRIVER_BC_Z:
-    /*  case DFT_DRIVER_BC_NEUMANN: */   /* See above */
-    grid_type = RGRID_NEUMANN_BOUNDARY;
-    x0 = -(((REAL) nx/2) + 0.5) * step;
-    y0 = -(((REAL) ny/2) + 0.5) * step;
-    z0 = -(((REAL) nz/2) + 0.5) * step;
-    break;
-  default:
-    fprintf(stderr, "libdft: Illegal boundary type.\n");
+  if(gwf->grid->value_outside != CGRID_PERIODIC_BOUNDARY) {
+    fprintf(stderr, "libdft: Only periodic boundaries supported.\n");
     exit(1);
   }
 
@@ -115,21 +92,21 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
 
   /* these grids are not needed for GP */
   if(!(model & DFT_GP) && !(model & DFT_ZERO) && !(model & DFT_GP2)) {
-    otf->lennard_jones = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT Lennard-Jones");
+    otf->lennard_jones = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Lennard-Jones");
     rgrid_set_origin(otf->lennard_jones, x0, y0, z0);
-    otf->spherical_avg = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT Sph. average");
+    otf->spherical_avg = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Sph. average");
     rgrid_set_origin(otf->spherical_avg, x0, y0, z0);
 
     if(model & DFT_OT_KC) {
-      otf->gaussian_tf = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT KC Gauss TF");
+      otf->gaussian_tf = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT KC Gauss TF");
       if(!otf->gaussian_tf) {
         fprintf(stderr, "libdft: Error in dft_ot_alloc(): Could not allocate memory for gaussian.\n");
         return 0;
       }
       rgrid_set_origin(otf->gaussian_tf, x0, y0, z0);
       if(nx != 1 || ny != 1) {
-        otf->gaussian_x_tf = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT KC Gauss TF_x");
-        otf->gaussian_y_tf = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT KC Gauss TF_y");
+        otf->gaussian_x_tf = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT KC Gauss TF_x");
+        otf->gaussian_y_tf = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT KC Gauss TF_y");
         if(!otf->gaussian_x_tf || !otf->gaussian_y_tf) {
   	  fprintf(stderr, "libdft: Error in dft_ot_alloc(): Could not allocate memory for gaussian.\n");
 	  return 0;
@@ -137,7 +114,7 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
         rgrid_set_origin(otf->gaussian_x_tf, x0, y0, z0);
         rgrid_set_origin(otf->gaussian_y_tf, x0, y0, z0);
       } else otf->gaussian_x_tf = otf->gaussian_y_tf = NULL;
-      otf->gaussian_z_tf = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT KC Gauss TF_z");
+      otf->gaussian_z_tf = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT KC Gauss TF_z");
       if(!otf->gaussian_z_tf) {
         fprintf(stderr, "libdft: Error in dft_ot_alloc(): Could not allocate memory for gaussian.\n");
         return 0;
@@ -146,7 +123,7 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
     } else otf->gaussian_x_tf = otf->gaussian_y_tf = otf->gaussian_z_tf = otf->gaussian_tf = NULL;
   
     if(model & DFT_OT_BACKFLOW) {
-      otf->backflow_pot = rgrid_alloc(nx, ny, nz, step, grid_type, 0, "OT Backflow");
+      otf->backflow_pot = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Backflow");
       if(!otf->backflow_pot) {
 	fprintf(stderr, "libdft: Error in dft_ot_alloc(): Could not allocate memory for backflow_pot.\n");
 	return 0;
@@ -229,6 +206,31 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, INT nx, INT ny, INT nz, REAL s
     }
   }
 
+  /* Allocate workspaces based on the functional */
+  otf->density = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Density");
+  otf->workspace1 = NULL;
+  otf->workspace2 = NULL;
+  otf->workspace3 = NULL;
+  otf->workspace4 = NULL;
+  otf->workspace5 = NULL;
+  otf->workspace6 = NULL;
+  otf->workspace7 = NULL;
+  otf->workspace8 = NULL;
+  otf->workspace9 = NULL;
+
+  if(model & DFT_ZERO) return otf; /* No workspaces needed */
+  otf->workspace1 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 1");
+  if((model & DFT_GP) || (model & DFT_GP2)) return otf;
+  otf->workspace2 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 2");
+  otf->workspace3 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 3");
+  if(!(model & DFT_OT_KC) && !(model & DFT_OT_BACKFLOW)) return otf; // plain OT or DR
+  otf->workspace4 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 3");
+  otf->workspace5 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 4");
+  otf->workspace6 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 5");
+  if(!(model & DFT_OT_BACKFLOW)) return otf;
+  otf->workspace7 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 7");
+  otf->workspace8 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 8");
+  otf->workspace9 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 9");
   return otf;
 }
 
@@ -252,7 +254,67 @@ EXPORT void dft_ot_free(dft_ot_functional *otf) {
     if (otf->gaussian_y_tf) rgrid_free(otf->gaussian_y_tf);
     if (otf->gaussian_z_tf) rgrid_free(otf->gaussian_z_tf);
     if (otf->backflow_pot) rgrid_free(otf->backflow_pot);
+    if (otf->density) rgrid_free(otf->density);
+    if (otf->workspace1) rgrid_free(otf->workspace1);
+    if (otf->workspace2) rgrid_free(otf->workspace2);
+    if (otf->workspace3) rgrid_free(otf->workspace3);
+    if (otf->workspace4) rgrid_free(otf->workspace4);
+    if (otf->workspace5) rgrid_free(otf->workspace5);
+    if (otf->workspace6) rgrid_free(otf->workspace6);
+    if (otf->workspace7) rgrid_free(otf->workspace7);
+    if (otf->workspace8) rgrid_free(otf->workspace8);
+    if (otf->workspace9) rgrid_free(otf->workspace9);
     free(otf);
+  }
+}
+
+/*
+ * Verify that the given workspace is allocated within otf structure.
+ * Allocate if not allocated.
+ *
+ * otf   = OT functional handle (dft_ot_functional *; input).
+ * wrk   = Workspace number (char; input).
+ *
+ * Returns pointer to the workspace grid (rgrid *).
+ *
+ */
+
+EXPORT rgrid *dft_ot_workspace(dft_ot_functional *otf, wf *gwf, char wrk) {
+
+  INT nx = gwf->grid->nx, ny = gwf->grid->ny, nz = gwf->grid->nz;
+  REAL step = gwf->grid->step;
+
+  switch(wrk) {
+    case 1:
+      if(!otf->workspace1) otf->workspace1 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 1");
+      return otf->workspace1;
+    case 2:
+      if(!otf->workspace2) otf->workspace1 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 2");
+      return otf->workspace2;
+    case 3:
+      if(!otf->workspace3) otf->workspace1 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 3");
+      return otf->workspace3;
+    case 4:
+      if(!otf->workspace4) otf->workspace1 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 4");
+      return otf->workspace4;
+    case 5:
+      if(!otf->workspace5) otf->workspace1 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 5");
+      return otf->workspace5;
+    case 6:
+      if(!otf->workspace6) otf->workspace1 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 6");
+      return otf->workspace6;
+    case 7:
+      if(!otf->workspace7) otf->workspace1 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 7");
+      return otf->workspace7;
+    case 8:
+      if(!otf->workspace8) otf->workspace1 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 8");
+      return otf->workspace8;
+    case 9:
+      if(!otf->workspace9) otf->workspace1 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 9");
+      return otf->workspace9;
+    default:
+      fprintf(stderr, "libdft: Unknown workspace number.\n");
+      exit(1);
   }
 }
 
@@ -262,22 +324,39 @@ EXPORT void dft_ot_free(dft_ot_functional *otf) {
  * otf        = OT  functional structure.
  * potential  = Potential grid where the result will be stored (output). NOTE: the potential will be added to this (may want to zero it first)
  * wf         = Wavefunction (input; used only for backflow).
- * density    = Liquid helium density grid (input).
- * workspace1 = Workspace grid (must be allocated by the user). GP access up to this point.
- * workspace2 = Workspace grid (must be allocated by the user).
- * workspace3 = Workspace grid (must be allocated by the user). Basic OT access up to this point.
- * workspace4 = Workspace grid (must be allocated by the user).
- * workspace5 = Workspace grid (must be allocated by the user).
- * workspace6 = Workspace grid (must be allocated by the user). KC access up to this point.
- * workspace7 = Workspace grid (must be allocated by the user). 
- * workspace8 = Workspace grid (must be allocated by the user). 
- * workspace9 = Workspace grid (must be allocated by the user). BF access up to this point.
  *
  * No return value.
  *
+ * Grid usage in otf structure:
+ * density    = Liquid helium density grid (all functionals).
+ * workspace1 = Workspace grid. GP access up to this point.
+ * workspace2 = Workspace grid.
+ * workspace3 = Workspace grid. Basic OT access up to this point.
+ * workspace4 = Workspace grid.
+ * workspace5 = Workspace grid.
+ * workspace6 = Workspace grid. KC access up to this point.
+ * workspace7 = Workspace grid. 
+ * workspace8 = Workspace grid. 
+ * workspace9 = Workspace grid. BF access up to this point.
+ *
  */
 
-EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf, rgrid *density, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4, rgrid *workspace5, rgrid *workspace6, rgrid *workspace7, rgrid *workspace8, rgrid *workspace9) {
+EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf) {
+
+  rgrid *workspace1, *workspace2, *workspace3, *workspace4, *workspace5, *workspace6, *workspace7, *workspace8, *workspace9;
+  rgrid *density;
+
+  density = otf->density;
+  grid_wf_density(wf, density);
+  workspace1 = otf->workspace1;
+  workspace2 = otf->workspace2;
+  workspace3 = otf->workspace3;
+  workspace4 = otf->workspace4;
+  workspace5 = otf->workspace5;
+  workspace6 = otf->workspace6;
+  workspace7 = otf->workspace7;
+  workspace8 = otf->workspace8;
+  workspace9 = otf->workspace9;
 
   if(otf->model & DFT_ZERO) {
     fprintf(stderr, "libdft: Warning - zero potential used.\n");
@@ -1078,4 +1157,138 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
 	  3.0 * otf->c3_exp);
   
   otf->model = model;
+}
+
+/*
+ * Compute the viscous potential (Navier-Stokes). Not formally part of OT.
+ *
+ * gwf = wavefunction (wf *; input).
+ * pot = potential (cgrid *; output).
+ *
+ */
+
+struct visc_func_param {
+  REAL rho0;
+  REAL viscosity;
+  REAL viscosity_alpha;
+};
+
+static REAL visc_func(REAL rho, void *prm) {
+
+  struct visc_func_param *params = (struct visc_func_param *) prm;
+
+  return POW(rho / params->rho0, params->viscosity_alpha) * params->viscosity;  // viscosity_alpha > 0
+}
+
+EXPORT void dft_viscous_potential(wf *gwf, cgrid *pot, REAL rho0, REAL viscosity, REAL viscosity_alpha) {
+
+  rgrid *workspace1 = dft_driver_otf->workspace1;
+  rgrid *workspace2 = dft_driver_otf->workspace2;
+  rgrid *workspace3 = dft_driver_otf->workspace3;
+  rgrid *workspace4 = dft_driver_otf->workspace4;
+  rgrid *workspace5 = dft_driver_otf->workspace5;
+  rgrid *workspace6 = dft_driver_otf->workspace6;
+  rgrid *workspace7 = dft_driver_otf->workspace7;
+  rgrid *workspace8 = dft_driver_otf->workspace8;
+  struct visc_func_param prm;
+  
+  prm.rho0 = rho0;
+  prm.viscosity = viscosity;
+  prm.viscosity_alpha = viscosity_alpha;
+
+  // was 1e-8   (crashes, 5E-8 done, test 1E-7)
+  // we have to worry about 1 / rho....
+#define POISSON_EPS 1E-7
+
+  /* Stress tensor elements (without viscosity) */
+  /* 1 (diagonal; workspace2) */
+  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_x(workspace8, workspace2);
+  rgrid_multiply(workspace2, 4.0/3.0);
+  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_y(workspace8, workspace1);
+  rgrid_multiply(workspace1, -2.0/3.0);
+  rgrid_sum(workspace2, workspace2, workspace1);
+  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_z(workspace8, workspace1);
+  rgrid_multiply(workspace1, -2.0/3.0);
+  rgrid_sum(workspace2, workspace2, workspace1);
+
+  /* 2 = 4 (symmetry; workspace3) */
+  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_x(workspace8, workspace3);
+  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_y(workspace8, workspace1);
+  rgrid_sum(workspace3, workspace3, workspace1);
+  
+  /* 3 = 7 (symmetry; workspace4) */
+  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_x(workspace8, workspace4);
+  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_z(workspace8, workspace1);
+  rgrid_sum(workspace4, workspace4, workspace1);
+
+  /* 5 (diagonal; workspace5) */
+  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_y(workspace8, workspace5);
+  rgrid_multiply(workspace5, 4.0/3.0);
+  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_x(workspace8, workspace1);
+  rgrid_multiply(workspace1, -2.0/3.0);
+  rgrid_sum(workspace5, workspace5, workspace1);
+  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_z(workspace8, workspace1);
+  rgrid_multiply(workspace1, -2.0/3.0);
+  rgrid_sum(workspace5, workspace5, workspace1);
+  
+  /* 6 = 8 (symmetryl workspace6) */
+  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_y(workspace8, workspace6);
+  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_z(workspace8, workspace1);
+  rgrid_sum(workspace6, workspace6, workspace1);
+
+  /* 9 = (diagonal; workspace7) */
+  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_z(workspace8, workspace7);
+  rgrid_multiply(workspace7, 4.0/3.0);
+  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_x(workspace8, workspace1);
+  rgrid_multiply(workspace1, -2.0/3.0);
+  rgrid_sum(workspace7, workspace7, workspace1);
+  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
+  rgrid_fd_gradient_y(workspace8, workspace1);
+  rgrid_multiply(workspace1, -2.0/3.0);
+  rgrid_sum(workspace7, workspace7, workspace1);
+
+  /* factor in viscosity */
+  grid_wf_density(gwf, workspace8);
+  rgrid_operate_one(workspace8, workspace8, visc_func, &prm);
+  rgrid_product(workspace2, workspace2, workspace8);
+  rgrid_product(workspace3, workspace3, workspace8);
+  rgrid_product(workspace4, workspace4, workspace8);
+  rgrid_product(workspace5, workspace5, workspace8);
+  rgrid_product(workspace6, workspace6, workspace8);
+  rgrid_product(workspace7, workspace7, workspace8);
+  
+  /* x component of divergence (workspace1) */
+  rgrid_div(workspace1, workspace2, workspace3, workspace4); // (d/dx) 1(wrk2) + (d/dy) 2(wrk3) + (d/dz) 3(wrk4)
+  /* y component of divergence (workspace2) */
+  rgrid_div(workspace2, workspace3, workspace5, workspace6); // (d/dx) 2(wrk3) + (d/dy) 5(wrk5) + (d/dz) 6(wrk6)
+  /* x component of divergence (workspace3) */
+  rgrid_div(workspace3, workspace4, workspace6, workspace7); // (d/dx) 3(wrk4) + (d/dy) 6(wrk6) + (d/dz) 9(wrk7)
+
+  /* divide by -rho */
+  grid_wf_density(gwf, workspace8);
+  rgrid_multiply(workspace8, -1.0);
+  rgrid_division_eps(workspace1, workspace1, workspace8, POISSON_EPS);
+  rgrid_division_eps(workspace2, workspace2, workspace8, POISSON_EPS);
+  rgrid_division_eps(workspace3, workspace3, workspace8, POISSON_EPS);
+  
+  /* the final divergence */
+  rgrid_div(workspace8, workspace1, workspace2, workspace3);
+  
+  // Solve the Poisson equation to get the viscous potential
+  rgrid_poisson(workspace8);
+  grid_add_real_to_complex_re(pot, workspace8);
 }

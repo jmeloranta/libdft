@@ -23,25 +23,27 @@
  *
  * otf            = OT  functional structure.
  * energy_density = energy density grid (output).
- * density        = liquid density grid (input).
- * workspace1 = Workspace grid (must be allocated by the user).
- * workspace2 = Workspace grid (must be allocated by the user).
- * workspace3 = Workspace grid (must be allocated by the user).
- * workspace4 = Workspace grid (must be allocated by the user).
- * workspace5 = Workspace grid (must be allocated by the user).
- * workspace6 = Workspace grid (must be allocated by the user).
- * workspace7 = Workspace grid (must be allocated by the user).
- * workspace8 = Workspace grid (must be allocated by the user).
  *
  * No return value.
  *
  */
 
-EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density, wf *wf, rgrid *density, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4, rgrid *workspace5, rgrid *workspace6, rgrid *workspace7, rgrid *workspace8) {
-  
-  rgrid_claim(workspace1); rgrid_claim(workspace2); rgrid_claim(workspace3);
-  rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6);
-  rgrid_claim(workspace7); rgrid_claim(workspace8);
+EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density, wf *wf) {
+
+  rgrid *workspace1, *workspace2, *workspace3, *workspace4, *workspace5, *workspace6, *workspace7, *workspace8;
+  rgrid *density;
+
+  density = otf->density;  
+  grid_wf_density(wf, density);
+  workspace1 = otf->workspace1;
+  workspace2 = otf->workspace2;
+  workspace3 = otf->workspace3;
+  workspace4 = otf->workspace4;
+  workspace5 = otf->workspace5;
+  workspace6 = otf->workspace6;
+  workspace7 = otf->workspace7;
+  workspace8 = otf->workspace8;
+// not used  workspace9 = otf->workspace9;
 
   rgrid_zero(energy_density);
 
@@ -221,7 +223,4 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
     rgrid_product(workspace6, workspace6, workspace7);
     rgrid_add_scaled(energy_density, -otf->mass / 4.0, workspace6);
   }
-  rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
-  rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6);
-  rgrid_release(workspace7); rgrid_release(workspace8);
 }

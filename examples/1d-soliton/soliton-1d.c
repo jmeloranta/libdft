@@ -66,8 +66,12 @@ int main(int argc, char **argv) {
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 3.0, 10);
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* density */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -78,10 +82,6 @@ int main(int argc, char **argv) {
   /* Allocate space for external potential */
   potential_store = dft_driver_alloc_cgrid("cworkspace"); /* temporary storage */
   density = dft_driver_alloc_rgrid("density");
-
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
   if(argc == 2) {
     FILE *fp;
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
     if(!(iter % NTH)) {
       sprintf(buf, "soliton-" FMT_I, iter);
       grid_wf_density(gwf, density);
-      dft_driver_write_density(density, buf);
+      rgrid_write_grid(buf, density);
     }
   }
   return 0;

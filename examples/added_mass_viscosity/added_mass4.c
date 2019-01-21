@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
   wf *gwf, *gwfp;
   wf *impwf, *impwfp; /* impurity wavefunction */
   cgrid *cpot_el, *cpot;
-  rgrid *pair_pot, *dpair_pot, *ext_pot, *density;
+  rgrid *pair_pot, *dpair_pot, *ext_pot, *rworkspace;
   rgrid *vx;
   INT iter;
   char filename[2048];
@@ -233,20 +233,23 @@ int main(int argc, char *argv[]) {
   
   /* Plain Orsay-Trento in real or imaginary time */
   dft_driver_setup_model(FUNCTIONAL, 1, DENSITY);
-#ifdef ALPHA
-  printf("Using preset alpha.\n");
-  dft_driver_setup_viscosity(RHON * VISCOSITY, ALPHA);
-#else
-  printf("Using precomputed alpha. with T = " FMT_R "\n", T);
-  dft_driver_setup_viscosity(RHON * VISCOSITY, 1.72 + 2.32E-10*EXP(11.15*T));  
-#endif
   
   /* Regular boundaries */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   
+  /* Allocate wave functions */
+  impwf = dft_driver_alloc_wavefunction(IMP_MASS, "impwf");   /* impurity - order parameter for current time */
+  impwf->norm  = 1.0;
+  impwfp = dft_driver_alloc_wavefunction(IMP_MASS, "impwfp");  /* impurity - order parameter for future (predict) */
+  impwfp->norm = 1.0;
+  cgrid_set_momentum(impwf->grid, 0.0, 0.0, 0.0); /* Electron at rest */
+  cgrid_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");  /* order parameter for current time */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) */
+
   /* Initialize */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* normalization */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);
@@ -258,22 +261,14 @@ int main(int argc, char *argv[]) {
   printf("Bulk: rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
   printf("Exp: rho0 = " FMT_R " Angs^-3.\n", DENSITY / (0.529 * 0.529 * 0.529));
   
-  /* Allocate wavefunctions and grids */
+  /* Allocate grids */
   cpot_el = dft_driver_alloc_cgrid("cpot_el");
   cpot = dft_driver_alloc_cgrid("cpot");
   pair_pot = dft_driver_alloc_rgrid("pair_pot");               /* allocate real external potential grid */
   dpair_pot = dft_driver_alloc_rgrid("dpair_pot");               /* allocate real external potential grid */
   ext_pot = dft_driver_alloc_rgrid("ext_pot");                /* allocate real external potential grid */
-  density = dft_driver_alloc_rgrid("density");                /* allocate real density grid */
+  rworkspace = dft_driver_alloc_rgrid("density");                /* allocate real density grid */
   vx = dft_driver_alloc_rgrid("vx");                /* allocate real density grid */
-  impwf = dft_driver_alloc_wavefunction(IMP_MASS, "impwf");   /* impurity - order parameter for current time */
-  impwf->norm  = 1.0;
-  impwfp = dft_driver_alloc_wavefunction(IMP_MASS, "impwfp");  /* impurity - order parameter for future (predict) */
-  impwfp->norm = 1.0;
-  cgrid_set_momentum(impwf->grid, 0.0, 0.0, 0.0); /* Electron at rest */
-  cgrid_set_momentum(impwfp->grid, 0.0, 0.0, 0.0);
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");  /* order parameter for current time */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) */
   
   fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (a.u.)\n", VX, VY, VZ);
@@ -292,10 +287,10 @@ int main(int argc, char *argv[]) {
   } else if (argc == 3) {   /* restarting */
     printf("Initial guess read from a file.\n");
     printf("Helium WF from %s.\n", argv[1]);
-    dft_driver_read_grid(gwf->grid, argv[1]);      
+    cgrid_read_grid(gwf->grid, argv[1]);      
     cgrid_multiply(gwf->grid, SQRT(rho0) / gwf->grid->value[0]);
     printf("Electron WF from %s.\n", argv[2]);
-    dft_driver_read_grid(impwf->grid, argv[2]);      
+    cgrid_read_grid(impwf->grid, argv[2]);      
     cgrid_multiply(impwf->grid, 1.0 / SQRT(grid_wf_norm(impwf)));
   } else {
     printf("Usage: added_mass4 <helium_wf electron_wf>\n");
@@ -319,9 +314,9 @@ int main(int argc, char *argv[]) {
     /* PREDICT */
 
     /* electron external potential */
-    grid_wf_density(gwf, density);
-    rgrid_fft(density);
-    rgrid_fft_convolute(ext_pot, density, pair_pot);
+    grid_wf_density(gwf, dft_driver_otf->density);
+    rgrid_fft(dft_driver_otf->density);
+    rgrid_fft_convolute(ext_pot, dft_driver_otf->density, pair_pot);
     rgrid_inverse_fft(ext_pot);
     cgrid_copy(impwfp->grid, impwf->grid);
     grid_real_to_complex_re(cpot_el, ext_pot);
@@ -329,11 +324,17 @@ int main(int argc, char *argv[]) {
 
     /* helium external potential */
     cgrid_zero(cpot);
-    dft_driver_ot_potential(gwf, cpot);
-    dft_driver_viscous_potential(gwf, cpot);
-    grid_wf_density(impwf, density);
-    rgrid_fft(density);
-    rgrid_fft_convolute(ext_pot, density, pair_pot);
+    dft_ot_potential(dft_driver_otf, cpot, gwf);
+#ifdef ALPHA
+    printf("Using preset alpha.\n");
+    dft_viscous_potential(gwf, cpot, rho0, RHON * VISCOSITY, ALPHA);
+#else
+    printf("Using precomputed alpha. with T = " FMT_R "\n", T);
+    dft_viscous_potential(gwf, cpot, rho0, RHON * VISCOSITY, 1.72 + 2.32E-10*EXP(11.15*T));
+#endif
+    grid_wf_density(impwf, dft_driver_otf->density);
+    rgrid_fft(dft_driver_otf->density);
+    rgrid_fft_convolute(ext_pot, dft_driver_otf->density, pair_pot);
     rgrid_inverse_fft(ext_pot);
     rgrid_add(ext_pot, -mu0); // chemical potential (same for super & normal)
     grid_add_real_to_complex_re(cpot, ext_pot);
@@ -343,20 +344,26 @@ int main(int argc, char *argv[]) {
     /* CORRECT */
 
     /* electron external potential */
-    grid_wf_density(gwfp, density);
-    rgrid_fft(density);
-    rgrid_fft_convolute(ext_pot, density, pair_pot);
+    grid_wf_density(gwfp, dft_driver_otf->density);
+    rgrid_fft(dft_driver_otf->density);
+    rgrid_fft_convolute(ext_pot, dft_driver_otf->density, pair_pot);
     rgrid_inverse_fft(ext_pot);
     grid_add_real_to_complex_re(cpot_el, ext_pot);
     cgrid_multiply(cpot_el, 0.5);
     dft_driver_propagate_potential(DFT_DRIVER_PROPAGATE_OTHER, impwf, cpot_el, IMP_STEP);
 
     /* helium external potential */
-    dft_driver_ot_potential(gwfp, cpot);
-    dft_driver_viscous_potential(gwfp, cpot);
-    grid_wf_density(impwfp, density);
-    rgrid_fft(density);
-    rgrid_fft_convolute(ext_pot, density, pair_pot);
+    dft_ot_potential(dft_driver_otf, cpot, gwfp);
+#ifdef ALPHA
+    printf("Using preset alpha.\n");
+    dft_viscous_potential(gwfp, cpot, rho0, RHON * VISCOSITY, ALPHA);
+#else
+    printf("Using precomputed alpha. with T = " FMT_R "\n", T);
+    dft_viscous_potential(gwfp, cpot, rho0, RHON * VISCOSITY, 1.72 + 2.32E-10*EXP(11.15*T));
+#endif
+    grid_wf_density(impwfp, dft_driver_otf->density);
+    rgrid_fft(dft_driver_otf->density);
+    rgrid_fft_convolute(ext_pot, dft_driver_otf->density, pair_pot);
     rgrid_inverse_fft(ext_pot);
     rgrid_add(ext_pot, -mu0);
     grid_add_real_to_complex_re(cpot, ext_pot);
@@ -383,7 +390,7 @@ int main(int argc, char *argv[]) {
       tmp =  rgrid_integral(vx) / VX;
       printf("Added mass = " FMT_R "\n", tmp);
 
-      force = eval_force(gwf, impwf, pair_pot, dpair_pot, ext_pot, density);  /* ext_pot & density are temps */
+      force = eval_force(gwf, impwf, pair_pot, dpair_pot, ext_pot, dft_driver_otf->density);  /* ext_pot & density are temps */
 
       printf("Drag force on ion = " FMT_R " a.u.\n", force);
       printf("E-field = " FMT_R " V/m\n", -force * GRID_AUTOVPM);
@@ -396,15 +403,17 @@ int main(int argc, char *argv[]) {
 
       if(!(iter % (OUTPUT2*OUTPUT))) {   /* 10XOUTPUT for writing files */
 	/* Impurity density */
-	grid_wf_density(impwf, density);
+	grid_wf_density(impwf, dft_driver_otf->density);
 	
 	/* Helium energy */
-        rgrid_fft(density);
-        rgrid_fft_convolute(ext_pot, density, pair_pot);
+        rgrid_fft(dft_driver_otf->density);
+        rgrid_fft_convolute(ext_pot, dft_driver_otf->density, pair_pot);
         rgrid_inverse_fft(ext_pot);
-	kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
-	pot = dft_driver_potential_energy(gwf, ext_pot); /* Potential energy for gwf */
-	n = dft_driver_natoms(gwf);
+	kin = grid_wf_energy(gwf, NULL);                 /* Kinetic energy for gwf */
+        dft_ot_energy_density(dft_driver_otf, rworkspace, gwf);
+        rgrid_sum(rworkspace, rworkspace, ext_pot);
+        pot = rgrid_integral(rworkspace);
+	n = grid_wf_norm(gwf);
 
 	printf("Background kinetic = " FMT_R "\n", n * EKIN * GRID_AUTOK);
 	printf("Helium natoms    = " FMT_R " particles.\n", n);
@@ -412,16 +421,16 @@ int main(int argc, char *argv[]) {
 	printf("Helium potential = " FMT_R "\n", pot * GRID_AUTOK);
 	printf("Helium energy    = " FMT_R "\n", (kin + pot) * GRID_AUTOK);
 
-	grid_wf_density(impwf, density);
-	printf("Electron asymmetry (stddev x/y) = %le\n", rgrid_weighted_integral(density, stddev_x, NULL) / rgrid_weighted_integral(density, stddev_y, NULL));
+	grid_wf_density(impwf, dft_driver_otf->density);
+	printf("Electron asymmetry (stddev x/y) = %le\n", rgrid_weighted_integral(dft_driver_otf->density, stddev_x, NULL) / rgrid_weighted_integral(dft_driver_otf->density, stddev_y, NULL));
 
 	/* write out superfluid WF */
 	sprintf(filename, "wf_helium-" FMT_I, iter);
-	dft_driver_write_grid(gwf->grid, filename);
+	cgrid_write_grid(filename, gwf->grid);
 	
 	/* write out impurity WF */
 	sprintf(filename, "wf_electron-" FMT_I, iter);
-	dft_driver_write_grid(impwf->grid, filename);
+	cgrid_write_grid(filename, impwf->grid);
       }
     }
   }

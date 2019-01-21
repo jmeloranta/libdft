@@ -68,10 +68,10 @@ int main(int argc, char **argv) {
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
-  dft_driver_initialize();
-  potential_store = dft_driver_alloc_cgrid("potential_store");
   gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");
   gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");
+  dft_driver_initialize(gwf);
+  potential_store = dft_driver_alloc_cgrid("potential_store");
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
     
   wave_params.rho = dft_ot_bulk_density(dft_driver_otf);

@@ -6,6 +6,8 @@
 
 #include "bubble.h"
 
+extern void do_ke(wf *, REAL);
+
 REAL round_veloc(REAL veloc) {   // Round to fit the simulation box
 
   INT n;
@@ -155,7 +157,7 @@ int main(int argc, char *argv[]) {
   } else { /* restart from a file (.grd) */
     sscanf(argv[1], "bubble-" FMT_I ".grd", &iter);
     fprintf(stderr, "Continuing from checkpoint file %s at iteration " FMT_I ".\n", argv[1], iter);
-    dft_driver_read_grid(gwf->grid, argv[1]);
+    cgrid_read_grid(gwf->grid, argv[1]);
   }
 
   /* Real time iterations */
@@ -175,7 +177,7 @@ int main(int argc, char *argv[]) {
 #ifdef OUTPUT_GRID
     if(!(iter % OUTPUT_GRID)) {
       sprintf(filename, "liquid-" FMT_R, ((REAL) iter) * TIME_STEP);
-      dft_driver_write_grid(gwf->grid, filename);
+      cgrid_write_grid(filename, gwf->grid);
       do_ke(gwf, TIME_STEP * (REAL) iter);
     }
 #endif

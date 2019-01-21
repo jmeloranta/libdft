@@ -23,21 +23,23 @@ int main(int argc, char **argv) {
   
   /* Setup grid driver parameters */
   dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
-  dft_driver_initialize();
+
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");
+  impwf = dft_driver_alloc_wavefunction(IMP_MASS, "impwf");
+
+  dft_driver_initialize(gwf);
 
   density = dft_driver_alloc_rgrid("density");
   vx = dft_driver_alloc_rgrid("vx");
   vy = dft_driver_alloc_rgrid("vy");
   vz = dft_driver_alloc_rgrid("vz");
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");
-  impwf = dft_driver_alloc_wavefunction(IMP_MASS, "impwf");
   
   printf("Compiled with NX = " FMT_I ", NY = " FMT_I ", NZ = " FMT_I ", "
     "STEP = " FMT_R ", VX = " FMT_R "\n", (INT) NX, (INT) NY, (INT) NZ, STEP, VX * GRID_AUTOMPS);
 
   if(argc == 3) {
-    dft_driver_read_grid(gwf->grid, argv[1]);
-    dft_driver_read_grid(impwf->grid, argv[2]);
+    cgrid_read_grid(gwf->grid, argv[1]);
+    cgrid_read_grid(impwf->grid, argv[2]);
   } else {
     printf("Usage: analyze4 helium_wf electron_wf\n");
     exit(1);
@@ -45,20 +47,20 @@ int main(int argc, char **argv) {
 
   /* super */
   grid_wf_density(gwf, density);
-  dft_driver_write_density(density, "helium");
+  rgrid_write_grid("helium", density);
   grid_wf_velocity(gwf, vx, vy, vz, 200.0 / GRID_AUTOMPS);
   rgrid_add(vx, -VX);
-  dft_driver_write_density(vx, "helium-vx");
-  dft_driver_write_density(vy, "helium-vy");
-  dft_driver_write_density(vz, "helium-vz");
+  rgrid_write_grid("helium-vx", vx);
+  rgrid_write_grid("helium-vy", vy);
+  rgrid_write_grid("helium-vz", vz);
 
   /* electron */
   grid_wf_density(impwf, density);
-  dft_driver_write_density(density, "electron");
+  rgrid_write_grid("electron", density);
   grid_wf_velocity(impwf, vx, vy, vz, 200.0 / GRID_AUTOMPS);
-  dft_driver_write_density(vx, "electron-vx");
-  dft_driver_write_density(vy, "electron-vy");
-  dft_driver_write_density(vz, "electron-vz");
+  rgrid_write_grid("electron-vx", vx);
+  rgrid_write_grid("electron-vy", vy);
+  rgrid_write_grid("electron-vz", vz);
 
   return 0;
 }

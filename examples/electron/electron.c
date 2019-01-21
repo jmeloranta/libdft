@@ -42,8 +42,7 @@ int main(int argc, char *argv[]) {
   wf *gwfp = 0;
   wf *egwf = 0;
   wf *egwfp = 0;
-  rgrid *density = 0, *temp = 0;
-  rgrid *pseudo = 0;
+  rgrid *rworkspace = NULL, *pseudo = NULL;
   cgrid *potential_store = 0;
 
   /* parameters */
@@ -130,9 +129,8 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
   dft_driver_initialize();
 
-  density = dft_driver_alloc_rgrid("density");
+  rworkspace = dft_driver_alloc_rgrid("rworkspace");
   pseudo = dft_driver_alloc_rgrid("pseudo");
-  temp = dft_driver_alloc_rgrid("temp");
   potential_store = dft_driver_alloc_cgrid("potential_store");
   gwf = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS, "gwf");
   gwfp = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS, "gwfp");
@@ -148,13 +146,13 @@ int main(int argc, char *argv[]) {
 
   if(restart) {
     fprintf(stderr, "Restart calculation\n");
-    dft_driver_read_density(density, "restart.chk");
-    rgrid_power(density, density, 0.5);
-    grid_real_to_complex_re(gwf->grid, density);
+    rgrid_read_grid(rworkspace, "restart.chk");
+    rgrid_power(rworkspace, rworkspace, 0.5);
+    grid_real_to_complex_re(gwf->grid, rworkspace);
     cgrid_copy(gwfp->grid, gwf->grid);
-    dft_driver_read_density(density, "el-restart.chk");
-    rgrid_power(density, density, 0.5);
-    grid_real_to_complex_re(egwf->grid, density);
+    rgrid_read_grid(rworkspace, "el-restart.chk");
+    rgrid_power(rworkspace, rworkspace, 0.5);
+    grid_real_to_complex_re(egwf->grid, rworkspace);
     cgrid_copy(egwfp->grid, egwf->grid);
     l = 1;
   } else l = 0;
@@ -183,65 +181,65 @@ int main(int argc, char *argv[]) {
 
     if(!(l % dump_nth) || l == iterations-1 || l == 1) {
       REAL energy, natoms;
-      energy = dft_driver_energy(gwf, NULL);
+      energy = grid_wf_energy(gwf, NULL);
 #ifdef INCLUDE_ELECTRON      
-      energy += dft_driver_kinetic_energy(egwf); /* Liquid E + impurity kinetic E */
-      grid_wf_density(gwf, density);
-      rgrid_fft(density);
-      rgrid_fft_convolute(temp, density, pseudo);
-      rgrid_inverse_fft(temp);
+      energy += grid_wf_energy(egwf, NULL);
+      grid_wf_density(gwf, rworkspace);
+      rgrid_fft(rworkspace);
+      rgrid_fft_convolute(rworkspace, rworkspace, pseudo);
+      rgrid_inverse_fft(rworkspace);
       
-      grid_wf_density(egwf, density);
-      rgrid_product(density, density, temp);
-      energy += rgrid_integral(density);      /* Liquid - impurity interaction energy */
+      grid_wf_density(egwf, dft_driver_otf->density);
+      rgrid_product(dft_driver_otf->density, dft_driver_otf->density, rworkspace);
+      energy += rgrid_integral(dft_driver_otf->density);      /* Liquid - impurity interaction energy */
 #endif      
-      natoms = dft_driver_natoms(gwf);
+      natoms = grid_wf_norm(gwf);
       fprintf(stderr,"Energy with respect to bulk = " FMT_R " K.\n", (energy - dft_ot_bulk_energy(dft_driver_otf, rho0) * natoms / rho0) * GRID_AUTOK);
       fprintf(stderr,"Number of He atoms = " FMT_R ".\n", natoms);
       fprintf(stderr,"mu0 = %le K, energy/natoms = " FMT_R " K\n", mu0 * GRID_AUTOK,  GRID_AUTOK * energy / natoms);
 
       /* Dump helium density */
-      grid_wf_density(gwf, density);
+      grid_wf_density(gwf, rworkspace);
       sprintf(chk, "helium-" FMT_I, l);
-      dft_driver_write_density(density, chk);
+      rgrid_write_grid(chk, rworkspace);
 #ifdef INCLUDE_ELECTRON
       /* Dump electron density */
       sprintf(chk, "el-" FMT_I, l);
-      grid_wf_density(egwf, density);
-      dft_driver_write_density(density, chk);
+      grid_wf_density(egwf, rworkspace);
+      rgrid_write_grid(rworkspace, chk);
       /* Dump electron wavefunction */
       sprintf(chk, "el-wf-" FMT_I, l);
-      dft_driver_write_grid(egwf->grid, chk);
+      cgrid_write_grid(chk, egwf->grid);
 #endif
       /* Dump helium wavefunction */
       sprintf(chk, "helium-wf-" FMT_I, l);
-      dft_driver_write_grid(gwf->grid, chk);
+      cgrid_write_grid(chk, gwf->grid);
     }
 
 #ifdef INCLUDE_ELECTRON
     /***** Electron *****/
-    grid_wf_density(gwf, density);
-    rgrid_fft(density);
-    rgrid_fft_convolute(density, density, pseudo);
-    rgrid_inverse_fft(density);
+    grid_wf_density(gwf, rworkspace);
+    rgrid_fft(rworkspace);
+    rgrid_fft_convolute(rworkspace, rworkspace, pseudo);
+    rgrid_inverse_fft(rworkspace);
     /* It is OK to run just one step - in imaginary time but not in real time. */
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, 0.0, egwf, egwfp, potential_store, time_step_el, l);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, density /* ..potential.. */, 0.0, egwf, egwfp, potential_store, time_step_el, l);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, rworkspace /* ..potential.. */, 0.0, egwf, egwfp, potential_store, time_step_el, l);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, rworkspace /* ..potential.. */, 0.0, egwf, egwfp, potential_store, time_step_el, l);
 #else
     cgrid_zero(egwf->grid);
 #endif
 
     /***** Helium *****/
 #ifdef INCLUDE_ELECTRON
-    grid_wf_density(egwf, density);
-    rgrid_fft(density);
-    rgrid_fft_convolute(density, density, pseudo);
-    rgrid_inverse_fft(density);
+    grid_wf_density(egwf, rworkspace);
+    rgrid_fft(rworkspace);
+    rgrid_fft_convolute(rworkspace, rworkspace, pseudo);
+    rgrid_inverse_fft(rworkspace);
 #else
-    rgrid_zero(density);
+    rgrid_zero(rworkspace);
 #endif
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, mu0, gwf, gwfp, potential_store, time_step, l);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, density /* ..potential.. */, mu0, gwf, gwfp, potential_store, time_step, l);
+    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, rworkspace /* ..potential.. */, mu0, gwf, gwfp, potential_store, time_step, l);
+    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, rworkspace /* ..potential.. */, mu0, gwf, gwfp, potential_store, time_step, l);
   }
   return 0;
 }

@@ -88,8 +88,8 @@ int main(int argc, char **argv) {
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
   }
   /* At this point gwf contains the converged wavefunction */
-  dft_driver_write_grid(gwf->grid, "initial1");
-  dft_driver_write_grid(imwf->grid, "initial2");
+  cgrid_write_grid("initial1", gwf->grid);
+  cgrid_write_grid("initial2", imwf->grid);
 
   /* Step #2: Propagate using the final state potential */
   dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_KC + DFT_OT_T1600MK, DFT_DRIVER_REAL_TIME, 0.0218360 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
@@ -113,9 +113,9 @@ int main(int argc, char **argv) {
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
     if(!(iter % 10)) {
       sprintf(buf, "final1-" FMT_I, iter);
-      dft_driver_write_grid(gwf->grid, buf);
+      cgrid_write_grid(buf, gwf->grid);
       sprintf(buf, "final2-" FMT_I, iter);
-      dft_driver_write_grid(imwf->grid, buf);
+      cgrid_write_grid(buf, imwf->grid);
     }
   }
   return 0;

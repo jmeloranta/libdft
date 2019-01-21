@@ -21,6 +21,7 @@
 
 int main() {
 
+  wf *gwf;
   REAL pressure, rho, mu;
 
   /*
@@ -34,8 +35,11 @@ int main() {
   /* Regular boundaries */
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);   /* regular periodic boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
+
+  gwf = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS, "gwf");  /* order parameter for current time */
+
   /* Initialize */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
   
   /*
    * DFT initialized. The functional is in dft_driver_otf

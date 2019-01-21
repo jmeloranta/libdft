@@ -286,7 +286,7 @@ int main(int argc, char *argv[]) {
 
   wf *gwf, *gwfp;
   cgrid *cworkspace;
-  rgrid *ext_pot, *density, *current;
+  rgrid *ext_pot, *rworkspace;
   INT iter;
   char filename[2048];
   REAL kin, pot;
@@ -317,8 +317,12 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_viscosity(RHON * VISCOSITY, 1.73 + 2.32E-10*EXP(11.15*TEMP));  
 #endif
   
+  /* Allocate wavefunctions */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");  /* order parameter for current time */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) */
+
   /* Initialize */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* bulk normalization -- dft_ot_bulk routines do not work properly with T > 0 K */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
@@ -328,13 +332,10 @@ int main(int argc, char *argv[]) {
   mu0  = dft_ot_bulk_chempot(dft_driver_otf);
   printf("rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
 
-  /* Allocate wavefunctions and grids */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");  /* order parameter for current time */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) */
+  /* Allocate grids */
   cworkspace = dft_driver_alloc_cgrid("cworkspace");             /* allocate complex workspace */
   ext_pot = dft_driver_alloc_rgrid("ext pot");                /* allocate real external potential grid */
-  density = dft_driver_alloc_rgrid("density");                /* allocate real density grid */
-  current = dft_driver_alloc_rgrid("current");                /* allocate real density grid */
+  rworkspace = dft_driver_alloc_rgrid("density");                /* allocate real density grid */
   
   fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (m/s)\n", 
@@ -350,13 +351,13 @@ int main(int argc, char *argv[]) {
     printf("Initial guess read from a file.\n");
 #ifndef INITIAL_GUESS_FROM_DENSITY
     printf("Helium WF from %s.\n", argv[1]);
-    dft_driver_read_grid(gwf->grid, argv[1]);      
+    cgrid_read_grid(gwf->grid, argv[1]);      
     cgrid_multiply(gwf->grid, SQRT(rho0) / gwf->grid->value[0]);
 #else
     printf("Helium DENSITY from %s.\n", argv[1]);
-    dft_driver_read_density(density, argv[1]);
-    rgrid_power(density, density, 0.5);
-    grid_real_to_complex_re(gwf->grid, density);
+    rgrid_read_grid(dft_driver_otf->density, argv[1]);
+    rgrid_power(dft_driver_otf->density, dft_otf_driver->density, 0.5);
+    grid_real_to_complex_re(gwf->grid, dft_driver_otf->density);
 #endif
   }
   
@@ -376,10 +377,12 @@ int main(int argc, char *argv[]) {
     if(iter && !(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       REAL force, mobility;
       /* Helium energy */
-      kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
-      pot = dft_driver_potential_energy(gwf, ext_pot); /* Potential energy for gwf */
+      kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
+      dft_ot_energy_density(dft_driver_otf, rworkspace, gwf);
+      rgrid_sum(rworkspace, rworkspace, ext_pot);
+      pot = rgrid_integral(rworkspace);           /* Potential energy for gwf */
       //ene = kin + pot;           /* Total energy for gwf */
-      n = dft_driver_natoms(gwf);
+      n = grid_wf_norm(gwf);
       printf("Iteration " FMT_I ":\n", iter);
       printf("Background kinetic = " FMT_R "\n", n * EKIN * GRID_AUTOK);
       printf("Helium natoms    = " FMT_R " particles.\n", n);   /* Energy / particle in K */
@@ -387,11 +390,11 @@ int main(int argc, char *argv[]) {
       printf("Helium potential = " FMT_R "\n", pot * GRID_AUTOK);  /* Print result in K */
       printf("Helium energy    = " FMT_R "\n", (kin + pot) * GRID_AUTOK);  /* Print result in K */
 
-      grid_wf_probability_flux_x(gwf, current);
-      printf("Added mass = " FMT_R "\n", rgrid_integral(current) / VX); 
+      grid_wf_probability_flux_x(gwf, rworkspace);
+      printf("Added mass = " FMT_R "\n", rgrid_integral(rworkspace) / VX); 
 
-      grid_wf_density(gwf, density);                     /* Density from gwf */
-      force = rgrid_weighted_integral(density, dpot_func, NULL);   /* includes the minus already somehow (cmp FD below) */
+      grid_wf_density(gwf, dft_driver_otf->density);                     /* Density from gwf */
+      force = rgrid_weighted_integral(dft_driver_otf->density, dpot_func, NULL);   /* includes the minus already somehow (cmp FD below) */
 
       printf("Drag force on ion = " FMT_R " a.u.\n", force);
 
@@ -401,7 +404,7 @@ int main(int argc, char *argv[]) {
       printf("Hydrodynamic radius (Stokes) = " FMT_R " Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
 
       sprintf(filename, "wf-" FMT_I, iter);      
-      dft_driver_write_grid(gwf->grid, filename);
+      cgrid_write_grid(filename, gwf->grid);
       
       fflush(stdout);
     }

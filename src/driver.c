@@ -40,11 +40,9 @@ static REAL viscosity = 0.0, viscosity_alpha = 1.0;
 REAL dft_driver_step = 0.0, dft_driver_rho0 = 0.0;
 static REAL driver_x0 = 0.0, driver_y0 = 0.0, driver_z0 = 0.0;
 static REAL driver_kx0 = 0.0, driver_ky0 = 0.0, driver_kz0 = 0.0;
-static rgrid *density = 0, *workspace1 = 0, *workspace2 = 0, *workspace3 = 0, *workspace4 = 0, *workspace5 = 0, *workspace6 = 0;
-static rgrid *workspace7 = 0, *workspace8 = 0, *workspace9 = 0;
-static cgrid *cworkspace = 0, *cworkspace2 = 0;
 static grid_timer timer;
 static REAL driver_rmin = -1.0, driver_radd = 0.0, driver_a0 = 0.0, driver_a1 = 0.0, driver_a2 = 0.0, driver_a3 = 0.0, driver_a4 = 0.0, driver_a5 = 0.0;
+cgrid *potential = NULL;
 
 /*
  * Wave function normalization (for imaginary time).
@@ -146,7 +144,7 @@ inline static void scale_wf(char what, wf *gwf) {
  *
  */
 
-EXPORT void dft_driver_initialize() {
+EXPORT void dft_driver_initialize(wf *gwf) {
 
   fprintf(stderr, "libdft: GIT version ID %s\n", VERSION);
 
@@ -154,40 +152,14 @@ EXPORT void dft_driver_initialize() {
     fprintf(stderr, "libdft: dft_driver not properly initialized.\n");
     exit(1);
   }
-  if(workspace1) { rgrid_free(workspace1); workspace1 = NULL; }
-  if(workspace2) { rgrid_free(workspace2); workspace2 = NULL; }
-  if(workspace3) { rgrid_free(workspace3); workspace3 = NULL; }
-  if(workspace4) { rgrid_free(workspace4); workspace4 = NULL; }
-  if(workspace5) { rgrid_free(workspace5); workspace5 = NULL; }
-  if(workspace6) { rgrid_free(workspace6); workspace6 = NULL; }
-  if(workspace7) { rgrid_free(workspace7); workspace7 = NULL; }
-  if(workspace8) { rgrid_free(workspace8); workspace8 = NULL; }
-  if(workspace9) { rgrid_free(workspace9); workspace9 = NULL; }
-  if(density) { rgrid_free(density); density = NULL; }
 
   if(dft_driver_otf) { dft_ot_free(dft_driver_otf); dft_driver_otf = NULL; }
 
   grid_timer_start(&timer);
   grid_threads_init(driver_threads);
   grid_fft_read_wisdom(NULL);
-  density = dft_driver_get_workspace(10, 1);
-  workspace1 = dft_driver_get_workspace(1, 1);
-  if((driver_dft_model != DFT_GP) && (driver_dft_model != DFT_GP2) && (driver_dft_model != DFT_ZERO)) {
-    workspace2 = dft_driver_get_workspace(2, 1);
-    workspace3 = dft_driver_get_workspace(3, 1);
-    if((driver_dft_model & DFT_OT_KC) || (driver_dft_model & DFT_OT_BACKFLOW)) {
-      workspace4 = dft_driver_get_workspace(4, 1);
-      workspace5 = dft_driver_get_workspace(5, 1);
-      workspace6 = dft_driver_get_workspace(6, 1);
-    }
-    if(driver_dft_model & DFT_OT_BACKFLOW) {
-      workspace7 = dft_driver_get_workspace(7, 1);        
-      workspace8 = dft_driver_get_workspace(8, 1);
-      workspace9 = dft_driver_get_workspace(9, 1);
-    }          
-  }
 
-  dft_driver_otf = dft_ot_alloc(driver_dft_model, dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, driver_bc, MIN_SUBSTEPS, MAX_SUBSTEPS);
+  dft_driver_otf = dft_ot_alloc(driver_dft_model, gwf, MIN_SUBSTEPS, MAX_SUBSTEPS);
   if(dft_driver_rho0 == 0.0) {
     if(dft_driver_verbose) fprintf(stderr, "libdft: Setting dft_driver_rho0 to " FMT_R "\n", dft_driver_otf->rho0);
     dft_driver_rho0 = dft_driver_otf->rho0;
@@ -195,6 +167,7 @@ EXPORT void dft_driver_initialize() {
     if(dft_driver_verbose) fprintf(stderr, "libdft: Overwritting dft_driver_otf->rho0 to " FMT_R ".\n", dft_driver_rho0);
     dft_driver_otf->rho0 = dft_driver_rho0;
   }
+  potential = cgrid_alloc(dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, CGRID_PERIODIC_BOUNDARY, 0, "OT Potential");
   if(dft_driver_verbose) fprintf(stderr, "libdft: rho0 = " FMT_R " Angs^-3.\n", dft_driver_rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
   if(dft_driver_verbose) fprintf(stderr, "libdft: " FMT_R " wall clock seconds for initialization.\n", grid_timer_wall_clock_time(&timer));
 }
@@ -440,7 +413,6 @@ EXPORT void dft_driver_setup_rotation_omega(REAL omega) {
 EXPORT void dft_driver_propagate_kinetic_first(char what, wf *gwf, REAL complex ctstep) {
 
   struct grid_abs ab;
-  INT wrklen;
 
   if(what == DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT) return;   /* skip kinetic */
 
@@ -453,8 +425,6 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf *gwf, REAL complex 
   case DFT_DRIVER_KINETIC_CN_NBC:
   case DFT_DRIVER_KINETIC_CN_NBC_ROT:
   case DFT_DRIVER_KINETIC_CN_PBC:
-    cworkspace2 = dft_driver_get_workspace(12, 1);
-    wrklen = cworkspace2->nx * cworkspace2->ny * cworkspace2->nz * (INT) sizeof(REAL complex);
     if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
       ab.amp = driver_bc_amp;
       ab.data[0] = driver_bc_lx;
@@ -463,13 +433,9 @@ EXPORT void dft_driver_propagate_kinetic_first(char what, wf *gwf, REAL complex 
       ab.data[3] = driver_bc_hy;
       ab.data[4] = driver_bc_lz;
       ab.data[5] = driver_bc_hz;
-      cgrid_claim(cworkspace2);
-      grid_wf_propagate_cn(gwf, grid_wf_absorb, ctstep / 2.0, &ab, NULL, cworkspace2->value, wrklen);
-      cgrid_release(cworkspace2);
+      grid_wf_propagate_cn(gwf, grid_wf_absorb, ctstep / 2.0, &ab, NULL);
     } else {
-      cgrid_claim(cworkspace2);
-      grid_wf_propagate_cn(gwf, NULL, ctstep / 2.0, NULL, NULL, cworkspace2->value, wrklen);
-      cgrid_release(cworkspace2);
+      grid_wf_propagate_cn(gwf, NULL, ctstep / 2.0, NULL, NULL);
     }
     break;
   default:
@@ -501,154 +467,6 @@ EXPORT void dft_driver_propagate_kinetic_second(char what, wf *gwf, REAL complex
     local_been_here = 1;
     grid_fft_write_wisdom(NULL); // we have done many FFTs at this point
   }
-}
-
-/*
- * Calculate OT-DFT potential.
- *
- * gwf = wavefunction (wf *; input).
- * pot = complex potential (cgrid *; output).
- *
- */
-
-EXPORT void dft_driver_ot_potential(wf *gwf, cgrid *pot) {
-
-  grid_wf_density(gwf, density);
-
-  // Workspace claimed & released in dft_ot_potential()
-  dft_ot_potential(dft_driver_otf, pot, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
-}
-
-/*
- * Compute the viscous potential (Navier-Stokes).
- *
- * gwf = wavefunction (wf *; input).
- * pot = potential (cgrid *; output).
- *
- */
-
-#define POISSON /* Solve Poisson eq for the viscous potential */
-
-static REAL visc_func(REAL rho, void *NA) {
-
-  return POW(rho / dft_driver_rho0, viscosity_alpha) * viscosity;  // viscosity_alpha > 0
-}
-
-EXPORT void dft_driver_viscous_potential(wf *gwf, cgrid *pot) {
-
-#ifdef POISSON
-  // was 1e-8   (crashes, 5E-8 done, test 1E-7)
-  // we have to worry about 1 / rho....
-#define POISSON_EPS 1E-7
-  workspace8 = dft_driver_get_workspace(8, 1);
-
-  rgrid_claim(workspace1); rgrid_claim(workspace2); rgrid_claim(workspace3); 
-  rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6); 
-  rgrid_claim(workspace7); rgrid_claim(workspace8);
-
-  /* Stress tensor elements (without viscosity) */
-  /* 1 (diagonal; workspace2) */
-  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_x(workspace8, workspace2);
-  rgrid_multiply(workspace2, 4.0/3.0);
-  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_y(workspace8, workspace1);
-  rgrid_multiply(workspace1, -2.0/3.0);
-  rgrid_sum(workspace2, workspace2, workspace1);
-  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_z(workspace8, workspace1);
-  rgrid_multiply(workspace1, -2.0/3.0);
-  rgrid_sum(workspace2, workspace2, workspace1);
-
-  /* 2 = 4 (symmetry; workspace3) */
-  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_x(workspace8, workspace3);
-  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_y(workspace8, workspace1);
-  rgrid_sum(workspace3, workspace3, workspace1);
-  
-  /* 3 = 7 (symmetry; workspace4) */
-  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_x(workspace8, workspace4);
-  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_z(workspace8, workspace1);
-  rgrid_sum(workspace4, workspace4, workspace1);
-
-  /* 5 (diagonal; workspace5) */
-  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_y(workspace8, workspace5);
-  rgrid_multiply(workspace5, 4.0/3.0);
-  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_x(workspace8, workspace1);
-  rgrid_multiply(workspace1, -2.0/3.0);
-  rgrid_sum(workspace5, workspace5, workspace1);
-  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_z(workspace8, workspace1);
-  rgrid_multiply(workspace1, -2.0/3.0);
-  rgrid_sum(workspace5, workspace5, workspace1);
-  
-  /* 6 = 8 (symmetryl workspace6) */
-  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_y(workspace8, workspace6);
-  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_z(workspace8, workspace1);
-  rgrid_sum(workspace6, workspace6, workspace1);
-
-  /* 9 = (diagonal; workspace7) */
-  grid_wf_velocity_z(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_z(workspace8, workspace7);
-  rgrid_multiply(workspace7, 4.0/3.0);
-  grid_wf_velocity_x(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_x(workspace8, workspace1);
-  rgrid_multiply(workspace1, -2.0/3.0);
-  rgrid_sum(workspace7, workspace7, workspace1);
-  grid_wf_velocity_y(gwf, workspace8, DFT_VELOC_CUTOFF);
-  rgrid_fd_gradient_y(workspace8, workspace1);
-  rgrid_multiply(workspace1, -2.0/3.0);
-  rgrid_sum(workspace7, workspace7, workspace1);
-
-  /* factor in viscosity */
-  grid_wf_density(gwf, workspace8);
-  rgrid_operate_one(workspace8, workspace8, visc_func, NULL);
-  rgrid_product(workspace2, workspace2, workspace8);
-  rgrid_product(workspace3, workspace3, workspace8);
-  rgrid_product(workspace4, workspace4, workspace8);
-  rgrid_product(workspace5, workspace5, workspace8);
-  rgrid_product(workspace6, workspace6, workspace8);
-  rgrid_product(workspace7, workspace7, workspace8);
-  
-  /* x component of divergence (workspace1) */
-  rgrid_div(workspace1, workspace2, workspace3, workspace4); // (d/dx) 1(wrk2) + (d/dy) 2(wrk3) + (d/dz) 3(wrk4)
-  /* y component of divergence (workspace2) */
-  rgrid_div(workspace2, workspace3, workspace5, workspace6); // (d/dx) 2(wrk3) + (d/dy) 5(wrk5) + (d/dz) 6(wrk6)
-  /* x component of divergence (workspace3) */
-  rgrid_div(workspace3, workspace4, workspace6, workspace7); // (d/dx) 3(wrk4) + (d/dy) 6(wrk6) + (d/dz) 9(wrk7)
-
-  /* divide by -rho */
-  grid_wf_density(gwf, workspace8);
-  rgrid_multiply(workspace8, -1.0);
-  rgrid_division_eps(workspace1, workspace1, workspace8, POISSON_EPS);
-  rgrid_division_eps(workspace2, workspace2, workspace8, POISSON_EPS);
-  rgrid_division_eps(workspace3, workspace3, workspace8, POISSON_EPS);
-  
-  /* the final divergence */
-  rgrid_div(workspace8, workspace1, workspace2, workspace3);
-  
-  // Solve the Poisson equation to get the viscous potential
-  rgrid_poisson(workspace8);
-  grid_add_real_to_complex_re(pot, workspace8);
-#else
-  // NOT IN USE
-  REAL tot = -(4.0 / 3.0) * viscosity / dft_driver_rho0;
-  
-  grid_wf_velocity(gwf, workspace2, workspace3, workspace4, DFT_VELOC_CUTOFF);
-  rgrid_div(workspace1, workspace2, workspace3, workspace4);  
-  rgrid_multiply(workspace1, tot);
-  grid_add_real_to_complex_re(pot, workspace1);
-#endif
-  rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3); 
-  rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6); 
-  rgrid_release(workspace7); rgrid_release(workspace8);
 }
 
 /*
@@ -702,7 +520,6 @@ EXPORT void dft_driver_propagate_potential(char what, wf *gwf, cgrid *pot, REAL 
 EXPORT inline void dft_driver_propagate(char what, rgrid *ext_pot, REAL chempot, wf *gwf, REAL complex ctstep, INT iter) {
 
   struct grid_abs ab;
-  INT wrklen;
   
   ctstep /= GRID_AUTOFS;
   switch(driver_iter_mode) {
@@ -738,17 +555,15 @@ EXPORT inline void dft_driver_propagate(char what, rgrid *ext_pot, REAL chempot,
     center_release = 1;
   } else center_release = 0;
 
-  dft_driver_propagate_kinetic_first(what, gwf, ctstep);  // possibly uses cworkspace as temp
+  dft_driver_propagate_kinetic_first(what, gwf, ctstep);
 
-  cworkspace = dft_driver_get_workspace(11, 1);
-  cgrid_claim(cworkspace);
-  cgrid_zero(cworkspace);
+  cgrid_zero(potential);
   switch(what) {
   case DFT_DRIVER_PROPAGATE_HELIUM:
-    dft_driver_ot_potential(gwf, cworkspace);
+    dft_ot_potential(dft_driver_otf, potential, gwf);
     if(viscosity != 0.0) {
       if(dft_driver_verbose) fprintf(stderr, "libdft: Including viscous potential.\n");
-      dft_driver_viscous_potential(gwf, cworkspace);
+      dft_viscous_potential(gwf, potential, dft_driver_rho0, viscosity, viscosity_alpha);
     }
     break;
   case DFT_DRIVER_PROPAGATE_OTHER:
@@ -759,21 +574,18 @@ EXPORT inline void dft_driver_propagate(char what, rgrid *ext_pot, REAL chempot,
     exit(1);
   }
   if(ext_pot && driver_rmin != -1.0) fprintf(stderr, "libdft(warning): Both external potential and potential function in use!\n");
-  if(ext_pot) grid_add_real_to_complex_re(cworkspace, ext_pot);
-  else if(driver_rmin != -1.0) grid_func7a_operate_one(cworkspace, driver_rmin, driver_radd, driver_a0, driver_a1, driver_a2, driver_a3, driver_a4, driver_a5);
+  if(ext_pot) grid_add_real_to_complex_re(potential, ext_pot);
+  else if(driver_rmin != -1.0) grid_func7a_operate_one(potential, driver_rmin, driver_radd, driver_a0, driver_a1, driver_a2, driver_a3, driver_a4, driver_a5);
   if(gwf->grid->kx0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kx0 * gwf->grid->kx0 / (2.0 * gwf->mass);
   if(gwf->grid->ky0 != 0.0) chempot += HBAR * HBAR * gwf->grid->ky0 * gwf->grid->ky0 / (2.0 * gwf->mass);
   if(gwf->grid->kz0 != 0.0) chempot += HBAR * HBAR * gwf->grid->kz0 * gwf->grid->kz0 / (2.0 * gwf->mass);
-  cgrid_add(cworkspace, (REAL complex) -chempot);
+  cgrid_add(potential, (REAL complex) -chempot);
 
   if((dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC || dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC_ROT
      || dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_DBC || dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_PBC)
      && what != DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT) {
     fprintf(stderr, "lidft(INFO): Simultaneous propagation of kinetic & potential using CN.\n");
     /* Avoid operator splitting: propagate both kinetic and potential simultaneously with CN */
-    cworkspace2 = dft_driver_get_workspace(12, 1);
-    cgrid_claim(cworkspace2);
-    wrklen = cworkspace2->nx * cworkspace2->ny * cworkspace2->nz * (INT) sizeof(REAL complex);
     if(driver_boundary_type == DFT_DRIVER_BOUNDARY_ITIME && driver_iter_mode == DFT_DRIVER_REAL_TIME) {
       ab.amp = driver_bc_amp;
       ab.data[0] = driver_bc_lx;
@@ -782,15 +594,13 @@ EXPORT inline void dft_driver_propagate(char what, rgrid *ext_pot, REAL chempot,
       ab.data[3] = driver_bc_hy;
       ab.data[4] = driver_bc_lz;
       ab.data[5] = driver_bc_hz;
-      grid_wf_propagate_cn(gwf, grid_wf_absorb, ctstep / 2.0, &ab, cworkspace, cworkspace2->value, wrklen);
+      grid_wf_propagate_cn(gwf, grid_wf_absorb, ctstep / 2.0, &ab, potential);
     } else 
-      grid_wf_propagate_cn(gwf, NULL, ctstep / 2.0, NULL, cworkspace, cworkspace2->value, wrklen);
-    cgrid_release(cworkspace2);
+      grid_wf_propagate_cn(gwf, NULL, ctstep / 2.0, NULL, potential);
   } else {
-    dft_driver_propagate_potential(what, gwf, cworkspace, ctstep);
-    dft_driver_propagate_kinetic_second(what, gwf, ctstep);  // possibly uses cworkspace as temp
+    dft_driver_propagate_potential(what, gwf, potential, ctstep);
+    dft_driver_propagate_kinetic_second(what, gwf, ctstep);
   }
-  cgrid_release(cworkspace);
 
   if(dft_driver_verbose) fprintf(stderr, "libdft: Propagate step " FMT_R " wall clock seconds (iter = " FMT_I ").\n", grid_timer_wall_clock_time(&timer), iter);
   fflush(stderr);
@@ -859,10 +669,10 @@ EXPORT inline void dft_driver_propagate_predict(char what, rgrid *ext_pot, REAL 
   cgrid_zero(potential);
   switch(what) {
   case DFT_DRIVER_PROPAGATE_HELIUM:
-    dft_driver_ot_potential(gwf, potential);
+    dft_ot_potential(dft_driver_otf, potential, gwf);
     if(viscosity != 0.0) {
       if(dft_driver_verbose) fprintf(stderr, "libdft: Including viscous potential.\n");
-      dft_driver_viscous_potential(gwf, potential);
+      dft_viscous_potential(gwf, potential, dft_driver_rho0, viscosity, viscosity_alpha);
     }
     break;
   case DFT_DRIVER_PROPAGATE_OTHER:
@@ -931,10 +741,10 @@ EXPORT inline void dft_driver_propagate_correct(char what, rgrid *ext_pot, REAL 
 
   switch(what) {
   case DFT_DRIVER_PROPAGATE_HELIUM:
-    dft_driver_ot_potential(gwfp, potential);
+    dft_ot_potential(dft_driver_otf, potential, gwfp);
     if(viscosity != 0.0) {
       if(dft_driver_verbose) fprintf(stderr, "libdft: Including viscous potential.\n");
-      dft_driver_viscous_potential(gwfp, potential);
+      dft_viscous_potential(gwfp, potential, dft_driver_rho0, viscosity, viscosity_alpha);
     }
     break;
   case DFT_DRIVER_PROPAGATE_OTHER:
@@ -1131,567 +941,6 @@ EXPORT void dft_driver_gaussian_wavefunction(wf *dst, REAL cx, REAL cy, REAL cz,
 }
 
 /*
- * Read in density from a binary file (.grd).
- *
- * grid = place to store the read density (output, rgrid *).
- * file = filename for the file (char *). Note: the .grd extension must NOT be given (input, char *).
- *
- * No return value.
- *
- */
-
-EXPORT void dft_driver_read_density(rgrid *grid, char *file) {
-
-  FILE *fp;
-  char buf[512];
-
-  strcpy(buf, file);
-  strcat(buf, ".grd");
-  if(!(fp = fopen(buf, "r"))) {
-    fprintf(stderr, "libdft: Can't open density grid file %s.\n", file);
-    exit(1);
-  }
-  rgrid_read(grid, fp);
-  fclose(fp);
-  fprintf(stderr, "libdft: Density read from %s.\n", file);
-}
-
-/*
- * Write output to ascii & binary files.
- * .grd file is the full grid in binary format.
- * .x ASCII file cut along (x, 0.0, 0.0)
- * .y ASCII file cut along (0.0, y, 0.0)
- * .z ASCII file cut along (0.0, 0.0, z)
- *
- * grid = density grid (input, rgrid *).
- * base = Basename for the output file (input, char *).
- *
- * No return value.
- *
- */
-
-EXPORT void dft_driver_write_density(rgrid *grid, char *base) {
-
-  FILE *fp;
-  char file[2048];
-  INT i, j, k;
-  REAL x, y, z;
-
-  sprintf(file, "%s.grd", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  rgrid_write(grid, fp);
-  fclose(fp);
-
-  sprintf(file, "%s.x", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  j = grid->ny / 2;
-  k = grid->nz / 2;
-  for(i = 0; i < grid->nx; i++) { 
-    x = ((REAL) (i - grid->nx/2)) * grid->step - grid->x0;
-    fprintf(fp, FMT_R " " FMT_R "\n", x, rgrid_value_at_index(grid, i, j, k));
-  }
-  fclose(fp);
-
-  sprintf(file, "%s.y", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  i = grid->nx / 2;
-  k = grid->nz / 2;
-  for(j = 0; j < grid->ny; j++) {
-    y = ((REAL) (j - grid->ny/2)) * grid->step - grid->y0;
-    fprintf(fp, FMT_R " " FMT_R "\n", y, rgrid_value_at_index(grid, i, j, k));
-  }
-  fclose(fp);
-
-  sprintf(file, "%s.z", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  i = grid->nx / 2;
-  j = grid->ny / 2;
-  for(k = 0; k < grid->nz; k++) {
-    z = ((REAL) (k - grid->nz/2)) * grid->step - grid->z0;
-    fprintf(fp, FMT_R " " FMT_R "\n", z, rgrid_value_at_index(grid, i, j, k));
-  }
-  fclose(fp);
-  if(dft_driver_verbose) fprintf(stderr, "libdft: Density written to %s.\n", file);
-}
-
-/*
- * Write output to ascii & binary files.
- * .grd file is the full grid in binary format.
- * .x ASCII file cut along (x, 0.0, 0.0)
- * .y ASCII file cut along (0.0, y, 0.0)
- * .z ASCII file cut along (0.0, 0.0, z)
- *
- * wf = wf with the pase (input, grid *).
- * base = Basename for the output file (input, char *).
- *
- * No return value.
- *
- */
-
-EXPORT void dft_driver_write_phase(wf *wf, char *base) {
-
-  FILE *fp;
-  char file[2048];
-  INT i, j, k;
-  cgrid *grid = wf->grid;
-  REAL complex tmp;
-  rgrid *phase;
-  REAL x, y, z;
-  INT nx = grid->nx, ny = grid->ny, nz = grid->nz;
-
-  phase = dft_driver_alloc_rgrid("phase");
-  for(i = 0; i < nx; i++)
-    for(j = 0; j < ny; j++)
-      for(k = 0; k < nz; k++) {
-	tmp = cgrid_value_at_index(grid, i, j, k);
-	if(CABS(tmp) < 1E-6)
-          rgrid_value_to_index(phase, i, j, k, 0.0);
-	else
-          rgrid_value_to_index(phase, i, j, k, CIMAG(CLOG(tmp / CABS(tmp))));
-      }
-
-  sprintf(file, "%s.grd", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  rgrid_write(phase, fp);
-  fclose(fp);
-
-  sprintf(file, "%s.x", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  j = ny / 2;
-  k = nz / 2;
-  for(i = 0; i < grid->nx; i++) { 
-    x = ((REAL) (i - grid->nx/2)) * grid->step;
-    fprintf(fp, FMT_R " " FMT_R "\n", x, rgrid_value_at_index(phase, i, j, k));
-  }
-  fclose(fp);
-
-  sprintf(file, "%s.y", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  i = nx / 2;
-  k = nz / 2;
-  for(j = 0; j < grid->ny; j++) {
-    y = ((REAL) (j - grid->ny/2)) * grid->step;
-    fprintf(fp, FMT_R " " FMT_R "\n", y, rgrid_value_at_index(phase, i, j, k));
-  }
-  fclose(fp);
-
-  sprintf(file, "%s.z", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  i = nx / 2;
-  j = ny / 2;
-  for(k = 0; k < grid->nz; k++) {
-    z = ((REAL) (k - grid->nz/2)) * grid->step;
-    fprintf(fp, FMT_R " " FMT_R "\n", z, rgrid_value_at_index(phase, i, j, k));
-  }
-  fclose(fp);
-  if(dft_driver_verbose) fprintf(stderr, "libdft: Density written to %s.\n", file);
-  rgrid_free(phase);
-}
-
-
-/*
- * Write two-dimensional vector slices of a vector grid (three grids)
- * .xy ASCII file cut along z=0.
- * .yz ASCII file cut along x=0.
- * .zx ASCII file cut along y=0.
- *
- * px = x-component of vector grid (input, rgrid *).
- * py = y-component of vector grid (input, rgrid *).
- * pz = z-component of vector grid (input, rgrid *).
- *
- * base = Basename for the output file (input, char *).
- *
- * No return value.
- *
- */
-EXPORT void dft_driver_write_vectorfield(rgrid *px, rgrid *py, rgrid *pz, char *base) {
-
-  FILE *fp;
-  char file[2048];
-  INT i, j, k;
-  REAL x0 = px->x0, y0 = px->y0, z0 = px->z0, step = px->step;
-  INT nx = px->nx, ny = px->ny, nz = px->nz;
-  REAL x, y, z;
-  
-  /*----- X Y -----*/	
-  sprintf(file, "%s.xy", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  k = nz / 2;
-  for(i = 0; i < nx; i++) {
-    x = ((REAL) (i - nx/2)) * step - x0;
-    for(j = 0; j < ny; j++) {
-      y = ((REAL) (j - ny/2)) * step - y0;
-      fprintf(fp, FMT_R "\t" FMT_R "\t" FMT_R "\t" FMT_R "\n", x, y, rgrid_value_at_index(px, i, j, k), rgrid_value_at_index(py, i, j, k));	
-    } fprintf(fp,"\n");
-  }
-  fclose(fp);
-  
-  /*----- Y Z -----*/
-  sprintf(file, "%s.yz", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  i = nx / 2;
-  for(j = 0; j < ny; j++) {
-    y = ((REAL) (j - ny/2)) * step - y0;
-    for(k = 0; k < nz; k++) {
-      z = ((REAL) (k - nz/2)) * step - z0;
-      fprintf(fp, FMT_R "\t" FMT_R "\t" FMT_R "\t" FMT_R "\n", y, z, rgrid_value_at_index(py, i, j, k), rgrid_value_at_index(pz, i, j, k));	
-    } fprintf(fp,"\n");
-  }
-  fclose(fp);
-  
-  /*----- Z X -----*/
-  sprintf(file, "%s.zx", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  j = ny / 2;
-  for(k = 0; k < nz; k++) {
-    z = ((REAL) (k - nz/2)) * step - z0;
-    for(i = 0; i < nx; i++) {
-      x = ((REAL) (i - nx/2)) * step - z0;
-      fprintf(fp, FMT_R "\t" FMT_R "\t" FMT_R "\t" FMT_R "\n", z, x, rgrid_value_at_index(pz, i, j, k), rgrid_value_at_index(px, i, j, k));	
-    } fprintf(fp,"\n"); 
-  }
-  fclose(fp);
-  
-  if(dft_driver_verbose) fprintf(stderr, "libdft: vector 2D slices of density written to %s.\n", file);
-}
-
-/*
- * Write two-dimensional vector slices of a probability current 
- * .xy ASCII file cut along z=0.
- * .yz ASCII file cut along x=0.
- * .zx ASCII file cut along y=0.
- *
- * wf = wavefunction (wf, input)
- * base = Basename for the output file (char *, input).
- *
- * No return value.
- *
- * Uses workspace 1-3
- */
-
-EXPORT void dft_driver_write_current(wf *wf, char *base) {
-
-  rgrid_claim(workspace1);
-  rgrid_claim(workspace2);
-  rgrid_claim(workspace3);
-  grid_wf_probability_flux(wf, workspace1, workspace2, workspace3);
-  dft_driver_write_vectorfield( workspace1, workspace2, workspace3, base);
-  rgrid_release(workspace1);
-  rgrid_release(workspace2);
-  rgrid_release(workspace3);
-}
-
-/*
- * Write two-dimensional vector slices of velocity 
- * .xy ASCII file cut along z=0.
- * .yz ASCII file cut along x=0.
- * .zx ASCII file cut along y=0.
- *
- * wf = wavefunction (wf, input)
- * base = Basename for the output file (char *, input).
- *
- * No return value.
- *
- * Uses workspace 1-3
- * 
- */
-
-EXPORT void dft_driver_write_velocity(wf *wf, char *base) {
-
-  rgrid_claim(workspace1);
-  rgrid_claim(workspace2);
-  rgrid_claim(workspace3);
-  grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_VELOC_CUTOFF);
-  dft_driver_write_vectorfield(workspace1, workspace2, workspace3, base);
-  rgrid_release(workspace1);
-  rgrid_release(workspace2);
-  rgrid_release(workspace3);
-}
-
-/*
- * Read in a grid from a binary file (.grd).
- *
- * grid = grid where the data is placed (cgrid *, output).
- * file = filename for the file (char *, input). Note: the .grd extension must be given.
- *
- * No return value.
- *
- */
-
-EXPORT void dft_driver_read_grid(cgrid *grid, char *file) {
-
-  FILE *fp;
-
-  if(!(fp = fopen(file, "r"))) {
-    fprintf(stderr, "libdft: Can't open complex grid file %s.\n", file);
-    exit(1);
-  }
-  cgrid_read(grid, fp);
-  fclose(fp);
-}
-
-/*
- * Write a complex grid to ascii & binary files.
- * .grd file is the full grid in binary format.
- * .x ASCII file cut along (x, 0.0, 0.0)
- * .y ASCII file cut along (0.0, y, 0.0)
- * .z ASCII file cut along (0.0, 0.0, z)
- *
- * grid = grid to be written (cgrid *, input).
- * base = Basename for the output file (char *, input).
- *
- * No return value.
- *
- */
-
-EXPORT void dft_driver_write_grid(cgrid *grid, char *base) {
-
-  FILE *fp;
-  char file[2048];
-  INT i, j, k;
-  REAL x, y, z;
-
-  sprintf(file, "%s.grd", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  cgrid_write(grid, fp);
-  fclose(fp);
-
-  sprintf(file, "%s.x", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  j = dft_driver_ny2;
-  k = dft_driver_nz2;
-  for(i = 0; i < dft_driver_nx; i++) { 
-    x = ((REAL) (i - dft_driver_nx2)) * dft_driver_step;
-    fprintf(fp, FMT_R " " FMT_R " " FMT_R "\n", x, CREAL(cgrid_value_at_index(grid, i, j, k)), CIMAG(cgrid_value_at_index(grid, i, j, k)));
-  }
-  fclose(fp);
-
-  sprintf(file, "%s.y", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  i = dft_driver_nx2;
-  k = dft_driver_nz2;
-  for(j = 0; j < dft_driver_ny; j++) {
-    y = ((REAL) (j - dft_driver_ny2)) * dft_driver_step;
-    fprintf(fp, FMT_R " " FMT_R " " FMT_R "\n", y, CREAL(cgrid_value_at_index(grid, i, j, k)), CIMAG(cgrid_value_at_index(grid, i, j, k)));
-  }
-  fclose(fp);
-
-  sprintf(file, "%s.z", base);
-  if(!(fp = fopen(file, "w"))) {
-    fprintf(stderr, "libdft: Can't open %s for writing.\n", file);
-    exit(1);
-  }
-  i = dft_driver_nx2;
-  j = dft_driver_ny2;
-  for(k = 0; k < dft_driver_nz; k++) {
-    z = ((REAL) (k - dft_driver_nz2)) * dft_driver_step;
-    fprintf(fp, FMT_R " " FMT_R " " FMT_R "\n", z, CREAL(cgrid_value_at_index(grid, i, j, k)), CIMAG(cgrid_value_at_index(grid, i, j, k)));
-  }
-  fclose(fp);
-}
-
-/*
- * Calculate the total energy of the system.
- *
- * gwf     = wavefunction for the system (wf *; input).
- * ext_pot = external potential grid (rgrid *; input).
- *
- * Return value = total energy for the system (in a.u.).
- *
- */
-
-EXPORT REAL dft_driver_energy(wf *gwf, rgrid *ext_pot) {
-
-  return dft_driver_potential_energy(gwf, ext_pot) + dft_driver_kinetic_energy(gwf);
-}
-
-/*
- * Calculate the potential energy of the system.
- *
- * gwf     = wavefunction for the system (wf *; input).
- * ext_pot = external potential grid (rgrid *; input).
- *
- * Return value = potential energy for the system (in a.u.).
- *
- */
-
-EXPORT REAL dft_driver_potential_energy(wf *gwf, rgrid *ext_pot) {
-
-  REAL value;
-
-  grid_wf_density(gwf, density);
-
-  // TODO: only allocate workspaces needed for the current functional...
-  if(!workspace1) workspace1 = dft_driver_get_workspace(1, 1);
-  if(!workspace2) workspace2 = dft_driver_get_workspace(2, 1);
-  if(!workspace3) workspace3 = dft_driver_get_workspace(3, 1);
-  if(!workspace4) workspace4 = dft_driver_get_workspace(4, 1);
-  if(!workspace5) workspace5 = dft_driver_get_workspace(5, 1);
-  if(!workspace6) workspace6 = dft_driver_get_workspace(6, 1);
-  if(!workspace7) workspace7 = dft_driver_get_workspace(7, 1);
-  if(!workspace8) workspace8 = dft_driver_get_workspace(8, 1);
-  if(!workspace9) workspace9 = dft_driver_get_workspace(9, 1);
-  // Others claimed in dft_ot_energy_density() but workspace9
-  rgrid_claim(workspace9);
-  dft_ot_energy_density(dft_driver_otf, workspace9, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
-  if(ext_pot) rgrid_add_scaled_product(workspace9, 1.0, density, ext_pot);
-  value = rgrid_integral(workspace9);
-  rgrid_release(workspace9);
-  
-  return value;
-}
-
-/*
- * Calculate the kinetic energy of the system.
- *
- * gwf     = wavefunction for the system (wf *; input).
- *
- * Return value = kinetic energy for the system (in a.u.).
- *
- */
-
-EXPORT REAL dft_driver_kinetic_energy(wf *gwf) {
-  
-  REAL value;
-
-  cworkspace = dft_driver_get_workspace(11, 1);
-  cgrid_claim(cworkspace);
-
-  /* Since CN_NBC and CN_NBC_ROT do not use FFT for kinetic propagation, evaluate the kinetic energy with finite difference as well */
-  if((dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC_ROT || dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC) && driver_bc == DFT_DRIVER_BC_NEUMANN) {
-    /* FIXME: Right now there is no way to make grid_wf_energy() do finite difference energy with Neumann. */
-    REAL mass = gwf->mass, kx = gwf->grid->kx0 , ky = gwf->grid->ky0 , kz = gwf->grid->kz0;
-    REAL ekin = -HBAR * HBAR * (kx * kx + ky * ky + kz * kz) / (2.0 * mass);
-
-    if(ekin != 0.0)
-      ekin *= CREAL(cgrid_integral_of_square(gwf->grid)); 
-    return grid_wf_energy_cn(gwf, gwf, NULL, cworkspace) + ekin;
-  }
-  value = grid_wf_energy(gwf, NULL, cworkspace);
-  cgrid_release(cworkspace);
-  return value;
-}
-
-/*
- * Calculate the energy from the rotation constrain,
- * ie -<omega*L>.
- *
- * gwf     = wavefunction for the system (wf *; input).
- * omega_x = angular frequency in a.u., x-axis (REAL, input)
- * omega_y = angular frequency in a.u., y-axis (REAL, input)
- * omega_z = angular frequency in a.u., z-axis (REAL, input)
- *
- */
-
-EXPORT REAL dft_driver_rotation_energy(wf *wf, REAL omega_x, REAL omega_y, REAL omega_z) {
-
-  REAL lx, ly, lz;
-
-  dft_driver_L( wf, &lx, &ly, &lz);
-  return -(omega_x * lx) - (omega_y * ly) - (omega_z * lz);
-}
-
-/*
- * Calculate the energy in a certain region (box).
- *
- * gwf     = wavefunction for the system (wf *; input).
- * ext_pot = external potential grid (rgrid *; input).
- * xl   = lower limit for x (REAL, input).
- * xu   = upper limit for x (REAL, input).
- * yl   = lower limit for y (REAL, input).
- * yu   = upper limit for y (REAL, input).
- * zl   = lower limit for z (REAL, input).
- * zu   = upper limit for z (REAL, input).
- *
- * Return value = energy for the box (in a.u.).
- *
- * Note: the backflow is not included in the energy density calculation.
- *
- */
-
-EXPORT REAL dft_driver_energy_region(wf *gwf, rgrid *ext_pot, REAL xl, REAL xu, REAL yl, REAL yu, REAL zl, REAL zu) {
-
-  REAL energy;
-
-  if(!workspace1) workspace1 = dft_driver_get_workspace(1, 1);
-  if(!workspace2) workspace2 = dft_driver_get_workspace(2, 1);
-  if(!workspace3) workspace3 = dft_driver_get_workspace(3, 1);
-  if(!workspace4) workspace4 = dft_driver_get_workspace(4, 1);
-  if(!workspace5) workspace5 = dft_driver_get_workspace(5, 1);
-  if(!workspace6) workspace6 = dft_driver_get_workspace(6, 1);
-  if(!workspace7) workspace7 = dft_driver_get_workspace(7, 1);
-  if(!workspace8) workspace8 = dft_driver_get_workspace(8, 1);
-  if(!workspace9) workspace9 = dft_driver_get_workspace(9, 1);
-  rgrid_claim(workspace9);
-  grid_wf_density(gwf, density);
-  dft_ot_energy_density(dft_driver_otf, workspace9, gwf, density, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8);
-  if(ext_pot) rgrid_add_scaled_product(workspace9, 1.0, density, ext_pot);
-  energy = rgrid_integral_region(workspace9, xl, xu, yl, yu, zl, zu);
-  cworkspace = dft_driver_get_workspace(11, 1);
-  cgrid_claim(cworkspace);
-  energy += grid_wf_energy(gwf, NULL, cworkspace);
-  cgrid_release(cworkspace);
-  rgrid_release(workspace9);
-  return energy;
-}
-
-/*
- * Return number of helium atoms represented by a given wavefuntion.
- *
- * gwf = wavefunction (wf *; input).
- *
- * Returns the # of He atoms (note: can be fractional).
- *
- */
-
-EXPORT REAL dft_driver_natoms(wf *gwf) {
-
-  return CREAL(cgrid_integral_of_square(gwf->grid));
-}
-
-/*
  * Evaluate absorption/emission spectrum using the Andersson
  * expression. No zero-point correction for the impurity.
  *
@@ -1738,7 +987,7 @@ static REAL complex dft_do_int(rgrid *dens, rgrid *dpot, REAL t, cgrid *wrk) {
 
 EXPORT cgrid *dft_driver_spectrum(rgrid *density, REAL tstep, REAL endtime, char finalave, char *finalx, char *finaly, char *finalz, char initialave, char *initialx, char *initialy, char *initialz) {
 
-  rgrid *dpot;
+  rgrid *dpot, *workspace1 = dft_driver_otf->workspace1, *workspace2 = dft_driver_otf->workspace2;
   cgrid *wrk[256];
   static cgrid *corr = NULL;
   REAL t;
@@ -1857,7 +1106,7 @@ static REAL complex dft_do_int2(cgrid *gexp, rgrid *imdens, cgrid *fft_dens, REA
 EXPORT cgrid *dft_driver_spectrum_zp(rgrid *density, rgrid *imdensity, REAL tstep, REAL endtime, char upperave, char *upperx, char *uppery, char *upperz, char lowerave, char *lowerx, char *lowery, char *lowerz) {
 
   cgrid *wrk, *fft_density, *gexp;
-  rgrid *dpot;
+  rgrid *dpot, *workspace1 = dft_driver_otf->workspace1, *workspace2 = dft_driver_otf->workspace2;
   static cgrid *corr = NULL;
   REAL t;
   INT i, ntime;
@@ -1953,6 +1202,9 @@ static cgrid *tdpot = NULL;
 static INT ntime, cur_time, zerofill;
 
 EXPORT rgrid *dft_driver_spectrum_init(rgrid *idensity, INT nt, INT zf, char upperave, char *upperx, char *uppery, char *upperz, char lowerave, char *lowerx, char *lowery, char *lowerz) {
+ 
+  rgrid *workspace1 = dft_driver_otf->workspace1, *workspace2 = dft_driver_otf->workspace2, *workspace3 = dft_driver_otf->workspace3;
+  rgrid *workspace4 = dft_driver_otf->workspace4;
 
   cur_time = 0;
   ntime = nt;
@@ -2049,6 +1301,8 @@ EXPORT void dft_driver_spectrum_collect_user(REAL val) {
  */
 
 EXPORT void dft_driver_spectrum_collect(wf *gwf) {
+
+  rgrid *workspace1 = dft_driver_otf->workspace1;
 
   if(cur_time > ntime) {
     fprintf(stderr, "libdft: initialized with too few points (spectrum collect).\n");
@@ -2157,102 +1411,6 @@ EXPORT cgrid *dft_driver_spectrum_evaluate(REAL tstep, REAL tc) {
 }
 
 /*
- * Evaluate liquid momentum according to:
- * $\int\rho\v_idr$ where $i = x,y,z$.
- *
- * wf = Order parameter for evaluation (wf *; input).
- * px = Liquid momentum along x (REAL *; output).
- * py = Liquid momentum along y (REAL *; output).
- * pz = Liquid momentum along z (REAL *; output).
- *
- */
-
-EXPORT void dft_driver_P(wf *wf, REAL *px, REAL *py, REAL *pz) {
-
-  rgrid_claim(workspace1);
-  rgrid_claim(workspace2);
-  rgrid_claim(workspace3);
-  grid_wf_probability_flux(wf, workspace1, workspace2, workspace3);
-  rgrid_multiply(workspace1, wf->mass);
-  rgrid_multiply(workspace2, wf->mass);
-  rgrid_multiply(workspace3, wf->mass);
-
-  *px = rgrid_integral(workspace1);
-  *py = rgrid_integral(workspace2);
-  *pz = rgrid_integral(workspace3);
-  rgrid_release(workspace1);
-  rgrid_release(workspace2);
-  rgrid_release(workspace3);
-}
-
-/*
- * Evaluate liquid momentum according to:
- * $\int\rho\v_idr$ where $i = x$.
- *
- * wf = Order parameter for evaluation (wf *; input).
- *
- * Returns px (momentum along x).
- *
- */
-
-EXPORT REAL dft_driver_Px(wf *wf) {
-
-  REAL value;
-
-  rgrid_claim(workspace1);
-  grid_wf_probability_flux_x(wf, workspace1);
-  value = wf->mass * rgrid_integral(workspace1);
-  rgrid_release(workspace1);
-
-  return value;
-}
-
-/*
- * Evaluate liquid momentum according to:
- * $\int\rho\v_idr$ where $i = y$.
- *
- * wf = Order parameter for evaluation (wf *; input).
- *
- * Returns py (momentum along y).
- *
- */
-
-EXPORT REAL dft_driver_Py(wf *wf) {
-
-  REAL value;
-
-  rgrid_claim(workspace1);
-  grid_wf_probability_flux_y(wf, workspace1);
-  rgrid_multiply(workspace1, wf->mass);
-  value = rgrid_integral(workspace1);
-  rgrid_release(workspace1);  
-  return value;
-}
-
-/*
- * Evaluate liquid momentum according to:
- * $\int\rho\v_idr$ where $i = z$.
- *
- * wf = Order parameter for evaluation (wf *; input).
- *
- * Returns pz (momentum along z).
- *
- */
-
-EXPORT REAL dft_driver_Pz(wf *wf) {
-
-  REAL value;
-
-  rgrid_claim(workspace1);
-  grid_wf_probability_flux_z(wf, workspace1);
-  rgrid_multiply(workspace1, wf->mass);
-  value = rgrid_integral(workspace1);
-  rgrid_release(workspace1);  
-
-  return value;
-}
-
-/*
  * Evaluate liquid kinetic energy according to:
  * $\frac{1}{2}m_{He}\int\rho v^2dr$
  *
@@ -2265,6 +1423,7 @@ EXPORT REAL dft_driver_Pz(wf *wf) {
 EXPORT REAL dft_driver_KE(wf *wf) {
 
   REAL value;
+  rgrid *workspace1 = dft_driver_otf->workspace1, *workspace2 = dft_driver_otf->workspace2, *workspace3 = dft_driver_otf->workspace3;
 
   rgrid_claim(workspace1); rgrid_claim(workspace2); rgrid_claim(workspace3);
   grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_VELOC_CUTOFF);
@@ -2280,108 +1439,6 @@ EXPORT REAL dft_driver_KE(wf *wf) {
   rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
 
   return value;
-}
-
-/*
- * Evaluate angular momentum about the origin (center of the grid).
- *
- * wf = Order parameter for evaluation (wf *; input).
- * lx = Anuglar momentum x component (REAL *; output).
- * ly = Anuglar momentum y component (REAL *; output).
- * lz = Anuglar momentum z component (REAL *; output).
- *
- */
-
-static REAL origin_x = 0.0, origin_y = 0.0, origin_z = 0.0;
-
-static REAL mult_mx(void *xx, REAL x, REAL y, REAL z) {
-
-  rgrid *grid = (rgrid *) xx;
-
-  return -rgrid_value(grid, x, y, z) * (x - origin_x);
-}
-
-static REAL mult_my(void *xx, REAL x, REAL y, REAL z) {
-
-  rgrid *grid = (rgrid *) xx;
-
-  return -rgrid_value(grid, x, y, z) * (y - origin_y);
-}
-
-static REAL mult_mz(void *xx, REAL x, REAL y, REAL z) {
-
-  rgrid *grid = (rgrid *) xx;
-
-  return -rgrid_value(grid, x, y, z) * (z - origin_z);
-}
-
-static REAL mult_x(void *xx, REAL x, REAL y, REAL z) {
-
-  rgrid *grid = (rgrid *) xx;
-
-  return rgrid_value(grid, x, y, z) * (x - origin_x);
-}
-
-static REAL mult_y(void *xx, REAL x, REAL y, REAL z) {
-
-  rgrid *grid = (rgrid *) xx;
-
-  return rgrid_value(grid, x, y, z) * (y - origin_y);
-}
-
-static REAL mult_z(void *xx, REAL x, REAL y, REAL z) {
-
-  rgrid *grid = (rgrid *) xx;
-
-  return rgrid_value(grid, x, y, z) * (z - origin_z);
-}
-
-/*
- * Calculate angular momentum expectation values * particle mass.
- *
- * wf = Wavefunction (gwf *).
- * lx = X component of angular momentum * mass (REAL *).
- * ly = Y component of angular momentum * mass (REAL *).
- * lz = Z component of angular momentum * mass (REAL *).
- *
- */
- 
-EXPORT void dft_driver_L(wf *wf, REAL *lx, REAL *ly, REAL *lz) {
-
-  rgrid *px = workspace4, *py = workspace5, *pz = workspace6;
-  
-  workspace7 = dft_driver_get_workspace(7, 1);
-  workspace8 = dft_driver_get_workspace(8, 1);
-
-  rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6);
-  rgrid_claim(workspace7); rgrid_claim(workspace7);
-
-  origin_x = wf->grid->x0;
-  origin_y = wf->grid->y0;
-  origin_z = wf->grid->z0;
-
-  grid_wf_probability_flux(wf, px, py, pz);
-
-  // Lx
-  rgrid_map(workspace7, mult_mz, py);      // -z*p_y
-  rgrid_map(workspace8, mult_y, pz);       // y*p_z
-  rgrid_sum(workspace7, workspace7, workspace8);
-  *lx = rgrid_integral(workspace7) * wf->mass;
-
-  // Ly
-  rgrid_map(workspace7, mult_mx, pz);      // -x*p_z
-  rgrid_map(workspace8, mult_z, px);       // z*p_x
-  rgrid_sum(workspace7, workspace7, workspace8);
-  *ly = rgrid_integral(workspace7) * wf->mass;
-
-  // Lz
-  rgrid_map(workspace7, mult_my, px);      // -y*p_x
-  rgrid_map(workspace8, mult_x, py);       // x*p_y
-  rgrid_sum(workspace7, workspace7, workspace8);
-  *lz = rgrid_integral(workspace7) * wf->mass;
-
-  rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6);
-  rgrid_release(workspace7); rgrid_release(workspace7);
 }
 
 /*
@@ -2628,9 +1685,8 @@ static REAL complex vortex_z_n2(void *na, REAL x, REAL y, REAL z) {
 
 EXPORT void dft_driver_vortex_initial(wf *gwf, int n, int axis) {
 
-  cworkspace = dft_driver_get_workspace(11, 1);
-  
-  cgrid_claim(cworkspace);
+  cgrid *cworkspace = gwf->cworkspace;
+
   if(axis == DFT_DRIVER_VORTEX_X) {
     switch(n) {
     case 1:
@@ -2645,7 +1701,6 @@ EXPORT void dft_driver_vortex_initial(wf *gwf, int n, int axis) {
       fprintf(stderr,"libdft: Illegal value for n (dft_driver_vortex_initial()).\n");
       break;
     }
-    cgrid_release(cworkspace);
     return;
   }
 
@@ -2723,6 +1778,8 @@ static REAL vortex_z(void *na, REAL x, REAL y, REAL z) {
 
 EXPORT void dft_driver_vortex(rgrid *potential, int direction) {
 
+  rgrid *workspace6 = dft_driver_otf->workspace6;
+
   rgrid_claim(workspace6);
   switch(direction) {
   case DFT_DRIVER_VORTEX_X:
@@ -2742,229 +1799,5 @@ EXPORT void dft_driver_vortex(rgrid *potential, int direction) {
     exit(1);
   }
   rgrid_release(workspace6);
-}
-
-/*
- * This routine will limit the given potential exceeds the specified max value.
- *
- * potential = Potential that determines the points to be zeroed (rgrid *).
- * ul        = Limit for the potential above which the wf will be zeroed (REAL).
- * ll        = Limit for the potential below which the wf will be zeroed (REAL).
- * 
- */
-
-EXPORT void dft_driver_clear_pot(rgrid *potential, REAL ul, REAL ll) {
-
-  rgrid_threshold_clear(potential, potential, ul, ll, 0.0, 0.0);
-}
-
-/*
- * Zero part of a given grid based on a given density treshold.
- *
- */
-
-EXPORT void dft_driver_clear_core(rgrid *grid, rgrid *density, REAL thr) {
-
-  rgrid_threshold_clear(grid, density, thr, -1E99, 0.0, 0.0);
-}
-
-/*
- * This routine will zero a given wavefunction at points where the given potential exceeds the specified limit.
- *
- * gwf       = Wavefunction to be operated on (wf *).
- * potential = Potential that determines the points to be zeroed (rgrid *).
- * ul        = Limit for the potential above which the wf will be zeroed (REAL).
- * 
- * Application: Sometimes there are regions where the potential is very high
- *              but numerical instability begins to increase the wf amplitude there
- *              leading to the calculation exploding.
- *
- */
-
-EXPORT void dft_driver_clear(wf *gwf, rgrid *potential, REAL ul) {
-
-  INT i, j, k;
-
-  for(i = 0; i < potential->nx; i++)
-    for(j = 0; j < potential->ny; j++)
-      for(k = 0; k < potential->nz; k++)
-        if(rgrid_value_at_index(potential, i, j, k) >= ul) cgrid_value_to_index(gwf->grid, i, j, k, 0.0);
-}
-
-/*
- * Calculate running average to smooth unwanted high freq. components.
- *
- * dest   = destination grid (rgrid *).
- * source = source grid (rgrid *).
- * npts   = number of points used in running average (int). This smooths over +-npts points (effectively 2 X npts).
- *
- * No return value.
- *
- * Note: dest and source cannot be the same array.
- * 
- */
-
-EXPORT void dft_driver_npoint_smooth(rgrid *dest, rgrid *source, int npts) {
-
-  INT i, ip, j, jp, k, kp, nx = source->nx, ny = source->ny, nz = source->nz, pts;
-  INT li, ui, lj, uj, lk, uk;
-  REAL ave;
-
-  if(npts < 2) {
-    rgrid_copy(dest, source);
-    return; /* nothing to do */
-  }
-  if(dest == source) {
-    fprintf(stderr, "libdft: dft_driver_npoint_smooth() - dest and source cannot be equal.\n");
-    exit(1);
-  }
-
-  for (i = 0; i < nx; i++) 
-    for (j = 0; j < ny; j++) 
-      for (k = 0; k < nz; k++) {
-        ave = 0.0;
-        pts = 0;
-        if(i - npts < 0) li = 0; else li = i - npts;
-        if(j - npts < 0) lj = 0; else lj = j - npts;
-        if(k - npts < 0) lk = 0; else lk = k - npts;
-        if(i + npts > nx) ui = nx; else ui = i + npts;
-        if(j + npts > ny) uj = ny; else uj = j + npts;
-        if(k + npts > nz) uk = nz; else uk = k + npts;
-        for(ip = li; ip < ui; ip++)
-          for(jp = lj; jp < uj; jp++)
-            for(kp = lk; kp < uk; kp++) {
-              pts++;
-              ave += rgrid_value_at_index(source, ip, jp, kp);
-            }
-        ave /= (REAL) pts;
-        rgrid_value_to_index(dest, i, j, k, ave);
-      }
-}
-
-/*******************************************************/
-
-/*
- * Allocate workspaces and allow outside access to workspaces.
- *
- * w     = workspace # requested (char; input).
- * alloc = 1: allocate workspace if not allocated, 0 = do not allocate if not already allocated (char; input).
- *
- * Return value: Pointer to the workspace (rgrid *) or NULL if invalid workspace number requested.
- *
- * density                : used for storing liquid density during potential calculation.
- * workspace1 - workspace9: used during propagation (evaluation of OT potential). No need to (and will not be) preserve between predict/correct (rgrid).
- * cworkspace             : used during propagation (Crank-Nicolson KE propagation and OT potential evaluation). No need to (and will not be) preserve between predict/correct (cgrid).
- * workspace10            : density storage (rgrid). Same applies as for the above.
- * All space is safe to use everywhere (but will be overwritten by either predict/correct propagation calls or possibly other driver.c functions).
- * 
- * cworkspace12 is special with dimensions (3NX, NY, NZ). This is large enough for GPU based Crank-Nicolson.
- * 
- * Returns NULL if the requrested work space has not been allocated.
- *
- */
-
-EXPORT void *dft_driver_get_workspace(char w, char alloc) {
-
-  if (w < 1 || w > 12) {
-    fprintf(stderr, "libdft: Illegal workspace number requested.\n");
-    exit(1);
-  }
-  switch(w) {
-    case 1:
-      if(!workspace1 && alloc) workspace1 = dft_driver_alloc_rgrid("DR workspace1");
-      return (void *) workspace1;
-    case 2:
-      if(!workspace2 && alloc) workspace2 = dft_driver_alloc_rgrid("DR workspace2");
-      return (void *) workspace2;
-    case 3:
-      if(!workspace3 && alloc) workspace3 = dft_driver_alloc_rgrid("DR workspace3");
-      return (void *) workspace3;
-    case 4:
-      if(!workspace4 && alloc) workspace4 = dft_driver_alloc_rgrid("DR workspace4");
-      return (void *) workspace4;
-    case 5:
-      if(!workspace5 && alloc) workspace5 = dft_driver_alloc_rgrid("DR workspace5");
-      return (void *) workspace5;
-    case 6:
-      if(!workspace6 && alloc) workspace6 = dft_driver_alloc_rgrid("DR workspace6");
-      return (void *) workspace6;
-    case 7:
-      if(!workspace7 && alloc) workspace7 = dft_driver_alloc_rgrid("DR workspace7");
-      return (void *) workspace7;
-    case 8:
-      if(!workspace8 && alloc) workspace8 = dft_driver_alloc_rgrid("DR workspace8");
-      return (void *) workspace8;
-    case 9:
-      if(!workspace9 && alloc) workspace9 = dft_driver_alloc_rgrid("DR workspace9");
-      return (void *) workspace9;
-    case 10:
-      if(!density && alloc) density = dft_driver_alloc_rgrid("DR density");
-      return (void *) density;
-    case 11:
-      if(!cworkspace && alloc) cworkspace = dft_driver_alloc_cgrid("DR cworkspace");
-      return (void *) cworkspace;
-    case 12:
-      if(!cworkspace2 && alloc) {
-        cworkspace2 = cgrid_alloc(3 * dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, CGRID_PERIODIC_BOUNDARY, 0, 
-                                  "DR cworkspace2");
-        cgrid_set_origin(cworkspace2, driver_x0, driver_y0, driver_z0);
-        cgrid_set_momentum(cworkspace2, driver_kx0, driver_ky0, driver_kz0);
-      }
-      return (void *) cworkspace2;
-   }
-   return NULL;
-}
-
-/*
- * Calculate incompressible kinetic energy density as a function of wave vector k (atomic unis).
- *
- * gwf     = Wave function to be analyzed (wf *; input).
- * bins    = Averages in k-space (REAL *; output). The array length is nbins.
- * binstep = Step length in k-space in atomic units (REAL; input).
- * nbins   = Number of bins to use (INT; input).
- *
- * No return value.
- *
- */
-
-EXPORT void dft_driver_incompressible_KE(wf *gwf, REAL *bins, REAL binstep, INT nbins) {
-
-  INT i;
-
-  if(!workspace1) workspace1 = dft_driver_get_workspace(1, 1);
-  if(!workspace2) workspace2 = dft_driver_get_workspace(2, 1);
-  if(!workspace3) workspace3 = dft_driver_get_workspace(3, 1);
-  if(!workspace4) workspace4 = dft_driver_get_workspace(4, 1);
-  if(!workspace5) workspace5 = dft_driver_get_workspace(5, 1);
-  if(!workspace6) workspace6 = dft_driver_get_workspace(6, 1);
-  if(!workspace7) workspace7 = dft_driver_get_workspace(7, 1);
-  if(!workspace8) workspace8 = dft_driver_get_workspace(8, 1);
-  if(!workspace9) workspace9 = dft_driver_get_workspace(9, 1);
-  rgrid_claim(workspace1); rgrid_claim(workspace2); rgrid_claim(workspace3);
-  rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6);
-  rgrid_claim(workspace7); rgrid_claim(workspace8); rgrid_claim(workspace9);
-  grid_wf_probability_flux(gwf, workspace1, workspace2, workspace3);
-  grid_wf_density(gwf, workspace4);
-  rgrid_power(workspace4, workspace4, 0.5);
-  rgrid_division_eps(workspace1, workspace1, workspace4, 1E-5);
-  rgrid_division_eps(workspace2, workspace2, workspace4, 1E-5);
-  rgrid_division_eps(workspace3, workspace3, workspace4, 1E-5);
-  /* workspace1 = flux_x / sqrt(rho) = sqrt(rho) * v_x */
-  /* workspace2 = flux_y / sqrt(rho) = sqrt(rho) * v_y */
-  /* workspace3 = flux_z / sqrt(rho) = sqrt(rho) * v_z */
-  rgrid_hodge(workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
-
-  /* workspaces 4, 5, 6 = compressible; workspaces 7, 8, 9 = incompressible */
-  /* FFT each component */
-  rgrid_fft(workspace7); rgrid_multiply(workspace7, workspace7->step);
-  rgrid_fft(workspace8); rgrid_multiply(workspace8, workspace8->step);
-  rgrid_fft(workspace9); rgrid_multiply(workspace9, workspace9->step);
-  rgrid_spherical_average_reciprocal(workspace7, workspace8, workspace9, bins, binstep, nbins, 1);
-  rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
-  rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6);
-  rgrid_release(workspace7); rgrid_release(workspace8); rgrid_release(workspace9);
-  
-  for (i = 0; i < nbins; i++)
-    bins[i] = bins[i] * 0.5 * gwf->mass / (4.0 * M_PI);
 }
 

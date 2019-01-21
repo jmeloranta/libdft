@@ -482,13 +482,14 @@ EXPORT REAL dft_ot_bulk_surface_tension(REAL ts, REAL width, REAL rho0) {
 
   REAL mu0, stens, prev_stens;
   INT i;
-  rgrid *rworkspace;
+  rgrid *rworkspace, *density;
   wf *gwf;
   extern INT dft_driver_nx, dft_driver_ny, dft_driver_nz;
   extern REAL dft_driver_step, dft_driver_rho0;
   extern dft_ot_functional *dft_driver_otf;
 
   rworkspace = dft_driver_alloc_rgrid("rworkspace");
+  density = dft_driver_alloc_rgrid("density");
   dft_driver_otf->rho0 = dft_driver_rho0;
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
   gwf = dft_driver_alloc_wavefunction(dft_driver_otf->mass, "gwf");
@@ -497,13 +498,15 @@ EXPORT REAL dft_ot_bulk_surface_tension(REAL ts, REAL width, REAL rho0) {
 
   prev_stens = 1E11;
   for(i = 1; ; i++) {
-    dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, ts, i);
-    stens = dft_driver_energy(gwf, rworkspace) / (2.0 * ((REAL) dft_driver_ny) * ((REAL) dft_driver_nz) * dft_driver_step * dft_driver_step);
+    dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, ts, i);    
+    dft_ot_energy_density(dft_driver_otf, rworkspace, gwf);
+    stens = grid_wf_energy(gwf, rworkspace) / (2.0 * ((REAL) dft_driver_ny) * ((REAL) dft_driver_nz) * dft_driver_step * dft_driver_step);
     if(FABS(stens - prev_stens) / stens < 0.03) break;
     prev_stens = stens;
   }
   grid_wf_free(gwf);
   rgrid_free(rworkspace);
+  rgrid_free(density);
   return stens;
 }
 

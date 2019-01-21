@@ -107,8 +107,12 @@ int main(int argc, char **argv) {
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 3.0, 10);
   dft_driver_temp_disable_other_normalization = 1; // Do not normalize - we are using OTHER!!!
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* density */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -123,13 +127,9 @@ int main(int argc, char **argv) {
   dft_driver_setup_momentum(0.0, 0.0, kz);
 
   /* Allocate space for external potential */
-  density = dft_driver_alloc_rgrid("rworkspace");
+  density = dft_driver_otf->density;
   potential_store = dft_driver_alloc_cgrid("cworkspace"); /* temporary storage */
   ext_pot = dft_driver_alloc_rgrid("ext_pot");
-
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
   /* set up external potential */
   rgrid_map(ext_pot, bubble, NULL);
@@ -155,7 +155,7 @@ int main(int argc, char **argv) {
     if(!(iter % NTH)) {
       sprintf(buf, "bubble-" FMT_I, iter);
       grid_wf_density(gwf, density);
-      dft_driver_write_density(density, buf);
+      rgrid_write_grid(buf, density);
     }
 
     if(iter < IITER) tstep = -I * TS;

@@ -14,6 +14,17 @@ void do_ke(wf *gwf, REAL tim) {
   FILE *fp;
   char file[256];
   INT i;
+  rgrid *workspace1, *workspace2, *workspace3, *workspace4, *workspace5, *workspace6, *workspace7, *workspace8, *workspace9;
+
+  workspace1 = dft_ot_workspace(dft_driver_otf, gwf, 1);
+  workspace2 = dft_ot_workspace(dft_driver_otf, gwf, 2);
+  workspace3 = dft_ot_workspace(dft_driver_otf, gwf, 3);
+  workspace4 = dft_ot_workspace(dft_driver_otf, gwf, 4);
+  workspace5 = dft_ot_workspace(dft_driver_otf, gwf, 5);
+  workspace6 = dft_ot_workspace(dft_driver_otf, gwf, 6);
+  workspace7 = dft_ot_workspace(dft_driver_otf, gwf, 7);
+  workspace8 = dft_ot_workspace(dft_driver_otf, gwf, 8);
+  workspace9 = dft_ot_workspace(dft_driver_otf, gwf, 9);
 
   if(!bins) {
     if(!(bins = (REAL *) malloc(sizeof(REAL) * NBINS))) {
@@ -21,7 +32,7 @@ void do_ke(wf *gwf, REAL tim) {
       exit(1);
     }
   }
-  dft_driver_incompressible_KE(gwf, bins, BINSTEP, NBINS);
+  grid_wf_incomp_KE(gwf, bins, BINSTEP, NBINS, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
   sprintf(file, "ke-" FMT_R ".dat", tim);
   if(!(fp = fopen(file, "w"))) {
     fprintf(stderr, "Can't open %s.\n", file);
@@ -43,10 +54,10 @@ void analyze(wf *wf, INT iter, REAL vx) {
 
   printf("Current time = " FMT_R " fs.\n", ((REAL) iter) * TIME_STEP * GRID_AUTOFS);
 
-  cur_x = dft_driver_get_workspace(1, 1);
-  cur_y = dft_driver_get_workspace(2, 1);
-  cur_z = dft_driver_get_workspace(3, 1);
-  circ = dft_driver_get_workspace(4, 1);
+  cur_x = dft_ot_workspace(dft_driver_otf, wf, 1);
+  cur_y = dft_ot_workspace(dft_driver_otf, wf, 2);
+  cur_z = dft_ot_workspace(dft_driver_otf, wf, 3);
+  circ = dft_ot_workspace(dft_driver_otf, wf, 4);
 
   grid_wf_probability_flux(wf, cur_x, cur_y, cur_z);
   cur_mom_x = rgrid_integral(cur_x) * wf->mass;
