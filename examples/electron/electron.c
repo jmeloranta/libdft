@@ -20,7 +20,8 @@
 #define BUBBLE_RADIUS 1.0
 
 #define INCLUDE_VORTEX 1 /**/
-/* #define INCLUDE_ELECTRON 1 /**/
+/* Include electron? */
+/* #define INCLUDE_ELECTRON 1 */
 
 REAL rho0;
 
@@ -35,7 +36,7 @@ int main(int argc, char *argv[]) {
   FILE *fp;
   INT l, nx, ny, nz, iterations, threads;
   INT itp = 0, dump_nth, model;
-  REAL step, time_step, mu0, time_step_el;
+  REAL step, time_step, mu0, time_step_el, width;
   char chk[256];
   INT restart = 0;
   wf *gwf = 0;
@@ -127,11 +128,7 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
   /* Neumann boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
-  dft_driver_initialize();
 
-  rworkspace = dft_driver_alloc_rgrid("rworkspace");
-  pseudo = dft_driver_alloc_rgrid("pseudo");
-  potential_store = dft_driver_alloc_cgrid("potential_store");
   gwf = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS, "gwf");
   gwfp = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS, "gwfp");
   egwf = dft_driver_alloc_wavefunction(1.0, "egwf"); /* electron mass */
@@ -139,8 +136,15 @@ int main(int argc, char *argv[]) {
   egwfp = dft_driver_alloc_wavefunction(1.0, "egwfp"); /* electron mass */
   egwfp->norm = 1.0; /* one electron */
 
+  dft_driver_initialize(gwf);
+
+  rworkspace = dft_driver_alloc_rgrid("rworkspace");
+  pseudo = dft_driver_alloc_rgrid("pseudo");
+  potential_store = dft_driver_alloc_cgrid("potential_store");
+
   /* initialize wavefunctions */
-  dft_driver_gaussian_wavefunction(egwf, 0.0, 0.0, 0.0, 14.5);
+  width = 1.0 / 14.5; /* actually inverse width */
+  cgrid_map(egwf->grid, &dft_common_cgaussian, &width);
   grid_wf_normalize(egwf);
   cgrid_map(gwf->grid, bubble, (void *) NULL);
 
@@ -206,7 +210,7 @@ int main(int argc, char *argv[]) {
       /* Dump electron density */
       sprintf(chk, "el-" FMT_I, l);
       grid_wf_density(egwf, rworkspace);
-      rgrid_write_grid(rworkspace, chk);
+      rgrid_write_grid(chk, rworkspace);
       /* Dump electron wavefunction */
       sprintf(chk, "el-wf-" FMT_I, l);
       cgrid_write_grid(chk, egwf->grid);

@@ -4,7 +4,7 @@ all:
 	make prototypes
 	make libdft.a
 
-OBJS = ot.o ot-energy.o common.o driver.o bulk.o
+OBJS = ot.o ot-energy.o common.o driver.o bulk.o spectroscopy.o
 
 libdft.a: $(OBJS)
 	ar cr libdft.a $(OBJS)

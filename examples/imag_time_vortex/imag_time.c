@@ -21,17 +21,20 @@
 #define NZ 256
 #define STEP 0.5
 
-#define HE2STAR 1 /**/
-/* #define HESTAR  1 /**/
-/* #define AG 1 /**/
-/* #define CU 1 /**/
-/* #define HE3PLUS 1 /**/
+/* Impurity */
+#define HE2STAR 1
+/* #define HESTAR  1 */
+/* #define AG 1 */
+/* #define CU 1 */
+/* #define HE3PLUS 1 */
 
-/* #define ONSAGER /**/
+/* Onsager ansatz */
+/* #define ONSAGER */
 
-/* #define IMPURITY   /* Just the impurity */
-#define VORTEX     /* Just the vortex */
-/* #define BOTH       /* Both on top of each other */
+/* What to include? */
+/* #define IMPURITY */
+#define VORTEX
+/* #define BOTH */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 #define HBAR 1.0        /* au */
@@ -88,8 +91,12 @@ int main(int argc, char **argv) {
 
   printf("N = " FMT_I "\n", (INT) N);
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid("ext_pot");
@@ -98,10 +105,6 @@ int main(int argc, char **argv) {
   px = dft_driver_alloc_rgrid("px");
   py = dft_driver_alloc_rgrid("py");
   pz = dft_driver_alloc_rgrid("pz");
-
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
 #ifdef HE2STAR
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "he2-He.dat-spline", "he2-He.dat-spline", "he2-He.dat-spline", ext_pot);
@@ -154,9 +157,9 @@ int main(int argc, char **argv) {
       char buf[512];
       grid_wf_density(gwf, density);
       sprintf(buf, "output-" FMT_I, iter);
-      dft_driver_write_density(density, buf);
+      rgrid_write_grid(buf, density);
       sprintf(buf, "output-wf-" FMT_I, iter);
-      dft_driver_write_grid(gwf->grid, buf);
+      cgrid_write_grid(buf, gwf->grid);
 
 #if 0
       grid_wf_velocity(gwf, px, py, pz, DFT_VELOC_CUTOFF);
@@ -167,18 +170,19 @@ int main(int argc, char **argv) {
       dft_driver_write_density(px, buf);
 #endif
 
-      energy = dft_driver_energy(gwf, ext_pot);
-      natoms = dft_driver_natoms(gwf);
+      dft_ot_energy_density(dft_driver_otf, density, gwf, ext_pot);
+      energy = grid_wf_energy(gwf, NULL) + rgrid_integral(density);
+      natoms = grid_wf_norm(gwf);
       printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
       printf("Number of He atoms is " FMT_R ".\n", natoms);
       printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
       grid_wf_probability_flux(gwf, px, py, pz);
       sprintf(buf, "flux_x-" FMT_I, iter);
-      dft_driver_write_density(px, buf);
+      rgrid_write_grid(buf, px);
       sprintf(buf, "flux_y-" FMT_I, iter);
-      dft_driver_write_density(py, buf);
+      rgrid_write_grid(buf, py);
       sprintf(buf, "flux_z-" FMT_I, iter);
-      dft_driver_write_density(pz, buf);
+      rgrid_write_grid(buf, pz);
 #if 0
       { INT k;
 	dft_driver_veloc_field(gwf, px, py, pz);

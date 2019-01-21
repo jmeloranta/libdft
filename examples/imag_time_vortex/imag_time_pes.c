@@ -25,10 +25,10 @@
 #define ISTEP 5.0
 #define IEND 0.0
 
-/* #define HE2STAR 1 /**/
-#define HESTAR  1 /**/
+/* #define HE2STAR 1 */
+#define HESTAR  1
 
-/* #define ONSAGER /**/
+/* #define ONSAGER */
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 #define HBAR 1.0        /* au */
@@ -81,8 +81,12 @@ int main(int argc, char **argv) {
 
   printf("N = " FMT_I "\n", N);
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid("ext_pot");
@@ -92,10 +96,6 @@ int main(int argc, char **argv) {
   px = dft_driver_alloc_rgrid("px");
   py = dft_driver_alloc_rgrid("py");
   pz = dft_driver_alloc_rgrid("pz");
-
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
 #ifdef HE2STAR
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "he2-He.dat-spline", "he2-He.dat-spline", "he2-He.dat-spline", orig_pot);
@@ -131,19 +131,20 @@ int main(int argc, char **argv) {
     printf("Results for R = " FMT_R "\n", R);
     grid_wf_density(gwf, density);
     sprintf(buf, "output-" FMT_R, R);
-    dft_driver_write_density(density, buf);
-    energy = dft_driver_energy(gwf, ext_pot);
-    natoms = dft_driver_natoms(gwf);
+    rgrid_write_grid(buf, density);
+    dft_ot_energy_density(dft_driver_otf, density, gwf, ext_pot);
+    energy = grid_wf_energy(gwf, NULL) + rgrid_integral(density);
+    natoms = grid_wf_norm(gwf);
     printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
     printf("Number of He atoms is " FMT_R ".\n", natoms);
     printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
     grid_wf_probability_flux(gwf, px, py, pz);
     sprintf(buf, "flux_x-" FMT_R, R);
-    dft_driver_write_density(px, buf);
+    rgrid_write_grid(buf, px);
     sprintf(buf, "flux_y-" FMT_R, R);
-    dft_driver_write_density(py, buf);
+    rgrid_write_grid(buf, py);
     sprintf(buf, "flux_z-" FMT_R, R);
-    dft_driver_write_density(pz, buf);
+    rgrid_write_grid(buf, pz);
     printf("PES " FMT_R " " FMT_R "\n", R, energy * GRID_AUTOK);
   }
   return 0;

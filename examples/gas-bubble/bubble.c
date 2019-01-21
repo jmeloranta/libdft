@@ -74,8 +74,15 @@ int main(int argc, char *argv[]) {
   dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
   
+  /* Allocate wavefunctions & grids */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");  /* order parameter for current time (He liquid) */
+#ifdef PC
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) (He liquid) */
+  cworkspace = dft_driver_alloc_cgrid("cworkspace");             /* allocate complex workspace */
+#endif
+
   /* Initialize */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   dft_driver_kinetic = KINETIC_PROPAGATOR;
   if(dft_driver_kinetic == DFT_DRIVER_KINETIC_CN_NBC) fprintf(stderr, "Kinetic propagator = Crank-Nicolson\n");
@@ -91,12 +98,6 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Pressure = %le\n", PRESSURE * GRID_AUTOBAR);
   fprintf(stderr, "rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
   
-  /* Allocate wavefunctions and grids */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");  /* order parameter for current time (He liquid) */
-#ifdef PC
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) (He liquid) */
-  cworkspace = dft_driver_alloc_cgrid("cworkspace");             /* allocate complex workspace */
-#endif
 #ifdef SM
   ext_pot = dft_driver_alloc_rgrid("ext_pot");                /* allocate real external potential grid */
 #else

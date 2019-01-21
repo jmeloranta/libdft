@@ -167,8 +167,7 @@ int main(int argc, char *argv[]) {
     if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       /* Helium energy */
       kin = grid_wf_energy(gwf, NULL); /* Kinetic energy for gwf */
-      dft_ot_energy_density(dft_driver_otf, rworkspace, gwf);
-      rgrid_sum(rworkspace, rworkspace, ext_pot);
+      dft_ot_energy_density(dft_driver_otf, rworkspace, gwf, ext_pot);
       pot = rgrid_integral(rworkspace);
       //ene = kin + pot;           /* Total energy for gwf */
       n = grid_wf_norm(gwf);

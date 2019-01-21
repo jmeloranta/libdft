@@ -188,17 +188,17 @@ int main(int argc, char **argv) {
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid("ext_pot");
   potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
   density = dft_driver_alloc_rgrid("density");
-
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
   /* Read external potential from file */
   rgrid_map(ext_pot, pot_func, NULL);
@@ -219,8 +219,8 @@ int main(int argc, char **argv) {
       sprintf(buf, "wf-output-" FMT_I, iter);
       cgrid_write_grid(buf, gwf->grid);
     }
-    dft_ot_energy_density(dft_driver_otf, density, gwf);
-    energy = grid_wf_energy(gwf, density);
+    dft_ot_energy_density(dft_driver_otf, density, gwf, ext_pot);
+    energy = grid_wf_energy(gwf, NULL) + rgrid_integral(density);
     natoms = grid_wf_norm(gwf);
     printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
     printf("Number of He atoms is " FMT_R ".\n", natoms);

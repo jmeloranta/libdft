@@ -22,8 +22,9 @@
 
 #define PRESSURE 0.0
 
-#define OCS 1 /* OCS molecule */
-/* #define HCN 1 /* HCN molecule */
+/* Molecule */
+#define OCS 1
+/* #define HCN 1 */
 
 #ifdef OCS
 #define ID "OCS molecule"
@@ -97,8 +98,12 @@ int main(int argc, char **argv) {
   /* Set up rotating liquid */
   dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC_ROT;
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid("ext_pot");
@@ -108,17 +113,13 @@ int main(int argc, char **argv) {
   py = dft_driver_alloc_rgrid("py");
   pz = dft_driver_alloc_rgrid("pz");
 
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
-
   /* Read external potential from file */
   density->value_outside = RGRID_DIRICHLET_BOUNDARY;  // for extrapolation to work
 #ifdef SWITCH_AXIS
-  dft_driver_read_density(density, POTENTIAL);
+  rgrid_read_grid(density, POTENTIAL);
   rgrid_map(ext_pot, switch_axis, density);
 #else
-  dft_driver_read_density(ext_pot, POTENTIAL);
+  rgrid_read_grid(ext_pot, POTENTIAL);
 #endif
   density->value_outside = RGRID_PERIODIC_BOUNDARY;   // done, back to original
   rgrid_add(ext_pot, 7.2 / GRID_AUTOK);
@@ -164,7 +165,7 @@ int main(int argc, char **argv) {
     /* Liquid contribution to the moment of inertia */
     cgrid_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in dft_driver_L() and -wL_z in the Hamiltonian
     cgrid_set_origin(gwfp->grid, cmx, cmy, cmz);// the point x=0 is shift by cmX 
-    dft_driver_L(gwf, &lx, &ly, &lz);
+    grid_wf_l(gwf, &lx, &ly, &lz, dft_driver_otf->workspace1, dft_driver_otf->workspace2);
     i_add = lz / omega;
     printf("I_eff = " FMT_R " AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
     beff =  HBAR * HBAR / (2.0 * (i_free + i_add));
@@ -178,21 +179,22 @@ int main(int argc, char **argv) {
       grid_wf_density(gwf, density);
 #if 1
       sprintf(buf, "output-" FMT_I, iter);
-      dft_driver_write_density(density, buf);
+      rgrid_write_grid(buf, density);
 #endif
-      energy = dft_driver_energy(gwf, ext_pot);
-      natoms = dft_driver_natoms(gwf);
+      dft_ot_energy_density(dft_driver_otf, density, gwf, ext_pot);
+      energy = grid_wf_energy(gwf, NULL) + rgrid_integral(density);
+      natoms = grid_wf_norm(gwf);
       printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
       printf("Number of He atoms is " FMT_R ".\n", natoms);
       printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
 #if 0
       grid_wf_probability_flux(gwf, px, py, pz);
       sprintf(buf, "flux_x-" FMT_I, iter);
-      dft_driver_write_density(px, buf);
+      rgrid_write_grid(buf, px);
       sprintf(buf, "flux_y-" FMT_I, iter);
-      dft_driver_write_density(py, buf);
+      rgrid_write_grid(buf, py);
       sprintf(buf, "flux_z-" FMT_I, iter);
-      dft_driver_write_density(pz, buf);
+      rgrid_write_grid(buf, pz);
 #endif
     }
   }

@@ -34,6 +34,7 @@ int main(int argc, char **argv) {
 
   rgrid *ext_pot, *ext_pot2, *density;
   cgrid *potential_store;
+  REAL width;
   wf *gwf, *gwfp;
   wf *imwf, *imwfp;
   INT iter;
@@ -48,8 +49,16 @@ int main(int argc, char **argv) {
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_BULK, 0, 3.0, 10);
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+  imwf = dft_driver_alloc_wavefunction(IMP_MASS, "imwf"); /*  imp. wavefunction */
+  imwfp = dft_driver_alloc_wavefunction(IMP_MASS, "imwfp");/* temp. wavefunction */
+  width = 1.0 / 2.0; /* actually invese width */
+  cgrid_map(imwf->grid, &dft_common_cgaussian, &width);
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid("ext_pot");
@@ -60,14 +69,6 @@ int main(int argc, char **argv) {
   /* Read external potential from file */
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, INITIAL_POT_X, INITIAL_POT_Y, INITIAL_POT_Z, ext_pot);
   rgrid_fft(ext_pot);
-
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
-  imwf = dft_driver_alloc_wavefunction(IMP_MASS, "imwf"); /*  imp. wavefunction */
-  imwfp = dft_driver_alloc_wavefunction(IMP_MASS, "imwfp");/* temp. wavefunction */
-  dft_driver_gaussian_wavefunction(imwf, 0.0, 0.0, 0.0, 2.0);
-  dft_driver_gaussian_wavefunction(imwfp, 0.0, 0.0, 0.0, 2.0);
 
   /* Step #1: Optimize structure */
   for (iter = 0; iter < 200; iter++) {

@@ -100,8 +100,12 @@ int main(int argc, char **argv) {
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 3.0, 10);
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* density */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -113,10 +117,6 @@ int main(int argc, char **argv) {
   ext_pot = dft_driver_alloc_rgrid("ext_pot");
   rworkspace = dft_driver_alloc_rgrid("rworkspace");
   potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
-
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
 
   /* map potential */
   rgrid_map(ext_pot, pot_func, NULL);
@@ -134,14 +134,14 @@ int main(int argc, char **argv) {
     dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS, iter);
     /* Move potential */
     if(piston_pos < PISTON_DIST) {
-      piston_pos = piston(iter * TS / GRID_AUTOFS);
+      piston_pos = piston(((REAL) iter) * TS / GRID_AUTOFS);
       rgrid_map(ext_pot, pot_func, NULL);
       /* end move */
     }
     if(!(iter % NTH)) {
       sprintf(buf, "piston-" FMT_I, iter);
       grid_wf_density(gwf, rworkspace);
-      dft_driver_write_density(rworkspace, buf);
+      rgrid_write_grid(buf, rworkspace);
     }
   }
   return 0;

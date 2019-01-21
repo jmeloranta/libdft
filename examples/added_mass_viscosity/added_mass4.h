@@ -26,6 +26,9 @@
 
 #define T1200MK
 #define DONNELLY /* Use rho_n and eta from Donnelly */
-/*#define FRED     /* Use rho_n and eta from Fred; rho_n from NIST */
+/* Use rho_n and eta from Fred or rho_n from NIST? */
+/* #define FRED */
 
-/* #define ALPHA 150.0 /* If not def, Use 0 to get 1.73 + 2.32E-10 * exp(11.15 * T) fit */
+ /* If not def, Use 0 to get 1.73 + 2.32E-10 * exp(11.15 * T) fit */
+/* #define ALPHA 150.0 */
+

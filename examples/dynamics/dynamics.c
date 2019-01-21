@@ -81,8 +81,13 @@ int main(int argc, char **argv) {
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 3.0, 10);
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+  cgrid_constant(gwf->grid, SQRT(dft_driver_otf->rho0));
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* density */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -97,11 +102,6 @@ int main(int argc, char **argv) {
   /* Generate the initial potential */
   offset = 0.0;
   rgrid_map(ext_pot, pot_func, (void *) &offset);
-
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
-  cgrid_constant(gwf->grid, SQRT(dft_driver_otf->rho0));
 
   /* Step #1: Run 200 iterations using imaginary time for the initial state */
   for (iter = 0; iter < 200; iter++) {

@@ -21,14 +21,15 @@
  * Note: the single particle kinetic portion is NOT included.
  *       (use grid_wf_kinetic_energy() to calculate this separately)
  *
- * otf            = OT  functional structure.
- * energy_density = energy density grid (output).
+ * otf            = OT  functional structure (dft_ot_functional *; input).
+ * energy_density = energy density grid (rgrid *; output).
+ * ext_pot        = external potential (rgrid *; input). May be NULL if not needed.
  *
  * No return value.
  *
  */
 
-EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density, wf *wf) {
+EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density, wf *wf, rgrid *ext_pot) {
 
   rgrid *workspace1, *workspace2, *workspace3, *workspace4, *workspace5, *workspace6, *workspace7, *workspace8;
   rgrid *density;
@@ -45,7 +46,11 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
   workspace8 = otf->workspace8;
 // not used  workspace9 = otf->workspace9;
 
-  rgrid_zero(energy_density);
+  /* Include possible external potential */
+  if(ext_pot) {
+    rgrid_copy(energy_density, ext_pot);
+    rgrid_product(energy_density, energy_density, density);
+  } else rgrid_zero(energy_density);
 
   if(otf->model & DFT_ZERO) {
     fprintf(stderr, "libdft: Warning - zero potential used.\n");
@@ -53,10 +58,8 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
   }
 
   if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) {
-    rgrid_copy(energy_density, density);
-    rgrid_product(energy_density, energy_density, density);
     /* the energy functional is: (\lambda/2)\int \left|\psi\right|^4 d\tau */
-    rgrid_multiply(energy_density, 0.5 * otf->mu0 / otf->rho0);
+    rgrid_add_scaled_product(energy_density, 0.5 * otf->mu0 / otf->rho0, density, density);
     return;
   }
 

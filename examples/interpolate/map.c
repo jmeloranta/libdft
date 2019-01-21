@@ -12,6 +12,8 @@
 #include <grid/grid.h>
 #include <dft/dft.h>
 
+void dft_common_pot_interpolate(INT n, char **files, rgrid *out) ;
+
 #define NX 128
 #define NY 128
 #define NZ 128
@@ -23,5 +25,6 @@ int main(int argc, char **argv) {
 
   cart = rgrid_alloc(NX, NY, NZ, STEP, RGRID_PERIODIC_BOUNDARY, NULL, "cart");
   dft_common_pot_interpolate(argc-1, &argv[1], cart);
-  dft_driver_write_density(cart, "out");
+  rgrid_write_grid("out", cart);
+  return 0;
 }
