@@ -14,6 +14,7 @@
 #include "dft.h"
 #include "ot.h"
 #include "ot-private.h"
+#include "git-version.h"
 
 /* Local functions */
 
@@ -79,6 +80,8 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
     return 0;
   }
  
+  fprintf(stderr, "libdft: GIT version ID %s\n", VERSION);
+
   /* TODO: There is code for other BCs too */
 
   if(gwf->grid->value_outside != CGRID_PERIODIC_BOUNDARY) {

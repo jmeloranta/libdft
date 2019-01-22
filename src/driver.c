@@ -10,7 +10,6 @@
 #include <grid/au.h>
 #include "dft.h"
 #include "ot.h"
-#include "git-version.h"
 
 /*
  * Parameters for evaluating the potential grid (no need to play with these).
@@ -145,8 +144,6 @@ inline static void scale_wf(char what, wf *gwf) {
  */
 
 EXPORT void dft_driver_initialize(wf *gwf) {
-
-  fprintf(stderr, "libdft: GIT version ID %s\n", VERSION);
 
   if(dft_driver_nx == 0) {
     fprintf(stderr, "libdft: dft_driver not properly initialized.\n");
