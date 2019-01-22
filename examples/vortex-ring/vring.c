@@ -44,6 +44,7 @@ REAL complex vring(void *asd, REAL x, REAL y, REAL z) {
 int main(int argc, char **argv) {
 
   cgrid *potential_store;
+  rgrid *rworkspace;
   wf *gwf, *gwfp;
   INT iter;
   REAL mu0, kin, pot, n;
@@ -62,8 +63,12 @@ int main(int argc, char **argv) {
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 3.0, 10);
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* density */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -74,22 +79,21 @@ int main(int argc, char **argv) {
 
   /* Allocate space for external potential */
   potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
-
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+  rworkspace = dft_driver_alloc_rgrid("rworkspace"); /* temporary storage */
+ 
   /* setup initial guess for vortex ring */
   cgrid_map(gwf->grid, vring, NULL);
 
   for (iter = 1; iter < 800000; iter++) {
     if(iter == 1 || !(iter % NTH)) {
       sprintf(buf, "vring-" FMT_I, iter);
-      dft_driver_write_grid(gwf->grid, buf);
+      cgrid_write_grid(buf, gwf->grid);
       dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
       dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
-      kin = dft_driver_kinetic_energy(gwf);            /* Kinetic energy for gwf */
-      pot = dft_driver_potential_energy(gwf, dft_driver_get_workspace(1, 1)); /* Potential energy for gwf */
-      n = dft_driver_natoms(gwf);
+      kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
+      dft_ot_energy_density(dft_driver_otf, rworkspace, gwf);
+      pot = rgrid_integral(rworkspace);
+      n = grid_wf_norm(gwf);
       printf("Iteration " FMT_I " helium natoms    = " FMT_R " particles.\n", iter, n);   /* Energy / particle in K */
       printf("Iteration " FMT_I " helium kinetic   = " FMT_R "\n", iter, kin * GRID_AUTOK);  /* Print result in K */
       printf("Iteration " FMT_I " helium potential = " FMT_R "\n", iter, pot * GRID_AUTOK);  /* Print result in K */

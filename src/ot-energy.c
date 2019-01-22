@@ -23,13 +23,12 @@
  *
  * otf            = OT  functional structure (dft_ot_functional *; input).
  * energy_density = energy density grid (rgrid *; output).
- * ext_pot        = external potential (rgrid *; input). May be NULL if not needed.
  *
  * No return value.
  *
  */
 
-EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density, wf *wf, rgrid *ext_pot) {
+EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density, wf *wf) {
 
   rgrid *workspace1, *workspace2, *workspace3, *workspace4, *workspace5, *workspace6, *workspace7, *workspace8;
   rgrid *density;
@@ -46,11 +45,7 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
   workspace8 = otf->workspace8;
 // not used  workspace9 = otf->workspace9;
 
-  /* Include possible external potential */
-  if(ext_pot) {
-    rgrid_copy(energy_density, ext_pot);
-    rgrid_product(energy_density, energy_density, density);
-  } else rgrid_zero(energy_density);
+  rgrid_zero(energy_density);
 
   if(otf->model & DFT_ZERO) {
     fprintf(stderr, "libdft: Warning - zero potential used.\n");

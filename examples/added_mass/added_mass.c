@@ -141,9 +141,8 @@ int main(int argc, char *argv[]) {
     /* 3. if OUTPUT, compute energy*/
     if(!(iter % OUTPUT)){	
       /* Impurity energy */
-      grid_wf_density(impwf, dft_driver_otf->density);
       kin = grid_wf_energy(impwf, NULL);     /* kinetic */ 
-      pot = rgrid_integral_of_product(ext_pot, dft_driver_otf->density); /* potential */
+      pot = grid_wf_potential_energy(impwf, ext_pot);  /* potential */
       printf("Output at iteration " FMT_I ":\n", iter);
       printf("Impurity kinetic   = " FMT_R "\n", kin * GRID_AUTOK);  /* Print result in K */
       printf("Impurity potential = " FMT_R "\n", pot * GRID_AUTOK);  /* Print result in K */
@@ -167,7 +166,8 @@ int main(int argc, char *argv[]) {
     if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       /* Helium energy */
       kin = grid_wf_energy(gwf, NULL); /* Kinetic energy for gwf */
-      dft_ot_energy_density(dft_driver_otf, rworkspace, gwf, ext_pot);
+      dft_ot_energy_density(dft_driver_otf, rworkspace, gwf);
+      rgrid_add_scaled_product(rworkspace, 1.0, dft_driver_otf->density, ext_pot);
       pot = rgrid_integral(rworkspace);
       //ene = kin + pot;           /* Total energy for gwf */
       n = grid_wf_norm(gwf);

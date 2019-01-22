@@ -132,7 +132,8 @@ int main(int argc, char **argv) {
     grid_wf_density(gwf, density);
     sprintf(buf, "output-" FMT_R, R);
     rgrid_write_grid(buf, density);
-    dft_ot_energy_density(dft_driver_otf, density, gwf, ext_pot);
+    dft_ot_energy_density(dft_driver_otf, density, gwf);
+    rgrid_add_scaled_product(density, 1.0, dft_driver_otf->density, ext_pot);
     energy = grid_wf_energy(gwf, NULL) + rgrid_integral(density);
     natoms = grid_wf_norm(gwf);
     printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);

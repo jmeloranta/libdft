@@ -186,6 +186,8 @@ int main(int argc, char *argv[]) {
     if(!(l % dump_nth) || l == iterations-1 || l == 1) {
       REAL energy, natoms;
       energy = grid_wf_energy(gwf, NULL);
+      dft_ot_energy_density(dft_driver_otf, rworkspace, gwf);
+      energy += rgrid_integral(rworkspace);
 #ifdef INCLUDE_ELECTRON      
       energy += grid_wf_energy(egwf, NULL);
       grid_wf_density(gwf, rworkspace);
@@ -198,9 +200,9 @@ int main(int argc, char *argv[]) {
       energy += rgrid_integral(dft_driver_otf->density);      /* Liquid - impurity interaction energy */
 #endif      
       natoms = grid_wf_norm(gwf);
-      fprintf(stderr,"Energy with respect to bulk = " FMT_R " K.\n", (energy - dft_ot_bulk_energy(dft_driver_otf, rho0) * natoms / rho0) * GRID_AUTOK);
-      fprintf(stderr,"Number of He atoms = " FMT_R ".\n", natoms);
-      fprintf(stderr,"mu0 = %le K, energy/natoms = " FMT_R " K\n", mu0 * GRID_AUTOK,  GRID_AUTOK * energy / natoms);
+      fprintf(stderr, "Energy with respect to bulk = " FMT_R " K.\n", (energy - dft_ot_bulk_energy(dft_driver_otf, rho0) * natoms / rho0) * GRID_AUTOK);
+      fprintf(stderr, "Number of He atoms = " FMT_R ".\n", natoms);
+      fprintf(stderr, "mu0 = %le K, energy/natoms = " FMT_R " K\n", mu0 * GRID_AUTOK,  GRID_AUTOK * energy / natoms);
 
       /* Dump helium density */
       grid_wf_density(gwf, rworkspace);

@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
     cgrid_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in dft_driver_L() and -wL_z in the Hamiltonian
     cgrid_set_origin(gwfp->grid, cmx, cmy, cmz);// the point x=0 is shift by cmX 
     grid_wf_l(gwf, &lx, &ly, &lz, dft_driver_otf->workspace1, dft_driver_otf->workspace2);
-    i_add = lz / omega;
+    i_add = gwf->mass * lz / omega;  // grid_wf_l() does not multiply by mass as did the dft
     printf("I_eff = " FMT_R " AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
     beff =  HBAR * HBAR / (2.0 * (i_free + i_add));
     printf("B_eff = " FMT_R " cm-1.\n", beff * GRID_AUTOCM1);
@@ -181,7 +181,8 @@ int main(int argc, char **argv) {
       sprintf(buf, "output-" FMT_I, iter);
       rgrid_write_grid(buf, density);
 #endif
-      dft_ot_energy_density(dft_driver_otf, density, gwf, ext_pot);
+      dft_ot_energy_density(dft_driver_otf, density, gwf);
+      rgrid_add_scaled_product(density, 1.0, dft_driver_otf->density, ext_pot);
       energy = grid_wf_energy(gwf, NULL) + rgrid_integral(density);
       natoms = grid_wf_norm(gwf);
       printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);

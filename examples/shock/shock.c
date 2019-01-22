@@ -52,7 +52,7 @@ REAL complex gauss(void *arg, REAL x, REAL y, REAL z) {
   REAL delta = ((struct params *) arg)->delta;
   REAL rho0 = ((struct params *) arg)->rho0;
   REAL w = ((struct params *) arg)->w;
-  REAL vz = ((struct params *) arg)->vz;
+//  REAL vz = ((struct params *) arg)->vz;
 
 //  if(FABS(z) < w) return SQRT(rho0 + delta) * CEXP(I * (vz / HELIUM_MASS) * (z + w) / HBAR);
   if(FABS(z) < w) return SQRT(rho0 + delta);
@@ -81,17 +81,18 @@ int main(int argc, char **argv) {
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* Allocate space for external potential */
   rworkspace = dft_driver_alloc_rgrid("rworkspace");
   potential_store = dft_driver_alloc_cgrid("cworkspace"); /* temporary storage */
   /* Read initial external potential from file */
 
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
   rho0 = dft_driver_otf->rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
   mu0  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
 
@@ -109,7 +110,7 @@ int main(int argc, char **argv) {
     if(!(iter % OUTPUT)) {
       sprintf(buf, "final-" FMT_I, iter);
       grid_wf_density(gwf, rworkspace);
-      dft_driver_write_density(rworkspace, buf);
+      rgrid_write_grid(buf, rworkspace);
     }
   }
   return 0;

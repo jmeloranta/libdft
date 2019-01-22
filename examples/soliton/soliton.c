@@ -23,7 +23,8 @@
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
-/* #define SMOOTH    /* by +-2 x LAMBDA_C */
+/* by +-2 x LAMBDA_C */
+/* #define SMOOTH */
 
 #define SOLITON_AMP (0.2)   /* 10% of bulk */
 #define SOLITON_N  300       /* width (in N * LAMBDA_C) */
@@ -63,8 +64,12 @@ int main(int argc, char **argv) {
   /* Normalization condition */
   dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 3.0, 10);
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* density */
   rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
@@ -76,9 +81,6 @@ int main(int argc, char **argv) {
   rworkspace = dft_driver_alloc_rgrid("rworkspace");
   potential_store = dft_driver_alloc_cgrid("cworkspace"); /* temporary storage */
 
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
   /* setup soliton (ext_pot is temp here) */
   rgrid_map(rworkspace, soliton, NULL);
   rgrid_multiply(rworkspace, rho0);
@@ -95,10 +97,10 @@ int main(int argc, char **argv) {
       sprintf(buf, "soliton-" FMT_I, iter);
       grid_wf_density(gwf, rworkspace);
 #ifdef SMOOTH
-      dft_driver_npoint_smooth(rworkspace2, rworkspace, (INT) (2.0 * LAMBDA_C / STEP));
-      dft_driver_write_density(rworkspace2, buf);
+      rgrid_npoint_smooth(rworkspace2, rworkspace, (INT) (2.0 * LAMBDA_C / STEP));
+      rgrid_write_grid(buf, rworkspace2);
 #else
-      dft_driver_write_density(rworkspace, buf);
+      rgrid_write_grid(buf, rworkspace);
 #endif
     }
   }

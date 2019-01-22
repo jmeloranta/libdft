@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
   wf *gwf, *gwfp;
   wf *imwf, *imwfp;
   INT iter;
-  REAL energy, natoms, en, mu0;
+  REAL energy, natoms, en, mu0, inv_width;
   FILE *fp;
 
   /* Setup DFT driver parameters */
@@ -64,8 +64,16 @@ int main(int argc, char **argv) {
   /* Neumann boundaries */
   dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
 
+  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
+  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
+  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+  imwf = dft_driver_alloc_wavefunction(IMP_MASS, "imwf"); /*  imp. wavefunction */
+  imwfp = dft_driver_alloc_wavefunction(IMP_MASS, "imwfp");/* temp. wavefunction */
+  inv_width = 1.0 / 2.0;
+  cgrid_map(imwf->grid, dft_common_cgaussian, &inv_width);
+
   /* Initialize the DFT driver */
-  dft_driver_initialize();
+  dft_driver_initialize(gwf);
 
   /* Allocate space for external potential */
   ext_pot = dft_driver_alloc_rgrid("ext_pot");
@@ -76,14 +84,6 @@ int main(int argc, char **argv) {
   /* Read external potential from file */
   dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z, ext_pot);
   rgrid_fft(ext_pot);
-
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
-  imwf = dft_driver_alloc_wavefunction(IMP_MASS, "imwf"); /*  imp. wavefunction */
-  imwfp = dft_driver_alloc_wavefunction(IMP_MASS, "imwfp");/* temp. wavefunction */
-  dft_driver_gaussian_wavefunction(imwf, 0.0, 0.0, 0.0, 2.0);
-  dft_driver_gaussian_wavefunction(imwfp, 0.0, 0.0, 0.0, 2.0);
 
   mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
   printf("mu0 = %le K.\n", mu0 * GRID_AUTOK);
@@ -112,12 +112,13 @@ int main(int argc, char **argv) {
 
   /* At this point gwf contains the converged wavefunction */
   grid_wf_density(gwf, density);
-  dft_driver_write_density(density, "initial-helium");
+  rgrid_write_grid("initial-helium", density);
   grid_wf_density(imwf, density);
-  dft_driver_write_density(density, "initial-imp");
+  rgrid_write_grid("initial-imp", density);
 
-  energy = dft_driver_energy(gwf, ext_pot);
-  natoms = dft_driver_natoms(gwf);
+  dft_ot_energy_density(dft_driver_otf, density, gwf);
+  energy = grid_wf_energy(gwf, ext_pot) + rgrid_integral(density);
+  natoms = grid_wf_norm(gwf);
   printf("Total energy of the liquid is " FMT_R " K\n", energy * GRID_AUTOK);
   printf("Number of He atoms is " FMT_R ".\n", natoms);
   printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
@@ -135,7 +136,7 @@ int main(int argc, char **argv) {
       char buf[512];
       grid_wf_density(gwf, density);
       sprintf(buf, "realtime-" FMT_I, iter);
-      dft_driver_write_density(density, buf);
+      rgrid_write_grid(buf, density);
     }
   }
   spectrum = dft_driver_spectrum_evaluate(TS, TC);
@@ -143,7 +144,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Can't open spectrum.dat for writing.\n");
     exit(1);
   }
-  for (iter = 0, en = -0.5 * spectrum->step * (spectrum->nx - 1); iter < spectrum->nx; iter++, en += spectrum->step)
+  for (iter = 0, en = -0.5 * spectrum->step * (REAL) (spectrum->nx - 1); iter < spectrum->nx; iter++, en += spectrum->step)
     // fprintf(fp, FMT_R " " FMT_R "\n", en, CREAL(cgrid_value_at_index(spectrum, 1, 1, iter)));
     fprintf(fp, FMT_R " " FMT_R "\n", en, POW(CREAL(cgrid_value_at_index(spectrum, 1, 1, iter)), 2.0) + POW(CIMAG(cgrid_value_at_index(spectrum, 1, 1, iter)), 2.0));
   fclose(fp);
