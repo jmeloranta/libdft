@@ -3,6 +3,8 @@
  *
  * All input in a.u. except the time step, which is fs.
  *
+ * TODO: Does the hamiltonian respect the new origin?
+ *
  */
 
 #include <stdlib.h>
@@ -19,6 +21,7 @@
 #define NY 128
 #define NZ 128
 #define STEP 0.5
+#define THREADS 0
 
 #define PRESSURE 0.0
 
@@ -37,8 +40,8 @@ static REAL x[NN] = {-3.1824324, -9.982324e-01, 1.9619176}; /* Bohr */
 //static REAL x[NN] = {-2.96015, 0.0, 2.18420};
 static REAL y[NN] = {0.0, 0.0, 0.0};
 static REAL z[NN] = {0.0, 0.0, 0.0};
-// #define POTENTIAL "newocs_pairpot_128_0.5"
-#define POTENTIAL "ocs_pairpot_128_0.5"
+// #define POTENTIAL "newocs_pairpot_128_0.5.grd"
+#define POTENTIAL "ocs_pairpot_128_0.5.grd"
 #define SWITCH_AXIS 1                  /* Potential was along z - switch to x */
 #define OMEGA 1E-9
 #endif
@@ -69,49 +72,59 @@ REAL switch_axis(void *xx, REAL x, REAL y, REAL z) {
 
 int main(int argc, char **argv) {
 
+  dft_ot_functional *otf;
   cgrid *potential_store;
   rgrid *ext_pot, *density, *px, *py, *pz;
   wf *gwf, *gwfp;
   INT iter, N, i;
-  REAL energy, natoms, omega, beff, i_add, lx, ly, lz, i_free, b_free, mass, cmx, cmy, cmz, mu0;
+  REAL energy, natoms, beff, i_add, lx, ly, lz, i_free, b_free, mass, cmx, cmy, cmz, mu0, rho0;
+  grid_timer timer;
 
-  /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 32 /* threads */);
-  /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN + DFT_OT_HD2, DFT_DRIVER_IMAG_TIME, 0.0);
-  //dft_driver_setup_model(DFT_DR, DFT_DRIVER_IMAG_TIME, 0.0);
-  /* No absorbing boundary */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
   /* Normalization condition */
   if(argc != 2) {
     fprintf(stderr, "Usage: imag_time N\n");
     exit(1);
   }
   N = (INT) atoi(argv[1]);
-  if(N == 0) 
-    dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 1); // 1 = release center immediately
-  else
-    dft_driver_setup_normalization(DFT_DRIVER_NORMALIZE_DROPLET, N, 0.0, 1); // 1 = release center immediately
+
+#ifdef USE_CUDA
+  cuda_enable(1);
+#endif
+
+  /* Initialize threads & use wisdom */
+  grid_set_fftw_flags(1);    // FFTW_MEASURE
+  grid_threads_init(THREADS);
+  grid_fft_read_wisdom(NULL);
+
+  /* Allocate wave functions */
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_CRANK_NICOLSON, "gwf"))) {
+    fprintf(stderr, "Cannot allocate gwf.\n");
+    exit(1);
+  }
+  gwfp = grid_wf_clone(gwf, "gwfp");
+  if(N) {
+    gwf->norm = gwfp->norm = (REAL) N;
+    printf("Helium dropet, N = " FMT_I ".\n", N);
+  } else printf("Bulk helium liquid.\n");
+
+  /* Allocate OT functional */
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+    fprintf(stderr, "Cannot allocate otf.\n");
+    exit(1);
+  }
+  rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
+  printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
   printf("ID: %s (N = " FMT_I ")\n", ID, N);
 
-  /* Set up rotating liquid */
-  dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC_ROT;
-
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
-
-  /* Initialize the DFT driver */
-  dft_driver_initialize(gwf);
-
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid("ext_pot");
-  potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
-  density = dft_driver_alloc_rgrid("density");
-  px = dft_driver_alloc_rgrid("px");
-  py = dft_driver_alloc_rgrid("py");
-  pz = dft_driver_alloc_rgrid("pz");
+  ext_pot = rgrid_clone(otf->density, "ext_pot");
+  potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
+  density = rgrid_clone(otf->density, "density");
+  px = rgrid_clone(otf->density, "px");
+  py = rgrid_clone(otf->density, "py");
+  pz = rgrid_clone(otf->density, "pz");
 
   /* Read external potential from file */
   density->value_outside = RGRID_DIRICHLET_BOUNDARY;  // for extrapolation to work
@@ -124,12 +137,11 @@ int main(int argc, char **argv) {
   density->value_outside = RGRID_PERIODIC_BOUNDARY;   // done, back to original
   rgrid_add(ext_pot, 7.2 / GRID_AUTOK);
 
-  omega = OMEGA;
-  printf("Omega = " FMT_R "\n", omega);
-  dft_driver_setup_rotation_omega(omega);
+  printf("Omega = " FMT_R "\n", OMEGA);
+  gwf->grid->omega = OMEGA;
+  gwfp->grid->omega = OMEGA;
 
-  cgrid_constant(gwf->grid, 1.0);
-  mu0 = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
+  cgrid_constant(gwf->grid, SQRT(rho0));
 
   for (iter = 1; iter < MAXITER; iter++) {
     
@@ -145,9 +157,9 @@ int main(int argc, char **argv) {
     cmx /= mass; cmy /= mass; cmz /= mass;    
     // 2. Liquid
     grid_wf_probability_flux_y(gwf, density);
-    cmx += rgrid_integral(density) * gwf->mass / (2.0 * omega * mass);
+    cmx += rgrid_integral(density) * gwf->mass / (2.0 * OMEGA * mass);
     grid_wf_probability_flux_x(gwf, density);
-    cmy -= rgrid_integral(density) * gwf->mass / (2.0 * omega * mass);
+    cmy -= rgrid_integral(density) * gwf->mass / (2.0 * OMEGA * mass);
     printf("Current center of inertia: " FMT_R " " FMT_R " " FMT_R "\n", cmx, cmy, cmz);
 
     /* Moment of inertia about the center of mass for the molecule */
@@ -163,32 +175,47 @@ int main(int argc, char **argv) {
     printf("I_molecule = " FMT_R " AMU Angs^2\n", i_free * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
     printf("B_molecule = " FMT_R " cm-1.\n", b_free * GRID_AUTOCM1);
     /* Liquid contribution to the moment of inertia */
-    cgrid_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in dft_driver_L() and -wL_z in the Hamiltonian
+    cgrid_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in grid_wf_l() and -wL_z in the Hamiltonian <- ?
     cgrid_set_origin(gwfp->grid, cmx, cmy, cmz);// the point x=0 is shift by cmX 
-    grid_wf_l(gwf, &lx, &ly, &lz, dft_driver_otf->workspace1, dft_driver_otf->workspace2);
-    i_add = gwf->mass * lz / omega;  // grid_wf_l() does not multiply by mass as did the dft
+    grid_wf_l(gwf, &lx, &ly, &lz, otf->workspace1, otf->workspace2);
+    i_add = gwf->mass * lz / OMEGA;  // grid_wf_l() does not multiply by mass as did the dft
     printf("I_eff = " FMT_R " AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
     beff =  HBAR * HBAR / (2.0 * (i_free + i_add));
     printf("B_eff = " FMT_R " cm-1.\n", beff * GRID_AUTOCM1);
 
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TIME_STEP, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TIME_STEP, iter);
+    if(iter == 5) grid_fft_write_wisdom(NULL);
+
+    grid_timer_start(&timer);
+
+    /* Predict-Correct */
+    cgrid_copy(gwfp->grid, gwf->grid);
+    grid_real_to_complex_re(potential_store, ext_pot);
+    dft_ot_potential(otf, potential_store, gwf);
+    cgrid_add(potential_store, -mu0);
+    grid_wf_propagate_predict(gwfp, potential_store, -I * TIME_STEP / GRID_AUTOFS);
+    if(N) grid_wf_normalize(gwfp);
+    grid_add_real_to_complex_re(potential_store, ext_pot);
+    dft_ot_potential(otf, potential_store, gwfp);
+    cgrid_add(potential_store, -mu0);
+    cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
+    grid_wf_propagate_correct(gwf, potential_store, -I * TIME_STEP / GRID_AUTOFS);
+    if(N) grid_wf_normalize(gwf);
+    // If N = 0, Chemical potential included - no need to normalize
+
+    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
 
     if(!(iter % 100)) {
       char buf[512];
       grid_wf_density(gwf, density);
-#if 1
       sprintf(buf, "output-" FMT_I, iter);
       rgrid_write_grid(buf, density);
-#endif
-      dft_ot_energy_density(dft_driver_otf, density, gwf);
-      rgrid_add_scaled_product(density, 1.0, dft_driver_otf->density, ext_pot);
+      dft_ot_energy_density(otf, density, gwf);
+      rgrid_add_scaled_product(density, 1.0, otf->density, ext_pot);
       energy = grid_wf_energy(gwf, NULL) + rgrid_integral(density);
       natoms = grid_wf_norm(gwf);
       printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
       printf("Number of He atoms is " FMT_R ".\n", natoms);
       printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
-#if 0
       grid_wf_probability_flux(gwf, px, py, pz);
       sprintf(buf, "flux_x-" FMT_I, iter);
       rgrid_write_grid(buf, px);
@@ -196,7 +223,6 @@ int main(int argc, char **argv) {
       rgrid_write_grid(buf, py);
       sprintf(buf, "flux_z-" FMT_I, iter);
       rgrid_write_grid(buf, pz);
-#endif
     }
   }
   return 0;

@@ -17,8 +17,9 @@
 #define NY 128
 #define NZ 128
 #define STEP 0.5
-
 #define TS 1.0E-3
+
+#define PRESSURE 0.0
 
 #define MAXITER 10000000
 #define NTH 1000
@@ -173,44 +174,72 @@ REAL pot_func(void *asd, REAL x, REAL y, REAL z) {
 
 int main(int argc, char **argv) {
 
+  dft_ot_functional *otf;
   cgrid *potential_store;
   rgrid *ext_pot, *density;
   wf *gwf, *gwfp;
   INT iter;
   REAL energy, natoms, mu0, rho0;
+  grid_timer timer;
 
-  /* Setup DFT driver parameters */
-  dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
-  /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN | DFT_OT_HD, DFT_DRIVER_IMAG_TIME, 0.0);
-  /* No absorbing boundary */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
-  /* Normalization condition */
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
+#ifdef USE_CUDA
+  cuda_enable(1);
+#endif
 
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+  /* Initialize threads & use wisdom */
+  grid_set_fftw_flags(1);    // FFTW_MEASURE
+  grid_threads_init(THREADS);
+  grid_fft_read_wisdom(NULL);
 
-  /* Initialize the DFT driver */
-  dft_driver_initialize(gwf);
+  /* Allocate wave functions */
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_PROPAGATOR, "gwf"))) {
+    fprintf(stderr, "Cannot allocate gwf.\n");
+    exit(1);
+  }
+  gwfp = grid_wf_clone(gwf, "gwfp");
+
+  /* Allocate OT functional */
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+    fprintf(stderr, "Cannot allocate otf.\n");
+    exit(1);
+  }
+  rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
+  printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid("ext_pot");
-  potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
-  density = dft_driver_alloc_rgrid("density");
+  ext_pot = rgrid_clone(otf->density, "ext_pot");
+  potential_store = cgrid_clone(gwf->grid, "potential_store");
+  density = rgrid_clone(otf->density, "density");
 
   /* Read external potential from file */
   rgrid_map(ext_pot, pot_func, NULL);
-  //dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "cl-pot.dat", "cl-pot.dat", "cl-pot.dat", ext_pot);
-  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
-  rho0 = dft_driver_otf->rho0;
-  printf("mu0 = %le K, rho0 = %le Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+  //dft_common_potential_map(0, "cl-pot.dat", "cl-pot.dat", "cl-pot.dat", ext_pot);
+
+  grid_wf_constant(gwf, SQRT(rho0));
 
   /* Run 200 iterations using imaginary time (10 fs time step) */
   for (iter = 0; iter < MAXITER; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS /* fs */, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS /* fs */, iter);
+
+    if(iter == 5) grid_fft_write_wisdom(NULL);
+
+    grid_timer_start(&timer);
+
+    /* Predict-Correct */
+    cgrid_copy(gwfp->grid, gwf->grid);
+    grid_real_to_complex_re(potential_store, ext_pot);
+    dft_ot_potential(otf, potential_store, gwf);
+    cgrid_add(potential_store, -mu0);
+    grid_wf_propagate_predict(gwfp, potential_store, -I * TS / GRID_AUTOFS);
+    grid_add_real_to_complex_re(potential_store, ext_pot);
+    dft_ot_potential(otf, potential_store, gwfp);
+    cgrid_add(potential_store, -mu0);
+    cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
+    grid_wf_propagate_correct(gwf, potential_store, -I * TS / GRID_AUTOFS);
+    // Chemical potential included - no need to normalize
+
+    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
+
     if(!(iter % NTH)) {
       char buf[512];
       sprintf(buf, "output-" FMT_I, iter);
@@ -219,8 +248,8 @@ int main(int argc, char **argv) {
       sprintf(buf, "wf-output-" FMT_I, iter);
       cgrid_write_grid(buf, gwf->grid);
     }
-    dft_ot_energy_density(dft_driver_otf, density, gwf);
-    rgrid_add_scaled_product(density, 1.0, dft_driver_otf->density, ext_pot);
+    dft_ot_energy_density(otf, density, gwf);
+    rgrid_add_scaled_product(density, 1.0, otf->density, ext_pot);
     energy = grid_wf_energy(gwf, NULL) + rgrid_integral(density);
     natoms = grid_wf_norm(gwf);
     printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);

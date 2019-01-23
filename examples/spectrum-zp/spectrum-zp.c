@@ -21,6 +21,10 @@
 #define NZ 128
 #define STEP 1.0
 
+#define THREADS 0
+
+#define PRESSURE 0.0
+
 #define ZEROFILL 1024
 
 #define IMITER 200
@@ -39,75 +43,102 @@
 #define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
 #define TC 150.0
 
-#define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 #define IMP_MASS (4.002602 / GRID_AUTOAMU) /* He^* */
 
 int main(int argc, char **argv) {
 
+  dft_ot_functional *otf;
   cgrid *potential_store;
   cgrid *spectrum;
   rgrid *ext_pot, *ext_pot2, *density;
   wf *gwf, *gwfp;
-  wf *imwf, *imwfp;
+  wf *imwf;
   INT iter;
-  REAL energy, natoms, en, mu0, inv_width;
+  REAL energy, natoms, en, mu0, inv_width, rho0;
   FILE *fp;
+  grid_timer timer;
 
-  /* Setup DFT driver parameters */
-  dft_driver_setup_grid(NX, NY, NZ, STEP, 0);
-  /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(MODEL, DFT_DRIVER_IMAG_TIME, RHO0);
-  /* No absorbing boundary */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
-  /* Normalization condition */
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
-  /* Neumann boundaries */
-  dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
+#ifdef USE_CUDA
+  cuda_enable(1);
+#endif
 
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
-  imwf = dft_driver_alloc_wavefunction(IMP_MASS, "imwf"); /*  imp. wavefunction */
-  imwfp = dft_driver_alloc_wavefunction(IMP_MASS, "imwfp");/* temp. wavefunction */
+  /* Initialize threads & use wisdom */
+  grid_set_fftw_flags(1);    // FFTW_MEASURE
+  grid_threads_init(THREADS);
+  grid_fft_read_wisdom(NULL);
+
+  /* Allocate wave functions */
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_PROPAGATOR, "gwf"))) {
+    fprintf(stderr, "Cannot allocate gwf.\n");
+    exit(1);
+  }
+  gwfp = grid_wf_clone(gwf, "gwfp");
+  imwf = grid_wf_clone(gwf, "imwf");
+  imwf->mass = IMP_MASS;
+
+  /* Allocate OT functional */
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+    fprintf(stderr, "Cannot allocate otf.\n");
+    exit(1);
+  }
+  rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
+  printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+
   inv_width = 1.0 / 2.0;
-  cgrid_map(imwf->grid, dft_common_cgaussian, &inv_width);
-
-  /* Initialize the DFT driver */
-  dft_driver_initialize(gwf);
+  grid_wf_map(imwf, dft_common_cgaussian, &inv_width);
 
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid("ext_pot");
-  ext_pot2 = dft_driver_alloc_rgrid("ext_pot2");
-  density = dft_driver_alloc_rgrid("density");
-  potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
+  ext_pot = rgrid_clone(otf->density, "ext_pot");
+  ext_pot2 = rgrid_clone(otf->density, "ext_pot2");
+  density = rgrid_clone(otf->density, "density");
+  potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
 
   /* Read external potential from file */
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z, ext_pot);
+  dft_common_potential_map(0, LOWER_X, LOWER_Y, LOWER_Z, ext_pot);
   rgrid_fft(ext_pot);
 
-  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
-  printf("mu0 = %le K.\n", mu0 * GRID_AUTOK);
-
-  iter = 0;
+  grid_wf_constant(gwf, SQRT(rho0));
 
   /* Run imaginary time iterations */
-  for (; iter < IMITER; iter++) {
+  for (iter = 0; iter < IMITER; iter++) {
+
+    if(iter == 5) grid_fft_write_wisdom(NULL);
+
+    grid_timer_start(&timer);
+
     /* convolute impurity density with ext_pot -> ext_pot2 */
     grid_wf_density(imwf, density);
     rgrid_fft(density);
     rgrid_fft_convolute(ext_pot2, ext_pot, density);
     rgrid_inverse_fft(ext_pot2);
     rgrid_add(ext_pot2, -mu0);
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, mu0, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, mu0, gwf, gwfp, potential_store, TS, iter);
+
+    /* Predict-Correct */
+    cgrid_copy(gwfp->grid, gwf->grid);
+    grid_real_to_complex_re(potential_store, ext_pot2);
+    dft_ot_potential(otf, potential_store, gwf);
+    cgrid_add(potential_store, -mu0);
+    grid_wf_propagate_predict(gwfp, potential_store, -I * TS / GRID_AUTOFS);
+    grid_add_real_to_complex_re(potential_store, ext_pot);
+    dft_ot_potential(otf, potential_store, gwfp);
+    cgrid_add(potential_store, -mu0);
+    cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
+    grid_wf_propagate_correct(gwf, potential_store, -I * TS / GRID_AUTOFS);
+    // Chemical potential included - no need to normalize
 
     /* convolute liquid density with ext_pot -> ext_pot2 */
     grid_wf_density(gwf, density);
     rgrid_fft(density);
     rgrid_fft_convolute(ext_pot2, ext_pot, density);
     rgrid_inverse_fft(ext_pot2);
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, ext_pot2, 0.0, imwf, imwfp, potential_store, TS, iter);
+
+    /* Predict-Correct */
+    grid_real_to_complex_re(potential_store, ext_pot2);
+    grid_wf_propagate(imwf, potential_store, -I * TS / GRID_AUTOFS);
+
+    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
+
   }
 
   /* At this point gwf contains the converged wavefunction */
@@ -116,7 +147,7 @@ int main(int argc, char **argv) {
   grid_wf_density(imwf, density);
   rgrid_write_grid("initial-imp", density);
 
-  dft_ot_energy_density(dft_driver_otf, density, gwf);
+  dft_ot_energy_density(otf, density, gwf);
   energy = grid_wf_energy(gwf, ext_pot) + rgrid_integral(density);
   natoms = grid_wf_norm(gwf);
   printf("Total energy of the liquid is " FMT_R " K\n", energy * GRID_AUTOK);
@@ -124,14 +155,25 @@ int main(int argc, char **argv) {
   printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
 
   /* Propagate only the liquid in real time */
-  dft_driver_setup_model(MODEL, DFT_DRIVER_REAL_TIME, RHO0);
   grid_wf_density(imwf, density);
-  ext_pot = dft_driver_spectrum_init(density, REITER, ZEROFILL, DFT_DRIVER_AVERAGE_NONE, UPPER_X, UPPER_Y, UPPER_Z, DFT_DRIVER_AVERAGE_NONE, LOWER_X, LOWER_Y, LOWER_Z);
+  ext_pot = dft_spectrum_init(otf, density, REITER, ZEROFILL, 0, UPPER_X, UPPER_Y, UPPER_Z, 0, LOWER_X, LOWER_Y, LOWER_Z);
   rgrid_add(ext_pot, -mu0);
   for (iter = 0; iter < REITER; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, mu0, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot2, mu0, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_spectrum_collect(gwf);
+
+    /* Predict-Correct */
+    cgrid_copy(gwfp->grid, gwf->grid);
+    grid_real_to_complex_re(potential_store, ext_pot2);
+    dft_ot_potential(otf, potential_store, gwf);
+    cgrid_add(potential_store, -mu0);
+    grid_wf_propagate_predict(gwfp, potential_store, TS / GRID_AUTOFS);
+    grid_add_real_to_complex_re(potential_store, ext_pot);
+    dft_ot_potential(otf, potential_store, gwfp);
+    cgrid_add(potential_store, -mu0);
+    cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
+    grid_wf_propagate_correct(gwf, potential_store, TS / GRID_AUTOFS);
+    // Chemical potential included - no need to normalize
+
+    dft_spectrum_collect(otf, gwf);
     if(!(iter % 10)) {
       char buf[512];
       grid_wf_density(gwf, density);
@@ -139,7 +181,7 @@ int main(int argc, char **argv) {
       rgrid_write_grid(buf, density);
     }
   }
-  spectrum = dft_driver_spectrum_evaluate(TS, TC);
+  spectrum = dft_spectrum_evaluate(TS, TC);
   if(!(fp = fopen("spectrum.dat", "w"))) {
     fprintf(stderr, "Can't open spectrum.dat for writing.\n");
     exit(1);

@@ -25,6 +25,8 @@
 #define TS 10.0 /* fs */
 #define OUTPUT 100
 
+#define THREADS 0
+
 #define DELTA (0.05 * rho0)
 #define W 30.0
 #define VZ (230.0 / GRID_AUTOMPS)
@@ -61,6 +63,7 @@ REAL complex gauss(void *arg, REAL x, REAL y, REAL z) {
 
 int main(int argc, char **argv) {
 
+  dft_ot_functional *otf;
   struct params sparams;
   rgrid *rworkspace;
   cgrid *potential_store;
@@ -68,33 +71,36 @@ int main(int argc, char **argv) {
   INT iter;
   REAL rho0, mu0;
   char buf[512];
+  grid_timer timer;
 
-  fprintf(stderr, "Time step = " FMT_R " fs.\n", TS);
-  /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, 0 /* threads */);
-  /* Plain Orsay-Trento in imaginary time */
-  /* Setup frame of reference momentum */
-  dft_driver_setup_momentum(0.0, 0.0, KZ);
-  dft_driver_setup_model(FUNC, DFT_DRIVER_REAL_TIME, 0.0);
-  /* No absorbing boundary */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
-  /* Normalization condition */
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
+#ifdef USE_CUDA
+  cuda_enable(1);
+#endif
 
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
+  /* Initialize threads & use wisdom */
+  grid_set_fftw_flags(1);    // FFTW_MEASURE
+  grid_threads_init(THREADS);
+  grid_fft_read_wisdom(NULL);
 
-  /* Initialize the DFT driver */
-  dft_driver_initialize(gwf);
+  /* Allocate wave functions */
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_PROPAGATOR, "gwf"))) {
+    fprintf(stderr, "Cannot allocate gwf.\n");
+    exit(1);
+  }
+  gwfp = grid_wf_clone(gwf, "gwfp");
+
+  /* Allocate OT functional */
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+    fprintf(stderr, "Cannot allocate otf.\n");
+    exit(1);
+  }
+  rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
+  printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
   /* Allocate space for external potential */
-  rworkspace = dft_driver_alloc_rgrid("rworkspace");
-  potential_store = dft_driver_alloc_cgrid("cworkspace"); /* temporary storage */
-  /* Read initial external potential from file */
-
-  rho0 = dft_driver_otf->rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
-  mu0  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
+  rworkspace = rgrid_clone(otf->density, "rworkspace");
+  potential_store = cgrid_clone(gwf->grid, "cworkspace"); /* temporary storage */
 
   sparams.delta = DELTA;
   sparams.rho0 = rho0;
@@ -102,11 +108,26 @@ int main(int argc, char **argv) {
   sparams.vz = VZ;
   cgrid_map(gwf->grid, gauss, (void *) &sparams);  
   
-  //dft_driver_kinetic = DFT_DRIVER_KINETIC_CN_NBC;
-
   for (iter = 0; iter < MAXITER; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, potential_store, TS, iter);
+
+    if(iter == 5) grid_fft_write_wisdom(NULL);
+
+    grid_timer_start(&timer);
+
+    /* Predict-Correct */
+    cgrid_copy(gwfp->grid, gwf->grid);
+    cgrid_zero(potential_store);
+    dft_ot_potential(otf, potential_store, gwf);
+    cgrid_add(potential_store, -mu0);
+    grid_wf_propagate_predict(gwfp, potential_store, TS / GRID_AUTOFS);
+    dft_ot_potential(otf, potential_store, gwfp);
+    cgrid_add(potential_store, -mu0);
+    cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
+    grid_wf_propagate_correct(gwf, potential_store, TS / GRID_AUTOFS);
+    // Chemical potential included - no need to normalize
+
+    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
+
     if(!(iter % OUTPUT)) {
       sprintf(buf, "final-" FMT_I, iter);
       grid_wf_density(gwf, rworkspace);
