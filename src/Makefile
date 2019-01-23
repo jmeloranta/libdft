@@ -4,7 +4,7 @@ all:
 	make prototypes
 	make libdft.a
 
-OBJS = ot.o ot-energy.o common.o bulk.o spectroscopy.o initial.o
+OBJS = ot.o ot-energy.o common.o bulk.o spectroscopy.o initial.o viscosity.o
 
 libdft.a: $(OBJS)
 	ar cr libdft.a $(OBJS)
@@ -37,6 +37,9 @@ spectroscopy.o: spectroscopy.c dft.h ot.h
 
 intial.o: initial.c dft.h ot.h
 	$(CC) -I. $(CFLAGS) -c initial.c
+
+viscosity.o: viscosity.c dft.h ot.h
+	$(CC) -I. $(CFLAGS) -c viscosity.c
 
 clean:
 	-rm *.o libdft.a proto.h git-version.h *~

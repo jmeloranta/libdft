@@ -26,17 +26,17 @@
 #define NY 128          /* # of grid points along y */
 #define NZ 128        	/* # of grid points along z */
 #define STEP 1.5        /* spatial step length (Bohr) */
-#define DENSITY (0.0218360 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default at SVP) */
+#define PRESSURE 0.0    /* External pressure */
 #define IMP_MASS 1.0 /* electron mass */
 
 /* velocity components */
 #define KX	(1.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NY * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NZ * STEP))
-#define VX	(KX * HBAR / HELIUM_MASS)
-#define VY	(KY * HBAR / HELIUM_MASS)
-#define VZ	(KZ * HBAR / HELIUM_MASS)
-#define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
+#define VX	(KX * HBAR / DFT_HELIUM_MASS)
+#define VY	(KY * HBAR / DFT_HELIUM_MASS)
+#define VZ	(KZ * HBAR / DFT_HELIUM_MASS)
+#define EKIN	(0.5 * DFT_HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
 REAL global_time;
 
@@ -115,7 +115,6 @@ int main(int argc, char *argv[]) {
   rgrid_fft(pair_pot);
 
   for(iter = STARTING_ITER; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
-    printf("Iteration = " FMT_I "\n", iter);
     if(iter == 5) grid_fft_write_wisdom(NULL);
     grid_timer_start(&timer);
 
@@ -126,10 +125,11 @@ int main(int argc, char *argv[]) {
     rgrid_fft(otf->density);
     rgrid_fft_convolute(ext_pot, otf->density, pair_pot);
     rgrid_inverse_fft(ext_pot);
-    grid_real_to_complex_re(potential_store, ext_pot);
+    grid_real_to_complex_re(potential, ext_pot);
 
     /* 2. Propagate */
-    grid_wf_propagate(impwf, potential_store, IMP_STEP / GRID_AUTOFS);
+    grid_wf_propagate(impwf, potential, -I * IMP_STEP / GRID_AUTOFS);
+    grid_wf_normalize(impwf);
 
     /* 3. if OUTPUT, compute energy */
     if(!(iter % OUTPUT)) {
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
       fflush(stdout);
       /* Impurity density */
       sprintf(filename, "ebubble_imp-" FMT_I, iter);
-      rgrid_write_grid(filename, dft_driver_otf->density);      /* Write wavefunction to file */
+      rgrid_write_grid(filename, otf->density);      /* Write wavefunction to file */
     }
     
     /***  HELIUM  ***/
@@ -153,19 +153,26 @@ int main(int argc, char *argv[]) {
     rgrid_fft_convolute(ext_pot, otf->density, pair_pot);
     rgrid_inverse_fft(ext_pot);
 
-LEFT HERE
-
     /* 2. Predict + correct */
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential, TIME_STEP, iter); /* CORRECT */
+    cgrid_copy(gwfp->grid, gwf->grid);
+    grid_real_to_complex_re(potential, ext_pot);
+    dft_ot_potential(otf, potential, gwf);
+    cgrid_add(potential, -mu0);
+    grid_wf_propagate_predict(gwfp, potential, -I * TIME_STEP / GRID_AUTOFS);
+    grid_add_real_to_complex_re(potential, ext_pot);
+    dft_ot_potential(otf, potential, gwfp);
+    cgrid_add(potential, -mu0);
+    cgrid_multiply(potential, 0.5);  // Use (current + future) / 2
+    grid_wf_propagate_correct(gwf, potential, -I * TIME_STEP / GRID_AUTOFS);
+    // Chemical potential included - no need to normalize
 
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
 
     if(!(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       /* Helium energy */
       kin = grid_wf_energy(gwf, NULL); /* Kinetic energy for gwf */
-      dft_ot_energy_density(dft_driver_otf, rworkspace, gwf);
-      rgrid_add_scaled_product(rworkspace, 1.0, dft_driver_otf->density, ext_pot);
+      dft_ot_energy_density(otf, rworkspace, gwf);
+      rgrid_add_scaled_product(rworkspace, 1.0, otf->density, ext_pot);
       pot = rgrid_integral(rworkspace);
       //ene = kin + pot;           /* Total energy for gwf */
       n = grid_wf_norm(gwf);
@@ -190,10 +197,10 @@ LEFT HERE
 	printf("VX = 0, no added mass.\n");
       fflush(stdout);
 
-      grid_wf_density(gwf, dft_driver_otf->density);                     /* Density from gwf */
+      grid_wf_density(gwf, otf->density);                     /* Density from gwf */
 
       sprintf(filename, "ebubble_liquid-" FMT_I, iter);              
-      rgrid_write_grid(filename, dft_driver_otf->density);
+      rgrid_write_grid(filename, otf->density);
     }
   }
   return 0;

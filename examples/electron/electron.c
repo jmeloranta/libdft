@@ -16,6 +16,8 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
+#define PRESSURE 0.0
+
 /* Initial guess for bubble radius */
 #define BUBBLE_RADIUS 1.0
 
@@ -32,19 +34,19 @@ REAL complex bubble(void *NA, REAL x, REAL y, REAL z) {
 }
 
 int main(int argc, char *argv[]) {
-
+ 
+  dft_ot_functional *otf;
   FILE *fp;
   INT l, nx, ny, nz, iterations, threads;
   INT itp = 0, dump_nth, model;
   REAL step, time_step, mu0, time_step_el, width;
   char chk[256];
   INT restart = 0;
-  wf *gwf = 0;
-  wf *gwfp = 0;
-  wf *egwf = 0;
-  wf *egwfp = 0;
+  wf *gwf = NULL;
+  wf *gwfp = NULL;
+  wf *egwf = NULL;
   rgrid *rworkspace = NULL, *pseudo = NULL;
-  cgrid *potential_store = 0;
+  cgrid *potential_store = NULL;
 
   /* parameters */
   if (argc < 2) {
@@ -120,27 +122,32 @@ int main(int argc, char *argv[]) {
   cuda_enable(1);  // enable CUDA ?
 #endif
 
-  /* allocate memory (3 x grid dimension, */
-  fprintf(stderr,"Model = " FMT_I ".\n", model);
-  dft_driver_setup_grid(nx, ny, nz, step, threads);
-  dft_driver_setup_model(model, itp, rho0);
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 0.0, 0);
-  /* Neumann boundaries */
-  dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
+  /* Initialize threads & use wisdom */
+  grid_set_fftw_flags(1);    // FFTW_MEASURE
+  grid_threads_init(threads);
+  grid_fft_read_wisdom(NULL);
 
-  gwf = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS, "gwf");
-  gwfp = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS, "gwfp");
-  egwf = dft_driver_alloc_wavefunction(1.0, "egwf"); /* electron mass */
-  egwf->norm = 1.0; /* one electron */
-  egwfp = dft_driver_alloc_wavefunction(1.0, "egwfp"); /* electron mass */
-  egwfp->norm = 1.0; /* one electron */
+  /* Allocate wave functions */
+  if(!(gwf = grid_wf_alloc(nx, ny, nz, step, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_PROPAGATOR, "gwf"))) {
+    fprintf(stderr, "Cannot allocate gwf.\n");
+    exit(1);
+  }
+  gwfp = grid_wf_clone(gwf, "gwfp");
+  egwf = grid_wf_clone(gwf, "egwf");
+  egwf->mass = 1.0;
 
-  dft_driver_initialize(gwf);
+  /* Allocate OT functional */
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+    fprintf(stderr, "Cannot allocate otf.\n");
+    exit(1);
+  }
+  rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
+  printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
-  rworkspace = dft_driver_alloc_rgrid("rworkspace");
-  pseudo = dft_driver_alloc_rgrid("pseudo");
-  potential_store = dft_driver_alloc_cgrid("potential_store");
+  rworkspace = rgrid_clone(otf->density, "rworkspace");
+  pseudo = rgrid_clone(otf->density, "pseudo");
+  potential_store = cgrid_clone(gwf->grid, "potential_store");
 
   /* initialize wavefunctions */
   width = 1.0 / 14.5; /* actually inverse width */
@@ -157,27 +164,23 @@ int main(int argc, char *argv[]) {
     rgrid_read_grid(rworkspace, "el-restart.chk");
     rgrid_power(rworkspace, rworkspace, 0.5);
     grid_real_to_complex_re(egwf->grid, rworkspace);
-    cgrid_copy(egwfp->grid, egwf->grid);
     l = 1;
   } else l = 0;
 
 #ifdef INCLUDE_ELECTRON  
   fprintf(stderr,"Electron included.\n");
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_NONE, "jortner.dat", "jortner.dat", "jortner.dat", pseudo);
+  dft_common_potential_map(0, "jortner.dat", "jortner.dat", "jortner.dat", pseudo);
   rgrid_fft(pseudo);
 #else
   rgrid_zero(pseudo);
 #endif
 
-  fprintf(stderr,"Specified rho0 = " FMT_R " Angs^-3\n", rho0);
-  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
-  fprintf(stderr,"mu0 = " FMT_R " K.\n", mu0 * GRID_AUTOK);
-  fprintf(stderr,"Applied P = " FMT_R " MPa.\n", dft_ot_bulk_pressure(dft_driver_otf, rho0) * GRID_AUTOPA / 1E6);
-  
   /* Include vortex line initial guess along Z */
 #ifdef INCLUDE_VORTEX
   fprintf(stderr,"Vortex included.\n");
-  dft_driver_vortex_initial(gwf, 1, DFT_DRIVER_VORTEX_Z);
+  cgrid_map(gwf->grid, &dft_initial_vortex_z_n1, NULL);
+#else
+  cgrid_constant(gwf->grid, SQRT(rho0));
 #endif
 
   /* solve */
@@ -186,7 +189,7 @@ int main(int argc, char *argv[]) {
     if(!(l % dump_nth) || l == iterations-1 || l == 1) {
       REAL energy, natoms;
       energy = grid_wf_energy(gwf, NULL);
-      dft_ot_energy_density(dft_driver_otf, rworkspace, gwf);
+      dft_ot_energy_density(otf, rworkspace, gwf);
       energy += rgrid_integral(rworkspace);
 #ifdef INCLUDE_ELECTRON      
       energy += grid_wf_energy(egwf, NULL);
@@ -195,12 +198,12 @@ int main(int argc, char *argv[]) {
       rgrid_fft_convolute(rworkspace, rworkspace, pseudo);
       rgrid_inverse_fft(rworkspace);
       
-      grid_wf_density(egwf, dft_driver_otf->density);
-      rgrid_product(dft_driver_otf->density, dft_driver_otf->density, rworkspace);
-      energy += rgrid_integral(dft_driver_otf->density);      /* Liquid - impurity interaction energy */
+      grid_wf_density(egwf, otf->density);
+      rgrid_product(otf->density, otf->density, rworkspace);
+      energy += rgrid_integral(otf->density);      /* Liquid - impurity interaction energy */
 #endif      
       natoms = grid_wf_norm(gwf);
-      fprintf(stderr, "Energy with respect to bulk = " FMT_R " K.\n", (energy - dft_ot_bulk_energy(dft_driver_otf, rho0) * natoms / rho0) * GRID_AUTOK);
+      fprintf(stderr, "Energy with respect to bulk = " FMT_R " K.\n", (energy - dft_ot_bulk_energy(otf, rho0) * natoms / rho0) * GRID_AUTOK);
       fprintf(stderr, "Number of He atoms = " FMT_R ".\n", natoms);
       fprintf(stderr, "mu0 = %le K, energy/natoms = " FMT_R " K\n", mu0 * GRID_AUTOK,  GRID_AUTOK * energy / natoms);
 
@@ -229,8 +232,9 @@ int main(int argc, char *argv[]) {
     rgrid_fft_convolute(rworkspace, rworkspace, pseudo);
     rgrid_inverse_fft(rworkspace);
     /* It is OK to run just one step - in imaginary time but not in real time. */
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_OTHER, rworkspace /* ..potential.. */, 0.0, egwf, egwfp, potential_store, time_step_el, l);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_OTHER, rworkspace /* ..potential.. */, 0.0, egwf, egwfp, potential_store, time_step_el, l);
+    grid_real_to_complex_re(potential_store, rworkspace);
+    grid_wf_propagate(egwf, potential_store, -I * time_step_el / GRID_AUTOFS);  // Imag time
+    grid_wf_normalize(egwf);
 #else
     cgrid_zero(egwf->grid);
 #endif
@@ -244,8 +248,20 @@ int main(int argc, char *argv[]) {
 #else
     rgrid_zero(rworkspace);
 #endif
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, rworkspace /* ..potential.. */, mu0, gwf, gwfp, potential_store, time_step, l);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, rworkspace /* ..potential.. */, mu0, gwf, gwfp, potential_store, time_step, l);
+
+    /* Predict-Correct */
+    cgrid_copy(gwfp->grid, gwf->grid);
+    cgrid_zero(potential_store);
+    dft_ot_potential(otf, potential_store, gwf);
+    grid_add_real_to_complex_re(potential_store, rworkspace);
+    cgrid_add(potential_store, -mu0);
+    grid_wf_propagate_predict(gwfp, potential_store, -I * time_step / GRID_AUTOFS);  // Imag time
+    dft_ot_potential(otf, potential_store, gwfp);
+    grid_add_real_to_complex_re(potential_store, rworkspace);
+    cgrid_add(potential_store, -mu0);
+    cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
+    grid_wf_propagate_correct(gwf, potential_store, -I * time_step / GRID_AUTOFS);   // Imag time
+    // Chemical potential included - no need to normalize
   }
   return 0;
 }

@@ -261,7 +261,7 @@ EXPORT REAL dft_ot_bulk_sound_speed(dft_ot_functional *otf, REAL rho) {
  *
  * wf   = Wave function (wf *; input/output).
  * otf  = Orsay-Trento functional pointer (dft_ot_functional *; input).
- * ts   = Time step in fs (REAL; input).
+ * ts   = Time step in au (REAL; input).
  * k    = Requested wavenumber in a.u. (REAL; input/output). 
  * amp  = Amplitude relative to rho0 (REAL; input).
  * pred = 1 = Use predict-correct, 0 = no predict-correct (char; input).
@@ -280,10 +280,8 @@ EXPORT REAL dft_ot_dispersion(wf *gwf, dft_ot_functional *otf, REAL ts, REAL *k,
   cgrid *potential;
   grid_timer timer;
   
-  if(pred) {
-    gwfp = grid_wf_clone(gwf, "gwfp for dft_ot_dispersion");
-    potential = cgrid_clone(gwf->cworkspace, "potential for dft_ot_dispersion");
-  }
+  if(pred) gwfp = grid_wf_clone(gwf, "gwfp for dft_ot_dispersion");
+  potential = cgrid_clone(gwf->cworkspace, "potential for dft_ot_dispersion");
   rho0 = otf->rho0;
   mu0 = dft_ot_bulk_chempot2(otf);
   

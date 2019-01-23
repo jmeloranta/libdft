@@ -11,13 +11,11 @@
 #include "dft.h"
 #include "ot.h"
 
-extern REAL dft_driver_step;
-extern INT dft_driver_nx, dft_driver_ny, dft_driver_nz;
-
 /*
  * Evaluate absorption/emission spectrum using the Andersson
  * expression. No zero-point correction for the impurity.
  *
+ * otf      = Orsay-Trento functional pointer (dft_ot_functional *; input).
  * density  = Current liquid density (rgrid *; input).
  * tstep    = Time step for constructing the time correlation function
  *            (REAL; input in fs). Typically around 1 fs.
@@ -59,9 +57,9 @@ static REAL complex dft_do_int(rgrid *dens, rgrid *dpot, REAL t, cgrid *wrk) {
   return cgrid_integral(wrk);            // debug: This should have minus in front?! Sign error elsewhere? (does not appear in ZP?!)
 }
 
-EXPORT cgrid *dft_driver_spectrum(rgrid *density, REAL tstep, REAL endtime, char finalave, char *finalx, char *finaly, char *finalz, char initialave, char *initialx, char *initialy, char *initialz) {
+EXPORT cgrid *dft_spectrum(dft_ot_functional *otf, rgrid *density, REAL tstep, REAL endtime, char finalave, char *finalx, char *finaly, char *finalz, char initialave, char *initialx, char *initialy, char *initialz) {
 
-  rgrid *dpot, *workspace1 = dft_driver_otf->workspace1, *workspace2 = dft_driver_otf->workspace2;
+  rgrid *dpot, *workspace1 = otf->workspace1, *workspace2 = otf->workspace2;
   cgrid *wrk[256];
   static cgrid *corr = NULL;
   REAL t;
@@ -118,6 +116,7 @@ EXPORT cgrid *dft_driver_spectrum(rgrid *density, REAL tstep, REAL endtime, char
  * Evaluate absorption/emission spectrum using the Andersson
  * expression. Zero-point correction for the impurity included.
  *
+ * otf      = Orsay-Trento functional pointer (dft_ot_functional *; input).
  * density  = Current liquid density (rgrid *; input).
  * imdensity= Current impurity zero-point density (cgrid *; input).
  * tstep    = Time step for constructing the time correlation function
@@ -177,10 +176,10 @@ static REAL complex dft_do_int2(cgrid *gexp, rgrid *imdens, cgrid *fft_dens, REA
 #endif
 }
 
-EXPORT cgrid *dft_driver_spectrum_zp(rgrid *density, rgrid *imdensity, REAL tstep, REAL endtime, char upperave, char *upperx, char *uppery, char *upperz, char lowerave, char *lowerx, char *lowery, char *lowerz) {
+EXPORT cgrid *dft_spectrum_zp(dft_ot_functional *otf, rgrid *density, rgrid *imdensity, REAL tstep, REAL endtime, char upperave, char *upperx, char *uppery, char *upperz, char lowerave, char *lowerx, char *lowery, char *lowerz) {
 
   cgrid *wrk, *fft_density, *gexp;
-  rgrid *dpot, *workspace1 = dft_driver_otf->workspace1, *workspace2 = dft_driver_otf->workspace2;
+  rgrid *dpot, *workspace1 = otf->workspace1, *workspace2 = otf->workspace2;
   static cgrid *corr = NULL;
   REAL t;
   INT i, ntime;
@@ -240,29 +239,30 @@ EXPORT cgrid *dft_driver_spectrum_zp(rgrid *density, rgrid *imdensity, REAL tste
  * potential of gnd and excited states (returned by the init routine).
  *
  * 1) Initialize the difference potential:
- *     dft_driver_spectrum_init().
+ *     dft_spectrum_init().
  * 
  * 2) During the trajectory, call function:
- *     dft_driver_spectrum_collect() to record the time dependent difference
+ *     dft_spectrum_collect() to record the time dependent difference
  *     energy (difference potential convoluted with the time dependent
  *     liquid density).
  *
  * 3) At the end, call the following function to evaluate the spectrum:
- *     dft_driver_spectrum_evaluate() to evaluate the lineshape.
+ *     dft_spectrum_evaluate() to evaluate the lineshape.
  *
  */
 
 /*
  * Collect the time dependent difference energy data.
  * 
+ * otf      = Orsay-Trento functional pointer (dft_ot_functional *; input).
  * idensity = NULL: no averaging of pair potentials, rgrid *: impurity density for convoluting with pair potential. (input)
  * nt       = Maximum number of time steps to be collected (INT, input).
  * zerofill = How many zeros to fill in before FFT (int, input).
- * upperave = Averaging on the upper state (see dft_driver_potential_map()) (int, input).
+ * upperave = Averaging on the upper state (see dft_common_potential_map()) (int, input).
  * upperx   = Upper potential file name along-x (char *, input).
  * uppery   = Upper potential file name along-y (char *, input).
  * upperz   = Upper potential file name along-z (char *, input).
- * lowerave = Averaging on the lower state (see dft_driver_potential_map()) (int, input).
+ * lowerave = Averaging on the lower state (see dft_common_potential_map()) (int, input).
  * lowerx   = Lower potential file name along-x (char *, input).
  * lowery   = Lower potential file name along-y (char *, input).
  * lowerz   = Lower potential file name along-z (char *, input).
@@ -275,10 +275,12 @@ static rgrid *xxdiff = NULL, *xxave = NULL;
 static cgrid *tdpot = NULL;
 static INT ntime, cur_time, zerofill;
 
-EXPORT rgrid *dft_driver_spectrum_init(rgrid *idensity, INT nt, INT zf, char upperave, char *upperx, char *uppery, char *upperz, char lowerave, char *lowerx, char *lowery, char *lowerz) {
+EXPORT rgrid *dft_spectrum_init(dft_ot_functional *otf, rgrid *idensity, INT nt, INT zf, char upperave, char *upperx, char *uppery, char *upperz, char lowerave, char *lowerx, char *lowery, char *lowerz) {
  
-  rgrid *workspace1 = dft_driver_otf->workspace1, *workspace2 = dft_driver_otf->workspace2, *workspace3 = dft_driver_otf->workspace3;
-  rgrid *workspace4 = dft_driver_otf->workspace4;
+  rgrid *workspace1 = otf->workspace1, *workspace2 = otf->workspace2, *workspace3 = otf->workspace3;
+  rgrid *workspace4 = otf->workspace4;
+  INT nx = workspace1->nx, ny = workspace1->ny, nz = workspace1->nz;
+  REAL step = workspace1->step;
 
   cur_time = 0;
   ntime = nt;
@@ -287,9 +289,9 @@ EXPORT rgrid *dft_driver_spectrum_init(rgrid *idensity, INT nt, INT zf, char upp
     tdpot = cgrid_alloc(1, 1, ntime + zf, 0.1, CGRID_PERIODIC_BOUNDARY, 0, "tdpot");
   if(upperx == NULL) return NULL;   /* potentials not given */
   if(!xxdiff)
-    xxdiff = rgrid_alloc(dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, RGRID_PERIODIC_BOUNDARY, 0, "xxdiff");
+    xxdiff = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "xxdiff");
   if(!xxave)
-    xxave = rgrid_alloc(dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, RGRID_PERIODIC_BOUNDARY, 0, "xxave");
+    xxave = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "xxave");
   fprintf(stderr, "libdft: Upper level potential.\n");
   rgrid_claim(workspace1); rgrid_claim(workspace2);
   rgrid_claim(workspace3); rgrid_claim(workspace4);
@@ -322,6 +324,7 @@ EXPORT rgrid *dft_driver_spectrum_init(rgrid *idensity, INT nt, INT zf, char upp
  * Collect the time dependent difference energy data. Same as above but with direct
  * grid input for potentials.
  * 
+ * otf      = Orsay-Trento functional pointer (dft_ot_functional *; input).
  * nt       = Maximum number of time steps to be collected (INT, input).
  * zerofill = How many zeros to fill in before FFT (int, input).
  * upper    = upper state potential grid (rgrid *, input).
@@ -330,7 +333,10 @@ EXPORT rgrid *dft_driver_spectrum_init(rgrid *idensity, INT nt, INT zf, char upp
  * Returns difference potential for dynamics.
  */
 
-EXPORT rgrid *dft_driver_spectrum_init2(INT nt, INT zf, rgrid *upper, rgrid *lower) {
+EXPORT rgrid *dft_spectrum_init2(dft_ot_functional *otf, INT nt, INT zf, rgrid *upper, rgrid *lower) {
+
+  INT nx = otf->workspace1->nx, ny = otf->workspace1->ny, nz = otf->workspace1->nz;
+  REAL step = otf->workspace1->step;
 
   cur_time = 0;
   ntime = nt;
@@ -339,9 +345,9 @@ EXPORT rgrid *dft_driver_spectrum_init2(INT nt, INT zf, rgrid *upper, rgrid *low
     tdpot = cgrid_alloc(1, 1, ntime + zf, 0.1, CGRID_PERIODIC_BOUNDARY, 0, "tdpot");
   if(upper == NULL) return NULL; /* not given */
   if(!xxdiff)
-    xxdiff = rgrid_alloc(dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, RGRID_PERIODIC_BOUNDARY, 0, "xxdiff");
+    xxdiff = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "xxdiff");
   if(!xxave)
-    xxave = rgrid_alloc(dft_driver_nx, dft_driver_ny, dft_driver_nz, dft_driver_step, RGRID_PERIODIC_BOUNDARY, 0, "xxave");
+    xxave = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "xxave");
   rgrid_difference(xxdiff, upper, lower);
   rgrid_sum(xxave, upper, lower);
   rgrid_multiply(xxave, 0.5);
@@ -355,7 +361,7 @@ EXPORT rgrid *dft_driver_spectrum_init2(INT nt, INT zf, rgrid *upper, rgrid *low
  *
  */
 
-EXPORT void dft_driver_spectrum_collect_user(REAL val) {
+EXPORT void dft_spectrum_collect_user(REAL val) {
 
   if(cur_time > ntime) {
     fprintf(stderr, "libdft: initialized with too few points (spectrum collect).\n");
@@ -374,9 +380,9 @@ EXPORT void dft_driver_spectrum_collect_user(REAL val) {
  *
  */
 
-EXPORT void dft_driver_spectrum_collect(wf *gwf) {
+EXPORT void dft_spectrum_collect(dft_ot_functional *otf, wf *gwf) {
 
-  rgrid *workspace1 = dft_driver_otf->workspace1;
+  rgrid *workspace1 = otf->workspace1;
 
   if(cur_time > ntime) {
     fprintf(stderr, "libdft: initialized with too few points (spectrum collect).\n");
@@ -403,7 +409,7 @@ EXPORT void dft_driver_spectrum_collect(wf *gwf) {
  *
  */
 
-EXPORT cgrid *dft_driver_spectrum_evaluate(REAL tstep, REAL tc) {
+EXPORT cgrid *dft_spectrum_evaluate(REAL tstep, REAL tc) {
 
   INT t, npts;
   static cgrid *spectrum = NULL;

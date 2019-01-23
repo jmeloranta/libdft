@@ -23,23 +23,23 @@
 #define NX 1024      	/* # of grid points along x */
 #define NY 512          /* # of grid points along y */
 #define NZ 512      	/* # of grid points along z */
-#define STEP 0.15        /* spatial step length (Bohr) */
+#define STEP 0.15       /* spatial step length (Bohr) */
+#define PRESSURE 0.0    /* External pressure */
 
 #define ALPHA 2.00 /**/
 #define T1200MK
 
-/* #define INITIAL_GUESS_FROM_DENSITY /* initial (file) guess from density or wf? */
-
-#define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass */
+/* initial (file) guess from density or wf? */
+/* #define INITIAL_GUESS_FROM_DENSITY */
 
 /* velocity components */
 #define KX	(1.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
-#define VX	(KX * HBAR / HELIUM_MASS)
-#define VY	(KY * HBAR / HELIUM_MASS)
-#define VZ	(KZ * HBAR / HELIUM_MASS)
-#define EKIN	(0.5 * HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
+#define VX	(KX * HBAR / DFT_HELIUM_MASS)
+#define VY	(KY * HBAR / DFT_HELIUM_MASS)
+#define VZ	(KZ * HBAR / DFT_HELIUM_MASS)
+#define EKIN	(0.5 * DFT_HELIUM_MASS * (VX * VX + VY * VY + VZ * VZ))
 
 #ifdef T2100MK
 /* Exp mobility = 0.0492 cm^2/Vs - gives 0.096 (well conv. kc+bf 0.087) */
@@ -284,6 +284,7 @@ REAL global_time;
 
 int main(int argc, char *argv[]) {
 
+  dft_ot_functional *otf;
   wf *gwf, *gwfp;
   cgrid *cworkspace;
   rgrid *ext_pot, *rworkspace;
@@ -291,6 +292,11 @@ int main(int argc, char *argv[]) {
   char filename[2048];
   REAL kin, pot;
   REAL rho0, mu0, n;
+  grid_timer timer;
+
+#ifdef USE_CUDA
+  cuda_enable(1);
+#endif
 
   if(argc != 1 && argc != 2) {
     printf("Usage: added_mass2 <helium_wf>\n");
@@ -298,44 +304,46 @@ int main(int argc, char *argv[]) {
   }
   
   printf("RADD = " FMT_R "\n", RADD);
-  /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
-  /* Setup frame of reference momentum */
-  dft_driver_setup_momentum(KX, KY, KZ);
 
-  /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(FUNCTIONAL | DFT_OT_HD, 1, DENSITY);   /* DFT_OT_HD = Orsay-Trento with high-densiy corr. , 1 = imag time */
+  /* Initialize threads & use wisdom */
+  grid_set_fftw_flags(1);    // FFTW_MEASURE
+  grid_threads_init(THREADS);
+  grid_fft_read_wisdom(NULL);
 
-  /* Regular boundaries */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
-  dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NORMAL);
+  /* Allocate wave functions */
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_PROPAGATOR, "gwf"))) {
+    fprintf(stderr, "Cannot allocate gwf.\n");
+    exit(1);
+  }
+  gwfp = grid_wf_clone(gwf, "gwfp");
+
+  /* Reference frame for gwf & gwfp */
+  cgrid_set_momentum(gwf->grid, KX, KY, KZ);
+  cgrid_set_momentum(gwfp->grid, KX, KY, KZ);
+
+  /* Allocate OT functional */
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+    fprintf(stderr, "Cannot allocate otf.\n");
+    exit(1);
+  }
+  rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
+  printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+
 #ifdef ALPHA  
   printf("Using preset alpha.\n");
-  dft_driver_setup_viscosity(VISCOSITY * RHON, ALPHA);
+#define EFF_VISCOSITY (VISCOSITY * RHON)
+#define EFF_ALPHA ALPHA
 #else
   printf("Using precomputed alpha. with T = " FMT_R "\n", TEMP);
-  dft_driver_setup_viscosity(RHON * VISCOSITY, 1.73 + 2.32E-10*EXP(11.15*TEMP));  
+#define EFF_VISCOSITY (VISCOSITY * RHON)
+#define EFF_ALPHA (1.73 + 2.32E-10*EXP(11.15*TEMP))
 #endif
   
-  /* Allocate wavefunctions */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");  /* order parameter for current time */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp"); /* order parameter for future (predict) */
-
-  /* Initialize */
-  dft_driver_initialize(gwf);
-
-  /* bulk normalization -- dft_ot_bulk routines do not work properly with T > 0 K */
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 4, 0.0, 0);   /* Normalization: ZEROB = adjust grid point NX/4, NY/4, NZ/4 to bulk density after each imag. time iteration */
-  
-  /* get bulk density and chemical potential */
-  rho0 = dft_ot_bulk_density(dft_driver_otf);
-  mu0  = dft_ot_bulk_chempot(dft_driver_otf);
-  printf("rho0 = " FMT_R " Angs^-3, mu0 = " FMT_R " K.\n", rho0 / (0.529 * 0.529 * 0.529), mu0 * GRID_AUTOK);
-
   /* Allocate grids */
-  cworkspace = dft_driver_alloc_cgrid("cworkspace");             /* allocate complex workspace */
-  ext_pot = dft_driver_alloc_rgrid("ext pot");                /* allocate real external potential grid */
-  rworkspace = dft_driver_alloc_rgrid("density");                /* allocate real density grid */
+  cworkspace = cgrid_clone(gwf->grid, "cworkspace");            /* allocate complex workspace */
+  ext_pot = rgrid_clone(otf->density, "ext pot"); /* allocate real external potential grid */
+  rworkspace = rgrid_clone(otf->density, "density"); /* allocate real density grid */
   
   fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
   fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (m/s)\n", 
@@ -355,9 +363,9 @@ int main(int argc, char *argv[]) {
     cgrid_multiply(gwf->grid, SQRT(rho0) / gwf->grid->value[0]);
 #else
     printf("Helium DENSITY from %s.\n", argv[1]);
-    rgrid_read_grid(dft_driver_otf->density, argv[1]);
-    rgrid_power(dft_driver_otf->density, dft_otf_driver->density, 0.5);
-    grid_real_to_complex_re(gwf->grid, dft_driver_otf->density);
+    rgrid_read_grid(otf->density, argv[1]);
+    rgrid_power(otf->density, otf->density, 0.5);
+    grid_real_to_complex_re(gwf->grid, otf->density);
 #endif
   }
   
@@ -370,16 +378,33 @@ int main(int argc, char *argv[]) {
   
   for(iter = 1; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
 
-    /*2. Predict + correct */
-    (void) dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* PREDICT */ 
-    (void) dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, cworkspace, TIME_STEP, iter); /* CORRECT */ 
+    if(iter == 5) grid_fft_write_wisdom(NULL);
+
+    grid_timer_start(&timer);
+
+    /* Predict-Correct */
+    cgrid_copy(gwfp->grid, gwf->grid);
+    grid_real_to_complex_re(cworkspace, ext_pot);
+    dft_ot_potential(otf, cworkspace, gwf);
+    dft_viscous_potential(gwf, otf, cworkspace, EFF_VISCOSITY, EFF_ALPHA);
+    cgrid_add(cworkspace, -mu0);
+    grid_wf_propagate_predict(gwfp, cworkspace, -I * TIME_STEP / GRID_AUTOFS);
+    grid_add_real_to_complex_re(cworkspace, ext_pot);
+    dft_ot_potential(otf, cworkspace, gwfp);
+    dft_viscous_potential(gwfp, otf, cworkspace, EFF_VISCOSITY, EFF_ALPHA);
+    cgrid_add(cworkspace, -mu0);
+    cgrid_multiply(cworkspace, 0.5);  // Use (current + future) / 2
+    grid_wf_propagate_correct(gwf, cworkspace, -I * TIME_STEP / GRID_AUTOFS);
+    // Chemical potential included - no need to normalize
+
+    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
     
     if(iter && !(iter % OUTPUT)) {   /* every OUTPUT iterations, write output */
       REAL force, mobility;
       /* Helium energy */
       kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
-      dft_ot_energy_density(dft_driver_otf, rworkspace, gwf);
-      rgrid_add_scaled_product(rworkspace, 1.0, dft_driver_otf->density, ext_pot);
+      dft_ot_energy_density(otf, rworkspace, gwf);
+      rgrid_add_scaled_product(rworkspace, 1.0, otf->density, ext_pot);
       pot = rgrid_integral(rworkspace);           /* Potential energy for gwf */
       //ene = kin + pot;           /* Total energy for gwf */
       n = grid_wf_norm(gwf);
@@ -393,8 +418,8 @@ int main(int argc, char *argv[]) {
       grid_wf_probability_flux_x(gwf, rworkspace);
       printf("Added mass = " FMT_R "\n", rgrid_integral(rworkspace) / VX); 
 
-      grid_wf_density(gwf, dft_driver_otf->density);                     /* Density from gwf */
-      force = rgrid_weighted_integral(dft_driver_otf->density, dpot_func, NULL);   /* includes the minus already somehow (cmp FD below) */
+      grid_wf_density(gwf, otf->density);                     /* Density from gwf */
+      force = rgrid_weighted_integral(otf->density, dpot_func, NULL);   /* includes the minus already somehow (cmp FD below) */
 
       printf("Drag force on ion = " FMT_R " a.u.\n", force);
 

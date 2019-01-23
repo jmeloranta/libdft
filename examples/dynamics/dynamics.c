@@ -61,67 +61,99 @@ REAL pot_func(void *asd, REAL x, REAL y, REAL z) {
 
 int main(int argc, char **argv) {
 
+  dft_ot_functional *otf;
   rgrid *ext_pot, *rworkspace;
   cgrid *potential_store;
   wf *gwf, *gwfp;
   INT iter;
   REAL offset, mu0, rho0;
   char buf[512];
+  grid_timer timer;
 
 #ifdef USE_CUDA
   cuda_enable(1);
 #endif
 
-  /* Setup DFT driver parameters (grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP, THREADS);
-  /* Plain Orsay-Trento in imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_IMAG_TIME, 0.0);
-  /* No absorbing boundary */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);
-  /* Normalization condition */
-  dft_driver_setup_normalization(DFT_DRIVER_DONT_NORMALIZE, 0, 3.0, 10);
+  /* Initialize threads & use wisdom */
+  grid_set_fftw_flags(1);    // FFTW_MEASURE
+  grid_threads_init(THREADS);
+  grid_fft_read_wisdom(NULL);
 
-  /* Allocate space for wavefunctions (initialized to SQRT(rho0)) */
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf"); /* helium wavefunction */
-  gwfp = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwfp");/* temp. wavefunction */
-  cgrid_constant(gwf->grid, SQRT(dft_driver_otf->rho0));
+  /* Allocate wave functions */
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_PROPAGATOR, "gwf"))) {
+    fprintf(stderr, "Cannot allocate gwf.\n");
+    exit(1);
+  }
+  gwfp = grid_wf_clone(gwf, "gwfp");
 
-  /* Initialize the DFT driver */
-  dft_driver_initialize(gwf);
+  /* Allocate OT functional */
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+    fprintf(stderr, "Cannot allocate otf.\n");
+    exit(1);
+  }
+  rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
+  printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
-  /* density */
-  rho0 = dft_ot_bulk_density_pressurized(dft_driver_otf, PRESSURE);
-  dft_driver_otf->rho0 = rho0;
-  /* chemical potential */
-  mu0 = dft_ot_bulk_chempot_pressurized(dft_driver_otf, PRESSURE);
+  /* Initialize wave function */
+  cgrid_constant(gwf->grid, SQRT(otf->rho0));
 
   /* Allocate space for external potential */
-  ext_pot = dft_driver_alloc_rgrid("ext_pot");
-  rworkspace = dft_driver_alloc_rgrid("rworkspace");
-  potential_store = dft_driver_alloc_cgrid("potential_store"); /* temporary storage */
+  ext_pot = rgrid_clone(otf->density, "ext_pot");
+  rworkspace = rgrid_clone(otf->density, "rworkspace");
+  potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
+
   /* Generate the initial potential */
   offset = 0.0;
   rgrid_map(ext_pot, pot_func, (void *) &offset);
 
   /* Step #1: Run 200 iterations using imaginary time for the initial state */
   for (iter = 0; iter < 200; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS, iter);
+
+    if(iter == 5) grid_fft_write_wisdom(NULL);
+
+    grid_timer_start(&timer);
+
+    /* Predict-Correct */
+    cgrid_copy(gwfp->grid, gwf->grid);
+    cgrid_zero(potential_store);
+    dft_ot_potential(otf, potential_store, gwf);
+    cgrid_add(potential_store, -mu0);
+    grid_wf_propagate_predict(gwfp, potential_store, -I * TS / GRID_AUTOFS);
+    dft_ot_potential(otf, potential_store, gwfp);
+    cgrid_add(potential_store, -mu0);
+    cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
+    grid_wf_propagate_correct(gwf, potential_store, -I * TS / GRID_AUTOFS);
+    // Chemical potential included - no need to normalize
+
+    fprintf(stderr, "One iteration = " FMT_R " wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
   }
   /* At this point gwf contains the converged wavefunction */
   grid_wf_density(gwf, rworkspace);
   rgrid_write_grid("initial", rworkspace);
 
   /* Step #2: Run real time simulation using the final state potential */
-  dft_driver_setup_model(DFT_OT_PLAIN, DFT_DRIVER_REAL_TIME, 0.0);
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_ITIME, 1.0, ABS_WIDTH, ABS_WIDTH, ABS_WIDTH);
   /* Generate the excited potential */
   offset = EXCITED_OFFSET;
   rgrid_map(ext_pot, pot_func, (void *) &offset);
 
   for (iter = 0; iter < 80000; iter++) {
-    dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS/10.0, iter);
-    dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, ext_pot, mu0, gwf, gwfp, potential_store, TS/10.0, iter);
+
+    grid_timer_start(&timer);
+
+    /* Predict-Correct */
+    cgrid_copy(gwfp->grid, gwf->grid);
+    cgrid_zero(potential_store);
+    dft_ot_potential(otf, potential_store, gwf);
+    cgrid_add(potential_store, -mu0);
+    grid_wf_propagate_predict(gwfp, potential_store, (TS / 10.0) / GRID_AUTOFS);
+    dft_ot_potential(otf, potential_store, gwfp);
+    cgrid_add(potential_store, -mu0);
+    cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
+    grid_wf_propagate_correct(gwf, potential_store, (TS / 10.0) / GRID_AUTOFS);
+
+    fprintf(stderr, "One iteration = " FMT_R " wall clock seconds.\n", grid_timer_wall_clock_time(&timer));
+
     if(!(iter % NTH)) {
       sprintf(buf, "final-" FMT_I, iter);
       grid_wf_density(gwf, rworkspace);

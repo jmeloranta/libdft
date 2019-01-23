@@ -59,52 +59,6 @@
 #define DFT_GP2        4194304
 
 /*
- * Driver defines.
- *
- */
-
-#define DFT_DRIVER_REAL_TIME 0
-#define DFT_DRIVER_IMAG_TIME 1
-#define DFT_DRIVER_USER_TIME 2
-
-#define DFT_DRIVER_BOUNDARY_REGULAR  0
-#define DFT_DRIVER_BOUNDARY_ITIME    1
-
-#define DFT_DRIVER_NORMALIZE_BULK    0
-#define DFT_DRIVER_NORMALIZE_DROPLET 1
-#define DFT_DRIVER_NORMALIZE_COLUMN  2
-#define DFT_DRIVER_NORMALIZE_SURFACE 3
-#define DFT_DRIVER_NORMALIZE_ZEROB   4
-#define DFT_DRIVER_DONT_NORMALIZE    5
-#define DFT_DRIVER_NORMALIZE_N       6
-
-#define DFT_DRIVER_PROPAGATE_HELIUM        0
-#define DFT_DRIVER_PROPAGATE_OTHER         1
-#define DFT_DRIVER_PROPAGATE_OTHER_ONLYPOT 2
-
-#define DFT_DRIVER_AVERAGE_NONE 0
-#define DFT_DRIVER_AVERAGE_XY   1
-#define DFT_DRIVER_AVERAGE_YZ   2
-#define DFT_DRIVER_AVERAGE_XZ   3
-#define DFT_DRIVER_AVERAGE_XYZ  4
-
-#define DFT_DRIVER_VORTEX_X 0
-#define DFT_DRIVER_VORTEX_Y 1
-#define DFT_DRIVER_VORTEX_Z 2
-
-#define DFT_DRIVER_BC_NORMAL 0
-#define DFT_DRIVER_BC_X      1
-#define DFT_DRIVER_BC_Y      2
-#define DFT_DRIVER_BC_Z      3
-#define DFT_DRIVER_BC_NEUMANN 4
-
-#define DFT_DRIVER_KINETIC_FFT           0
-#define DFT_DRIVER_KINETIC_CN_DBC        1
-#define DFT_DRIVER_KINETIC_CN_NBC        2
-#define DFT_DRIVER_KINETIC_CN_PBC        3
-#define DFT_DRIVER_KINETIC_CN_NBC_ROT    4
-
-/*
  * Structures.
  *
  */
@@ -172,19 +126,6 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
   rgrid *workspace9;        /* Workspace 9 */
   rgrid *density;           /* Liquid density */
 } dft_ot_functional;
-
-/* Global user accessible variables */
-extern char dft_driver_verbose;           /* 0 = normal output; 1 = verbose output (default) */
-extern dft_ot_functional *dft_driver_otf; /* Orsay-Trento functional structure for OT driver */
-extern char dft_driver_init_wavefunction; /* Whether to initialize the wavefunction to constant */
-                                          /* on first imaginary time iteration (1 = yes, 0 = no) */
-extern char dft_driver_kinetic;           /* Kinetic energy propagator: 0 = FFT, 1 = Crank-Nicolson (CN) */
-                                          /* with Dirichlet BC, 2 = CN with Neumann BC, */
-                                          /* 3 = CN with periodic BC, 4 = CN with Neumann & rotating frame */
-extern char dft_driver_init_ot;           /* Initialize driver OT functional structure (1 = yes[default], 0 = no) */
-extern int dft_driver_temp_disable_other_normalization;
-                                          /* Disable automatic normalization of the wave function when */
-                                          /* when propagated as "other" (1 = don't normalize, 0 = normalize) */
 
 /* Prototypes (automatically generated) */
 #include "proto.h"

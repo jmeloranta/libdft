@@ -68,4 +68,3 @@
 #define RMIN 2.0
 #define RADD 6.0
 
-#define SM 3                    /* Potential smooth (0 = no smooth). Leave undefined for on-demand calculation of the potential */

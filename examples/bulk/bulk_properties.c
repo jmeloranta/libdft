@@ -9,48 +9,55 @@
 #include <dft/ot.h>
 
 #define THREADS 1     /* # of parallel threads to use */
-#define NX 8          /* # of grid points along x */
-#define NY 8          /* # of grid points along y */
-#define NZ 8         /* # of grid points along z */
+#define NX 8          /* # of grid points along x (not relevant how many) */
+#define NY 8          /* # of grid points along y (not relevant how many) */
+#define NZ 8          /* # of grid points along z (not relevant how many) */
 #define STEP 1.0        /* spatial step length (Bohr) */
-#define DENSITY (0.0218360 * 0.529 * 0.529 * 0.529)     /* bulk liquid density (0.0 = default at SVP) */
+#define DENSITY (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG) /* bulk liquid density (0.0 = default at SVP) */
 
 #define MIN_PRES	0.0
-#define MAX_PRES	(24.0 / GRID_AUTOBAR )
-#define DELTA_PRES	(0.1  / GRID_AUTOBAR )
+#define MAX_PRES	(24.0 / GRID_AUTOBAR)
+#define DELTA_PRES	(0.1 / GRID_AUTOBAR)
+
+#define PRESSURE 0.0
 
 int main() {
 
+  dft_ot_functional *otf;
   wf *gwf;
-  REAL pressure, rho, mu;
+  REAL pressure, rho0, mu0;
 
   /*
    * This block of instructions is needed to initialize everything
    */
   
-  /* Setup DFT driver parameters (256 x 256 x 256 grid) */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
-  /* Plain Orsay-Trento in real or imaginary time */
-  dft_driver_setup_model(DFT_OT_PLAIN, 1, DENSITY);   /* DFT_OT_PLAIN = Orsay-Trento without kinetic corr. or backflow, 1 = imag time */
-  /* Regular boundaries */
-  dft_driver_setup_boundary_type(DFT_DRIVER_BOUNDARY_REGULAR, 0.0, 0.0, 0.0, 0.0);   /* regular periodic boundaries */
-  dft_driver_setup_boundary_condition(DFT_DRIVER_BC_NEUMANN);
+  /* Initialize threads & use wisdom */
+  grid_set_fftw_flags(1);    // FFTW_MEASURE
+  grid_threads_init(THREADS);
+  grid_fft_read_wisdom(NULL);
 
-  gwf = dft_driver_alloc_wavefunction(DFT_HELIUM_MASS, "gwf");  /* order parameter for current time */
+  /* Allocate wave functions */
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_PROPAGATOR, "gwf"))) {
+    fprintf(stderr, "Cannot allocate gwf.\n");
+    exit(1);
+  }
 
-  /* Initialize */
-  dft_driver_initialize(gwf);
-  
-  /*
-   * DFT initialized. The functional is in dft_driver_otf
-   */
+  /* Allocate OT functional */
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+    fprintf(stderr, "Cannot allocate otf.\n");
+    exit(1);
+  }
+  rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
+  printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+
   for(pressure = MIN_PRES; pressure <= MAX_PRES; pressure += DELTA_PRES) {
-    rho = dft_ot_bulk_density_pressurized(dft_driver_otf, pressure);
-    mu  = dft_ot_bulk_chempot_pressurized(dft_driver_otf, pressure);
+    rho0 = dft_ot_bulk_density_pressurized(otf, pressure);
+    mu0 = dft_ot_bulk_chempot_pressurized(otf, pressure);
     printf("Pressure: " FMT_R " (bar)\t density: " FMT_R " (A**-3)\tchempot: " FMT_R " (K)\tSound (m/s): " FMT_R "\n",
 	   pressure * GRID_AUTOBAR,
-	   rho / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG),
-	   mu * GRID_AUTOK, dft_ot_bulk_sound_speed(dft_driver_otf, rho) * GRID_AUTOMPS);
+	   rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG),
+	   mu0 * GRID_AUTOK, dft_ot_bulk_sound_speed(otf, rho0) * GRID_AUTOMPS);
   }
   return 0;
 }

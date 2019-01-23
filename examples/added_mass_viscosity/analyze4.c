@@ -21,18 +21,26 @@ int main(int argc, char **argv) {
   rgrid *density, *vx, *vy, *vz;
   wf *gwf, *impwf;
   
-  /* Setup grid driver parameters */
-  dft_driver_setup_grid(NX, NY, NZ, STEP /* Bohr */, THREADS /* threads */);
+  /* Initialize threads & use wisdom */
+  grid_set_fftw_flags(1);    // FFTW_MEASURE
+  grid_threads_init(THREADS);
+  grid_fft_read_wisdom(NULL);
 
-  gwf = dft_driver_alloc_wavefunction(HELIUM_MASS, "gwf");
-  impwf = dft_driver_alloc_wavefunction(IMP_MASS, "impwf");
+  /* Allocate wave functions */
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_PROPAGATOR, "gwf"))) {
+    fprintf(stderr, "Cannot allocate gwf.\n");
+    exit(1);
+  }
+  impwf = grid_wf_clone(gwf, "impwf");
+  impwf->mass = IMP_MASS;
 
-  dft_driver_initialize(gwf);
-
-  density = dft_driver_alloc_rgrid("density");
-  vx = dft_driver_alloc_rgrid("vx");
-  vy = dft_driver_alloc_rgrid("vy");
-  vz = dft_driver_alloc_rgrid("vz");
+  if(!(density = rgrid_alloc(NX, NY, NZ, STEP, RGRID_PERIODIC_BOUNDARY, NULL, "density"))) {
+    fprintf(stderr, "Cannot allocate density.\n");
+    exit(1);
+  }
+  vx = rgrid_clone(density, "vx");
+  vy = rgrid_clone(density, "vy");
+  vz = rgrid_clone(density, "vz");
   
   printf("Compiled with NX = " FMT_I ", NY = " FMT_I ", NZ = " FMT_I ", "
     "STEP = " FMT_R ", VX = " FMT_R "\n", (INT) NX, (INT) NY, (INT) NZ, STEP, VX * GRID_AUTOMPS);
