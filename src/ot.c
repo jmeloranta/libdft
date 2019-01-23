@@ -51,8 +51,7 @@ static void dft_ot_add_ancilotto(dft_ot_functional *otf, cgrid *potential, rgrid
  *         DFT_GP          Gross-Pitaevskii equation  ("works" for ions)
  *         DFT_GP2         Gross-Pitaevskii equation  (gives the correct speed of sound)
  *         DFT_ZERO        No potential
- *
- *           If multiple options are needed, use and (&).
+ *                If multiple options are needed, use bitwise and operator (&).
  * wf           = Wavefunction to be used with this OT (wf *; input).
  * min_substeps = minimum substeps for function smoothing over the grid.
  * max_substeps = maximum substeps for function smoothing over the grid.
@@ -77,10 +76,12 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
   otf->model = model;
   if (!otf) {
     fprintf(stderr, "libdft: Error in dft_ot_alloc(): Could not allocate memory for dft_ot_functional.\n");
-    return 0;
+    return NULL;
   }
  
   fprintf(stderr, "libdft: GIT version ID %s\n", VERSION);
+  fprintf(stderr, "libdft: Grid " FMT_I " x " FMT_I " x " FMT_I " with step " FMT_R " Bohr.\n", nx, ny, nz, step);
+  fprintf(stderr, "libdft: Functional = " FMT_I ".\n", model);
 
   /* TODO: There is code for other BCs too */
 
@@ -91,7 +92,7 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
 
   dft_ot_temperature(otf, model);
 
-  if(!dft_driver_init_ot) return otf;
+  // TODO: Periodic BC hardcoded.
 
   /* these grids are not needed for GP */
   if(!(model & DFT_GP) && !(model & DFT_ZERO) && !(model & DFT_GP2)) {
@@ -234,6 +235,7 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
   otf->workspace7 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 7");
   otf->workspace8 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 8");
   otf->workspace9 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 9");
+
   return otf;
 }
 
@@ -894,8 +896,6 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
 
 EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
 
-  fprintf(stderr, "libdft: Model = " FMT_I "\n", model);
-
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { /* high density penalty */
     otf->beta = (40.0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
     otf->rhom = (0.37 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
@@ -1183,16 +1183,16 @@ static REAL visc_func(REAL rho, void *prm) {
   return POW(rho / params->rho0, params->viscosity_alpha) * params->viscosity;  // viscosity_alpha > 0
 }
 
-EXPORT void dft_viscous_potential(wf *gwf, cgrid *pot, REAL rho0, REAL viscosity, REAL viscosity_alpha) {
+EXPORT void dft_viscous_potential(wf *gwf, dft_ot_functional *otf, cgrid *pot, REAL rho0, REAL viscosity, REAL viscosity_alpha) {
 
-  rgrid *workspace1 = dft_driver_otf->workspace1;
-  rgrid *workspace2 = dft_driver_otf->workspace2;
-  rgrid *workspace3 = dft_driver_otf->workspace3;
-  rgrid *workspace4 = dft_driver_otf->workspace4;
-  rgrid *workspace5 = dft_driver_otf->workspace5;
-  rgrid *workspace6 = dft_driver_otf->workspace6;
-  rgrid *workspace7 = dft_driver_otf->workspace7;
-  rgrid *workspace8 = dft_driver_otf->workspace8;
+  rgrid *workspace1 = otf->workspace1;
+  rgrid *workspace2 = otf->workspace2;
+  rgrid *workspace3 = otf->workspace3;
+  rgrid *workspace4 = otf->workspace4;
+  rgrid *workspace5 = otf->workspace5;
+  rgrid *workspace6 = otf->workspace6;
+  rgrid *workspace7 = otf->workspace7;
+  rgrid *workspace8 = otf->workspace8;
   struct visc_func_param prm;
   
   prm.rho0 = rho0;

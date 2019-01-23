@@ -196,4 +196,8 @@ extern int dft_driver_temp_disable_other_normalization;
                                                   /* When density is close to zero, velocity becomes ill defined */
 #define DFT_EPS 1E-5                              /* General division epsilon (usually when dividing by \rho) */
 
+/* Default number of substeps for Xgrid_smooth_map() */
+#define DFT_MIN_SUBSTEPS 4
+#define DFT_MAX_SUBSTEPS 32
+
 #endif /* __DFT_OT__ */

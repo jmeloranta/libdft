@@ -259,6 +259,8 @@ EXPORT REAL dft_ot_bulk_sound_speed(dft_ot_functional *otf, REAL rho) {
 /*
  * Calculate bulk dispersion relation (omega vs. k). Numerical solution for current otf.
  *
+ * wf   = Wave function (wf *; input/output).
+ * otf  = Orsay-Trento functional pointer (dft_ot_functional *; input).
  * ts   = Time step in fs (REAL; input).
  * k    = Requested wavenumber in a.u. (REAL; input/output). 
  * amp  = Amplitude relative to rho0 (REAL; input).
@@ -269,32 +271,29 @@ EXPORT REAL dft_ot_bulk_sound_speed(dft_ot_functional *otf, REAL rho) {
  *
  */
 
-EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred, char dir) {
+EXPORT REAL dft_ot_dispersion(wf *gwf, dft_ot_functional *otf, REAL ts, REAL *k, REAL amp, char pred, char dir) {
 
-  REAL tmp, ival, mu0, omega;   /* TS in fs */
+  REAL step = gwf->grid->step, rho0, tmp, ival, mu0, omega;   /* TS in fs */
   dft_plane_wave wave_params;
-  INT l;
-  wf *gwf, *gwfp;
-  cgrid *cworkspace;
-  extern INT dft_driver_nx, dft_driver_ny, dft_driver_nz;
-  extern REAL dft_driver_step, dft_driver_rho0;
-  extern dft_ot_functional *dft_driver_otf;
+  INT l, nx = gwf->grid->nx, ny = gwf->grid->ny, nz = gwf->grid->nz;
+  wf *gwfp;
+  cgrid *potential;
+  grid_timer timer;
   
-  gwf = dft_driver_alloc_wavefunction(dft_driver_otf->mass, "gwf");
   if(pred) {
-    gwfp = dft_driver_alloc_wavefunction(dft_driver_otf->mass, "gwfp");
-    cworkspace = dft_driver_alloc_cgrid("cworkspace");
+    gwfp = grid_wf_clone(gwf, "gwfp for dft_ot_dispersion");
+    potential = cgrid_clone(gwf->cworkspace, "potential for dft_ot_dispersion");
   }
-  dft_driver_otf->rho0 = dft_driver_rho0;
-  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
+  rho0 = otf->rho0;
+  mu0 = dft_ot_bulk_chempot2(otf);
   
   switch(dir) {
     case 0: /* X direction */
-      if(dft_driver_nx == 1) {
+      if(nx == 1) {
         fprintf(stderr, "libdft: The plane wave is along X but only one point allocated in that direction.\n");
         exit(1);
       }
-      tmp = 2.0 * M_PI / (((REAL) dft_driver_nx) * dft_driver_step);
+      tmp = 2.0 * M_PI / (((REAL) nx) * step);
       wave_params.kx = ((REAL) (((INT) (0.5 + *k / tmp)))) * tmp; // round to nearest k with the grid - should we return this also?
       *k = wave_params.kx;
       if(*k == 0.0) return 0.0;
@@ -302,11 +301,11 @@ EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred, char dir) {
       wave_params.kz = 0.0;
       break;
     case 1: /* Y direction */
-      if(dft_driver_ny == 1) {
+      if(ny == 1) {
         fprintf(stderr, "libdft: The plane wave is along Y but only one point allocated in that direction.\n");
         exit(1);
       }
-      tmp = 2.0 * M_PI / (((REAL) dft_driver_ny) * dft_driver_step);
+      tmp = 2.0 * M_PI / (((REAL) ny) * step);
       wave_params.ky = ((REAL) (((INT) (0.5 + *k / tmp)))) * tmp; // round to nearest k with the grid - should we return this also?
       *k = wave_params.ky;
       if(*k == 0.0) return 0.0;
@@ -314,11 +313,11 @@ EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred, char dir) {
       wave_params.kz = 0.0;
       break;
     case 2: /* Z direction */
-      if(dft_driver_nz == 1) {
+      if(nz == 1) {
         fprintf(stderr, "libdft: The plane wave is along Z but only one point allocated in that direction.\n");
         exit(1);
       }
-      tmp = 2.0 * M_PI / (((REAL) dft_driver_nz) * dft_driver_step);
+      tmp = 2.0 * M_PI / (((REAL) nz) * step);
       wave_params.kz = ((REAL) (((INT) (0.5 + *k / tmp)))) * tmp; // round to nearest k with the grid - should we return this also?
       *k = wave_params.kz;
       if(*k == 0.0) return 0.0;
@@ -330,16 +329,27 @@ EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred, char dir) {
       exit(1);
   }
   wave_params.a = amp;
-  wave_params.rho = dft_driver_rho0;
+  wave_params.rho = otf->rho0;
   grid_wf_map(gwf, dft_common_planewave, &wave_params);
   ival = 0.0;
   for(l = 0; ; l++) {
+    grid_timer_start(&timer);
+    cgrid_zero(potential);
     if(pred) {
-      dft_driver_propagate_predict(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, cworkspace, ts, l);
-      dft_driver_propagate_correct(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, gwfp, cworkspace, ts, l);
-    } else
-      dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, ts, l);
-    ival += (POW(CABS(cgrid_value_at_index(gwf->grid, dft_driver_nx/2, dft_driver_ny/2, dft_driver_nz/2)), 2.0) - dft_driver_rho0);
+      cgrid_copy(gwfp->grid, gwf->grid);
+      dft_ot_potential(otf, potential, gwf);
+      cgrid_add(potential, -mu0);
+      grid_wf_propagate_predict(gwfp, potential, ts);
+      dft_ot_potential(otf, potential, gwfp);
+      cgrid_add(potential, -mu0);
+      cgrid_multiply(potential, 0.5);
+      grid_wf_propagate_correct(gwf, potential, ts);
+    } else {
+      dft_ot_potential(otf, potential, gwf);
+      grid_wf_propagate(gwf, potential, ts);
+    }
+    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", l, grid_timer_wall_clock_time(&timer));
+    ival += (POW(CABS(cgrid_value_at_index(gwf->grid, nx/2, ny/2, nz/2)), 2.0) - rho0);
     if(ival < 0.0) {
       l--;
       break;
@@ -349,7 +359,7 @@ EXPORT REAL dft_ot_dispersion(REAL ts, REAL *k, REAL amp, char pred, char dir) {
   grid_wf_free(gwf);
   if(pred) {
     grid_wf_free(gwfp);
-    cgrid_free(cworkspace);
+    cgrid_free(potential);
   }
   return (omega / GRID_AUTOS) * GRID_HZTOCM1 * 1.439 /* cm-1 to K */ / GRID_AUTOK;
 }
@@ -478,34 +488,35 @@ static REAL complex Aslab(void *param, REAL x, REAL y, REAL z) {
   else return 0.0;
 }
 
-EXPORT REAL dft_ot_bulk_surface_tension(REAL ts, REAL width, REAL rho0) {
+EXPORT REAL dft_ot_bulk_surface_tension(wf *gwf, dft_ot_functional *otf, REAL ts, REAL width) {
 
-  REAL mu0, stens, prev_stens;
-  INT i;
-  rgrid *rworkspace, *density;
-  wf *gwf;
-  extern INT dft_driver_nx, dft_driver_ny, dft_driver_nz;
-  extern REAL dft_driver_step, dft_driver_rho0;
-  extern dft_ot_functional *dft_driver_otf;
+  REAL mu0, stens, prev_stens, rho0 = otf->rho0;
+  INT i, ny = gwf->grid->ny, nz = gwf->grid->nz;
+  rgrid *density;
+  cgrid *potential;
+  REAL step = gwf->grid->step;
 
-  rworkspace = dft_driver_alloc_rgrid("rworkspace");
-  density = dft_driver_alloc_rgrid("density");
-  dft_driver_otf->rho0 = dft_driver_rho0;
-  mu0 = dft_ot_bulk_chempot2(dft_driver_otf);
-  gwf = dft_driver_alloc_wavefunction(dft_driver_otf->mass, "gwf");
+  potential = cgrid_clone(gwf->grid, "Surface tension potential");
+  density = rgrid_clone(otf->density, "Surface tension density");
+
+  mu0 = dft_ot_bulk_chempot2(otf);
   grid_wf_map(gwf, &Aslab, NULL);
   cgrid_multiply(gwf->grid, SQRT(rho0));
 
   prev_stens = 1E11;
   for(i = 1; ; i++) {
-    dft_driver_propagate(DFT_DRIVER_PROPAGATE_HELIUM, NULL, mu0, gwf, ts, i);    
-    dft_ot_energy_density(dft_driver_otf, rworkspace, gwf);
-    stens = grid_wf_energy(gwf, rworkspace) / (2.0 * ((REAL) dft_driver_ny) * ((REAL) dft_driver_nz) * dft_driver_step * dft_driver_step);
+    cgrid_zero(potential);
+    dft_ot_potential(otf, potential, gwf);
+    cgrid_add(potential, -mu0);
+    grid_wf_propagate(gwf, potential, ts);
+
+    dft_ot_energy_density(otf, density, gwf);
+    stens = (grid_wf_energy(gwf, NULL) + rgrid_integral(density)) 
+       / (2.0 * ((REAL) ny) * ((REAL) nz) * step * step);
     if(FABS(stens - prev_stens) / stens < 0.03) break;
     prev_stens = stens;
   }
-  grid_wf_free(gwf);
-  rgrid_free(rworkspace);
+  cgrid_free(potential);
   rgrid_free(density);
   return stens;
 }

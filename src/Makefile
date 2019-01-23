@@ -4,7 +4,7 @@ all:
 	make prototypes
 	make libdft.a
 
-OBJS = ot.o ot-energy.o common.o driver.o bulk.o spectroscopy.o
+OBJS = ot.o ot-energy.o common.o bulk.o spectroscopy.o initial.o
 
 libdft.a: $(OBJS)
 	ar cr libdft.a $(OBJS)
@@ -20,9 +20,6 @@ install:
 	cp dft.h ot.h proto.h $(ROOT)/include/dft
 	cp ../make.conf $(ROOT)/include/dft
 
-driver.o: driver.c ot.h dft.h
-	$(CC) -I. $(CFLAGS) -c driver.c
-
 common.o: common.c ot.h dft.h
 	$(CC) -I. $(CFLAGS) -c common.c
 
@@ -34,6 +31,12 @@ ot-energy.o: ot-energy.c ot.h dft.h
 
 bulk.o: bulk.c dft.h ot.h
 	$(CC) -I. $(CFLAGS) -c bulk.c
+
+spectroscopy.o: spectroscopy.c dft.h ot.h
+	$(CC) -I. $(CFLAGS) -c spectroscopy.c
+
+intial.o: initial.c dft.h ot.h
+	$(CC) -I. $(CFLAGS) -c initial.c
 
 clean:
 	-rm *.o libdft.a proto.h git-version.h *~
