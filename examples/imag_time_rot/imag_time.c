@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
   grid_fft_read_wisdom(NULL);
 
   /* Allocate wave functions */
-  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_CRANK_NICOLSON, "gwf"))) {
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_CN, "gwf"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }

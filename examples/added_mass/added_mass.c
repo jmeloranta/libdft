@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
   grid_fft_read_wisdom(NULL);
 
   /* Allocate wave functions */
-  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_PROPAGATOR, "gwf"))) {
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }
@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* Read pair potential from file and do FFT */
-  dft_common_potential_map(DFT_DRIVER_AVERAGE_XYZ, "../electron/jortner.dat", "../electron/jortner.dat", "../electron/jortner.dat", pair_pot);
+  dft_common_potential_map(4, "../electron/jortner.dat", "../electron/jortner.dat", "../electron/jortner.dat", pair_pot);
   rgrid_fft(pair_pot);
 
   for(iter = STARTING_ITER; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
