@@ -369,9 +369,9 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf) {
     rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6);
     rgrid_claim(workspace7); rgrid_claim(workspace8); rgrid_claim(workspace9);
     if(density->nx == 1 && density->ny == 1) 
-      grid_wf_velocity_z(wf, workspace3, DFT_VELOC_CUTOFF);
+      grid_wf_velocity_z(wf, workspace3, otf->veloc_cutoff);
     else
-      grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_VELOC_CUTOFF);
+      grid_wf_velocity(wf, workspace1, workspace2, workspace3, otf->veloc_cutoff);
     dft_ot_backflow_potential(otf, potential, density, workspace1 /* veloc_x */, workspace2 /* veloc_y */, workspace3 /* veloc_z */, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
     rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
     rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6);
@@ -1110,4 +1110,5 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
 	  3.0 * otf->c3_exp);
   
   otf->model = model;
+  otf->veloc_cutoff = (300.0 / GRID_AUTOMPS);  // Default 300 m/s
 }

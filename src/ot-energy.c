@@ -172,7 +172,7 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
     rgrid_division_eps(workspace2, workspace2, workspace7, DFT_BF_EPS);  /* v_y */
     rgrid_division_eps(workspace3, workspace3, workspace7, DFT_BF_EPS);  /* v_z */
 #else
-    grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_VELOC_CUTOFF);
+    grid_wf_velocity(wf, workspace1, workspace2, workspace3, otf->veloc_cutoff);
 #endif
     rgrid_product(workspace4, workspace1, workspace1);   /* v_x^2 */
     rgrid_product(workspace5, workspace2, workspace2);   /* v_y^2 */

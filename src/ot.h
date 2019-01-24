@@ -115,6 +115,7 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
   REAL mu0;                 /* Determines Gross-Pitaevskii contact strength: \mu_0 / \rho_0 */
   REAL xi;                  /* High density correction parameter for backflow \xi */
   REAL rhobf;               /* High density correction parameter for backflow \rho_{bf} */
+  REAL veloc_cutoff;        /* Velocity cutoff to be used for evaluating velocity field (affects, e.g., backflow) */
   rgrid *workspace1;        /* Workspace 1 (these may be NULL if not allocated) */
   rgrid *workspace2;        /* Workspace 2 */
   rgrid *workspace3;        /* Workspace 3 */
@@ -133,8 +134,6 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
 /* Constants */
 #define DFT_KB 3.1668773658e-06                   /* Boltzmann constant in atomic units */
 #define DFT_HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* Helium mass in atomic units */
-#define DFT_VELOC_CUTOFF (100.0 / GRID_AUTOMPS)   /* Velocity cutoff for evaluating velocity */
-                                                  /* When density is close to zero, velocity becomes ill defined */
 #define DFT_EPS 1E-5                              /* General division epsilon (usually when dividing by \rho) */
 
 /* Default number of substeps for Xgrid_smooth_map() */
