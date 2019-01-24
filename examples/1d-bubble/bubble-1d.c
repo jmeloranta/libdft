@@ -111,21 +111,22 @@ int main(int argc, char **argv) {
   }
   gwfp = grid_wf_clone(gwf, "gwfp");
 
-  /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
-    fprintf(stderr, "Cannot allocate otf.\n");
-    exit(1);
-  }
-  rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
-  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
-  printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
-
   /* Moving background */
   vz = round_veloc(VZ);
   printf("VZ = " FMT_R " m/s\n", vz * GRID_AUTOMPS);
   kz = momentum(VZ);
   cgrid_set_momentum(gwf->grid, 0.0, 0.0, kz);
   cgrid_set_momentum(gwfp->grid, 0.0, 0.0, kz);
+
+  /* Allocate OT functional */
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+    fprintf(stderr, "Cannot allocate otf.\n");
+    exit(1);
+  }
+  rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
+  // mu0 = mu0 + moving background contribution
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE) + (HBAR * HBAR / (2.0 * gwf->mass)) * kz * kz;
+  printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
   /* Allocate space for external potential */
   density = otf->density;
