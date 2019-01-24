@@ -19,16 +19,14 @@
 #define TS 1.0 /* fs */
 #define NZ (32768)
 #define STEP 0.2
-#define IITER 200000
-#define SITER 250000
+#define IITER 2000
+#define SITER 2500
 #define MAXITER 80000000
 #define NTH 2000
 #define VZ (2.0 / GRID_AUTOMPS)
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 #define THREADS 0
-
-#define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
 
 /* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
@@ -54,8 +52,8 @@ REAL round_veloc(REAL veloc) {   // Round to fit the simulation box
   INT n;
   REAL v;
 
-  n = (INT) (0.5 + (NZ * STEP * HELIUM_MASS * veloc) / (HBAR * 2.0 * M_PI));
-  v = ((REAL) n) * HBAR * 2.0 * M_PI / (NZ * STEP * HELIUM_MASS);
+  n = (INT) (0.5 + (NZ * STEP * DFT_HELIUM_MASS * veloc) / (HBAR * 2.0 * M_PI));
+  v = ((REAL) n) * HBAR * 2.0 * M_PI / (NZ * STEP * DFT_HELIUM_MASS);
   fprintf(stderr, "Requested velocity = %le m/s.\n", veloc * GRID_AUTOMPS);
   fprintf(stderr, "Nearest velocity compatible with PBC = %le m/s.\n", v * GRID_AUTOMPS);
   return v;
@@ -63,7 +61,7 @@ REAL round_veloc(REAL veloc) {   // Round to fit the simulation box
 
 REAL momentum(REAL vz) {
 
-  return HELIUM_MASS * vz / HBAR;
+  return DFT_HELIUM_MASS * vz / HBAR;
 }
 
 /* Bubble potential (centered at origin, z = 0) */
