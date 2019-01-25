@@ -15,14 +15,14 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 128
-#define NY 64
-#define NZ 64
+#define NX 1
+#define NY 1
+#define NZ 128
 #define STEP 0.5 /* Bohr */
 #define TS 20.0 /* fs */
 #define AMP 1e-2 /* wave amplitude (of total rho0) */
 #define PRED 0
-#define DIRECTION 0     /* Plane wave direction: X = 0, Y = 1, Z = 2 */
+#define DIRECTION 2     /* Plane wave direction: X = 0, Y = 1, Z = 2 */
 
 #define PRESSURE 0.0
 
@@ -58,13 +58,13 @@ int main(int argc, char **argv) {
   }
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
-  printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+  fprintf(stderr, "mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
   fprintf(stderr, "Applied P = " FMT_R " MPa.\n", dft_ot_bulk_pressure(otf, rho0) * GRID_AUTOPA / 1E6);
 

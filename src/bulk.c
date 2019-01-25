@@ -281,7 +281,7 @@ EXPORT REAL dft_ot_dispersion(wf *gwf, dft_ot_functional *otf, REAL ts, REAL *k,
   grid_timer timer;
   
   if(pred) gwfp = grid_wf_clone(gwf, "gwfp for dft_ot_dispersion");
-  potential = cgrid_clone(gwf->cworkspace, "potential for dft_ot_dispersion");
+  potential = cgrid_clone(gwf->grid, "potential for dft_ot_dispersion");
   rho0 = otf->rho0;
   mu0 = dft_ot_bulk_chempot2(otf);
   
@@ -346,19 +346,17 @@ EXPORT REAL dft_ot_dispersion(wf *gwf, dft_ot_functional *otf, REAL ts, REAL *k,
       dft_ot_potential(otf, potential, gwf);
       grid_wf_propagate(gwf, potential, ts);
     }
-    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", l, grid_timer_wall_clock_time(&timer));
+    fprintf(stderr, "Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", l, grid_timer_wall_clock_time(&timer));
     ival += (POW(CABS(cgrid_value_at_index(gwf->grid, nx/2, ny/2, nz/2)), 2.0) - rho0);
     if(ival < 0.0) {
       l--;
       break;
     }
   }
+  ts = ts * GRID_AUTOFS;
   omega = (1.0 / (2.0 * ((REAL) l) * ts / GRID_AUTOFS));
-  grid_wf_free(gwf);
-  if(pred) {
-    grid_wf_free(gwfp);
-    cgrid_free(potential);
-  }
+  cgrid_free(potential);
+  if(pred) grid_wf_free(gwfp);
   return (omega / GRID_AUTOS) * GRID_HZTOCM1 * 1.439 /* cm-1 to K */ / GRID_AUTOK;
 }
 
