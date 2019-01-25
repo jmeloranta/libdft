@@ -674,18 +674,18 @@ static inline void dft_ot_add_barranco(dft_ot_functional *otf, cgrid *potential,
 /*
  * Add the backflow non-linear potential.
  *
- * otf            = OT  functional structure.
- * potential      = potential grid (output). Not cleared.
- * density        = liquid density grid (input).
- * veloc_x        = veloc grid (with respect to X; input - overwritten on exit).
- * veloc_y        = veloc grid (with respect to Y; input - overwritten on exit).
- * veloc_z        = veloc grid (with respect to Z; input - overwritten on exit).
- * workspace1     = Workspace grid (must be allocated by the user).
- * workspace2     = Workspace grid (must be allocated by the user).
- * workspace3     = Workspace grid (must be allocated by the user).
- * workspace4     = Workspace grid (must be allocated by the user).
- * workspace5     = Workspace grid (must be allocated by the user).
- * workspace6     = Workspace grid (must be allocated by the user).
+ * otf            = OT functional structure (dft_ot_functional *).
+ * potential      = potential grid (output). Not cleared (cgrid *).
+ * density        = liquid density grid (input; rgrid *).
+ * veloc_x        = velocity grid (with respect to X; input - overwritten on exit; rgrid *).
+ * veloc_y        = velocity grid (with respect to Y; input - overwritten on exit; rgrid *).
+ * veloc_z        = velocity grid (with respect to Z; input - overwritten on exit; rgrid *).
+ * workspace1     = Workspace grid (must be allocated by the user; rgrid *).
+ * workspace2     = Workspace grid (must be allocated by the user; rgrid *).
+ * workspace3     = Workspace grid (must be allocated by the user; rgrid *).
+ * workspace4     = Workspace grid (must be allocated by the user; rgrid *).
+ * workspace5     = Workspace grid (must be allocated by the user; rgrid *).
+ * workspace6     = Workspace grid (must be allocated by the user; rgrid *).
  *
  * No return value.
  *
@@ -790,7 +790,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
       rgrid_fd_gradient_x(workspace1, workspace2);
     } else
       rgrid_fd_gradient_x(density, workspace2);
-    rgrid_division_eps(workspace2, workspace2, density, DFT_EPS);
+    rgrid_division_eps(workspace2, workspace2, density, otf->div_epsilon);
     rgrid_add_scaled_product(workspace6, 0.5, workspace2, veloc_x);
   }
 
@@ -801,7 +801,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
       rgrid_fd_gradient_y(workspace1, workspace2);  
     } else
       rgrid_fd_gradient_y(density, workspace2);
-    rgrid_division_eps(workspace2, workspace2, density, DFT_EPS);
+    rgrid_division_eps(workspace2, workspace2, density, otf->div_epsilon);
     rgrid_add_scaled_product(workspace6, 0.5, workspace2, veloc_y);
   }
 
@@ -809,9 +809,8 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
     if(density->nx == 1 && density->ny == 1) grid_func2_operate_one(workspace1, density, otf->xi, otf->rhobf); // May have been done above
     rgrid_fd_gradient_z(workspace1, workspace2);  
-  } else
-    rgrid_fd_gradient_z(density, workspace2);
-  rgrid_division_eps(workspace2, workspace2, density, DFT_EPS);
+  } else rgrid_fd_gradient_z(density, workspace2);
+  rgrid_division_eps(workspace2, workspace2, density, otf->div_epsilon);
   rgrid_add_scaled_product(workspace6, 0.5, workspace2, veloc_z);
 
   /* 2.1 (1/2) (d/dx) (v_xA - B_x) */
@@ -1111,4 +1110,5 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
   
   otf->model = model;
   otf->veloc_cutoff = (300.0 / GRID_AUTOMPS);  // Default 300 m/s
+  otf->div_epsilon = 1E-5;
 }

@@ -19,14 +19,14 @@
 #define TS 1.0 /* fs */
 #define NZ (32768)
 #define STEP 0.2
-#define IITER 2000
-#define SITER 2500
+#define IITER 200000
+#define SITER 250000
 #define MAXITER 80000000
 #define NTH 2000
 #define VZ (2.0 / GRID_AUTOMPS)
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
-#define THREADS 0
+#define THREADS 16
 
 /* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
@@ -117,10 +117,14 @@ int main(int argc, char **argv) {
   cgrid_set_momentum(gwfp->grid, 0.0, 0.0, kz);
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_KC, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
+
+  otf->veloc_cutoff = (300.0 / GRID_AUTOMPS);
+  otf->div_epsilon = 1E-5;
+
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   // mu0 = mu0 + moving background contribution
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE) + (HBAR * HBAR / (2.0 * gwf->mass)) * kz * kz;
@@ -158,16 +162,18 @@ int main(int argc, char **argv) {
       rgrid_write_grid(buf, density);
     }
 
-    if(iter < IITER) tstep = -I * TS;
-    else tstep = TS;
+    if(iter < IITER) tstep = -I * TS; /* Imaginary time */
+    else tstep = TS; /* Real time */
 
     if(iter > SITER) {
       cgrid_set_momentum(gwf->grid, 0.0, 0.0, 0.0);
       cgrid_set_momentum(gwfp->grid, 0.0, 0.0, 0.0);
+      mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
     }
 
     grid_timer_start(&timer);
     cgrid_zero(potential_store);
+#if 1
     cgrid_copy(gwfp->grid, gwf->grid);
     dft_ot_potential(otf, potential_store, gwf);
     cgrid_add(potential_store, -mu0);
@@ -176,6 +182,12 @@ int main(int argc, char **argv) {
     cgrid_add(potential_store, -mu0);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
     grid_wf_propagate_correct(gwf, potential_store, tstep / GRID_AUTOFS);
+#else
+    dft_ot_potential(otf, potential_store, gwf);
+    cgrid_add(potential_store, -mu0);
+    grid_wf_propagate(gwf, potential_store, tstep / GRID_AUTOFS);
+#endif
+
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
     if(iter == 5) grid_fft_write_wisdom(NULL);
   }
