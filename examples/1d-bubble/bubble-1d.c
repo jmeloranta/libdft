@@ -122,9 +122,6 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  otf->veloc_cutoff = (300.0 / GRID_AUTOMPS);
-  otf->div_epsilon = 1E-5;
-
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   // mu0 = mu0 + moving background contribution
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE) + (HBAR * HBAR / (2.0 * gwf->mass)) * kz * kz;
@@ -176,14 +173,17 @@ int main(int argc, char **argv) {
 #if 1
     cgrid_copy(gwfp->grid, gwf->grid);
     dft_ot_potential(otf, potential_store, gwf);
+    grid_add_real_to_complex_re(potential_store, ext_pot);
     cgrid_add(potential_store, -mu0);
     grid_wf_propagate_predict(gwfp, potential_store, tstep / GRID_AUTOFS);
     dft_ot_potential(otf, potential_store, gwfp);
+    grid_add_real_to_complex_re(potential_store, ext_pot);
     cgrid_add(potential_store, -mu0);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
     grid_wf_propagate_correct(gwf, potential_store, tstep / GRID_AUTOFS);
 #else
     dft_ot_potential(otf, potential_store, gwf);
+    grid_add_real_to_complex_re(potential_store, ext_pot);
     cgrid_add(potential_store, -mu0);
     grid_wf_propagate(gwf, potential_store, tstep / GRID_AUTOFS);
 #endif

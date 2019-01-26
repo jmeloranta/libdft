@@ -231,7 +231,7 @@ EXPORT inline REAL dft_common_gaussian_1d(void *arg, REAL x, REAL y, REAL z) {
   REAL inv_width = *((REAL *) arg);
   REAL norm = 0.5 * M_2_SQRTPI * inv_width;
 
-  return norm * EXP(-(z * z) * inv_width * inv_width);
+  return norm * EXP(-z * z * inv_width * inv_width);
 }
 
 /*

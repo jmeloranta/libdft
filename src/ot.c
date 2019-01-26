@@ -60,7 +60,7 @@ static void dft_ot_add_ancilotto(dft_ot_functional *otf, cgrid *potential, rgrid
  *
  * Basic OT allocates 2 real grids
  *       KC adds 4 real grids
- *       BF adds 1 real grid
+ *       BF adds 3 real grids
  *
  */
 
@@ -179,14 +179,13 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
     
     if(model & DFT_OT_KC) {
       fprintf(stderr, "libdft: Kinetic correlation - ");	
+      inv_width = 1.0 / otf->l_g;
       if(nx == 1 && ny == 1) {
-        inv_width = 1.0 / otf->l_g;
         rgrid_adaptive_map(otf->gaussian_tf, dft_common_gaussian_1d, &inv_width, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
         rgrid_fd_gradient_z(otf->gaussian_tf, otf->gaussian_z_tf);
         rgrid_fft(otf->gaussian_z_tf);
         rgrid_fft(otf->gaussian_tf);
       } else {
-        inv_width = 1.0 / otf->l_g;
         rgrid_adaptive_map(otf->gaussian_tf, dft_common_gaussian, &inv_width, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
         rgrid_fd_gradient_x(otf->gaussian_tf, otf->gaussian_x_tf);
         rgrid_fd_gradient_y(otf->gaussian_tf, otf->gaussian_y_tf);
@@ -228,9 +227,9 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
   otf->workspace2 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 2");
   otf->workspace3 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 3");
   if(!(model & DFT_OT_KC) && !(model & DFT_OT_BACKFLOW)) return otf; // plain OT or DR
-  otf->workspace4 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 3");
-  otf->workspace5 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 4");
-  otf->workspace6 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 5");
+  otf->workspace4 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 4");
+  otf->workspace5 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 5");
+  otf->workspace6 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 6");
   if(!(model & DFT_OT_BACKFLOW)) return otf;
   otf->workspace7 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 7");
   otf->workspace8 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 8");
@@ -333,7 +332,7 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf) {
   /* workspace1 = FFT of density */
   rgrid_claim(workspace1);
   rgrid_claim(workspace2);
-  dft_ot_add_lennard_jones_potential(otf, potential, density, workspace1, workspace2);
+  dft_ot_add_lennard_jones_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2);
   rgrid_release(workspace2);
 
   /* Non-linear local correlation */
@@ -463,10 +462,8 @@ static inline void dft_ot_add_nonlocal_correlation_potential(dft_ot_functional *
   rgrid_multiply(workspace1, -1.0 / otf->rho_0s);
   rgrid_add(workspace1, 1.0);
 
-  if(rho->nx != 1 || rho->ny != 1) {
-    dft_ot_add_nonlocal_correlation_potential_x(otf, potential, rho, rho_tf, workspace1 /* rho_st */, workspace2, workspace3, workspace4, workspace5);
-    dft_ot_add_nonlocal_correlation_potential_y(otf, potential, rho, rho_tf, workspace1 /* rho_st */, workspace2, workspace3, workspace4, workspace5);
-  }
+  if(rho->nx > 1) dft_ot_add_nonlocal_correlation_potential_x(otf, potential, rho, rho_tf, workspace1 /* rho_st */, workspace2, workspace3, workspace4, workspace5);
+  if(rho->ny > 1) dft_ot_add_nonlocal_correlation_potential_y(otf, potential, rho, rho_tf, workspace1 /* rho_st */, workspace2, workspace3, workspace4, workspace5);
   dft_ot_add_nonlocal_correlation_potential_z(otf, potential, rho, rho_tf, workspace1 /* rho_st */, workspace2, workspace3, workspace4, workspace5);
 }
 
@@ -615,6 +612,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_z(dft_ot_functional
   rgrid_inverse_fft(workspace3);
   rgrid_product(workspace3, workspace3, rho_st);
   rgrid_multiply(workspace3, c);
+
   grid_add_real_to_complex_re(potential, workspace3);  
 
   /* in use: workspace1 (grad rho), workspace2 (FFT(G)) */
