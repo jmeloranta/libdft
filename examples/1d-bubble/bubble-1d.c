@@ -28,6 +28,9 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 #define THREADS 16
 
+/* Predict-correct ? */
+#define PC
+
 /* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
 #define A1 (1.6245 * GRID_AUTOANG)
@@ -117,7 +120,7 @@ int main(int argc, char **argv) {
   cgrid_set_momentum(gwfp->grid, 0.0, 0.0, kz);
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_KC, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
@@ -170,12 +173,12 @@ int main(int argc, char **argv) {
 
     grid_timer_start(&timer);
     cgrid_zero(potential_store);
-#if 1
+#ifdef PC
     cgrid_copy(gwfp->grid, gwf->grid);
     dft_ot_potential(otf, potential_store, gwf);
     grid_add_real_to_complex_re(potential_store, ext_pot);
     cgrid_add(potential_store, -mu0);
-    grid_wf_propagate_predict(gwfp, potential_store, tstep / GRID_AUTOFS);
+    grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep / GRID_AUTOFS);
     dft_ot_potential(otf, potential_store, gwfp);
     grid_add_real_to_complex_re(potential_store, ext_pot);
     cgrid_add(potential_store, -mu0);

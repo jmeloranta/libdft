@@ -337,7 +337,7 @@ EXPORT REAL dft_ot_dispersion(wf *gwf, dft_ot_functional *otf, REAL ts, REAL *k,
       cgrid_copy(gwfp->grid, gwf->grid);
       dft_ot_potential(otf, potential, gwf);
       cgrid_add(potential, -mu0);
-      grid_wf_propagate_predict(gwfp, potential, ts);
+      grid_wf_propagate_predict(gwf, gwfp, potential, ts);
       dft_ot_potential(otf, potential, gwfp);
       cgrid_add(potential, -mu0);
       cgrid_multiply(potential, 0.5);
