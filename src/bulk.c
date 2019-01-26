@@ -10,7 +10,7 @@
 #define LOCAL_EPS 1E-7
 
 /*
- * Energy density in uniform bulk.
+ * Energy density of uniform bulk.
  *
  * otf = OT functional (dft_ot_functional *; input).
  * rho = Bulk density (REAL; input).
@@ -35,7 +35,7 @@ EXPORT REAL dft_ot_bulk_energy(dft_ot_functional *otf, REAL rho) {
 
 /* 
  * Derivative of energy with respect to density in uniform bulk. 
- * At equilibirum, this is equal to the chemical potential.
+ * At equilibrium, this is equal to the chemical potential.
  *
  * otf = OT functional (df_ot_functional *; input).
  * rho = Bulk density (REAL; *).
@@ -82,7 +82,7 @@ EXPORT REAL dft_ot_bulk_density(dft_ot_functional *otf) {
 
 /*
  * Chemical potential of the uniform bulk. If this quantity
- * is substracted from the external potential then the imaginary time
+ * is subtracted from the external potential then the imaginary time
  * converges to a solution with the equilibrium density in the borders
  * of the box - no need for rescaling during imaginary time propagation.
  *
@@ -140,7 +140,7 @@ EXPORT REAL dft_ot_bulk_chempot3(dft_ot_functional *otf, REAL rho0) {
 }
 
 /*
- * Pressure of uniform bulk at given certain density.
+ * Pressure of uniform bulk at given density.
  *
  * otf = OT functional (dft_ot_functional *; input).
  * rho = Bulk density (REAL; input).
@@ -155,7 +155,7 @@ EXPORT REAL dft_ot_bulk_pressure(dft_ot_functional *otf, REAL rho) {
 }
 
 /* 
- * Derivate of pressure with respect to density in uniform bulk.
+ * Derivative of pressure with respect to density in uniform bulk.
  *
  * otf = OT functional (dft_ot_functional *; input).
  * rho = bulk density where derivative is evaluated (REAL; input).
@@ -369,13 +369,10 @@ EXPORT REAL dft_ot_dispersion(wf *gwf, dft_ot_functional *otf, REAL ts, REAL *k,
  *
  * Returns energy (omega; a.u.).
  *
- * NOTES: This uses driver and overwrites the otf structure there. So, do not use
- *        this routine at the same time when running simulations that employ driver.
+ * NOTES:
  *
  *        k to Angs^-1: k / GRID_AUTOANG
  *        omega to K: (omega / GRID_AUTOS) * GRID_HZTOCM1 * 1.439    (<- cm-1 to K)
- *
- *        If rho0 < 0, the routine just frees the allocated memory.
  *
  */
 
@@ -471,6 +468,13 @@ EXPORT REAL dft_ot_bulk_istatic(dft_ot_functional *otf, REAL *k, REAL rho0) {
 
 /*
  * Calculate free (flat) surface tension.
+ *
+ * gwf = Wave function (wf *).
+ * otf = Functional structure (dft_ot_functional *).
+ * ts  = Propagation time step (REAL).
+ * width = Width of slab (REAL).
+ *
+ * Returns sufrace tension.
  *
  * TODO: Is this correct? propagate without potential??
  * 

@@ -26,7 +26,7 @@ static void dft_ot_add_barranco(dft_ot_functional *otf, cgrid *potential, rgrid 
 static void dft_ot_add_ancilotto(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *workspace1);
 
 /*
- * Allocate  OT functional. This must be called first.
+ * Allocate OT functional. This must be called first.
  * 
  * model = which OT functional variant to use:
  *         DFT_OT_KC       Include the non-local kinetic energy correlation.
@@ -273,11 +273,12 @@ EXPORT void dft_ot_free(dft_ot_functional *otf) {
 }
 
 /*
- * Calculate the non-linear potential grid (including backflow).
+ * Calculate the non-linear potential grid.
  *
- * otf        = OT  functional structure.
- * potential  = Potential grid where the result will be stored (output). NOTE: the potential will be added to this (may want to zero it first)
- * wf         = Wavefunction (input; used only for backflow).
+ * otf        = OT functional structure (input; dft_ot_functional *).
+ * potential  = Potential grid where the result will be stored (output; cgrid *).
+ *              NOTE: the potential will be added to this (may want to zero it first)
+ * wf         = Wavefunction (input; wf *).
  *
  * No return value.
  *

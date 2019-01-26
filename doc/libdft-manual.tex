@@ -37,8 +37,7 @@ The following references provide the necessary background to Orsay-Trento functi
 \item Extension of Orsay-Trento functional to non-zero temperatures: Phys. Rev. B. 62, 17035 (2000).
 \item High-density correction to Orsay-Trento: Phys. Rev. B 72, 214522 (2005).
 \item Implementation of Orsay-Trento: J. Comput. Phys. 194, 78 (2004) and J. Comput. Phys. 221, 148 (2007).
-\item Review article on Orsay-Trento and applications (also high-density correction to backflow): Int. Rev. Phys. Chem. 
-36, 621 (2017).
+\item Review article on Orsay-Trento and applications (also high-density correction to backflow): Int. Rev. Phys. Chem. 36, 621 (2017).
 \end{itemize}
 
 % OT energy density here
@@ -103,20 +102,315 @@ test: test.o
 test.o: test.c
 \end{verbatim}
 This will compile the program specified in test.c and link the appropriate 
-libraries automatically. Both CFLAGS and LDFLAGS are obtained automatically. 
+libraries automatically. Both CFLAGS and LDFLAGS are obtained automatically. Note that if you changed the ROOT directory when installing libgrid, you need to replace /usr above with that directory.
 
 \section{Data types}
 
-The libdft header file ot.h defines the OT structure that contains the description of the functional to be used:
+The libdft header file ot.h defines the OT structure (data type dft\_ot\_functional) that contains the description of the functional to be used:
 
 \begin{verbatim}
+typedef struct dft_ot_functional_struct { /* All values in atomic units */
+  INT model;              /* Functional DFT_OT_* (Orsay-Trento), DFT_DR (Dupont-Roc) */        
+                          /* DFT_GP (Gross-Pitaevskii) */
+  REAL b;                 /* Lennard-Jones integral value for bulk (not used in */
+                          /* functional) */
+  REAL c2;                /* Orsay-Trento short-range correlation parameter c_2 */
+                          /* (2nd power) */
+  REAL c2_exp;            /* Exponent for the above (= 2 for OT) */
+  REAL c3;                /* Orsay-Trento short-range correlation parameter c_3 */
+                          /* (3rd power) */
+  REAL c3_exp;            /* Exponent for the above (= 3 for OT) */
+  REAL c4;                /* Thermal Orsay-Trento parameter c_4 (Ancilotto et al.) */
+  REAL rho_0s;            /* Orsay-Trento kinetic energy correlation parameter */
+                          /* \rho_{0s} */
+  REAL alpha_s;           /* Orsay-Trento kinetic energy correlation parameter */
+                          /* \alpha_s */
+  REAL l_g;               /* Width of gaussian F used in kinetic correlation */
+  REAL mass;              /* ^4He mass */
+  REAL rho0;              /* Uniform bulk liquid density at saturated vapor pressure */
+  REAL temp;              /* Temperature (Kelvin) */
+  dft_common_lj lj_params;/* Lennard-Jones parameters */
+  dft_ot_bf bf_params;    /* Backflow functional parameters */
+  rgrid *lennard_jones;   /* Grid holding Fourier transformed effective Lennard-Jones*/
+                          /* function */
+  rgrid *spherical_avg;   /* Grid holding Fourier transformed spherical average */
+                          /* function */
+  rgrid *gaussian_tf;     /* Grid holding Fourier transformed gaussian F */
+                          /* (kinetic correlation) */ 
+  rgrid *gaussian_x_tf;   /* Grid holding Fourier transformed derivative of */
+                          /* gaussian F (dF/dx; kinetic correlation) */ 
+  rgrid *gaussian_y_tf;   /* Grid holding Fourier transformed derivative of */
+                          /* gaussian F (dF/dy; kinetic correlation) */ 
+  rgrid *gaussian_z_tf;   /* Grid holding Fourier transformed derivative of */
+                          /* gaussian F (dF/dz; kinetic correlation) */ 
+  rgrid *backflow_pot;    /* Grid holding Fourier transformed bacflow function (V_j) */
+  REAL beta;              /* High density correction parameter \beta */
+  REAL rhom;              /* High density correction parameter \rho_m */
+  REAL C;                 /* High density correction parameter C */
+  REAL mu0;               /* Determines Gross-Pitaevskii contact strength: */
+                          /* \mu_0 / \rho_0 */
+  REAL xi;                /* High density correction parameter for backflow \xi */
+  REAL rhobf;             /* High density correction parameter for backflow \rho_{bf}*/
+  REAL veloc_cutoff;      /* Velocity cutoff to be used for evaluating velocity field*/
+                          /* (affects, e.g., backflow) */
+  REAL div_epsilon;       /* Epsilon to use when dividing by density */
+                          /* (affects, e.g., backflow) */
+  rgrid *workspace1;      /* Workspace 1 (these may be NULL if not allocated) */
+  rgrid *workspace2;      /* Workspace 2 */
+  rgrid *workspace3;      /* Workspace 3 */
+  rgrid *workspace4;      /* Workspace 4 */
+  rgrid *workspace5;      /* Workspace 5 */
+  rgrid *workspace6;      /* Workspace 6 */
+  rgrid *workspace7;      /* Workspace 7 */
+  rgrid *workspace8;      /* Workspace 8 */
+  rgrid *workspace9;      /* Workspace 9 */
+  rgrid *density;         /* Liquid density */
+} dft_ot_functional;
 \end{verbatim}
+
+\noindent
+These fields are initialized by calling function dft\_ot\_alloc() (see below). The density and workspace grids are used during evaluation of the Orsay-Trento potential, but they may be used for other purposes outside dft\_ot\_potential(). At present the workspace allocation is as follows (density is used by all functionals):
+
+\begin{tabular}{lll}
+Functional name & libdft notation & Number of workspaces used\\
+\cline{1-3}
+Gross-Pitaevskii & DFT\_GP & Workspace 1\\
+Plain Orsay-Trento & DFT\_OT\_PLAIN & Workspaces 1 - 3.\\
+ & & Includes also thermal DFT (DFT\_OT\_T*).\\
+O-T with KC & DFT\_OT\_KC & Workspaces 1 - 6.\\
+O-T with BF & DFT\_OT\_BACKFLOW & Workspaces 1 - 9.\\
+\end{tabular}
+
+\noindent
+The functionals listed in the above table are specified in the next section.
+
+\section{Functionals and their modifiers}
+
+The following functionals and their modifiers have been implemented in libdft:
+
+\begin{longtable}{p{.33\textwidth} p{.4\textwidth} p{.33\textwidth}}
+Functional & libdft notation for the functional & Class\\
+\cline{1-3}
+Plain Orsay-Trento & DFT\_PLAIN & Functional\\
+Dupont-Roc & DFT\_DR & Functional\\
+Gross-Pitaevskii & DFT\_GP & Functional\\
+Thermal O-T at 0 K & DFT\_OT\_T0MK & Functional\\
+Thermal O-T at 0.4 K & DFT\_OT\_T400MK & Functional\\
+Thermal O-T at 0.6 K & DFT\_OT\_T600MK & Functional\\
+Thermal O-T at 0.8 K & DFT\_OT\_T800MK & Functional\\
+Thermal O-T at 1.2 K & DFT\_OT\_T1200MK & Functional\\
+Thermal O-T at 1.4 K & DFT\_OT\_T1400MK & Functional\\
+Thermal O-T at 1.6 K & DFT\_OT\_T1600MK & Functional\\
+Thermal O-T at 1.8 K & DFT\_OT\_T1800MK & Functional\\
+Thermal O-T at 2.0 K & DFT\_OT\_T2000MK & Functional\\
+Thermal O-T at 2.1 K & DFT\_OT\_T2100MK & Functional\\
+Thermal O-T at 2.2 K & DFT\_OT\_T2200MK & Functional\\
+Thermal O-T at 2.4 K & DFT\_OT\_T2400MK & Functional\\
+Thermal O-T at 2.6 K & DFT\_OT\_T2600MK & Functional\\
+Thermal O-T at 2.8 K & DFT\_OT\_T2800MK & Functional\\
+Thermal O-T at 3.0 K & DFT\_OT\_T3000MK & Functional\\
+O-T high density correction1 & DFT\_OT\_HD & Modifier for DFT\_OT\_PLAIN\\
+O-T high density correction2 & DFT\_OT\_HD2 & Modifier for DFT\_OT\_PLAIN\\
+O-T backflow & DFT\_OT\_BACKFLOW & Modifier to include the backflow term in Orsay-Trento\\
+O-T kinetic correlation & DFT\_OT\_KC & Modifier to include the kinetic energy correlation term in Orsay-Trento.\\ 
+\end{longtable}
+\noindent
+The two high-density corrections (1 and 2) refer to two slightly different parametrizations of the penalty term. Invoking either of these two modifiers will also include the high-density correction to the backflow functional.
+
+To apply a functional and the desired modifiers, use logical or. For example, to use the full Orsay-Trento, specify DFT\_OT\_PLAIN $|$ DFT\_OT\_KC $|$ DFT\_OT\_BACKFLOW. Here $|$ is the or operator in C (and operator would be \&).
+
+Libdft include files also define the following useful constants:
+
+\begin{tabular}{ll}
+Name & Description\\
+\cline{1-2}
+DFT\_KB & Boltzmann constant in atomic units.\\
+DFT\_HELIUM\_MASS & $^4$He atom mass.\\
+DFT\_MIN\_SUBSTEPS & Minimum \# of steps for grid\_smooth\_map() function to be used.\\
+DFT\_MAX\_SUBSTEPS & Maximum \# of steps for grid\_smooth\_map() function to be used.\\
+\end{tabular}\\
+
+\noindent
+The latter two constants are often used when calling dft\_ot\_alloc(). Just like libgrid, libdft uses atomic units everywhere.
 
 \chapter{Library functions}
 
+Libdft provides only the routines that are specific to Orsay-Trento (Gross-Pitaevskii etc.) models. All common grid operations are handled by direct calls to libgrid. Each available library routine in libdft is described below.
+
+\section{Allocating, using and freeing a functional}
+
+\subsection{dft\_ot\_alloc() -- Allocate functional}
+
+Allocate functional of specified type. This function must be called before attempting to evaluate the potential for functional. It takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+INT model & Which DFT model to use. The available functionals are specified in the table (previous chapter; e.g., DFT\_OT\_PLAIN).\\
+wf *wf & Wave function to be used with this functional. This specifies the grid etc. dimensions.\\
+min\_substeps & Minimum number of substeps to be used in grid\_smooth\_map when mapping various model dependent functions onto grids. DFT\_MIN\_SUBSTEPS is a good choice.\\
+max\_substeps & Maximum number of substeps to be used in grid\_smooth\_map when mapping various model dependent functions onto grids. DFT\_MAX\_SUBSTEPS is a good choice.\\
+\end{longtable}
+\noindent
+This function returns a pointer to the allocated functional structure (dft\_ot\_functional *).
+
+\subsection{dft\_ot\_potential() -- Evaluate non-linear potential for functional}
+
+Calculate the non-linear potential grid for functional described by a given dft\_ot\_functional structure. The arguments to this function are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+dft\_ot\_functional *otf & Functional structure provided by dft\_ot\_alloc().\\
+cgrid *potential & Potential grid where the result will be added. Note that the potential will be added to this grid (i.e., may want to zero it first).\\
+wf *wf & Wave function associated with the functional.\\                  
+\end{longtable}
+\noindent
+This function does not return any value.
+
+\subsection{dft\_ot\_free() -- Free functional structure and workspaces}
+
+Free the given functional structure and the associated workspaces. It takes one argument that specifies the functional to be freed (dft\_ot\_functional *). Function has no return value.
+
+\subsection{dft\_ot\_energy\_density() -- Calculate energy density for functional}
+
+Evaluate the potential part to the energy density (kinetic part not included). The kinetic part should be calculated separately with grid\_wf\_kinetic\_energy(). The arguments are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+dft\_ot\_functional *otf & Functional structure.\\
+rgrid *energy\_density & Energy density grid.\\
+\end{longtable}
+\noindent
+To get the total potential energy, integrate over energy\_density (e.g., rgrid\_integrate(energy\_density)). This function does not return any value.
+
+\section{Bulk liquid routines}
+
+The following routines apply to bulk liquid.
+
+\subsection{dft\_ot\_bulk\_energy() -- Energy density of bulk liquid}
+
+Calculate the energy density of uniform bulk liquid. This function takes the arguments as:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+dft\_ot\_functional *otf & Functional to be used.\\
+REAL rho & Bulk liquid density.\\
+\end{longtable}
+\noindent
+This function returns the bulk liquid energy density (i.e., energy / volume; REAL).
+
+\subsection{dft\_ot\_bulk\_dEdRho() -- Calculate $dE/d\rho$ for bulk liquid}
+
+Calculate derivative of energy with respect to density for uniform bulk liquid. At equilibrium, this is equal to the chemical potential. The arguments are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+dft\_ot\_functional *otf & Functional to be used.\\
+REAL rho & Bulk density.\\
+\end{longtable}
+This function returns the value of $dE/d\rho$ (REAL).
+
+\subsection{dft\_ot\_bulk\_density() -- Calculate bulk liquid density when pressure is zero}
+
+Calculate equilibrium density for uniform bulk with no pressure applied. In general, the equilibrium density is obtained by solving:\\
+$$ P = (dE/d\rho)(\rho_0)\times \rho_0 - bulk\_energy(\rho_0)$$
+For the Orsay-Trento functional with zero pressure, the solution is analytical but we use the general routine here. This function takes only one argument that describes the functional (dft\_ot\_functional *). The return value is the bulk liquid density when $P = 0$ (REAL).
+
+\subsection{dft\_ot\_bulk\_chempot() -- Chemical potential of uniform bulk liquid}
+
+Calculate the chemical potential of uniform bulk liquid at zero pressure. If this quantity is subtracted from the external potential then the imaginary time iterations converge to a solution with the equilibrium density at the simulation cell edges. This means that no rescaling during imaginary iterations is needed. This function takes only one argument that describes the functional (dft\_ot\_functional *). The return value is the chemical potential at bulk density ($P = 0$; REAL). Note that with moving background (i.e., non-zero kx, ky, kz for the complex wave function grid), additional term must be included in the chemical potential ($\mu_0$):
+$$\mu = \mu_0 + \frac{\hbar^2}{2m}\left(kx^2 + ky^2 + kz^2\right)$$
+where $\mu$ can be used in, e.g., imaginary time iterations.
+
+\subsection{dft\_ot\_bulk\_chempot2() -- Chemical potential of uniform bulk liquid}
+
+Calculate the chemical potential of uniform bulk liquid at zero pressure. If this quantity is subtracted from the external potential then the imaginary time iterations converge to a solution with the equilibrium density at the simulation cell edges. This means that no rescaling during imaginary iterations is needed. This function takes one argument that describes the functional (dft\_ot\_functional *). The return value is the chemical potential at bulk density specified by dft\_ot\_functional structure member rho0 (REAL). With moving background, see the note in dft\_ot\_bulk\_chempot().
+
+\subsection{dft\_ot\_bulk\_chempot3() -- Chemical potential of uniform bulk liquid}
+
+Calculate the chemical potential of uniform bulk liquid at zero pressure. If this quantity is subtracted from the external potential then the imaginary time iterations converge to a solution with the equilibrium density at the simulation cell edges. This means that no rescaling during imaginary iterations is needed. This function takes two arguments that describe the functional (dft\_ot\_functional *) and the density where the chemical potential is sought (REAL). The return value is the chemical potential (REAL) at bulk density specified by the second argument. With moving background, see the note in dft\_ot\_bulk\_chempot().
+
+\subsection{dft\_ot\_bulk\_pressure() -- Pressure of uniform bulk liquid}
+
+Calculate the pressure of uniform bulk at a given density. This function takes two arguments that describe the functional (dft\_ot\_functional *) and the density where the pressure is sought (REAL). This function returns the external pressure (REAL) corresponding to the given density (2nd argument).
+
+\subsection{dft\_ot\_bulk\_dPdRho() -- Evaluate $dP/d\rho$ for uniform bulk liquid}
+
+Calculate the derivative of pressure with respect to density for uniform bulk liquid. This function takes two arguments that describe the functional (dft\_ot\_functional *) and the density where the derivative is sought (REAL). The function returns ($dP/d\rho$; REAL) evaluated at the given density (2nd argument).
+
+\subsection{dft\_ot\_bulk\_density\_pressurized() -- Equilibrium density for uniform bulk liquid under pressure}
+
+Calculate the equilibrium density for pressurized uniform bulk. The density is obtained iteratively by solving:
+$$P = (dE/d\rho)(\rho_0)\times\rho_0 - bulk\_energy(\rho_0)$$
+This function takes two arguments that describe the functional (dft\_ot\_functional *) and the pressure where the equilibrium density is sought (REAL). The function returns equilibrium bulk density at given pressure (REAL).
+
+\subsection{dft\_ot\_bulk\_compressibility() -- Isothermal compressibility}
+
+Calculate isothermal compressibility of uniform bulk liquid:
+$$\kappa = \frac{1}{\rho} \frac{d\rho}{dP} = \frac{1}{\rho dP/d\rho}$$
+which is evaluated at given $\rho$. This function takes two arguments that describe the functional (dft\_ot\_functional *) and the density where the isothermal compressibility is sought (REAL). The function returns isothermal compressibility at given density (REAL).
+
+\subsection{dft\_ot\_bulk\_sound\_speed() -- Speed of sound}
+
+Calculate speed of sound ($c$) in uniform bulk liquid:
+$$ c = \frac{1}{\sqrt{m \kappa \rho}}$$
+which is evaluated at given $\rho$. Here $\kappa$ is the isothermal compressibility, $m$ is the mass of $^4$He atom, and $\rho$ is the liquid density. This function takes two arguments that describe the functional (dft\_ot\_functional *) and the density where the speed of (first) sound is to be computed (REAL). The function returns speed of sound at given density (REAL).
+
+\subsection{dft\_ot\_dispersion() -- Dispersion relation of bulk liquid}
+
+Calculate the bulk liquid dispersion relation ($\omega$ vs. $k$). Uses numerical solution for the specified dft\_ot\_functional. This function takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+wf *wf & Wave function to be used for the operation.\\
+dft\_ot\_functional *otf & Functional pointer.\\
+REAL ts & Time step to be used in a.u.\\
+REAL k & Requested wavenumber in a.u.\\
+REAL amp & Plane wave amplitude relative to bulk density (should be small; e.g., 10$^{-3}$).\\
+char pred & 1 = Use predict-correct for propagation, 0 = no predict-correct.\\
+char dir & Direction for the plane wave excitation (0 = X, 1 = Y, 2 = Z).\\
+\end{longtable}
+\noindent
+This function returns the energy (i.e., $\omega$ in a.u.). To convert $k$ from a.u. to \AA{}$^{-1}$ and $\omega$ to Kelvin, use: k = k / GRID\_AUTOANG and omega = (omega / GRID\_AUTOS) * GRID\_HZTOCM1 * 1.439. The last factor is conversion from cm$^{-1}$ to Kelvin.
+
+\subsection{dft\_ot\_bulk\_dispersion() -- Dispersion relation of bulk liquid (semi-analytic)}
+
+Calculate bulk dispersion relation ($\omega$ vs. $k$) using semi-analytic solution (specific to Orsay-Trento). This function takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+dft\_ot\_functional *otf & Functional pointer.\\
+REAL *k & Wave vector. On output, contains the actual value of $k$ used for computing $\omega$.\\
+REAL rho0 & Bulk density to be used.\\
+\end{longtable}
+\noindent
+This function returns energy (i.e., $\omega$ in a.u.). To convert $k$ from a.u. to \AA{}$^{-1}$ and $\omega$ to Kelvin, use: k = k / GRID\_AUTOANG and omega = (omega / GRID\_AUTOS) * GRID\_HZTOCM1 * 1.439. The last factor is conversion from cm$^{-1}$ to Kelvin.
+
+\subsection{dft\_ot\_bulk\_istatic() -- Static structure factor of bulk liquid}
+
+Calculation of the static structure factor $\chi(q)$. This function takes two arguments where the first argument specifies the functional (dft\_ot\_functional *) and the second the wave vector $k$ where the quantity is evaluated at (REAL *). This function returns $-\frac{1}{\chi(q)}$ (REAL).
+
+\subsection{dft\_ot\_bulk\_surface\_tension() -- Calculate (free) surface tension}
+
+Calculate surface tension for flat surface. It takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+wf *gwf & Wave function.\\
+dft\_ot\_functional *otf & Functional structure.\\
+REAL ts & Time step for propagation.\\
+REAL width & Width of the slab used for making the surfaces.\\
+\end{longtable}
+\noindent
+Returns surface tension (REAL). Warning: This routine seems out of date and may not work (TODO).
+
+\section{Spectroscopy related routines}
+
+\section{Common functions}
+
+\section{Useful initial guess functions}
+
+\section{Calculation of viscous response}
+
 \chapter{Examples}
-
-
-%\section{References}
 
 \end{document}
