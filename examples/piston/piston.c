@@ -136,11 +136,10 @@ int main(int argc, char **argv) {
     grid_timer_start(&timer);
 
     /* Predict-Correct */
-    cgrid_copy(gwfp->grid, gwf->grid);
     grid_real_to_complex_re(potential_store, ext_pot);
     dft_ot_potential(otf, potential_store, gwf);
     cgrid_add(potential_store, -mu0);
-    grid_wf_propagate_predict(gwfp, potential_store, -I * TS / GRID_AUTOFS);
+    grid_wf_propagate_predict(gwf, gwfp, potential_store, -I * TS / GRID_AUTOFS);
     grid_add_real_to_complex_re(potential_store, ext_pot);
     dft_ot_potential(otf, potential_store, gwfp);
     cgrid_add(potential_store, -mu0);
@@ -157,11 +156,10 @@ int main(int argc, char **argv) {
     grid_timer_start(&timer);
 
     /* Predict-Correct */
-    cgrid_copy(gwfp->grid, gwf->grid);
     grid_real_to_complex_re(potential_store, ext_pot);
     dft_ot_potential(otf, potential_store, gwf);
     cgrid_add(potential_store, -mu0);
-    grid_wf_propagate_predict(gwfp, potential_store, TS / GRID_AUTOFS);
+    grid_wf_propagate_predict(gwf, gwfp, potential_store, TS / GRID_AUTOFS);
     grid_add_real_to_complex_re(potential_store, ext_pot);
     dft_ot_potential(otf, potential_store, gwfp);
     cgrid_add(potential_store, -mu0);

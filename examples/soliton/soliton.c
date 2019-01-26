@@ -102,11 +102,10 @@ int main(int argc, char **argv) {
     grid_timer_start(&timer);
 
     /* Predict-Correct */
-    cgrid_copy(gwfp->grid, gwf->grid);
     cgrid_zero(potential_store);
     dft_ot_potential(otf, potential_store, gwf);
     cgrid_add(potential_store, -mu0);
-    grid_wf_propagate_predict(gwfp, potential_store, -I * TS / GRID_AUTOFS);
+    grid_wf_propagate_predict(gwf, gwfp, potential_store, -I * TS / GRID_AUTOFS);
     dft_ot_potential(otf, potential_store, gwfp);
     cgrid_add(potential_store, -mu0);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2

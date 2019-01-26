@@ -174,7 +174,6 @@ int main(int argc, char **argv) {
     grid_timer_start(&timer);
     cgrid_zero(potential_store);
 #ifdef PC
-    cgrid_copy(gwfp->grid, gwf->grid);
     dft_ot_potential(otf, potential_store, gwf);
     grid_add_real_to_complex_re(potential_store, ext_pot);
     cgrid_add(potential_store, -mu0);

@@ -154,11 +154,10 @@ int main(int argc, char *argv[]) {
     rgrid_inverse_fft(ext_pot);
 
     /* 2. Predict + correct */
-    cgrid_copy(gwfp->grid, gwf->grid);
     grid_real_to_complex_re(potential, ext_pot);
     dft_ot_potential(otf, potential, gwf);
     cgrid_add(potential, -mu0);
-    grid_wf_propagate_predict(gwfp, potential, -I * TIME_STEP / GRID_AUTOFS);
+    grid_wf_propagate_predict(gwf, gwfp, potential, -I * TIME_STEP / GRID_AUTOFS);
     grid_add_real_to_complex_re(potential, ext_pot);
     dft_ot_potential(otf, potential, gwfp);
     cgrid_add(potential, -mu0);

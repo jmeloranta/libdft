@@ -324,9 +324,8 @@ int main(int argc, char *argv[]) {
     rgrid_fft(otf->density);
     rgrid_fft_convolute(ext_pot, otf->density, pair_pot);
     rgrid_inverse_fft(ext_pot);
-    cgrid_copy(impwfp->grid, impwf->grid);
     grid_real_to_complex_re(cpot_el, ext_pot);
-    grid_wf_propagate_predict(impwfp, cpot_el, -I * IMP_STEP / GRID_AUTOFS);
+    grid_wf_propagate_predict(impwf, impwfp, cpot_el, -I * IMP_STEP / GRID_AUTOFS);
 
     /* helium */
     cgrid_zero(cpot);
@@ -340,8 +339,7 @@ int main(int argc, char *argv[]) {
     grid_add_real_to_complex_re(cpot, ext_pot);
     dft_ot_potential(otf, cpot, gwf);
     dft_viscous_potential(gwfp, otf, cpot, EFF_VISCOSITY, EFF_ALPHA);
-    cgrid_copy(gwfp->grid, gwf->grid);
-    grid_wf_propagate_predict(gwfp, cpot, -I * TIME_STEP / GRID_AUTOFS);
+    grid_wf_propagate_predict(gwf, gwfp, cpot, -I * TIME_STEP / GRID_AUTOFS);
 
     /* Correct */
 

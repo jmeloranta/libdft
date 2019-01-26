@@ -98,6 +98,7 @@ int main(int argc, char *argv[]) {
   cgrid_set_momentum(gwfp->grid, kx, 0.0, 0.0);
   cgrid_set_momentum(cworkspace, kx, 0.0, 0.0);
 #endif
+  mu0 = mu0 + (HBAR * HBAR / (2.0 * gwf->mass)) * kx * kx;  // Moving background contribution to mu0
 
   fprintf(stderr, "Time step in fs   = " FMT_R "\n", TIME_STEP);
   fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
@@ -120,11 +121,10 @@ int main(int argc, char *argv[]) {
 
 #ifdef PC
       /* Predict-Correct */
-      cgrid_copy(gwfp->grid, gwf->grid);
       grid_real_to_complex_re(cworkspace, ext_pot);
       dft_ot_potential(otf, cworkspace, gwf);
       cgrid_add(cworkspace, -mu0);
-      grid_wf_propagate_predict(gwfp, cworkspace, -I * TIME_STEP / GRID_AUTOFS);
+      grid_wf_propagate_predict(gwf, gwfp, cworkspace, -I * TIME_STEP / GRID_AUTOFS);
       grid_add_real_to_complex_re(cworkspace, ext_pot);
       dft_ot_potential(otf, cworkspace, gwfp);
       cgrid_add(cworkspace, -mu0);
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
       grid_real_to_complex_re(cworkspace, ext_pot);
       dft_ot_potential(otf, cworkspace, gwf);
       cgrid_add(cworkspace, -mu0);
-      grid_wf_propagate_predict(gwf, cworkspace, -I * TIME_STEP / GRID_AUTOFS);
+      grid_wf_propagate(gwf, cworkspace, -I * TIME_STEP / GRID_AUTOFS);
 #endif
       printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
     }
@@ -160,11 +160,10 @@ int main(int argc, char *argv[]) {
     if(!(iter % OUTPUT_ITER)) analyze(otf, gwf, iter, vx);
 #ifdef PC
     /* Predict-Correct */
-    cgrid_copy(gwfp->grid, gwf->grid);
     grid_real_to_complex_re(cworkspace, ext_pot);
     dft_ot_potential(otf, cworkspace, gwf);
     cgrid_add(cworkspace, -mu0);
-    grid_wf_propagate_predict(gwfp, cworkspace, TIME_STEP / GRID_AUTOFS);
+    grid_wf_propagate_predict(gwf, gwfp, cworkspace, TIME_STEP / GRID_AUTOFS);
     grid_add_real_to_complex_re(cworkspace, ext_pot);
     dft_ot_potential(otf, cworkspace, gwfp);
     cgrid_add(cworkspace, -mu0);
@@ -175,7 +174,7 @@ int main(int argc, char *argv[]) {
     grid_real_to_complex_re(cworkspace, ext_pot);
     dft_ot_potential(otf, cworkspace, gwf);
     cgrid_add(cworkspace, -mu0);
-    grid_wf_propagate_predict(gwf, cworkspace, TIME_STEP / GRID_AUTOFS);
+    grid_wf_propagate(gwf, cworkspace, TIME_STEP / GRID_AUTOFS);
 #endif
   }
 

@@ -383,12 +383,11 @@ int main(int argc, char *argv[]) {
     grid_timer_start(&timer);
 
     /* Predict-Correct */
-    cgrid_copy(gwfp->grid, gwf->grid);
     grid_real_to_complex_re(cworkspace, ext_pot);
     dft_ot_potential(otf, cworkspace, gwf);
     dft_viscous_potential(gwf, otf, cworkspace, EFF_VISCOSITY, EFF_ALPHA);
     cgrid_add(cworkspace, -mu0);
-    grid_wf_propagate_predict(gwfp, cworkspace, -I * TIME_STEP / GRID_AUTOFS);
+    grid_wf_propagate_predict(gwf, gwfp, cworkspace, -I * TIME_STEP / GRID_AUTOFS);
     grid_add_real_to_complex_re(cworkspace, ext_pot);
     dft_ot_potential(otf, cworkspace, gwfp);
     dft_viscous_potential(gwfp, otf, cworkspace, EFF_VISCOSITY, EFF_ALPHA);

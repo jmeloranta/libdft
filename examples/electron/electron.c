@@ -250,12 +250,11 @@ int main(int argc, char *argv[]) {
 #endif
 
     /* Predict-Correct */
-    cgrid_copy(gwfp->grid, gwf->grid);
     cgrid_zero(potential_store);
     dft_ot_potential(otf, potential_store, gwf);
     grid_add_real_to_complex_re(potential_store, rworkspace);
     cgrid_add(potential_store, -mu0);
-    grid_wf_propagate_predict(gwfp, potential_store, -I * time_step / GRID_AUTOFS);  // Imag time
+    grid_wf_propagate_predict(gwf, gwfp, potential_store, -I * time_step / GRID_AUTOFS);  // Imag time
     dft_ot_potential(otf, potential_store, gwfp);
     grid_add_real_to_complex_re(potential_store, rworkspace);
     cgrid_add(potential_store, -mu0);

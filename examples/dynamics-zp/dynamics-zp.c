@@ -101,12 +101,11 @@ int main(int argc, char **argv) {
     rgrid_fft_convolute(ext_pot2, ext_pot, density);
     rgrid_inverse_fft(ext_pot2);
     /* Predict-Correct */
-    cgrid_copy(gwfp->grid, gwf->grid);
     cgrid_zero(potential_store);
     dft_ot_potential(otf, potential_store, gwf);
     grid_add_real_to_complex_re(potential_store, ext_pot2);
     cgrid_add(potential_store, -mu0);
-    grid_wf_propagate_predict(gwfp, potential_store, -I * TS / GRID_AUTOFS);  // Imag time
+    grid_wf_propagate_predict(gwf, gwfp, potential_store, -I * TS / GRID_AUTOFS);  // Imag time
     dft_ot_potential(otf, potential_store, gwfp);
     grid_add_real_to_complex_re(potential_store, ext_pot2);
     cgrid_add(potential_store, -mu0);
@@ -143,12 +142,11 @@ int main(int argc, char **argv) {
     rgrid_fft_convolute(ext_pot2, ext_pot, density);
     rgrid_inverse_fft(ext_pot2);
     /* Predict-Correct */
-    cgrid_copy(gwfp->grid, gwf->grid);
     cgrid_zero(potential_store);
     dft_ot_potential(otf, potential_store, gwf);
     grid_add_real_to_complex_re(potential_store, ext_pot2);
     cgrid_add(potential_store, -mu0);
-    grid_wf_propagate_predict(gwfp, potential_store, -I * TS / GRID_AUTOFS);  // Imag time
+    grid_wf_propagate_predict(gwf, gwfp, potential_store, -I * TS / GRID_AUTOFS);  // Imag time
     dft_ot_potential(otf, potential_store, gwfp);
     grid_add_real_to_complex_re(potential_store, ext_pot2);
     cgrid_add(potential_store, -mu0);
