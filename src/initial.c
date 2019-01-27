@@ -19,6 +19,8 @@
 /*
  * Initial guesses leading to creation of vortex line (along x, y, z).
  *
+ * Multiply by sqrt(rho0) to get bulk asymptotic behavior.
+ *
  */
 
 EXPORT REAL complex dft_initial_vortex_x_n1(void *na, REAL x, REAL y, REAL z) {
@@ -72,37 +74,26 @@ EXPORT REAL complex dft_initial_vortex_z_n2(void *na, REAL x, REAL y, REAL z) {
   return ((x2 - y2) + I * 2 * x * y) / (x2 + y2);
 }
 
-
 /*
- * Vortices using Feynman-Onsager ansatz along x, y, z.
+ * Initial guess for a bubble (can be used with cgrid_map() etc.).
+ * Sharp bubble edge.
+ *
+ * prm    = Bubble radius (REAL *).
+ * x      = x coordinate (REAL).
+ * y      = y coordinate (REAL).
+ * z      = z coordinate (REAL).
+ *
+ * Returns wave function (order parameter) value at (x, y, z).
+ *
+ * Note: This should be multiplied by sqrt(rho0) for bulk.
  *
  */
 
-EXPORT REAL dft_initial_vortex_x(void *param, REAL x, REAL y, REAL z) {
+EXPORT REAL complex dft_initial_bubble(void *prm, REAL x, REAL y, REAL z) {
 
-  REAL rp2 = y * y + z * z;
-  wf *gwf = (wf *) param;
+  double *rad = (REAL *) prm, r;
 
-  if(rp2 < R_M * R_M) rp2 = R_M * R_M;
-  return 1.0 / (2.0 * gwf->mass * rp2);
+  r = SQRT(x * x + y * y + z * z);
+  if(r < *rad) return 0.0;
+  return 1.0;
 }
-
-EXPORT REAL dft_initial_vortex_y(void *param, REAL x, REAL y, REAL z) {
-
-  REAL rp2 = x * x + z * z;
-  wf *gwf = (wf *) param;
-
-  if(rp2 < R_M * R_M) rp2 = R_M * R_M;
-  return 1.0 / (2.0 * gwf->mass * rp2);
-}
-
-EXPORT REAL dft_initial_vortex_z(void *param, REAL x, REAL y, REAL z) {
-
-  REAL rp2 = x * x + y * y;
-  wf *gwf = (wf *) param;
-
-  if(rp2 < R_M * R_M) rp2 = R_M * R_M;
-  return 1.0 / (2.0 * gwf->mass * rp2);
-}
-
-

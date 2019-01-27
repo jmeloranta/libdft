@@ -823,8 +823,149 @@ typedef struct {
 } dft_plane_wave;
 \end{verbatim}
 
+\subsection{dft\_common\_vortex\_x() -- Feynman-Onsager potential for vortex along $x$}
+
+A potential function (Feynman-Onsager ansatz) that produces a vortex line profile along $x$ axis (no phase circulation). This can be used directly with rgrid\_map() functions. This function takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *param & Atom (helium) mass (REAL *).\\
+REAL x & $x$ coordinate.\\
+REAL y & $y$ coordinate.\\
+REAL z & $z$ coordinate.\\
+\end{longtable}
+\noindent
+This function returns the potential value (REAL complex) at $(x, y, z)$. 
+
+\subsection{dft\_common\_vortex\_y() -- Feynman-Onsager potential for vortex along $y$}
+
+A potential function (Feynman-Onsager ansatz) that produces a vortex line profile along $y$ axis (no phase circulation). This can be used directly with rgrid\_map() functions. This function takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *param & Atom (helium) mass (REAL *).\\
+REAL x & $x$ coordinate.\\
+REAL y & $y$ coordinate.\\
+REAL z & $z$ coordinate.\\
+\end{longtable}
+\noindent
+This function returns the potential value (REAL complex) at $(x, y, z)$. 
+
+\subsection{dft\_common\_vortex\_z() -- Feynman-Onsager potential for vortex along $z$}
+
+A potential function (Feynman-Onsager ansatz) that produces a vortex line profile along $z$ axis (no phase circulation). This can be used directly with rgrid\_map() functions. This function takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *param & Atom (helium) mass (REAL *).\\
+REAL x & $x$ coordinate.\\
+REAL y & $y$ coordinate.\\
+REAL z & $z$ coordinate.\\
+\end{longtable}
+\noindent
+This function returns the potential value (REAL complex) at $(x, y, z)$. 
 
 \section{Initial guess functions}
+
+These functions are useful for generating various types of initial guesses for imaginary time propagation.
+
+\subsection{dft\_initial\_vortex\_x\_n1() -- One quantum of vorticity about $x$ axis}
+
+This can be used with grid\_wf\_map (or cgrid\_map() series of functions) to create suitable initial guess for a vortex line (one quantum) oriented along $x$ axis. This is useful for providing initial guess for imaginary time propagation that is sought to converge to such vortex line. This function takes three arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *na & This is not in use but is required by the map routines (can be set to NULL).\\
+REAL x & $x$ coordinate.\\
+REAL y & $y$ coordinate.\\
+REAL z & $z$ coordinate.\\
+\end{longtable}
+\noindent
+This function returns the initial guess (REAL complex) at $(x, y, z)$. This should be multiplied by $\sqrt{\rho_0}$ (square root of bulk density) in order to get bulk density far away. 
+
+\subsection{dft\_initial\_vortex\_y\_n1() -- One quantum of vorticity about $y$ axis}
+
+This can be used with grid\_wf\_map (or cgrid\_map() series of functions) to create suitable initial guess for a vortex line (one quantum) oriented along $y$ axis. This is useful for providing initial guess for imaginary time propagation that is sought to converge to such vortex line. This function takes three arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *na & This is not in use but is required by the map routines (can be set to NULL).\\
+REAL x & $x$ coordinate.\\
+REAL y & $y$ coordinate.\\
+REAL z & $z$ coordinate.\\
+\end{longtable}
+\noindent
+This function returns the initial guess (REAL complex) at $(x, y, z)$. This should be multiplied by $\sqrt{\rho_0}$ (square root of bulk density) in order to get bulk density far away. 
+
+\subsection{dft\_initial\_vortex\_z\_n1() -- One quantum of vorticity about $z$ axis}
+
+This can be used with grid\_wf\_map (or cgrid\_map() series of functions) to create suitable initial guess for a vortex line (one quantum) oriented along $z$ axis. This is useful for providing initial guess for imaginary time propagation that is sought to converge to such vortex line. This function takes three arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *na & This is not in use but is required by the map routines (can be set to NULL).\\
+REAL x & $x$ coordinate.\\
+REAL y & $y$ coordinate.\\
+REAL z & $z$ coordinate.\\
+\end{longtable}
+\noindent
+This function returns the initial guess (REAL complex) at $(x, y, z)$. This should be multiplied by $\sqrt{\rho_0}$ (square root of bulk density) in order to get bulk density far away. 
+
+\subsection{dft\_initial\_vortex\_x\_n2() -- Two quanta of vorticity about $x$ axis}
+
+This can be used with grid\_wf\_map (or cgrid\_map() series of functions) to create suitable initial guess for a vortex line (two quanta) oriented along $x$ axis. This is useful for providing initial guess for imaginary time propagation that is sought to converge to such vortex line. This function takes three arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *na & This is not in use but is required by the map routines (can be set to NULL).\\
+REAL x & $x$ coordinate.\\
+REAL y & $y$ coordinate.\\
+REAL z & $z$ coordinate.\\
+\end{longtable}
+\noindent
+This function returns the initial guess (REAL complex) at $(x, y, z)$. This should be multiplied by $\sqrt{\rho_0}$ (square root of bulk density) in order to get bulk density far away. 
+
+\subsection{dft\_initial\_vortex\_y\_n2() -- Two quanta of vorticity about $y$ axis}
+
+This can be used with grid\_wf\_map (or cgrid\_map() series of functions) to create suitable initial guess for a vortex line (two quanta) oriented along $y$ axis. This is useful for providing initial guess for imaginary time propagation that is sought to converge to such vortex line. This function takes three arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *na & This is not in use but is required by the map routines (can be set to NULL).\\
+REAL x & $x$ coordinate.\\
+REAL y & $y$ coordinate.\\
+REAL z & $z$ coordinate.\\
+\end{longtable}
+\noindent
+This function returns the initial guess (REAL complex) at $(x, y, z)$. This should be multiplied by $\sqrt{\rho_0}$ (square root of bulk density) in order to get bulk density far away. 
+
+\subsection{dft\_initial\_vortex\_z\_n2() -- Two quanta of vorticity about $z$ axis}
+
+This can be used with grid\_wf\_map (or cgrid\_map() series of functions) to create suitable initial guess for a vortex line (two quanta) oriented along $z$ axis. This is useful for providing initial guess for imaginary time propagation that is sought to converge to such vortex line. This function takes three arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *na & This is not in use but is required by the map routines (can be set to NULL).\\
+REAL x & $x$ coordinate.\\
+REAL y & $y$ coordinate.\\
+REAL z & $z$ coordinate.\\
+\end{longtable}
+\noindent
+This function returns the initial guess (REAL complex) at $(x, y, z)$. This should be multiplied by $\sqrt{\rho_0}$ (square root of bulk density) in order to get bulk density far away. 
+
+\subsection{dft\_initial\_bubble() -- Initial configuration for bubble}
+
+Initial guess for a bubble (can be used with cgrid\_map() etc.) with a Heaviside edge. This function takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *prm & Bubble radius (REAL *).\\
+REAL x & $x$ coordinate.\\
+REAL y & $y$ coordinate.\\
+REAL z & $z$ coordinate.\\
+\end{longtable}
+\noindent
+This function returns function value at $(x, y, z)$. This value should be multiplied by $\sqrt{\rho_0}$ for bulk liquid.
 
 \section{Calculation of viscous response}
 

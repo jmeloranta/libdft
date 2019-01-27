@@ -743,7 +743,7 @@ EXPORT void dft_common_potential_map_rotate_shift(char average, char *filex, cha
 
 EXPORT void dft_common_potential_map(char average, char *filex, char *filey, char *filez, rgrid *potential) {
   
-  dft_common_potential_map_tilt_shift(average, filex, filey, filez, potential, 0.0, 0.0, 0.0, 0.0, 0.0);
+  dft_common_potential_map_rotate_shift(average, filex, filey, filez, potential, 0.0, 0.0, 0.0, 0.0, 0.0);
 }
 
 /*
@@ -751,9 +751,9 @@ EXPORT void dft_common_potential_map(char average, char *filex, char *filey, cha
  *
  */
 
-EXPORT void dft_common_potential_map_tilt(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta, REAL phi) {
+EXPORT void dft_common_potential_map_rotate(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta, REAL phi) {
   
-  dft_common_potential_map_tilt_shift(average, filex, filey, filez, potential, theta, phi, 0.0, 0.0, 0.0);
+  dft_common_potential_map_rotate_shift(average, filex, filey, filez, potential, theta, phi, 0.0, 0.0, 0.0);
 }
 
 /*
@@ -818,7 +818,7 @@ EXPORT void dft_common_potential_smap_rotate_shift(char average, char *filex, ch
 
 EXPORT void dft_common_potential_smap(char average, char *filex, char *filey, char *filez, rgrid *potential) {
   
-  dft_common_potential_smap_tilt_shift(average, filex, filey, filez, potential, 0.0, 0.0, 0.0, 0.0, 0.0);
+  dft_common_potential_smap_rotate_shift(average, filex, filey, filez, potential, 0.0, 0.0, 0.0, 0.0, 0.0);
 }
 
 /* 
@@ -826,9 +826,9 @@ EXPORT void dft_common_potential_smap(char average, char *filex, char *filey, ch
  *
  */
 
-EXPORT void dft_common_potential_smap_tilt(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta, REAL phi) {
+EXPORT void dft_common_potential_smap_rotate(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta, REAL phi) {
   
-  dft_common_potential_smap_tilt_shift(average, filex, filey, filez, potential, theta, phi, 0.0, 0.0, 0.0);
+  dft_common_potential_smap_rotate_shift(average, filex, filey, filez, potential, theta, phi, 0.0, 0.0, 0.0);
 }
 
 /*
@@ -1325,4 +1325,42 @@ EXPORT REAL complex dft_common_planewave(void *arg, REAL x, REAL y, REAL z) {
   
 //  return psi + 0.5 * a * psi * (CEXP(I * (kx * x + ky * y + kz * z)) + CEXP(-I * (kx * x + ky * y + kz * z)));
   return psi + a * psi * COS(kx * x + ky * y + kz * z);
+}
+
+/*
+ * Vortices using Feynman-Onsager ansatz along x, y, z.
+ *
+ * These are not initial guesses but effective potentials
+ * to produce vortex line (without phase circulation).
+ *
+ */
+
+/* Cutoff for vortex core (to avoid NaN) */
+#define R_M 0.05
+
+EXPORT REAL dft_common_vortex_x(void *param, REAL x, REAL y, REAL z) {
+
+  REAL rp2 = y * y + z * z;
+  REAL *mass = (REAL *) param;
+
+  if(rp2 < R_M * R_M) rp2 = R_M * R_M;
+  return 1.0 / (2.0 * *mass * rp2);
+}
+
+EXPORT REAL dft_common_vortex_y(void *param, REAL x, REAL y, REAL z) {
+
+  REAL rp2 = x * x + z * z;
+  REAL *mass = (REAL *) param;
+
+  if(rp2 < R_M * R_M) rp2 = R_M * R_M;
+  return 1.0 / (2.0 * *mass * rp2);
+}
+
+EXPORT REAL dft_common_vortex_z(void *param, REAL x, REAL y, REAL z) {
+
+  REAL rp2 = x * x + y * y;
+  REAL *mass = (REAL *) param;
+
+  if(rp2 < R_M * R_M) rp2 = R_M * R_M;
+  return 1.0 / (2.0 * *mass * rp2);
 }

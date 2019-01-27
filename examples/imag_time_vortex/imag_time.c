@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
 
 #ifdef ONSAGER
 #if defined(VORTEX) || defined(BOTH)
-  rgrid_map(otf->density, &dft_initial_vortex_z, (void *) gwf);
+  rgrid_map(otf->density, &dft_common_vortex_z, (void *) gwf);
   rgrid_sum(ext_pot, ext_pot, otf->density);
 #endif
 #endif
