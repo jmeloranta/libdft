@@ -8,30 +8,35 @@
  *
  */
 
+/* Required system headers */
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+
+/* libgrid headers */
 #include <grid/grid.h>
 #include <grid/au.h>
+
+/* libdft headers */
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 1.0 /* fs */
-#define NZ (32768)
-#define STEP 0.2
-#define IITER 200000
-#define SITER 250000
-#define MAXITER 80000000
-#define NTH 2000
-#define VZ (2.0 / GRID_AUTOMPS)
+#define TS 1.0 /* Time step (fs) */
+#define NZ (32768)  /* Length of the 1-D grid */
+#define STEP 0.2    /* Step length for the grid */
+#define IITER 200000 /* Number of warm-up imaginary time iterations */
+#define SITER 250000 /* Stop liquid flow after this many iterations */
+#define MAXITER 80000000  /* Maximum iterations */
+#define NTH 2000          /* Output liquid density every NTH iterations */
+#define VZ (2.0 / GRID_AUTOMPS)  /* Liquid velocity (m/s) */
 
-#define PRESSURE (0.0 / GRID_AUTOBAR)
-#define THREADS 16
+#define PRESSURE (0.0 / GRID_AUTOBAR)  /* External pressure (bar) */
+#define THREADS 16                     /* Use this many OpenMP threads */
 
-/* Predict-correct ? */
+/* Use Predict-correct for propagation? */
 #define PC
 
-/* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
+/* Bubble parameters - exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
 #define A1 (1.6245 * GRID_AUTOANG)
 #define A2 0.0
@@ -40,8 +45,11 @@
 #define A5 0.0
 #define RMIN 2.0
 #define RADD 6.0
+
+/* Initial guess for bubble radius (imag. time) */
 #define BUBBLE_RADIUS (15.0 / GRID_AUTOANG)
 
+/* Function generating the initial guess (1-d sphere) */
 REAL complex bubble_init(void *prm, REAL x, REAL y, REAL z) {
 
   double *rho0 = (REAL *) prm;
@@ -50,7 +58,8 @@ REAL complex bubble_init(void *prm, REAL x, REAL y, REAL z) {
   return SQRT(*rho0);
 }
 
-REAL round_veloc(REAL veloc) {   // Round to fit the simulation box
+/* Round velocity to fit the simulation box */
+REAL round_veloc(REAL veloc) {
 
   INT n;
   REAL v;
@@ -62,12 +71,13 @@ REAL round_veloc(REAL veloc) {   // Round to fit the simulation box
   return v;
 }
 
+/* Given liquid velocity, calculate the momentum */
 REAL momentum(REAL vz) {
 
   return DFT_HELIUM_MASS * vz / HBAR;
 }
 
-/* Bubble potential (centered at origin, z = 0) */
+/* Potential producing the bubble (centered at origin, z = 0) */
 REAL bubble(void *asd, REAL x, REAL y, REAL z) {
 
   REAL r, r2, r4, r6, r8, r10;
@@ -81,65 +91,72 @@ REAL bubble(void *asd, REAL x, REAL y, REAL z) {
   r6 = r4 * r2;
   r8 = r6 * r2;
   r10 = r8 * r2;
+  /* Exponential repulsion + dispersion series */
   return A0 * EXP(-A1 * r) - A2 / r4 - A3 / r6 - A4 / r8 - A5 / r10;
 }
 
+/* Main program - we start execution here */
 int main(int argc, char **argv) {
 
-  rgrid *density, *ext_pot;
-  cgrid *potential_store;
-  wf *gwf, *gwfp;
-  dft_ot_functional *otf;
-  INT iter;
-  REAL rho0, mu0, vz, kz;
-  char buf[512];
-  REAL complex tstep;
-  grid_timer timer;
+  rgrid *density, *ext_pot; /* Real grids for density and external potential */
+  cgrid *potential_store;   /* Complex grid holding potential */
+  wf *gwf, *gwfp;           /* Wave function + predicted wave function */
+  dft_ot_functional *otf;   /* Functional pointer to define DFT */
+  INT iter;                 /* Iteration counter */
+  REAL rho0, mu0, vz, kz;   /* liquid density, chemical potential, velocity, momentum */
+  char buf[512];            /* Buffer for file name */
+  REAL complex tstep;       /* Time step (complex) */
+  grid_timer timer;         /* Timer structure to record execution time */
 
 #ifdef USE_CUDA
-  cuda_enable(1);
+  cuda_enable(1);           /* If cuda available, enable it */
 #endif
 
   /* Initialize threads & use wisdom */
-  grid_set_fftw_flags(1);    // FFTW_MEASURE
-  grid_threads_init(THREADS);
-  grid_fft_read_wisdom(NULL);
+  grid_set_fftw_flags(1);    /* FFTW planning = FFTW_MEASURE */
+  grid_threads_init(THREADS);/* Initialize OpenMP threads */
+  grid_fft_read_wisdom(NULL);/* Use FFTW wisdom if available */
 
-  /* Allocate wave functions */
+  /* Allocate wave functions: periodic boundaries and 2nd order FFT propagator */
   if(!(gwf = grid_wf_alloc(1, 1, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }
-  gwfp = grid_wf_clone(gwf, "gwfp");
+  gwfp = grid_wf_clone(gwf, "gwfp"); /* Clone gwf to gwfp (same but new grid) */
 
-  /* Moving background */
+  /* Moving background at velocity VZ */
   vz = round_veloc(VZ);
   printf("VZ = " FMT_R " m/s\n", vz * GRID_AUTOMPS);
   kz = momentum(VZ);
-  cgrid_set_momentum(gwf->grid, 0.0, 0.0, kz);
+  cgrid_set_momentum(gwf->grid, 0.0, 0.0, kz);  /* Set the moving background momentum to wave functions */
   cgrid_set_momentum(gwfp->grid, 0.0, 0.0, kz);
 
-  /* Allocate OT functional */
+  /* Allocate OT functional (full Orsay-Trento) */
   if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
 
+  /* Bulk density at pressure PRESSURE */
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
-  // mu0 = mu0 + moving background contribution
+  /* Chemical potential at pressure PRESSURE + hbar^2 kz * kz / (2 * mass) */
+  /* So, mu0 = mu0 + moving background contribution */
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE) + (HBAR * HBAR / (2.0 * gwf->mass)) * kz * kz;
   printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
-  /* Allocate space for external potential */
+  /* Use the real grid in otf structure (otf->density) rather than allocate new grid */
   density = otf->density;
+  /* Allocate space for potential grid */
   potential_store = cgrid_clone(gwf->grid, "Potential store");
+  /* Allocate space for external potential */
   ext_pot = rgrid_clone(density, "ext_pot");
 
-  /* set up external potential */
+  /* set up external potential (function bubble) */
   rgrid_map(ext_pot, bubble, NULL);
 
   /* set up initial density */
   if(argc == 2) {
+    /* Read starting point from checkpoint file */
     FILE *fp;
     if(!(fp = fopen(argv[1], "r"))) {
       fprintf(stderr, "Can't open checkpoint .grd file.\n");
@@ -150,48 +167,60 @@ int main(int argc, char **argv) {
     fclose(fp);
     fprintf(stderr, "Check point from %s with iteration = " FMT_I "\n", argv[1], iter);
   } else {
+    /* Bubble initial guess */
     cgrid_map(gwf->grid, bubble_init, &rho0);
     iter = 0;
   }
 
+  /* Main loop over iterations */
   for ( ; iter < MAXITER; iter++) {
 
+    /* Output every NTH iteration */
     if(!(iter % NTH)) {
-      sprintf(buf, "bubble-" FMT_I, iter);
-      grid_wf_density(gwf, density);
-      rgrid_write_grid(buf, density);
+      sprintf(buf, "bubble-" FMT_I, iter); /* construct file name */
+      grid_wf_density(gwf, density);  /* get density from gwf */
+      rgrid_write_grid(buf, density); /* write density to disk */
     }
 
+    /* determine time step */
     if(iter < IITER) tstep = -I * TS; /* Imaginary time */
     else tstep = TS; /* Real time */
 
+    /* AFter SITER's, stop the flow */
     if(iter > SITER) {
-      cgrid_set_momentum(gwf->grid, 0.0, 0.0, 0.0);
+      cgrid_set_momentum(gwf->grid, 0.0, 0.0, 0.0);   /* Reset background velocity to zero */
       cgrid_set_momentum(gwfp->grid, 0.0, 0.0, 0.0);
+      /* Reset the chemical potential (remove moving background contribution) */
       mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
     }
 
-    grid_timer_start(&timer);
-    cgrid_zero(potential_store);
+    grid_timer_start(&timer); /* start iteration timer */
+    cgrid_zero(potential_store);  /* clear potential */
+    /* If PC is defined, use predict-correct */
+    /* If not, use single stepping */
 #ifdef PC
-    dft_ot_potential(otf, potential_store, gwf);
-    grid_add_real_to_complex_re(potential_store, ext_pot);
-    cgrid_add(potential_store, -mu0);
-    grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep / GRID_AUTOFS);
-    dft_ot_potential(otf, potential_store, gwfp);
-    grid_add_real_to_complex_re(potential_store, ext_pot);
-    cgrid_add(potential_store, -mu0);
-    cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
-    grid_wf_propagate_correct(gwf, potential_store, tstep / GRID_AUTOFS);
+    /* predict-correct */
+    dft_ot_potential(otf, potential_store, gwf);  /* Add O-T potential at current time */
+    grid_add_real_to_complex_re(potential_store, ext_pot); /* Add external potential */
+    cgrid_add(potential_store, -mu0); /* Add -chemical potential */
+    grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep / GRID_AUTOFS); /* predict step */
+    dft_ot_potential(otf, potential_store, gwfp);   /* Get O-T potential at prediction point */
+    grid_add_real_to_complex_re(potential_store, ext_pot); /* Add external potential */
+    cgrid_add(potential_store, -mu0);              /* add -chemical potential */
+    cgrid_multiply(potential_store, 0.5);  /* For correct step, use potential (current + future) / 2 */
+    grid_wf_propagate_correct(gwf, potential_store, tstep / GRID_AUTOFS); /* Take the correct step */
 #else
-    dft_ot_potential(otf, potential_store, gwf);
-    grid_add_real_to_complex_re(potential_store, ext_pot);
-    cgrid_add(potential_store, -mu0);
-    grid_wf_propagate(gwf, potential_store, tstep / GRID_AUTOFS);
+    /* single stepping */
+    dft_ot_potential(otf, potential_store, gwf);  /* Get O-T potential */
+    grid_add_real_to_complex_re(potential_store, ext_pot); /* Add external potential */
+    cgrid_add(potential_store, -mu0);             /* Add -chemical potential */
+    grid_wf_propagate(gwf, potential_store, tstep / GRID_AUTOFS);  /* Propagate */
 #endif
 
+    /* Report Wall time used for the current iteration */
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
+    /* After five iterations, write out FFTW wisdom */
     if(iter == 5) grid_fft_write_wisdom(NULL);
   }
-  return 0;
+  return 0;  /* The End */
 }
