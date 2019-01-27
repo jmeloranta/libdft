@@ -43,7 +43,7 @@ EXPORT inline REAL dft_common_lj_func(REAL r2, REAL sig, REAL eps) {
  * Lennard-Jones potential to be used with grid map() routines
  * Note that the LJ potential has zero core when r < h.
  *
- * The potential paramegers are passed in arg (ot_common_lh data type).
+ * The potential parameters are passed in arg (ot_common_lj data type).
  *
  * arg = pointer to dft_common_lj structure (void *).
  * x   = x-coordinate (REAL).
@@ -97,7 +97,7 @@ EXPORT inline REAL dft_common_lennard_jones_1d(void *arg, REAL x, REAL y, REAL z
 }
 
 /*
- * Lennard-Jones potential with smoothed core to be used with grid map().
+ * Lennard-Jones potential with smoothed core to be used with grid map()
  * routines. Parameters passed in arg (see the regular LJ above).
  *
  * The potential paramegers are passed in arg (ot_common_lh data type).
@@ -486,7 +486,8 @@ EXPORT REAL dft_common_classical_idealgas_dEdRho(REAL rhop, void *params) {
 /*
  * Classical ideal gas. NVT free energy / volume (i.e., A/V, A = U - TS).
  *
- * rhop = Gas density (REAL).
+ * rhop   = Gas density (REAL).
+ * params = Pointer to dft_ot_functional structure to get temperature and mass (dft_ot_functional *).
  *
  * Returns free energy / volume.
  *
@@ -696,12 +697,12 @@ REAL dft_common_extpot(void *arg, REAL x, REAL y, REAL z) {
 /*
  * Map a potential given by an ascii file into a grid.
  *
- * average = 0: no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ,
+ * average = 0 = no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ,
  *           4 = average XYZ.
  * file_x  = Potential along x axis (char *).
  * file_y  = Potential along y axis (char *).
  * file_z  = Potential along z axis (char *).
- * grid    = Output potential grid (cgrid *).
+ * potential = Output potential grid (rgrid *).
  * theta0  = Rotation angle theta.
  * phi0    = Rotation angle phi.
  * x0      = New origin x.
@@ -710,11 +711,9 @@ REAL dft_common_extpot(void *arg, REAL x, REAL y, REAL z) {
  * 
  * No return value.
  *
- * TODO: Change tilt to rotate.
- *
  */
 	
-EXPORT void dft_common_potential_map_tilt_shift(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta0, REAL phi0, REAL x0, REAL y0, REAL z0) {
+EXPORT void dft_common_potential_map_rotate_shift(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta0, REAL phi0, REAL x0, REAL y0, REAL z0) {
 
   dft_extpot x, y, z;
   dft_extpot_set set;
@@ -787,11 +786,9 @@ EXPORT void dft_common_potential_map_nonperiodic(char average, char *filex, char
  * 
  * No return value.
  *
- * TODO: Change tilt to rotate.
- *
  */
 	
-EXPORT void dft_common_potential_smap_tilt_shift(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta0, REAL phi0, REAL x0, REAL y0, REAL z0) {
+EXPORT void dft_common_potential_smap_rotate_shift(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta0, REAL phi0, REAL x0, REAL y0, REAL z0) {
 
   dft_extpot x, y, z;
   dft_extpot_set set;
@@ -901,7 +898,7 @@ static rgrid *dft_common_pot_interpolate_read(INT n, char **files) {
  *
  */
 
-inline REAL eval_value_at_index_cyl(rgrid *grid, INT i, INT j, INT k) {
+static inline REAL eval_value_at_index_cyl(rgrid *grid, INT i, INT j, INT k) {
 
   INT nr = grid->nx, nphi = grid->ny, nz = grid->nz;
 
@@ -925,7 +922,7 @@ inline REAL eval_value_at_index_cyl(rgrid *grid, INT i, INT j, INT k) {
  *
  */
 
-EXPORT inline REAL eval_value_cyl(rgrid *grid, REAL r, REAL phi, REAL z) {
+static inline REAL eval_value_cyl(rgrid *grid, REAL r, REAL phi, REAL z) {
 
   REAL f000, f100, f010, f001, f110, f101, f011, f111;
   INT i, j, k, nphi = grid->ny;

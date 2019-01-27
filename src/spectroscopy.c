@@ -1,6 +1,8 @@
 /*
  * Spectroscopy related routines.
  *
+ * TODO: Add simple binning of energies as a function of time.
+ *
  */
 
 #include <stdlib.h>
@@ -33,8 +35,6 @@
  * initialx   = Initial state potential along the X axis (char *; input).
  * initialy   = Initial state potential along the Y axis (char *; input).
  * initialz   = Initial state potential along the Z axis (char *; input).
- *
- * NOTE: This needs complex grid input!! 
  *
  * Returns the spectrum (cgrid *; output). Note that this is statically
  * allocated and overwritten by a subsequent call to this routine.
@@ -110,20 +110,17 @@ EXPORT cgrid *dft_spectrum(dft_ot_functional *otf, rgrid *density, REAL tstep, R
 
 /*
  *
- * TODO: This still needs to be modified so that it takes rgrid
- * for density and imdensity.
- *
  * Evaluate absorption/emission spectrum using the Andersson
  * expression. Zero-point correction for the impurity included.
  *
  * otf      = Orsay-Trento functional pointer (dft_ot_functional *; input).
  * density  = Current liquid density (rgrid *; input).
- * imdensity= Current impurity zero-point density (cgrid *; input).
+ * imdensity= Current impurity zero-point density (rgrid *; input).
  * tstep    = Time step for constructing the time correlation function
  *            (REAL; input in fs). Typically around 1 fs.
  * endtime  = End time in constructing the time correlation function
  *            (REAL; input in fs). Typically less than 10,000 fs.
- * upperave = Averaging of the upperial state potential.
+ * upperave = Averaging of the upper state potential.
  *            0: no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ,
  *            4 = average XYZ.
  * upperx   = Upper state potential along the X axis (char *; input).
@@ -135,8 +132,6 @@ EXPORT cgrid *dft_spectrum(dft_ot_functional *otf, rgrid *density, REAL tstep, R
  * lowerx   = Lower state potential along the X axis (char *; input).
  * lowery   = Lower state potential along the Y axis (char *; input).
  * lowerz   = Lower state potential along the Z axis (char *; input).
- *
- * NOTE: This needs complex grid input!! 
  *
  * Returns the spectrum (cgrid *; output). Note that this is statically
  * allocated and overwritten by a subsequent call to this routine.
@@ -326,11 +321,12 @@ EXPORT rgrid *dft_spectrum_init(dft_ot_functional *otf, rgrid *idensity, INT nt,
  * 
  * otf      = Orsay-Trento functional pointer (dft_ot_functional *; input).
  * nt       = Maximum number of time steps to be collected (INT, input).
- * zerofill = How many zeros to fill in before FFT (int, input).
- * upper    = upper state potential grid (rgrid *, input).
- * lower    = lower state potential grid (rgrid *, input).
+ * zerofill = How many zeros to fill in before FFT (INT, input).
+ * upper    = Upper state potential grid (rgrid *, input).
+ * lower    = Lower state potential grid (rgrid *, input).
  *
  * Returns difference potential for dynamics.
+ *
  */
 
 EXPORT rgrid *dft_spectrum_init2(dft_ot_functional *otf, INT nt, INT zf, rgrid *upper, rgrid *lower) {
@@ -376,6 +372,7 @@ EXPORT void dft_spectrum_collect_user(REAL val) {
 /*
  * Collect the difference energy data. 
  *
+ * otf     = Functional pointer (dft_ot_functional *).
  * gwf     = the current wavefunction (used for calculating the liquid density) (wf *, input).
  *
  */

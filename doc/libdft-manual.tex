@@ -405,9 +405,359 @@ Returns surface tension (REAL). Warning: This routine seems out of date and may 
 
 \section{Spectroscopy related routines}
 
+These routines are related to computation of optical absorption/emission spectra of atoms or molecules solvated in liquids. Note that these routines are not currently very well tested as the code has been rewritten many times...
+
+\subsection{dft\_spectrum() -- Compute spectrum by Andersson expression}
+
+Evaluate absorption/emission spectrum using the Andersson expression. No zero-point correction for the impurity. This method does not require any dynamics to be run. The arguments are as follows:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+dft\_ot\_functional *otf & Functional pointer.\\
+rgrid *density & Current liquid density.\\
+REAL tstep & Time step for constructing the time correlation function (in fs). Typically around 1 fs.\\
+REAL endtime & End time in constructing the time correlation function in fs). Typically less than 10,000 fs.\\
+char finalave & Averaging of the final state potential: 0 = no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ, 4 = average XYZ.\\
+char *finalx & Final state potential along the X axis (file name).\\
+char *finaly & Final state potential along the Y axis (file name).\\
+char finalz & Final state potential along the Z axis (file name).\\
+char initialave & Averaging of the initial state potential: 0 = no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ, 4 = average XYZ.\\
+char *initialx & Initial state potential along the X axis (file name).\\
+char *initialy & Initial state potential along the Y axis (file name).\\
+char *initialz & Initial state potential along the Z axis (file name).\\
+\end{longtable}
+\noindent
+Returns pointer to the spectrum (cgrid *; one-dimensional data). Note that this is statically allocated and overwritten by a subsequent call to this routine. The spectrum will start from smaller to larger frequencies. The spacing between the points is included in cm-1.
+
+\subsection{dft\_spectrum\_zp() -- Compute spectrum by Andersson expression with zero-point}
+
+Evaluate absorption/emission spectrum using the Andersson expression. Zero-point correction for the impurity included. This function takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+dft\_ot\_functional *otf & Functional pointer.\\
+rgrid *density & Current liquid density.\\
+rgrid *imdensity & Current impurity zero-point density.\\
+REAL tstep & Time step for constructing the time correlation function (in fs). Typically around 1 fs.\\
+REAL endtime & End time in constructing the time correlation function (in fs). Typically less than 10,000 fs.\\
+char upperave & Averaging of the upper state potential: 0 = no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ, 4 = average XYZ.\\
+char *upperx & Upper state potential along the X axis (file name).\\
+char *uppery & Upper state potential along the Y axis (file name).\\
+char *upperz & Upper state potential along the Z axis (file name).\\
+char lowerave & Averaging of the lower state potential: 0 = no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ, 4 = average XYZ.\\
+char *lowerx & Lower state potential along the X axis (file name).\\
+char *lowery & Lower state potential along the Y axis (file name).\\
+char *lowerz & Lower state potential along the Z axis (file name).\\
+\end{longtable}
+\noindent
+This function returns pointer to the spectrum (cgrid *). Note that this is statically allocated and overwritten by a subsequent call to this routine. The spectrum will start from smaller to larger frequencies. The spacing between the points is included in cm-1.
+
+\subsection{dft\_spectrum\_init() -- Initialize time-correlation function calculation}
+
+The dft\_spectrum\_* routines evaluate the dynamic lineshape according to Chem. Phys. Lett. 396, 155 (2004) but see also J. Chem. Phys. 141, 014107 (2014) and references there in). The dynamics should be run on average potential of gnd and excited states, which is returned by the init routine (init or init2). The procedure of calculation is:
+\begin{enumerate}
+\item Initialize the difference potential: dft\_spectrum\_init() (or init2).
+\item During the trajectory, call function: dft\_spectrum\_collect() to record the time dependent difference energy (difference potential convoluted with the time dependent liquid density).
+\item At the end, call the following function to evaluate the spectrum: dft\_spectrum\_evaluate() to evaluate the lineshape.
+\end{enumerate}
+
+This routine initializes the data collection portion of the calculation. It takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+dft\_ot\_functional *otf & Functional pointer.\\
+rgrid *idensity & Impurity zero-point density for averaging (NULL if not used).\\
+INT nt & Maximum number of time steps to be collected.\\
+INT zerofill & How many zeros to fill in before doing FFT to get the spectrum.\\
+char upperave & Averaging of the upper state potential: 0 = no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ, 4 = average XYZ.\\
+char *upperx & Upper state potential along the X axis (file name).\\
+char *uppery & Upper state potential along the Y axis (file name).\\
+char *upperz & Upper state potential along the Z axis (file name).\\
+char lowerave & Averaging of the lower state potential: 0 = no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ, 4 = average XYZ.\\
+char *lowerx & Lower state potential along the X axis (file name).\\
+char *lowery & Lower state potential along the Y axis (file name).\\
+char *lowerz & Lower state potential along the Z axis (file name).\\
+\end{longtable}
+\noindent
+This function returns the difference potential for dynamics (rgrid *).
+
+\subsection{dft\_spectrum\_init2() -- Initialize time-correlation function calculation}
+
+This function is exactly like dft\_spectrum\_init() but provides direct grid input for the potentials (rather than file names). It takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+dft\_ot\_functional *otf & Functional pointer.\\
+INT nt & Maximum number of time steps to be collected.\\
+INT zerofill & How many zeros to fill in before doing FFT to calculate the spectrum.\\
+rgrid *upper & Upper state potential grid.\\
+rgrid *lower & Lower state potential grid.\\
+\end{longtable}
+\noindent
+This function returns the difference potential for dynamics (rgrid *).
+
+\subsection{dft\_spectrum\_collect\_user() -- Collect data point for time correlation function (user)}
+
+Collect the energy difference data (calculated by external user routine). This function takes one argument, which specifies the energy difference value (REAL). It does not return any value.
+
+\subsection{dft\_spectrum\_collect() -- Collect data point for time correlation function}
+
+Collect the energy difference data during simulation. This function does not return any value and takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+dft\_ot\_functional *otf & Functional pointer.\\ 
+wf *gwf & The current wave function (used for calculating the liquid density).\\
+\end{longtable}
+
+\subsection{dft\_spectrum\_evaluate() -- Compute spectrum from time correlation function}
+
+After collecting the data points for the time correlation function, evaluate the spectrum itself (FFT). This takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+REAL tstep & Time step length at which the energy difference data was collected (in fs; usually the simulation time step).\\
+REAL tc & Exponential decay time constant for time correlation function (in fs). Note since the true many-body wave function is not available, the decay must be introduced phenomenologically.\\
+\end{longtable}
+\noindent
+This function returns a pointer to the calculated spectrum (grid *; 1-D grid). The X-axis in the spectrum is given in cm$^{-1}$.
+
 \section{Common functions}
 
-\section{Useful initial guess functions}
+\subsection{dft\_common\_lennard\_jones() -- Lennard-Jones function}
+
+Evaluate Lennard-Jones potential function that can be used with rgrid\_map() routines. Note that the L-J potential returns zero when $r < h$. The arguments are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *arg & Pointer to dft\_common\_lj structure. This structure specifies the potential parameters.\\
+REAL x & $x$-coordinate.\\
+REAL y & $y$-coordinate.\\
+REAL z & $z$-coordinate.\\
+\end{longtable}
+\noindent 
+The potential parameters are passed in arg as ot\_common\_lj data type). This structure is defined as:
+\begin{verbatim}
+typedef struct lj_struct {
+  REAL h;       /* Short range cutoff distance */
+  REAL sigma;   /* Parameter sigma for Lennard-Jones */
+  REAL epsilon; /* Parameter epsilon for Lennard-Jones */
+  REAL cval;    /* Constant value when r < h */
+} dft_common_lj;
+\end{verbatim}
+This function returns the Lennard-Jones potential at $(x,y,z)$ (REAL).
+
+\subsection{dft\_common\_lennard\_jones\_1d() -- Lennard-Jones function (1-D)}
+
+Effective 1-D Lennard-Jones potential function that can be used with rgrid\_map() routines. Note that the L-J potential returns zero when $r < h$. The arguments are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *arg & Pointer to dft\_common\_lj structure. This structure specifies the potential parameters.\\
+REAL x & $x$-coordinate (= 0).\\
+REAL y & $y$-coordinate (= 0).\\
+REAL z & $z$-coordinate. This is 1-D, only this varies.\\
+\end{longtable}
+\noindent 
+The potential parameters are passed in arg as ot\_common\_lj data type). For description of this structure, see dft\_common\_lennard\_jones\_1d(). This function returns the Lennard-Jones potential at $(0,0,z)$ (REAL). This function is only used in 1-D implementation of Orsay-Trento functional.
+
+\subsection{dft\_common\_lennard\_jones\_smooth() -- Lennard-Jones function with smoothly decaying core}
+
+Calculate Lennard-Jones potential with smoothed core to be used with rgrid\_map() routines. The parameters and return value are identical to dft\_common\_lennard\_jones() but the core is handled differently ($r < h$). In this region the function decays smoothly as $(r/h)^4$ rather than cuts off abruptly. The return value is the Lennard-Jones potential value at $(x,y,z)$ (REAL).
+
+\subsection{dft\_common\_spherical\_avg() -- Spherical average function}
+
+Calculates spherical average function to be used with rgrid\_map() routines. The sphere radius is passed in arg (see below). The arguments to this function are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *arg & Pointer to the radius of the sphere, which is of REAL type (REAL *).\\
+REAL x & $x$-coordinate.\\
+REAL y & $y$-coordinate.\\
+REAL z & $z$-coordinate.\\
+\end{longtable}
+\noindent
+This function returns the value of the spherical average function at $(x, y, z)$ (REAL).
+
+\subsection{dft\_common\_spherical\_avg\_1d() -- Spherical average function (1-D)}
+
+Calculates 1-D spherical average function to be used with rgrid\_map() routines. The sphere radius is passed in arg (see below). The arguments to this function are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *arg & Pointer to the radius of the sphere, which is of REAL type (REAL *).\\
+REAL x & $x$-coordinate (= 0).\\
+REAL y & $y$-coordinate (= 0).\\
+REAL z & $z$-coordinate.\\
+\end{longtable}
+\noindent
+This function returns the value of the spherical average function at $(0, 0, z)$ (REAL). This function is used with 1-D implementation of Orsay-Trento.
+
+\subsection{dft\_common\_spherical\_avg\_k() -- Spherical average function in momentum space}
+
+Calculates spherical average function in momentum space to be used with rgrid\_map() routines. The sphere radius is passed in arg (see below). The arguments to this function are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *arg & Pointer to the radius of the sphere, which is of REAL type (REAL *).\\
+REAL kx & $kx$-coordinate.\\
+REAL ky & $ky$-coordinate.\\
+REAL kz & $kz$-coordinate.\\
+\end{longtable}
+\noindent
+This function returns the value of the spherical average function at $(kx, ky, kz)$ (REAL).
+
+\subsection{dft\_common\_gaussian() -- Gaussian function}
+
+Evaluate Gaussian function to be used with rgrid\_map() functions. The Gaussian is centered at (0,0,0) and its width is given in arg (see below). The arguments to this function are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *arg & Inverse width of the Gaussian function (REAL *).\\
+REAL x & $x$-coordinate.\\
+REAL y & $y$-coordinate.\\
+REAL z & $z$-coordinate.\\
+\end{longtable}
+\noindent
+This function returns the value of the value of the Gaussian function at $(x, y, z)$ (REAL).
+
+\subsection{dft\_common\_gaussian\_1d() -- Gaussian function (1-D)}
+
+Evaluate 1-D Gaussian function to be used with rgrid\_map() functions. The Gaussian is centered at (0,0,0) and its width is given in arg (see below). The arguments to this function are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *arg & Inverse width of the Gaussian function (REAL *).\\
+REAL x & $x$-coordinate (= 0).\\
+REAL y & $y$-coordinate (= 0).\\
+REAL z & $z$-coordinate.\\
+\end{longtable}
+\noindent
+This function returns the value of the value of the Gaussian function at $(x, y, z)$ (REAL). This function is used for 1-D implementation of Orsay-Trento functional.
+
+\subsection{dft\_common\_cgaussian() -- Gaussian function (complex)}
+
+Evaluate Gaussian function to be used with cgrid\_map() functions. The Gaussian is centered at (0,0,0) and its width is given in arg (see below). The arguments to this function are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *arg & Inverse width of the Gaussian function (REAL *).\\
+REAL x & $x$-coordinate.\\
+REAL y & $y$-coordinate.\\
+REAL z & $z$-coordinate.\\
+\end{longtable}
+\noindent
+This function returns the value of the value of the Gaussian function at $(x, y, z)$ (REAL complex).
+
+\subsection{dft\_common\_lwl3() -- Thermal wavelength}
+
+Given mass (1st argument; REAL) and temperature (2nd argument; REAL), return thermal wavelength for the particle (REAL):
+$$\lambda = \left(\frac{2\pi\hbar^2}{m k_B T}\right)^3$$
+
+\subsection{dft\_common\_g() -- Evaluate polylogarithm}
+
+Evaluate polylog $g_s(z)$ with $z$ as the first argument (REAL) and $s$ as the second (REAL). The return value is the polylogarithm (REAL).
+
+\subsection{dft\_common\_fit\_z() -- Invert polylogarithm $g_{3/2}$}
+
+Invert polylogarithm function $g_{3/2}$ (i.e., the value of the polylogarithm is known but not the argument to it). This function takes one argument that specifies the point where to invert the function (REAL). The polylog argument value is returned (REAL).
+
+\subsection{dft\_common\_classical\_idealgas\_dEdRho() -- $dE/d\rho$ for classical ideal gas}
+
+Calculate Free energy / volume derivative with respect to density (rho) for classical ideal gas. This function takes one argument (REAL) that specifies the value of density where the derivative is to be evaluated (REAL).
+
+\subsection{dft\_common\_classical\_idealgas\_energy() -- Energy of classical ideal gas}
+
+Calculate the energy for classical ideal gas ($NVT$). This function takes two arguments that specify the value of density and pointer to structure dft\_ot\_functional (for temperature and mass). The function returns the energy (REAL).
+
+\subsection{dft\_common\_bose\_idealgas\_energy() -- Energy of Bose ideal gas}
+
+Calculate the energy for Bose ideal gas ($NVT$). This function takes two arguments that specify the value of density and pointer to structure dft\_ot\_functional (for temperature and mass). The function returns the energy (REAL).
+
+\subsection{dft\_common\_bose\_idealgas\_dEdRho() -- $dE/d\rho$ for Bose ideal gas}
+
+Calculate Free energy / volume derivative with respect to density (rho) for Bose ideal gas. This function takes one argument (REAL) that specifies the value of density where the derivative is to be evaluated (REAL).
+
+\subsection{dft\_common\_read\_pot() -- Read pair-potential data from disk}
+
+This function reads equidistant pair-potential data from a file. It takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+char *file & File name for the potential.\\
+dft\_extpot *pot & Where to store the potential.\\
+\end{longtable}
+\noindent
+This function returns no value. The dft\_extpot structure is defined as:
+\begin{verbatim}
+typedef struct extpot {
+  REAL points[DFT_MAX_POTENTIAL_POINTS];/* Array holding potential energy values */
+  REAL begin;                           /* Starting distance for potential */
+  INT length;                           /* Number of points in the potential array */
+  REAL step;                            /* Step length between potential points */
+} dft_extpot;
+\end{verbatim}
+This function does not return any value.
+
+\subsection{dft\_common\_extpot() -- Map function based on pair-potential data}
+
+This function returns values based on given extpot\_set structure (potentials along $x$, $y$, and $z$) and can be used with grid\_map() routines. The arguments are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *arg & Potential set (dft\_extpot\_set *).\\
+REAL x & $x$-coordinate.\\
+REAL y & $y$-coordinate.\\
+REAL z & $z$-coordinate.\\
+\end{longtable}
+\noindent
+The extpot\_set structure is defined as:
+\begin{verbatim}
+typedef struct extpot_set {
+  dft_extpot *x;                    /* Potential along x-axis */
+  dft_extpot *y;                    /* Potential along y-axis */
+  dft_extpot *z;                    /* Potential along z-axis */
+  char average;                     /* Averaging: 0 = no averaging */
+                                    /* 1 = average in xy-plane */
+                                    /* 2 = average in yz-plane */
+                                    /* 3 = average in xz-plane */
+                                    /* 4 = spherical average */
+  REAL theta0;                      /* orientation of the potential */
+  REAL phi0;                        /* (theta0, phi0) (rotation) */
+  REAL x0, y0, z0;                  /* Origin for the potential */                                                               
+} dft_extpot_set;
+\end{verbatim}
+The function returns the potential value at $(x,y,z)$ (REAL).
+
+\subsection{dft\_common\_potential\_map\_rotate\_shift() -- Map potential with rotation and shifting}
+
+Map a potential given by ascii files into a grid. The arguments are:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+char average & 0 = no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ, 4 = average XYZ.\\
+char *file\_x & Potential along $x$ axis (file name).\\
+char *file\_y & Potential along $y$ axis (file name).\\
+char *file\_z & Potential along $z$ axis (file name).\\
+rgrid *potential & Output potential grid.\\
+REAL theta0 & Rotation angle theta for potential.\\
+REAL phi0   & Rotation angle phi for potential.\\
+REAL x0    & Origin $x$.\\
+REAL y0    & Origin $y$.\\
+REAL z0    & Origin $z$.\\
+\end{longtable}
+\noindent
+This function has no return value.
+
+\subsection{dft\_common\_potential\_smap\_rotate\_shift() -- Smooth map potential with rotation and shifting}
+
+Same as dft\_common\_potential\_map\_rotate\_shift() but includes smoothing of the potential.
+
+\subsection{dft\_common\_pot\_interpolate() -- Interpolated 3-D potential energy surface}
+
+
+
+\section{Initial guess functions}
 
 \section{Calculation of viscous response}
 
