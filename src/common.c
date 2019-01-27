@@ -1171,6 +1171,10 @@ EXPORT void dft_common_pot_spline(INT n, char **files, rgrid *out) {
  *
  *  in this case h = 2*pi / nx .
  *
+ * n     = Number of potential files (INT).
+ * files = Array of file names (char **).
+ * out   = Output grid (rgrid *).
+ * 
  * TODO: There's a better way to do this now that spline is implemented.
  * spline generates the second derivative as by-product.
  *
@@ -1235,11 +1239,12 @@ EXPORT void dft_common_pot_angularderiv(INT n, char **files, rgrid *out) {
  *
  * n     = Number of potentials along n different angles (INT).
  * files = Array of strings for file names containing the potentials (char **).
- * ni    = Number of intermediate angular points used in interpolation (int)
- *         (if zero, will be set to 10 * n, which works well).
  * out   = 3-D grid containing the angular interpolated potential grid. 
  * 
+ * No return value.
+ *
  */
+
 EXPORT void dft_common_pot_average(INT n, char **files, rgrid *out) {
   
   REAL x, y, z, r, step = out->step, pot_begin, pot_step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
@@ -1300,6 +1305,13 @@ EXPORT void dft_common_pot_average(INT n, char **files, rgrid *out) {
  * Plane wave suitable for grid_map() functions.
  *
  * arg specifies the plane wave params according to dft_plane_wave structure.
+ *
+ * arg    = Plane wave parameters (void * / dft_plane_wave *).
+ * x      = x coordinate (REAL).
+ * y      = y coordinate (REAL).
+ * z      = z coordinate (REAL).
+ *
+ * Returns the plane wave function value at (x, y, z).
  *
  */
 

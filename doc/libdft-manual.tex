@@ -9,7 +9,7 @@ om=2.45cm]{geometry}
 \usepackage{amssymb}
 \usepackage{graphicx}
 \author{Jussi Eloranta}
-\title{libgrid manual}
+\title{libdft manual}
 \begin{document}
 
 \maketitle
@@ -755,6 +755,73 @@ Same as dft\_common\_potential\_map\_rotate\_shift() but includes smoothing of t
 
 \subsection{dft\_common\_pot\_interpolate() -- Interpolated 3-D potential energy surface}
 
+Produce interpolated 3-D potential energy surface from n 1-D cuts along $\phi = 0, \pi/n, ..., \pi$ directions (symmetric for $]\pi,2\pi[$). Requires cylindrical symmetry for the overall potential (i.e., linear molecule). All potentials must have the same range, steps, number of points. The arguments are as follows:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+INT n & Number of potentials along $n$ different angles.\\
+char **files & Array of strings for file names containing the potentials.\\
+rgrid *out & 3-D real grid containing the angular interpolated potential data.\\
+\end{longtable}
+\noindent
+This function has no return value.
+
+\subsection{dft\_common\_pot\_spline() -- Spline interpolated 3-D potential energy surface}
+
+Like dft\_common\_pot\_interpolate() but uses spline interpolation.
+
+\subsection{dft\_common\_pot\_angularderiv() -- Angular derivative of potential (from files)}
+
+Compute the (numerical) second derivative with respect to the angle of the potential.
+This is done via second-order finite difference formula:
+$$f''(i) = h^2 ( f(i-1) - 2f(i) + f(i+1) )$$
+where $h = 2\pi / nx$. This function takes the following arguments:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+INT n & Number of potential files.\\
+char **files & Array of file names that form the potential surface.\\
+rgrid *out & Output grid containing angular derivatives.\\
+\end{longtable}
+\noindent
+This function has no return value.
+
+\subsection{dft\_common\_pot\_average() -- Spherically averaged potential (from files)}
+
+Produce spherically averaged 1-D potential energy surface from $n$ 1-D cuts along $\phi = 0, \pi/n, ..., \pi$ directions. Note that this is different from dft\_common\_pot\_interpolate() where you must give potentials for the whole $2\pi$. 
+This routine requires cylindrical symmetry for the overall potential (i.e., linear molecule). All potentials must have the same range, steps, number of points. The arguments are as follows:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+INT n  & Number of potentials along $n$ different angles.\\
+char **files & Array of strings for file names containing the potential file names.\\
+rgrid *out & Real grid containing the angular interpolated potential grid.\\
+\end{longtable}
+\noindent
+This function has no return value.
+
+\subsection{dft\_common\_planewave() -- Plane wave function}
+
+Implement plane wave function that is suitable for grid\_map() functions. Here arg specifies the plane wave params according to dft\_plane\_wave structure. The function takes arguments as:
+\begin{longtable}{p{.25\textwidth} p{.6\textwidth}}
+Argument & Description\\
+\cline{1-2}
+void *arg & Plane wave parameters (dft\_plane\_wave *).\\
+REAL x & $x$ coordinate.\\
+REAL y & $y$ coordinate.\\
+REAL z & $z$ coordinate.\\
+\end{longtable}
+\noindent
+This function returns the plane wave function value at $(x, y, z)$ (REAL). The dft\_plane\_wave structure is defined as:
+\begin{verbatim}
+typedef struct {
+  REAL kx, ky, kz;    /* Wave vectors along x, y, z */
+  REAL a;             /* Relative amplitude */
+                      /* Absolute amp = a * sqrt(rho) */
+  REAL rho;           /* Background amplitude = sqrt(rho) */
+                      /* (add this constant to plane wave) */
+} dft_plane_wave;
+\end{verbatim}
 
 
 \section{Initial guess functions}
