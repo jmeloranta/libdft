@@ -60,9 +60,6 @@ static REAL z[NN] = {0.0, 0.0, 0.0};
 #define OMEGA 1E-9
 #endif
 
-#define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
-#define HBAR 1.0        /* au */
-
 REAL switch_axis(void *xx, REAL x, REAL y, REAL z) {
 
   rgrid *grid = (rgrid *) xx;
@@ -77,7 +74,7 @@ int main(int argc, char **argv) {
   rgrid *ext_pot, *density, *px, *py, *pz;
   wf *gwf, *gwfp;
   INT iter, N, i;
-  REAL energy, natoms, beff, i_add, lx, ly, lz, i_free, b_free, mass, cmx, cmy, cmz, mu0, rho0;
+  REAL energy, natoms, beff, i_add, lz, i_free, b_free, mass, cmx, cmy, cmz, mu0, rho0;
   grid_timer timer;
 
   /* Normalization condition */
@@ -88,7 +85,8 @@ int main(int argc, char **argv) {
   N = (INT) atoi(argv[1]);
 
 #ifdef USE_CUDA
-  cuda_enable(1);
+// Disabled for debugging
+//  cuda_enable(1);
 #endif
 
   /* Initialize threads & use wisdom */
@@ -96,7 +94,7 @@ int main(int argc, char **argv) {
   grid_threads_init(THREADS);
   grid_fft_read_wisdom(NULL);
 
-  /* Allocate wave functions */
+  /* Allocate wave functions (CN needed for rotation) */
   if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_CN, "gwf"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
@@ -135,7 +133,6 @@ int main(int argc, char **argv) {
   rgrid_read_grid(ext_pot, POTENTIAL);
 #endif
   density->value_outside = RGRID_PERIODIC_BOUNDARY;   // done, back to original
-  rgrid_add(ext_pot, 7.2 / GRID_AUTOK);
 
   printf("Omega = " FMT_R "\n", OMEGA);
   gwf->grid->omega = OMEGA;
@@ -175,10 +172,10 @@ int main(int argc, char **argv) {
     printf("I_molecule = " FMT_R " AMU Angs^2\n", i_free * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
     printf("B_molecule = " FMT_R " cm-1.\n", b_free * GRID_AUTOCM1);
     /* Liquid contribution to the moment of inertia */
-    cgrid_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in grid_wf_l() and -wL_z in the Hamiltonian <- ?
+    cgrid_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in grid_wf_l() and -wL_z in the Hamiltonian
     cgrid_set_origin(gwfp->grid, cmx, cmy, cmz);// the point x=0 is shift by cmX 
-    grid_wf_l(gwf, &lx, &ly, &lz, otf->workspace1, otf->workspace2);
-    i_add = gwf->mass * lz / OMEGA;  // grid_wf_l() does not multiply by mass as did the dft
+    lz = grid_wf_lz(gwf, otf->workspace1, otf->workspace2);
+    i_add = gwf->mass * lz / OMEGA;  // grid_wf_lz() does not multiply by mass as did the dft
     printf("I_eff = " FMT_R " AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
     beff =  HBAR * HBAR / (2.0 * (i_free + i_add));
     printf("B_eff = " FMT_R " cm-1.\n", beff * GRID_AUTOCM1);
@@ -192,13 +189,12 @@ int main(int argc, char **argv) {
     dft_ot_potential(otf, potential_store, gwf);
     cgrid_add(potential_store, -mu0);
     grid_wf_propagate_predict(gwf, gwfp, potential_store, -I * TIME_STEP / GRID_AUTOFS);
-    grid_wf_normalize(gwfp);
     grid_add_real_to_complex_re(potential_store, ext_pot);
     dft_ot_potential(otf, potential_store, gwfp);
     cgrid_add(potential_store, -mu0);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
     grid_wf_propagate_correct(gwf, potential_store, -I * TIME_STEP / GRID_AUTOFS);
-    if(N) grid_wf_normalize(gwf);
+    if(N) grid_wf_normalize(gwf); // droplet
     // If N = 0, Chemical potential included - no need to normalize
 
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));

@@ -85,14 +85,14 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
 
   /* TODO: There is code for other BCs too */
 
-  if(gwf->grid->value_outside != CGRID_PERIODIC_BOUNDARY) {
-    fprintf(stderr, "libdft: Only periodic boundaries supported.\n");
-    exit(1);
-  }
+//  if(gwf->grid->value_outside != CGRID_PERIODIC_BOUNDARY) {
+//    fprintf(stderr, "libdft: Only periodic boundaries supported.\n");
+//    exit(1);
+//  }
 
   dft_ot_temperature(otf, model);
 
-  // TODO: Periodic BC hardcoded.
+  // TODO: Periodic BC hardcoded at the moment.
 
   /* these grids are not needed for GP */
   if(!(model & DFT_GP) && !(model & DFT_ZERO) && !(model & DFT_GP2)) {
