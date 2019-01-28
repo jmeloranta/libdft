@@ -18,8 +18,7 @@
 /* Only imaginary time */
 #define TIME_STEP 20.0	/* Time step in fs (5 for real, 10 for imag) */
 #define IMP_STEP 0.2	/* Time step in fs (5 for real, 10 for imag) */
-#define STARTING_ITER 1 /* Starting iteration - be careful if set to zero */
-#define MAXITER (20000 + STARTING_ITER) /* Maximum number of iterations (was 300) */
+#define MAXITER 20000  /* Maximum number of iterations (was 300) */
 #define OUTPUT     200	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
 #define NX 128       	/* # of grid points along x */
@@ -114,7 +113,7 @@ int main(int argc, char *argv[]) {
   dft_common_potential_map(4, "../electron/jortner.dat", "../electron/jortner.dat", "../electron/jortner.dat", pair_pot);
   rgrid_fft(pair_pot);
 
-  for(iter = STARTING_ITER; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
+  for(iter = 0; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */
     if(iter == 5) grid_fft_write_wisdom(NULL);
     grid_timer_start(&timer);
 
@@ -137,11 +136,12 @@ int main(int argc, char *argv[]) {
       kin = grid_wf_energy(impwf, NULL);     /* kinetic */ 
       pot = grid_wf_potential_energy(impwf, ext_pot);  /* potential */
       printf("Output at iteration " FMT_I ":\n", iter);
-      printf("Impurity kinetic   = " FMT_R "\n", kin * GRID_AUTOK);  /* Print result in K */
-      printf("Impurity potential = " FMT_R "\n", pot * GRID_AUTOK);  /* Print result in K */
-      printf("Impurity energy    = " FMT_R "\n", (kin + pot) * GRID_AUTOK);  /* Print result in K */
+      printf("Impurity kinetic   = " FMT_R " K\n", kin * GRID_AUTOK);  /* Print result in K */
+      printf("Impurity potential = " FMT_R " K\n", pot * GRID_AUTOK);  /* Print result in K */
+      printf("Impurity energy    = " FMT_R " K\n", (kin + pot) * GRID_AUTOK);  /* Print result in K */
       fflush(stdout);
       /* Impurity density */
+      grid_wf_density(impwf, otf->density);
       sprintf(filename, "ebubble_imp-" FMT_I, iter);
       rgrid_write_grid(filename, otf->density);      /* Write wavefunction to file */
     }

@@ -178,7 +178,8 @@ int main(int argc, char *argv[]) {
   /* Include vortex line initial guess along Z */
 #ifdef INCLUDE_VORTEX
   fprintf(stderr,"Vortex included.\n");
-  cgrid_map(gwf->grid, &dft_initial_vortex_z_n1, NULL);
+  grid_wf_map(gwf, &dft_initial_vortex_z_n1, NULL);
+  cgrid_multiply(gwf->grid, SQRT(rho0));
 #else
   cgrid_constant(gwf->grid, SQRT(rho0));
 #endif
@@ -250,9 +251,8 @@ int main(int argc, char *argv[]) {
 #endif
 
     /* Predict-Correct */
-    cgrid_zero(potential_store);
+    grid_real_to_complex_re(potential_store, rworkspace);
     dft_ot_potential(otf, potential_store, gwf);
-    grid_add_real_to_complex_re(potential_store, rworkspace);
     cgrid_add(potential_store, -mu0);
     grid_wf_propagate_predict(gwf, gwfp, potential_store, -I * time_step / GRID_AUTOFS);  // Imag time
     dft_ot_potential(otf, potential_store, gwfp);

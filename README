@@ -1,15 +1,15 @@
-Library for Orsay-Trento helium DFT.
-Compilation parameters are taken from libgrid make.conf.
+Library for Orsay-Trento helium DFT (and related functions) as well as
+general Gross-Pitaevskii model.
 
-Needs: libgrid and fftw.
-
-Note: Although libgrid supports single precision floating point numbers, these are often not adequate
-for calculations that propagate systems over long periods of time.
-
-List of people how contributed to the code:
+List of people who contributed to the code:
 
 1) Lauri Lehtovaara
 2) David Mateo
-3) Jussi Eloranta
+3) Jussi Eloranta (eloranta@aa6kj.hopto.org)
 
-For licensing, see doc/GPL.txt.
+For licensing, see doc/GPL.txt. For installation, see the manual under doc
+directory.
+
+This project was partly funded by National Science Foundation grants 
+CHE-0949057, CHE-1262306 and DMR-1205734.
+

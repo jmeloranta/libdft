@@ -117,9 +117,11 @@ int main(int argc, char **argv) {
     /* Predict-Correct */
     cgrid_zero(potential_store);
     dft_ot_potential(otf, potential_store, gwf);
+    grid_add_real_to_complex_re(potential_store, ext_pot);
     cgrid_add(potential_store, -mu0);
     grid_wf_propagate_predict(gwf, gwfp, potential_store, -I * TS / GRID_AUTOFS);
     dft_ot_potential(otf, potential_store, gwfp);
+    grid_add_real_to_complex_re(potential_store, ext_pot);
     cgrid_add(potential_store, -mu0);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
     grid_wf_propagate_correct(gwf, potential_store, -I * TS / GRID_AUTOFS);
