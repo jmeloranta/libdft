@@ -22,7 +22,7 @@
 #define PRESSURE 0.0
 
 #define MAXITER 10000000
-#define NTH 1000
+#define NTH 50
 
 #define THREADS 0
 
@@ -199,7 +199,7 @@ int main(int argc, char **argv) {
   gwfp = grid_wf_clone(gwf, "gwfp");
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
@@ -246,15 +246,15 @@ int main(int argc, char **argv) {
       rgrid_write_grid(buf, density);
       sprintf(buf, "wf-output-" FMT_I, iter);
       cgrid_write_grid(buf, gwf->grid);
+      dft_ot_energy_density(otf, density, gwf);
+      rgrid_add_scaled_product(density, 1.0, otf->density, ext_pot);
+      energy = grid_wf_energy(gwf, NULL) + rgrid_integral(density);
+      natoms = grid_wf_norm(gwf);
+      printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
+      printf("Number of He atoms is " FMT_R ".\n", natoms);
+      printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
+      fflush(stdout);
     }
-    dft_ot_energy_density(otf, density, gwf);
-    rgrid_add_scaled_product(density, 1.0, otf->density, ext_pot);
-    energy = grid_wf_energy(gwf, NULL) + rgrid_integral(density);
-    natoms = grid_wf_norm(gwf);
-    printf("Total energy is " FMT_R " K\n", energy * GRID_AUTOK);
-    printf("Number of He atoms is " FMT_R ".\n", natoms);
-    printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
-    fflush(stdout);
   }
   /* At this point gwf contains the converged wavefunction */
   grid_wf_density(gwf, density);

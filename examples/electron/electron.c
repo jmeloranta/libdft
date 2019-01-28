@@ -47,6 +47,7 @@ int main(int argc, char *argv[]) {
   wf *egwf = NULL;
   rgrid *rworkspace = NULL, *pseudo = NULL;
   cgrid *potential_store = NULL;
+  grid_timer timer;
 
   /* parameters */
   if (argc < 2) {
@@ -226,6 +227,8 @@ int main(int argc, char *argv[]) {
       cgrid_write_grid(chk, gwf->grid);
     }
 
+    grid_timer_start(&timer);
+
 #ifdef INCLUDE_ELECTRON
     /***** Electron *****/
     grid_wf_density(gwf, rworkspace);
@@ -261,6 +264,8 @@ int main(int argc, char *argv[]) {
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
     grid_wf_propagate_correct(gwf, potential_store, -I * time_step / GRID_AUTOFS);   // Imag time
     // Chemical potential included - no need to normalize
+
+    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", l, grid_timer_wall_clock_time(&timer));
   }
   return 0;
 }

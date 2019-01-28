@@ -24,6 +24,12 @@
  * otf            = OT  functional structure (dft_ot_functional *; input).
  * energy_density = energy density grid (rgrid *; output).
  *
+ * Workspace usage:
+ * GP: none
+ * Plain OT: workspace1 - workspace2
+ * KC: workspace1 - workspace8
+ * BF: workspace1 - workspace7
+ *
  * No return value.
  *
  */
@@ -35,15 +41,6 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
 
   density = otf->density;  
   grid_wf_density(wf, density);
-  workspace1 = otf->workspace1;
-  workspace2 = otf->workspace2;
-  workspace3 = otf->workspace3;
-  workspace4 = otf->workspace4;
-  workspace5 = otf->workspace5;
-  workspace6 = otf->workspace6;
-  workspace7 = otf->workspace7;
-  workspace8 = otf->workspace8;
-// not used  workspace9 = otf->workspace9;
 
   rgrid_zero(energy_density);
 
@@ -57,6 +54,17 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
     rgrid_add_scaled_product(energy_density, 0.5 * otf->mu0 / otf->rho0, density, density);
     return;
   }
+
+  if(!otf->workspace1) otf->workspace1 = rgrid_clone(otf->density, "OTF workspace1");
+  if(!otf->workspace2) otf->workspace2 = rgrid_clone(otf->density, "OTF workspace2");
+  workspace1 = otf->workspace1;
+  workspace2 = otf->workspace2;
+  workspace3 = NULL;
+  workspace4 = NULL;
+  workspace5 = NULL;
+  workspace6 = NULL;
+  workspace7 = NULL;
+  workspace8 = NULL;
 
   /* transform rho (wrk1) */
   rgrid_copy(workspace1, density);
@@ -100,9 +108,23 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
     grid_func6b_operate_one(workspace1, density, otf->mass, otf->temp, otf->c4);
     rgrid_sum(energy_density, energy_density, workspace1);
   }
-  
+
   /* begin kinetic energy correlation energy density */
   if(otf->model & DFT_OT_KC) { /* new code */
+
+    if(!otf->workspace3) otf->workspace3 = rgrid_clone(otf->density, "OTF workspace3");
+    if(!otf->workspace4) otf->workspace4 = rgrid_clone(otf->density, "OTF workspace4");
+    if(!otf->workspace5) otf->workspace5 = rgrid_clone(otf->density, "OTF workspace5");
+    if(!otf->workspace6) otf->workspace6 = rgrid_clone(otf->density, "OTF workspace6");
+    if(!otf->workspace7) otf->workspace7 = rgrid_clone(otf->density, "OTF workspace7");
+    if(!otf->workspace8) otf->workspace8 = rgrid_clone(otf->density, "OTF workspace8");
+    workspace3 = otf->workspace3;
+    workspace4 = otf->workspace4;
+    workspace5 = otf->workspace5;
+    workspace6 = otf->workspace6;
+    workspace7 = otf->workspace7;
+    workspace8 = otf->workspace8;
+
     /* 1. convolute density with F to get \tilde{\rho} (wrk1) */
     rgrid_copy(workspace2, density);
     rgrid_fft(workspace2);
@@ -155,25 +177,29 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
   }
 
   if(otf->model & DFT_OT_BACKFLOW) {
+
+    if(!otf->workspace3) otf->workspace3 = rgrid_clone(otf->density, "OTF workspace 3");
+    if(!otf->workspace4) otf->workspace4 = rgrid_clone(otf->density, "OTF workspcae 4");
+    if(!otf->workspace5) otf->workspace5 = rgrid_clone(otf->density, "OTF workspace 5");
+    if(!otf->workspace6) otf->workspace6 = rgrid_clone(otf->density, "OTF workspace 6");
+    if(!otf->workspace7) otf->workspace7 = rgrid_clone(otf->density, "OTF workspace 7");
+    workspace3 = otf->workspace3;
+    workspace4 = otf->workspace4;
+    workspace5 = otf->workspace5;
+    workspace6 = otf->workspace6;
+    workspace7 = otf->workspace7;
+    workspace8 = NULL;
+
     if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
       /* M & M high density cutoff */
       grid_func2_operate_one(workspace7, density, otf->xi, otf->rhobf);
-//      rgrid_operate_one(workspace7, density, dft_ot_bf_pi_energy_op, otf);
     } else {
       /* Original BF */
       rgrid_copy(workspace7, density);
     }
     // workspace7 = density from this on
     
-    // grid_wf_momentum(wf, workspace1, workspace2, workspace3, ...); But can't do since we don't have cmplx workspaces
-#if 0
-    grid_wf_probability_flux(wf, workspace1, workspace2, workspace3);    /* finite difference */
-    rgrid_division_eps(workspace1, workspace1, workspace7, DFT_BF_EPS);  /* velocity = flux / rho, v_x */
-    rgrid_division_eps(workspace2, workspace2, workspace7, DFT_BF_EPS);  /* v_y */
-    rgrid_division_eps(workspace3, workspace3, workspace7, DFT_BF_EPS);  /* v_z */
-#else
     grid_wf_velocity(wf, workspace1, workspace2, workspace3, otf->veloc_cutoff);
-#endif
     rgrid_product(workspace4, workspace1, workspace1);   /* v_x^2 */
     rgrid_product(workspace5, workspace2, workspace2);   /* v_y^2 */
     rgrid_sum(workspace4, workspace4, workspace5);
