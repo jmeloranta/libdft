@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
   for ( ; iter < MAXITER; iter++) {
 
     /* Output every NTH iteration */
-    if(!(iter % NTH)) {
+    if(iter >= IITER && !(iter % NTH)) {
       sprintf(buf, "bubble-" FMT_I, iter); /* construct file name */
       grid_wf_density(gwf, density);  /* get density from gwf */
       rgrid_write_grid(buf, density); /* write density to disk */

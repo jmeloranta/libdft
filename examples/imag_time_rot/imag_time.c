@@ -85,7 +85,6 @@ int main(int argc, char **argv) {
   N = (INT) atoi(argv[1]);
 
 #ifdef USE_CUDA
-// Disabled for debugging
 //  cuda_enable(1);
 #endif
 
@@ -95,7 +94,7 @@ int main(int argc, char **argv) {
   grid_fft_read_wisdom(NULL);
 
   /* Allocate wave functions (CN needed for rotation) */
-  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_CN, "gwf"))) {
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_NEUMANN_BOUNDARY, WF_2ND_ORDER_CN, "gwf"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }
@@ -127,20 +126,21 @@ int main(int argc, char **argv) {
   /* Read external potential from file */
   density->value_outside = RGRID_DIRICHLET_BOUNDARY;  // for extrapolation to work
 #ifdef SWITCH_AXIS
-  rgrid_read_grid(density, POTENTIAL);
+  rgrid_read_grid_compat(density, POTENTIAL);
   rgrid_map(ext_pot, switch_axis, density);
 #else
-  rgrid_read_grid(ext_pot, POTENTIAL);
+  rgrid_read_grid_compat(ext_pot, POTENTIAL);
 #endif
   density->value_outside = RGRID_PERIODIC_BOUNDARY;   // done, back to original
 
+  /* Rotation about z-axis */
   printf("Omega = " FMT_R "\n", OMEGA);
-  gwf->grid->omega = OMEGA;
-  gwfp->grid->omega = OMEGA;
+  cgrid_set_rotation(gwf->grid, OMEGA);
+  cgrid_set_rotation(gwfp->grid, OMEGA);
 
   cgrid_constant(gwf->grid, SQRT(rho0));
 
-  for (iter = 1; iter < MAXITER; iter++) {
+  for (iter = 0; iter < MAXITER; iter++) {
     
     // Center of mass of the rotating system
     // 1. The molecule
@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
       cmz += z[i] * masses[i];
       mass += masses[i];
     }
-    cmx /= mass; cmy /= mass; cmz /= mass;    
+    cmx /= mass; cmy /= mass; cmz /= mass;
     // 2. Liquid
     grid_wf_probability_flux_y(gwf, density);
     cmx += rgrid_integral(density) * gwf->mass / (2.0 * OMEGA * mass);
@@ -196,6 +196,7 @@ int main(int argc, char **argv) {
     grid_wf_propagate_correct(gwf, potential_store, -I * TIME_STEP / GRID_AUTOFS);
     if(N) grid_wf_normalize(gwf); // droplet
     // If N = 0, Chemical potential included - no need to normalize
+    printf("Norm = " FMT_R "\n", grid_wf_norm(gwf));
 
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
 
