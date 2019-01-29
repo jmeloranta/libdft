@@ -3,7 +3,9 @@
  *
  * All input in a.u. except the time step, which is fs.
  *
- * TODO: Does the hamiltonian respect the new origin?
+ * NOTE: The sample potential files (OCS and HCN) were generated
+ *       with old version of libgrid and they must be read in
+ *       using the _compat versions of the grid read-in functions.
  *
  */
 
