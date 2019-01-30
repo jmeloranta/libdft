@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
   N = (INT) atoi(argv[1]);
 
 #ifdef USE_CUDA
-//  cuda_enable(1);
+  cuda_enable(1);
 #endif
 
   /* Initialize threads & use wisdom */
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
   } else printf("Bulk helium liquid.\n");
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_KC, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
@@ -176,7 +176,8 @@ int main(int argc, char **argv) {
     /* Liquid contribution to the moment of inertia */
     cgrid_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in grid_wf_l() and -wL_z in the Hamiltonian
     cgrid_set_origin(gwfp->grid, cmx, cmy, cmz);// the point x=0 is shift by cmX 
-    lz = grid_wf_lz(gwf, otf->workspace1, otf->workspace2);
+    lz = grid_wf_lz(gwf, otf->density);
+    printf("lz = " FMT_R "\n", lz);
     i_add = gwf->mass * lz / OMEGA;  // grid_wf_lz() does not multiply by mass as did the dft
     printf("I_eff = " FMT_R " AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
     beff =  HBAR * HBAR / (2.0 * (i_free + i_add));
