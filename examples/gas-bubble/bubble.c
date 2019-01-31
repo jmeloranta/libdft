@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
 #ifdef OUTPUT_GRID
   char filename[2048];
 #endif
-  REAL vx, mu0, kx, rho0;
+  REAL vz, mu0, kz, rho0;
   INT iter;
   extern void analyze(dft_ot_functional *, wf *, INT, REAL);
   extern REAL pot_func(void *, REAL, REAL, REAL);
@@ -91,21 +91,21 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Potential: RMIN = " FMT_R ", RADD = " FMT_R ", A0 = " FMT_R ", A1 = " FMT_R ", A2 = " FMT_R ", A3 = " FMT_R ", A4 = " FMT_R ", A5 = " FMT_R "\n", RMIN, RADD, A0, A1, A2, A3, A4, A5);
   
   /* Setup frame of reference momentum (for both imaginary & real time) */
-  vx = round_veloc(VX);     /* Round velocity to fit the spatial grid */
-  kx = momentum(vx);
-  cgrid_set_momentum(gwf->grid, kx, 0.0, 0.0);
+  vz = round_veloc(VZ);     /* Round velocity to fit the spatial grid */
+  kz = momentum(vz);
+  cgrid_set_momentum(gwf->grid, 0.0, 0.0, kz);
 #ifdef PC
-  cgrid_set_momentum(gwfp->grid, kx, 0.0, 0.0);
-  cgrid_set_momentum(cworkspace, kx, 0.0, 0.0);
+  cgrid_set_momentum(gwfp->grid, 0.0, 0.0, kz);
+  cgrid_set_momentum(cworkspace, 0.0, 0.0, kz);
 #endif
-  mu0 = mu0 + (HBAR * HBAR / (2.0 * gwf->mass)) * kx * kx;  // Moving background contribution to mu0
+  mu0 = mu0 + (HBAR * HBAR / (2.0 * gwf->mass)) * kz * kz;  // Moving background contribution to mu0
 
   fprintf(stderr, "Time step in fs   = " FMT_R "\n", TIME_STEP);
   fprintf(stderr, "Time step in a.u. = " FMT_R "\n", TIME_STEP / GRID_AUTOFS);
-  fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (au)\n", vx, 0.0, 0.0);
+  fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (au)\n", vz, 0.0, 0.0);
   fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (A/ps)\n", 
-		  vx * 1000.0 * GRID_AUTOANG / GRID_AUTOFS, 0.0, 0.0);
-  fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (m/s)\n", vx * GRID_AUTOMPS, 0.0, 0.0);
+		  vz * 1000.0 * GRID_AUTOANG / GRID_AUTOFS, 0.0, 0.0);
+  fprintf(stderr, "Relative velocity = (" FMT_R ", " FMT_R ", " FMT_R ") (m/s)\n", vz * GRID_AUTOMPS, 0.0, 0.0);
 
   rgrid_smooth_map(ext_pot, pot_func, NULL, 2); /* External potential */
 
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
       do_ke(gwf, TIME_STEP * (REAL) iter);
     }
 #endif
-    if(!(iter % OUTPUT_ITER)) analyze(otf, gwf, iter, vx);
+    if(!(iter % OUTPUT_ITER)) analyze(otf, gwf, iter, vz);
 #ifdef PC
     /* Predict-Correct */
     grid_real_to_complex_re(cworkspace, ext_pot);

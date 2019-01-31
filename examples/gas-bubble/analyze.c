@@ -38,7 +38,7 @@ void do_ke(dft_ot_functional *otf, wf *gwf, REAL tim) {
   fclose(fp);
 }
 
-void analyze(dft_ot_functional *otf, wf *wf, INT iter, REAL vx) {
+void analyze(dft_ot_functional *otf, wf *wf, INT iter, REAL vz) {
 
   static REAL cur_mom_x = 0.0, cur_mom_y = 0.0, cur_mom_z = 0.0;
   static REAL prev_mom_x = 0.0, prev_mom_y = 0.0, prev_mom_z = 0.0;
@@ -63,7 +63,7 @@ void analyze(dft_ot_functional *otf, wf *wf, INT iter, REAL vx) {
   cur_mom_y = rgrid_integral(cur_y) * wf->mass;
   cur_mom_z = rgrid_integral(cur_z) * wf->mass;
     
-  if(vx > 0.0) printf("Added mass = " FMT_R " He atoms.\n", cur_mom_x / (wf->mass * vx));
+  if(vz > 0.0) printf("Added mass = " FMT_R " He atoms.\n", cur_mom_z / (wf->mass * vz));
 
   grid_wf_density(wf, circ);
   printf("Number of He atoms = " FMT_R "\n", rgrid_integral(circ));

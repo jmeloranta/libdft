@@ -7,17 +7,17 @@
 #define TIME_STEP 15.0
 
 /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
-#define FUNCTIONAL (DFT_OT_PLAIN)
+#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
 
 /* Start real time simulation at this time (fs) - (400,000) */
-#define STARTING_TIME 100.0
+#define STARTING_TIME 400000.0
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP))
 
 /* Maximum number of real time iterations */
 #define MAXITER 80000000 
 
 /* Output interval time (fs) (2500) */
-#define OUTPUT_TIME 500.0
+#define OUTPUT_TIME 2500.0
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))
 
 /* Output grid at given iterations (10,000) (leave undefined if not needed) */
@@ -32,15 +32,15 @@
 /* #define PC */
 
 /* Flow velocity (m/s) */
-#define VX (100.0 / GRID_AUTOMPS)
+#define VZ (75.0 / GRID_AUTOMPS)
 
 /* External pressure in bar (normal = 0) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 512    	/* # of grid points along x */ /* Largest: 729x384x384 */
+#define NX 256    	/* # of grid points along x */ /* Largest: 729x384x384 */
 #define NY 256          /* # of grid points along y */
-#define NZ 256        	/* # of grid points along z */
+#define NZ 512        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 #define ABS_AMP 2.0     /* Absorption strength */
 #define ABS_WIDTH_X 60.0  /* Width of the absorbing boundary */
