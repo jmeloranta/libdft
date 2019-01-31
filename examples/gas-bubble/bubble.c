@@ -110,6 +110,7 @@ int main(int argc, char *argv[]) {
   rgrid_smooth_map(ext_pot, pot_func, NULL, 2); /* External potential */
 
   if(argc == 1) {
+    grid_wf_constant(gwf, SQRT(rho0));
     /* Mixed Imaginary & Real time iterations */
     fprintf(stderr, "Warm up iterations.\n");
 
