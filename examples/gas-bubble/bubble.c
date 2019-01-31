@@ -6,7 +6,7 @@
 
 #include "bubble.h"
 
-extern void do_ke(wf *, REAL);
+extern void do_ke(dft_ot_functional *, wf *, REAL);
 
 REAL round_veloc(REAL veloc) {   // Round to fit the simulation box
 
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
     if(!(iter % OUTPUT_GRID)) {
       sprintf(filename, "liquid-" FMT_R, ((REAL) iter) * TIME_STEP);
       cgrid_write_grid(filename, gwf->grid);
-      do_ke(gwf, TIME_STEP * (REAL) iter);
+      do_ke(otf, gwf, TIME_STEP * (REAL) iter);
     }
 #endif
     if(!(iter % OUTPUT_ITER)) analyze(otf, gwf, iter, vz);
