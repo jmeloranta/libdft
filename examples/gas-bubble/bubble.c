@@ -6,7 +6,7 @@
 
 #include "bubble.h"
 
-extern void do_ke(dft_ot_functional *, wf *, REAL);
+extern void do_ke(dft_ot_functional *, wf *, INT);
 
 REAL round_veloc(REAL veloc) {   // Round to fit the simulation box
 
@@ -85,6 +85,8 @@ int main(int argc, char *argv[]) {
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
   printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+  // Velocity cutoff
+  otf->veloc_cutoff = MAXVELOC;
 
   ext_pot = rgrid_clone(otf->density, "ext_pot");                /* allocate real external potential grid */
 
@@ -153,9 +155,9 @@ int main(int argc, char *argv[]) {
   for( ; iter < MAXITER; iter++) {
 #ifdef OUTPUT_GRID
     if(!(iter % OUTPUT_GRID)) {
-      sprintf(filename, "liquid-" FMT_R, ((REAL) iter) * TIME_STEP);
+      sprintf(filename, "liquid-" FMT_I, iter);
       cgrid_write_grid(filename, gwf->grid);
-      do_ke(otf, gwf, TIME_STEP * (REAL) iter);
+      do_ke(otf, gwf, iter);
     }
 #endif
     if(!(iter % OUTPUT_ITER)) analyze(otf, gwf, iter, vz);

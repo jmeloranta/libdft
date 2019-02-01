@@ -8,7 +8,7 @@
 #include "bubble.h"
 
 /* Output incompressible kinetic energy distribution in the k-space */
-void do_ke(dft_ot_functional *otf, wf *gwf, REAL tim) {
+void do_ke(dft_ot_functional *otf, wf *gwf, INT iter) {
 
   static REAL *bins = NULL;
   FILE *fp;
@@ -27,8 +27,19 @@ void do_ke(dft_ot_functional *otf, wf *gwf, REAL tim) {
       exit(1);
     }
   }
+  /* Incompressible part */
   grid_wf_incomp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, otf->workspace5);
-  sprintf(file, "ke-" FMT_R ".dat", tim);
+  sprintf(file, "ke-incomp-" FMT_I ".dat", iter);
+  if(!(fp = fopen(file, "w"))) {
+    fprintf(stderr, "Can't open %s.\n", file);
+    exit(1);
+  }
+  for(i = 1; i < NBINS; i++)  /* Leave out the DC component (= zero) */
+    fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
+  fclose(fp);
+  /* Compressible part */
+  grid_wf_comp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4);
+  sprintf(file, "ke-comp-" FMT_I ".dat", iter);
   if(!(fp = fopen(file, "w"))) {
     fprintf(stderr, "Can't open %s.\n", file);
     exit(1);

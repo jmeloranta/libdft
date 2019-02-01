@@ -32,15 +32,17 @@
 /* #define PC */
 
 /* Flow velocity (m/s) */
-#define VZ (75.0 / GRID_AUTOMPS)
+#define VZ (70.0 / GRID_AUTOMPS)
+/* Maximum velocity allowed for evaluating backflow */
+#define MAXVELOC (250.0 / GRID_AUTOMPS);
 
 /* External pressure in bar (normal = 0) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define NX 256    	/* # of grid points along x */ /* Largest: 729x384x384 */
-#define NY 256          /* # of grid points along y */
-#define NZ 512        	/* # of grid points along z */
+#define NY 256         /* # of grid points along y */
+#define NZ 1024        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 #define ABS_AMP 2.0     /* Absorption strength */
 #define ABS_WIDTH_X 60.0  /* Width of the absorbing boundary */
