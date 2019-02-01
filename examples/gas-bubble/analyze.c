@@ -58,7 +58,7 @@ void analyze(dft_ot_functional *otf, wf *wf, INT iter, REAL vz) {
   extern REAL dpot_func_y(void *, REAL, REAL, REAL);
   extern REAL dpot_func_z(void *, REAL, REAL, REAL);
 
-  printf("Current time = " FMT_R " fs.\n", ((REAL) iter) * TIME_STEP * GRID_AUTOFS);
+  printf("Iteration = " FMT_I ", Current time = " FMT_R " fs.\n", iter, ((REAL) iter) * TIME_STEP * GRID_AUTOFS);
 
   if(!(otf->workspace1)) otf->workspace1 = rgrid_clone(otf->density, "OT Workspace 1");
   if(!(otf->workspace2)) otf->workspace2 = rgrid_clone(otf->density, "OT Workspace 2");
@@ -82,9 +82,9 @@ void analyze(dft_ot_functional *otf, wf *wf, INT iter, REAL vz) {
     printf("Drag force1_x = " FMT_R " (au).\n", -rgrid_weighted_integral(circ, dpot_func_x, NULL)); // circ = density here
     printf("Drag force1_y = " FMT_R " (au).\n", -rgrid_weighted_integral(circ, dpot_func_y, NULL)); // circ = density here
     printf("Drag force1_z = " FMT_R " (au).\n", -rgrid_weighted_integral(circ, dpot_func_z, NULL)); // circ = density here
-    printf("Drag force2_x = " FMT_R " (au).\n",  (cur_mom_x - prev_mom_x) / (TIME_STEP * ((REAL) OUTPUT_ITER) / GRID_AUTOFS));
-    printf("Drag force2_y = " FMT_R " (au).\n",  (cur_mom_y - prev_mom_y) / (TIME_STEP * ((REAL) OUTPUT_ITER) / GRID_AUTOFS));
-    printf("Drag force2_z = " FMT_R " (au).\n",  (cur_mom_z - prev_mom_z) / (TIME_STEP * ((REAL) OUTPUT_ITER) / GRID_AUTOFS));
+    printf("Drag force2_x = " FMT_R " (au).\n",  (cur_mom_x - prev_mom_x) / (TIME_STEP * ((REAL) OUTPUT_ITER)));
+    printf("Drag force2_y = " FMT_R " (au).\n",  (cur_mom_y - prev_mom_y) / (TIME_STEP * ((REAL) OUTPUT_ITER)));
+    printf("Drag force2_z = " FMT_R " (au).\n",  (cur_mom_z - prev_mom_z) / (TIME_STEP * ((REAL) OUTPUT_ITER)));
   }
   prev_mom_x = cur_mom_x;
   prev_mom_y = cur_mom_y;

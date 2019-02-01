@@ -6,7 +6,7 @@ endif
 
 all: bubble
 
-bubble: bubble.o pot.o analyze.o
+bubble: bubble.o pot.o analyze.o config.h
 	        $(CC) $(CFLAGS) -o bubble bubble.o pot.o analyze.o $(LDFLAGS) 
 
 bubble.o: bubble.c bubble.h config.h
