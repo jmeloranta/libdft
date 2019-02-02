@@ -1,3 +1,4 @@
+
 /*
  * Dynamics of a bubble (formed by external potential) travelling at
  * constant velocity in liquid helium (moving background). 
@@ -140,7 +141,7 @@ int main(int argc, char *argv[]) {
     cgrid_read_grid(gwf->grid, argv[1]);
   }
 
-  /* If using C-N, apply absorbing boundary */
+  /* If using Crank-Nicolson, apply absorbing boundary */
 #if PROPAGATOR == WF_2ND_ORDER_CN
   gwf->ts_func = &grid_wf_absorb;
   gwf->abs_data.amp = ABS_AMP;  // Absorption amplitude  
