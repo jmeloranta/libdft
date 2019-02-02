@@ -26,21 +26,6 @@ REAL momentum(REAL vx) {
   return HELIUM_MASS * vx / HBAR;
 }
 
-/* -I * cabs(tstep) = full imag time, cabs(tstep) = full real time */
-REAL complex tstep(REAL complex tstep, INT iter) {
- 
-  REAL x = ((REAL) iter) / (REAL) STARTING_ITER;
-
-  return (-I * (1.0 - x) + x) * CABS(tstep);  // not called with x > 1
-}
-
-/* -I * cabs(tstep) = full imag time, cabs(tstep) = full real time */
-REAL complex tstep2(REAL complex tstep, INT iter) {
- 
-  return CABS(tstep);
-//  return CABS(tstep) * (1.0 - 3E-2 * I);  // introduce small imag part
-}
-
 int main(int argc, char *argv[]) {
 
   dft_ot_functional *otf;
