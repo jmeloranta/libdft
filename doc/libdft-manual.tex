@@ -320,6 +320,7 @@ For the Orsay-Trento functional with zero pressure, the solution is analytical b
 Calculate the chemical potential of uniform bulk liquid at zero pressure. If this quantity is subtracted from the external potential then the imaginary time iterations converge to a solution with the equilibrium density at the simulation cell edges. This means that no rescaling during imaginary iterations is needed. This function takes only one argument that describes the functional (dft\_ot\_functional *). The return value is the chemical potential at bulk density ($P = 0$; REAL). Note that with moving background (i.e., non-zero kx, ky, kz for the complex wave function grid), additional term must be included in the chemical potential ($\mu_0$):
 $$\mu = \mu_0 + \frac{\hbar^2}{2m}\left(kx^2 + ky^2 + kz^2\right)$$
 where $\mu$ can be used in, e.g., imaginary time iterations.
+% TODO: Rotation has something similar!
 
 \subsection{dft\_ot\_bulk\_chempot2() -- Chemical potential of uniform bulk liquid}
 
