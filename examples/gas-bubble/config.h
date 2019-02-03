@@ -10,14 +10,14 @@
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
 #define FUNCTIONAL (DFT_OT_PLAIN)
 
-/* Start real time simulation at this time (fs) - (400,000) */
+/* Start real time simulation at this time (fs) - (10,000) */
 #define STARTING_TIME (10000.0 / GRID_AUTOFS)
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP))
 
 /* Maximum number of real time iterations */
 #define MAXITER 80000000 
 
-/* Output interval time (fs) (2500) */
+/* Output interval time (fs) (10,000) */
 #define OUTPUT_TIME (10000.0 / GRID_AUTOFS)
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))
 
@@ -48,7 +48,7 @@
 #define NY 256         /* # of grid points along y */
 #define NZ 512        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
-#define ABS_AMP 2.0     /* Absorption strength */
+#define ABS_AMP 2.0     /* Absorption strength (2.0) */
 #define ABS_WIDTH_X 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Y 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Z 60.0  /* Width of the absorbing boundary */
