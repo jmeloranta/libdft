@@ -24,7 +24,7 @@
  * otf            = OT  functional structure (dft_ot_functional *; input).
  * energy_density = energy density grid (rgrid *; output).
  *
- * Workspace usage:
+ * Workspace usage (uses density as well):
  * GP: none
  * Plain OT: workspace1 - workspace2
  * KC: workspace1 - workspace8

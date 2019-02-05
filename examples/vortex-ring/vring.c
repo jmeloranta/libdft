@@ -18,10 +18,10 @@
 #define NY 256
 #define NZ 256
 #define STEP 1.0
-#define NTH 1000
+#define NTH 100
 #define THREADS 0
 
-#define RING_RADIUS 40.0
+#define RING_RADIUS 25.0
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
@@ -33,9 +33,7 @@ REAL complex vring(void *asd, REAL x, REAL y, REAL z) {
   REAL xs = SQRT(x * x + y * y) - RING_RADIUS;
   REAL ys = z;
   REAL angle = ATAN2(ys,xs), r = SQRT(xs*xs + ys*ys);
-
-//  return SQRT(rho0);
-  // was -r^2 / 2.0. -r gives better vortex density profile
+ 
   return (1.0 - EXP(-r)) * SQRT(rho0) * CEXP(I * angle);
 }
 
@@ -67,7 +65,7 @@ int main(int argc, char **argv) {
   gwfp = grid_wf_clone(gwf, "gwfp");
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
@@ -75,14 +73,12 @@ int main(int argc, char **argv) {
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
   printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
-  grid_wf_constant(gwf, SQRT(rho0));
-
   /* Allocate space for external potential */
   potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
   rworkspace = rgrid_clone(otf->density, "rworkspace"); /* temporary storage */
  
   /* setup initial guess for vortex ring */
-  cgrid_map(gwf->grid, vring, NULL);
+  grid_wf_map(gwf, vring, NULL);
 
   for (iter = 1; iter < 800000; iter++) {
     if(iter == 1 || !(iter % NTH)) {
