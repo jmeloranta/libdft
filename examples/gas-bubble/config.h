@@ -7,15 +7,15 @@
 #define TIME_STEP (15.0 / GRID_AUTOFS)
 
 /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
-//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-#define FUNCTIONAL (DFT_OT_PLAIN)
+#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+//#define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Start real time simulation at this time (fs) - (10,000) */
-#define STARTING_TIME (10000.0 / GRID_AUTOFS)
+#define STARTING_TIME (1000.0 / GRID_AUTOFS)
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP))
 
 /* Maximum number of real time iterations */
-#define MAXITER 80000000 
+#define MAXITER 8
 
 /* Output interval time (fs) (10,000) */
 #define OUTPUT_TIME (10000.0 / GRID_AUTOFS)
@@ -44,9 +44,9 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 256    	/* # of grid points along x */ /* Largest: 729x384x384 */
-#define NY 256         /* # of grid points along y */
-#define NZ 512        	/* # of grid points along z */
+#define NX 128    	/* # of grid points along x */ /* Largest: 729x384x384 */
+#define NY 128         /* # of grid points along y */
+#define NZ 256        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 #define ABS_AMP 2.0     /* Absorption strength (2.0) */
 #define ABS_WIDTH_X 25.0  /* Width of the absorbing boundary */
@@ -57,8 +57,8 @@
 #define BINSTEP (0.1 * GRID_AUTOANG)      /* Bin step */
 
 /* Kinetic energy propagator */
-/* #define PROPAGATOR WF_2ND_ORDER_FFT */
-#define PROPAGATOR WF_2ND_ORDER_CN
+#define PROPAGATOR WF_2ND_ORDER_FFT
+/* #define PROPAGATOR WF_2ND_ORDER_CN */
 
 #define FFTW_PLANNER 1 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
 

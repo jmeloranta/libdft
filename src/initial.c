@@ -91,7 +91,7 @@ EXPORT REAL complex dft_initial_vortex_z_n2(void *na, REAL x, REAL y, REAL z) {
 
 EXPORT REAL complex dft_initial_bubble(void *prm, REAL x, REAL y, REAL z) {
 
-  double *rad = (REAL *) prm, r;
+  REAL *rad = (REAL *) prm, r;
 
   r = SQRT(x * x + y * y + z * z);
   if(r < *rad) return 0.0;
