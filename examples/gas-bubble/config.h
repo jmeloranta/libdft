@@ -8,11 +8,7 @@
 
 /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 #define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-<<<<<<< HEAD
 // #define FUNCTIONAL (DFT_OT_PLAIN)
-=======
-//#define FUNCTIONAL (DFT_OT_PLAIN)
->>>>>>> 26f89aba5fa2e398ace0fd63151812688b234c06
 
 /* Start real time simulation at this time (fs) - (10,000) */
 #define STARTING_TIME (1000.0 / GRID_AUTOFS)
