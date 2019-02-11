@@ -58,7 +58,7 @@ void analyze(dft_ot_functional *otf, wf *wf, INT iter, REAL vz) {
   extern REAL dpot_func_y(void *, REAL, REAL, REAL);
   extern REAL dpot_func_z(void *, REAL, REAL, REAL);
 
-  printf("Iteration = " FMT_I ", Current time = " FMT_R " fs.\n", iter, ((REAL) iter) * TIME_STEP * GRID_AUTOFS);
+  printf("Iteration = " FMT_I ", Current time = " FMT_R " fs, velocity = " FMT_R ".\n", iter, ((REAL) iter) * TIME_STEP * GRID_AUTOFS, vz * GRID_AUTOMPS);
 
   if(!(otf->workspace1)) otf->workspace1 = rgrid_clone(otf->density, "OT Workspace 1");
   if(!(otf->workspace2)) otf->workspace2 = rgrid_clone(otf->density, "OT Workspace 2");
@@ -92,7 +92,7 @@ void analyze(dft_ot_functional *otf, wf *wf, INT iter, REAL vz) {
 
   rgrid_abs_rot(circ, cur_x, cur_y, cur_z);
   rgrid_power(circ, circ, NN);
-  printf("Total circulation = " FMT_R " (au; NN = " FMT_R ").\n", rgrid_integral(circ), NN);
+  printf("Total circulation = " FMT_R " (au; NN = " FMT_R ") at velocity " FMT_R ".\n", rgrid_integral(circ), NN, vz * GRID_AUTOMPS);
 #ifdef USE_CUDA
   cuda_statistics(0);
 #endif

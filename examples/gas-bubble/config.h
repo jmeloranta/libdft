@@ -7,8 +7,8 @@
 #define TIME_STEP (15.0 / GRID_AUTOFS)
 
 /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
-//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-#define FUNCTIONAL (DFT_OT_PLAIN)
+#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+// #define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Start real time simulation at this time (fs) - (10,000) */
 #define STARTING_TIME (10000.0 / GRID_AUTOFS)
@@ -18,11 +18,11 @@
 #define MAXITER 80000000 
 
 /* Output interval time (fs) (10,000) */
-#define OUTPUT_TIME (10000.0 / GRID_AUTOFS)
+#define OUTPUT_TIME (5000.0 / GRID_AUTOFS)
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))
 
 /* Output grid at given iterations (10,000) (leave undefined if not needed) */
-#define OUTPUT_GRID (10*OUTPUT_ITER)
+#define OUTPUT_GRID (5*OUTPUT_ITER)
 
 /* Use CUDA ? (auto detect) */
 #ifdef USE_CUDA
@@ -34,6 +34,7 @@
 
 /* Flow acceleration (m/s^2); 100 m/s in 10 ns -> 10^10 m/s^2 */
 #define AZ (1.0E10 * GRID_AUTOS / GRID_AUTOMPS)
+
 /* Maximum final velocity (m/s) */
 #define MAXVZ (100.0 / GRID_AUTOMPS)
 
@@ -48,7 +49,7 @@
 #define NY 256         /* # of grid points along y */
 #define NZ 512        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
-#define ABS_AMP 2.0     /* Absorption strength (2.0) */
+/*#define ABS_AMP 1.0*/     /* Absorption strength (2.0) (leave undefined to omit absorbing BC) */
 #define ABS_WIDTH_X 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Y 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Z 60.0  /* Width of the absorbing boundary */
@@ -57,12 +58,12 @@
 #define BINSTEP (0.1 * GRID_AUTOANG)      /* Bin step */
 
 /* Kinetic energy propagator */
-/* #define PROPAGATOR WF_2ND_ORDER_FFT */
-#define PROPAGATOR WF_2ND_ORDER_CN
+#define PROPAGATOR WF_2ND_ORDER_FFT
+/* #define PROPAGATOR WF_2ND_ORDER_CN */
 
 #define FFTW_PLANNER 1 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
 
-#define NN 2.0    /* Exponent for circulation (1, 2, 3...) */
+#define NN 1.0    /* Exponent for circulation (1, 2, 3...) -- 1 appears standard */
 
 /* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
