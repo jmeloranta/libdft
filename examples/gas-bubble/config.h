@@ -11,13 +11,13 @@
 // #define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Start real time simulation at this time (fs) - (10,000) */
-#define STARTING_TIME (1000.0 / GRID_AUTOFS)
+#define STARTING_TIME (10000.0 / GRID_AUTOFS)
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP))
 
 /* Maximum number of real time iterations */
-#define MAXITER 8
+#define MAXITER 80000000
 
-/* Output interval time (fs) (10,000) */
+/* Output interval time (fs) (5,000) */
 #define OUTPUT_TIME (5000.0 / GRID_AUTOFS)
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))
 
@@ -42,12 +42,12 @@
 #define MAXVELOC (250.0 / GRID_AUTOMPS);
 
 /* External pressure in bar (normal = 0) */
-#define PRESSURE (0.0 / GRID_AUTOBAR)
+#define PRESSURE (10.0 / GRID_AUTOBAR)
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 128    	/* # of grid points along x */ /* Largest: 729x384x384 */
-#define NY 128         /* # of grid points along y */
-#define NZ 256        	/* # of grid points along z */
+#define NX 256    	/* # of grid points along x */ /* Largest: 729x384x384 */
+#define NY 256         /* # of grid points along y */
+#define NZ 512        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 /*#define ABS_AMP 1.0*/     /* Absorption strength (2.0) (leave undefined to omit absorbing BC) */
 #define ABS_WIDTH_X 25.0  /* Width of the absorbing boundary */
