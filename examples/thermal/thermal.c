@@ -26,6 +26,15 @@
 
 #define THREADS 0
 
+#define CUTOFF 5.0
+REAL complex high_cut(void *NA, REAL kx, REAL ky, REAL kz) {
+
+  REAL d = SQRT(kx*kx + ky*ky + kz*kz);
+
+  if(d > CUTOFF) return 0.0;
+  else return 1.0;
+}
+
 int main(int argc, char **argv) {
 
   dft_ot_functional *otf;
@@ -53,7 +62,7 @@ int main(int argc, char **argv) {
   gwfp = grid_wf_clone(gwf, "gwfp");
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
@@ -66,7 +75,10 @@ int main(int argc, char **argv) {
   density = rgrid_clone(otf->density, "density");
 
   grid_wf_constant(gwf, SQRT(rho0));
-  cgrid_random(gwf->grid, 9E-3);
+  cgrid_random(gwf->grid, 9E-3); // 9e-3
+  cgrid_fft(gwf->grid);
+  cgrid_fft_filter(gwf->grid, &high_cut, NULL);
+  cgrid_inverse_fft_norm(gwf->grid);
 
   /* Run 200 iterations using imaginary time (10 fs time step) */
   REAL temp, itime = 0.0;
@@ -74,10 +86,13 @@ int main(int argc, char **argv) {
   gwf->norm = grid_wf_norm(gwf);
   for (iter = 0; iter < MAXITER; iter++) {
 
+#define TEMP 0.1
+
     temp = grid_wf_ideal_gas_temperature(gwf, otf->workspace1, otf->workspace2);
-//    if(temp > TEMP && itime < TS/5.0) itime += 1E-2 * (temp - TEMP);
-//    else itime = 0.0;
-//    if(itime > 0.0) grid_wf_normalize(gwf);
+    if(temp - TEMP < 0.0) itime = -1E-4;
+    if(temp - TEMP > 0.0) itime = 1E-4;
+//    itime += 1E-9 * (temp - TEMP);
+    if(itime > 0.0) grid_wf_normalize(gwf);
 
     if(!(iter % NTH)) {
       dft_ot_energy_density(otf, density, gwf);
@@ -85,9 +100,10 @@ int main(int argc, char **argv) {
       printf("Total E/CN   = " FMT_R " K.\n", grid_wf_energy_cn(gwf, density) * GRID_AUTOK);
       printf("Total K.E.   = " FMT_R " K.\n", grid_wf_kinetic_energy(gwf) * GRID_AUTOK);
       printf("QP energy    = " FMT_R " K.\n", grid_wf_kinetic_energy_qp(gwf, otf->workspace1, otf->workspace2) * GRID_AUTOK);
-      printf("Flow energy  = " FMT_R " K.\n", grid_wf_kinetic_energy_flow(gwf, otf->workspace1, otf->workspace2) * GRID_AUTOK);
+      printf("Classical E. = " FMT_R " K.\n", grid_wf_kinetic_energy_classical(gwf, otf->workspace1, otf->workspace2) * GRID_AUTOK);
       printf("Itime        = " FMT_R " fs.\n", itime);
       printf("T            = " FMT_R " K.\n", temp);
+      printf("Circulation  = " FMT_R ".\n", grid_wf_circulation(gwf, 1.0, otf->density, otf->workspace1, otf->workspace2, otf->workspace3));
       fflush(stdout);
     }
 
@@ -95,26 +111,24 @@ int main(int argc, char **argv) {
 
 //    grid_timer_start(&timer);
 
-    cgrid_zero(potential_store);
-    dft_ot_potential(otf, potential_store, gwf);
-    cgrid_add(potential_store, -mu0);
-    itime = 0.0;
-
     /* Predict-Correct */
     cgrid_zero(potential_store);
     dft_ot_potential(otf, potential_store, gwf);
     cgrid_add(potential_store, -mu0);
-    grid_wf_propagate_predict(gwf, gwfp, potential_store, TS / GRID_AUTOFS);
+    grid_wf_propagate_predict(gwf, gwfp, potential_store, (-I * itime + TS) / GRID_AUTOFS);
     dft_ot_potential(otf, potential_store, gwfp);
     cgrid_add(potential_store, -mu0);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
-    grid_wf_propagate_correct(gwf, potential_store, TS / GRID_AUTOFS);
+    grid_wf_propagate_correct(gwf, potential_store, (-I * itime + TS) / GRID_AUTOFS);
 
+//    cgrid_zero(potential_store);
+//    dft_ot_potential(otf, potential_store, gwf);
+//    cgrid_add(potential_store, -mu0);
 //    grid_wf_propagate(gwf, potential_store, (-I * itime * TS + TS) / GRID_AUTOFS);
 
 //    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
 
-    if(!(iter % NTH)) {
+    if(!(iter % (5*NTH))) {
       char buf[512];
       sprintf(buf, "output-" FMT_I, iter);
       grid_wf_density(gwf, density);
