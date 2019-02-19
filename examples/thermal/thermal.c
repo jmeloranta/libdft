@@ -13,20 +13,20 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 128
-#define NY 128
-#define NZ 128
+#define NX 256
+#define NY 256
+#define NZ 256
 #define STEP 0.5
 #define TS 1.0
 
 #define PRESSURE 0.0
 
 #define MAXITER 10000000
-#define NTH 1000
+#define NTH 10
 
 #define THREADS 0
 
-#define CUTOFF 5.0
+#define CUTOFF 1.5
 REAL complex high_cut(void *NA, REAL kx, REAL ky, REAL kz) {
 
   REAL d = SQRT(kx*kx + ky*ky + kz*kz);
@@ -75,32 +75,42 @@ int main(int argc, char **argv) {
   density = rgrid_clone(otf->density, "density");
 
   grid_wf_constant(gwf, SQRT(rho0));
-  cgrid_random(gwf->grid, 9E-3); // 9e-3
+  cgrid_random(gwf->grid, 5E-2); // 9e-3
   cgrid_fft(gwf->grid);
   cgrid_fft_filter(gwf->grid, &high_cut, NULL);
   cgrid_inverse_fft_norm(gwf->grid);
 
   /* Run 200 iterations using imaginary time (10 fs time step) */
-  REAL temp, itime = 0.0;
+  REAL temp, itime = 0.0, qp, qp_kc, cl_bf;
 
   gwf->norm = grid_wf_norm(gwf);
   for (iter = 0; iter < MAXITER; iter++) {
 
-#define TEMP 0.1
+#define TEMP 1.0
 
-    temp = grid_wf_ideal_gas_temperature(gwf, otf->workspace1, otf->workspace2);
+//    grid_wf_density(gwf, otf->density);
+//    rgrid_zero(density);
+//    dft_ot_energy_density_bf(otf, density, gwf, otf->density);    
+//    cl_bf = rgrid_integral(density);    
+    cl_bf = 0.0;
+    temp = grid_wf_ideal_gas_temperature(gwf, cl_bf, otf->workspace1, otf->workspace2);
+
     if(temp - TEMP < 0.0) itime = -1E-4;
     if(temp - TEMP > 0.0) itime = 1E-4;
-//    itime += 1E-9 * (temp - TEMP);
-    if(itime > 0.0) grid_wf_normalize(gwf);
 
     if(!(iter % NTH)) {
+//      grid_wf_density(gwf, otf->density);
+//      rgrid_zero(density);
+//      dft_ot_energy_density_kc(otf, density, gwf, otf->density);
+//      qp_kc = rgrid_integral(density);
+      qp_kc = 0.0;
+      qp = grid_wf_kinetic_energy_qp(gwf, otf->workspace1, otf->workspace2);
+            
       dft_ot_energy_density(otf, density, gwf);
-      printf("Total E      = " FMT_R " K.\n", grid_wf_energy_fft(gwf, density) * GRID_AUTOK);
+      printf("Total E/FFT  = " FMT_R " K.\n", grid_wf_energy_fft(gwf, density) * GRID_AUTOK);
       printf("Total E/CN   = " FMT_R " K.\n", grid_wf_energy_cn(gwf, density) * GRID_AUTOK);
-      printf("Total K.E.   = " FMT_R " K.\n", grid_wf_kinetic_energy(gwf) * GRID_AUTOK);
-      printf("QP energy    = " FMT_R " K.\n", grid_wf_kinetic_energy_qp(gwf, otf->workspace1, otf->workspace2) * GRID_AUTOK);
-      printf("Classical E. = " FMT_R " K.\n", grid_wf_kinetic_energy_classical(gwf, otf->workspace1, otf->workspace2) * GRID_AUTOK);
+      printf("QP energy    = " FMT_R " K.\n", (qp + qp_kc) * GRID_AUTOK);
+      printf("Classical E. = " FMT_R " K.\n", (grid_wf_kinetic_energy_cn(gwf) - qp + cl_bf) * GRID_AUTOK);
       printf("Itime        = " FMT_R " fs.\n", itime);
       printf("T            = " FMT_R " K.\n", temp);
       printf("Circulation  = " FMT_R ".\n", grid_wf_circulation(gwf, 1.0, otf->density, otf->workspace1, otf->workspace2, otf->workspace3));
@@ -128,7 +138,7 @@ int main(int argc, char **argv) {
 
 //    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
 
-    if(!(iter % (5*NTH))) {
+    if(!(iter % (500*NTH))) {
       char buf[512];
       sprintf(buf, "output-" FMT_I, iter);
       grid_wf_density(gwf, density);
