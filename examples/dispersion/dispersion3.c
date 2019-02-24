@@ -20,8 +20,8 @@ int main(int argc, char **argv) {
   dft_ot_functional otf;
   REAL k, w;
   
-  dft_ot_temperature(&otf, DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW);
-//  dft_ot_temperature(&otf, DFT_OT_PLAIN | DFT_OT_BACKFLOW);
+//  dft_ot_temperature(&otf, DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW);
+  dft_ot_temperature(&otf, DFT_OT_PLAIN);
 
   for (k = 0.0; k < 1.5; k += 0.02) {
     REAL kk;
