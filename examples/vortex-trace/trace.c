@@ -13,18 +13,25 @@
 
 #define NX 256
 #define NY 256
-#define NZ 256
+#define NZ 1024
 #define STEP 2.0
+
+#define LX (NX * STEP)
+#define LY (NY * STEP)
+#define LZ (NZ * STEP)
 
 #define THREADS 0
 
-#define CUT 0.5
-#define DIST_CUT 1.8
-#define RINGCUT 15.0
-#define RINGCLOSE 0.8
+/* Vortex line recognition tuning parameters */
+#define CUT 0.5         // start at 0.5 * max on grid
+#define AVEPTS 4
+#define DIST_CUT 1.8    // drop points within DIST_CUT * STEP (0.0 = disabled)
+#define RINGCUT 20.0    // include points on ring with distance < RINGCUT * STEP
+#define RINGCLOSE 20.0  // max distance between first and last points in ring, RINGCLOSE * STEP (0.0 = disabled)
+#define PERIODIC 0      // 1 = use periodic BC for distance, 0 = use direct distance
 
 #define MAXPTS 65535
-#define MAXRINGS 10
+#define MAXRINGS 25
 #define MAXRING_PTS 256
 REAL x[MAXPTS], y[MAXPTS], z[MAXPTS];
 INT npts = 0;
@@ -34,15 +41,45 @@ INT max_ring = 0, max_rings[MAXRINGS];
 
 REAL dist(REAL x1, REAL y1, REAL z1, REAL x2, REAL y2, REAL z2) {
 
-  return SQRT((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
+  REAL dx, dy, dz, tmp;
+
+#if PERIODIC == 1
+  // Periodic boundary along X
+  dx = (x1 - x2) * (x1 - x2);
+  tmp = (x1 - (x2 + LX)) * (x1 - (x2 + LX));
+  if(tmp < dx) dx = tmp;
+  tmp = (x1 - (x2 - LX)) * (x1 - (x2 - LX));
+  if(tmp < dx) dx = tmp;
+
+  // Periodic boundary along Y
+  dy = (y1 - y2) * (y1 - y2);
+  tmp = (y1 - (y2 + LY)) * (y1 - (y2 + LY));
+  if(tmp < dy) dy = tmp;
+  tmp = (y1 - (y2 - LY)) * (y1 - (y2 - LY));
+  if(tmp < dy) dy = tmp;
+
+  // Periodic boundary along Z
+  dz = (z1 - z2) * (z1 - z2);
+  tmp = (z1 - (z2 + LZ)) * (z1 - (z2 + LZ));
+  if(tmp < dz) dz = tmp;
+  tmp = (z1 - (z2 - LZ)) * (z1 - (z2 - LZ));
+  if(tmp < dz) dz = tmp;
+#else
+  dx = (x1 - x2) * (x1 - x2);
+  dy = (y1 - y2) * (y1 - y2);
+  dz = (z1 - z2) * (z1 - z2);
+#endif
+
+  return SQRT(dx + dy + dz);
 }
 
 void ring_close_check() {
 
   INT r;
 
+  if(RINGCLOSE == 0.0) return;
   for (r = 0; r < max_ring; r++) 
-    if(dist(ring_x[r][0], ring_y[r][0], ring_z[r][0], ring_x[r][max_rings[r]-1], ring_y[r][max_rings[r]-1], ring_z[r][max_rings[r]-1]) > RINGCUT * STEP * RINGCLOSE)
+    if(dist(ring_x[r][0], ring_y[r][0], ring_z[r][0], ring_x[r][max_rings[r]-1], ring_y[r][max_rings[r]-1], ring_z[r][max_rings[r]-1]) > STEP * RINGCLOSE)
       max_rings[r] = 0; // discard non-closed ring
 }
 
@@ -61,7 +98,6 @@ void segment() {
     ring_z[r][rp] = z[i];
     rp++;
     x[i] = y[i] = z[i] = FP_NAN;  // mark point as used
-    max_rings[r]++;
     while(1) {  // search for closest point to add
       d = 1E99;
       bj = -1;
@@ -89,6 +125,7 @@ void drop_points() {
 
   INT i, j;
 
+  if(DIST_CUT == 0.0) return;
   for (i = 0; i < npts; i++)
     for (j = 0; j < npts; j++) {
       if(i == j) continue;
@@ -100,31 +137,16 @@ void drop_points() {
 
 void local_max(rgrid *circ, INT i, INT j, INT k) {
 
-  INT ii, jj, kk, nzz;
-  INT iis, iie, jjs, jje, kks, kke;
+  INT ii, jj, kk;
   INT iim = 0, jjm = 0, kkm = 0;
-  REAL max_val = -1.0;
+  REAL max_val = -1.0, tmp;
 
-  iis = i - 4;
-  if(iis < 0) iis = 0;
-  jjs = j - 4;
-  if(jjs < 0) jjs = 0;
-  kks = k - 4;
-  if(kks < 0) kks = 0;
-
-  iie = i + 4;
-  if(iie > NX) iie = NX;
-  jje = j + 4;
-  if(jje > NY) jje = NY;
-  kke = k + 4;
-  if(kke > NZ) kke = NZ;
-
-  nzz = circ->nz2;
-  for (ii = iis; ii < iie; ii++) {
-    for(jj = jjs; jj < jje; jj++) {
-      for(kk = kks; kk < kke; kk++) {
-        if(circ->value[(ii * NY + jj) * nzz + kk] > max_val) {
-          max_val = circ->value[(ii * NY + jj) * nzz + kk];
+  for (ii = i - AVEPTS; ii < i + AVEPTS; ii++) {
+    for(jj = j - AVEPTS; jj < j + AVEPTS; jj++) {
+      for(kk = k - AVEPTS; kk < k + AVEPTS; kk++) {
+        tmp = rgrid_value_at_index(circ, ii, jj, kk);
+        if(tmp > max_val) {
+          max_val = tmp;
           iim = ii;
           jjm = jj;
           kkm = kk;
