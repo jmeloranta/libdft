@@ -14,8 +14,8 @@ REAL round_veloc(REAL veloc) {   // Round to fit the simulation box
   INT n;
   REAL v;
 
-  n = (INT) (0.5 + (NX * STEP * HELIUM_MASS * veloc) / (HBAR * 2.0 * M_PI));
-  v = ((REAL) n) * HBAR * 2.0 * M_PI / (NX * STEP * HELIUM_MASS);
+  n = (INT) (0.5 + (NX * STEP * DFT_HELIUM_MASS * veloc) / (HBAR * 2.0 * M_PI));
+  v = ((REAL) n) * HBAR * 2.0 * M_PI / (NX * STEP * DFT_HELIUM_MASS);
   printf("Requested velocity = %le m/s.\n", veloc * GRID_AUTOMPS);
   printf("Nearest velocity compatible with PBC = %le m/s.\n", v * GRID_AUTOMPS);
   return v;
@@ -23,22 +23,20 @@ REAL round_veloc(REAL veloc) {   // Round to fit the simulation box
 
 REAL momentum(REAL vx) {
 
-  return HELIUM_MASS * vx / HBAR;
+  return DFT_HELIUM_MASS * vx / HBAR;
 }
 
 int main(int argc, char *argv[]) {
 
   dft_ot_functional *otf;
   wf *gwf;
-#ifdef PC
   wf *gwfp;
-#endif
   cgrid *cworkspace;
   rgrid *ext_pot;
 #ifdef OUTPUT_GRID
   char filename[2048];
 #endif
-  REAL prev_vz = 0.0, vz, mu0, kz, rho0;
+  REAL vz, mu0, kz, rho0;
   INT iter;
   extern void analyze(dft_ot_functional *, wf *, INT, REAL);
   extern REAL pot_func(void *, REAL, REAL, REAL);
@@ -62,9 +60,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }
-#ifdef PC
   gwfp = grid_wf_clone(gwf, "gwfp");
-#endif
   cworkspace = cgrid_clone(gwf->grid, "cworkspace");
 
   /* Allocate OT functional */
@@ -151,29 +147,23 @@ int main(int argc, char *argv[]) {
   /* Real time iterations */
   printf("Real time propagation.\n");
 
-  for( ; iter < MAXITER; iter++) {
-
-    // Increase background velocity slowly
-//    vz = round_veloc(AZ * TIME_STEP * (REAL) iter);     /* Round velocity to fit the spatial grid */
-    vz = AZ * TIME_STEP * (REAL) iter;
-//    if(vz < MAXVZ && vz != prev_vz) {
-      printf("Current velocity = " FMT_R " m/s.\n", vz * GRID_AUTOMPS);
-      kz = momentum(vz);
-      cgrid_set_momentum(gwf->grid, 0.0, 0.0, kz);
+  vz = 76.0 / GRID_AUTOMPS;
+  printf("Current velocity = " FMT_R " m/s.\n", vz * GRID_AUTOMPS);
+  kz = momentum(vz);
+  cgrid_set_momentum(gwf->grid, 0.0, 0.0, kz);
 #ifdef PC
-      cgrid_set_momentum(gwfp->grid, 0.0, 0.0, kz);
-      cgrid_set_momentum(cworkspace, 0.0, 0.0, kz);
+  cgrid_set_momentum(gwfp->grid, 0.0, 0.0, kz);
+  cgrid_set_momentum(cworkspace, 0.0, 0.0, kz);
 #endif
-      mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);     // update 
-      mu0 = mu0 + (HBAR * HBAR / (2.0 * gwf->mass)) * kz * kz;  // moving background
-      printf("New chemical potential = " FMT_R " K.\n", mu0 * GRID_AUTOK);
-//      prev_vz = vz;
-//    }
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);     // update 
+  mu0 = mu0 + (HBAR * HBAR / (2.0 * gwf->mass)) * kz * kz;  // moving background
+  printf("New chemical potential = " FMT_R " K.\n", mu0 * GRID_AUTOK);
+  for( ; iter < MAXITER; iter++) {
 #ifdef OUTPUT_GRID
     if(!(iter % OUTPUT_GRID)) {
       sprintf(filename, "liquid-" FMT_I, iter);
       cgrid_write_grid(filename, gwf->grid);
-      system("rm liquid-*.grd"); // temp - save disk space
+//      system("rm liquid-*.grd"); // temp - save disk space
       do_ke(otf, gwf, iter);
       fflush(stdout);
     }
@@ -196,7 +186,20 @@ int main(int argc, char *argv[]) {
     grid_real_to_complex_re(cworkspace, ext_pot);
     dft_ot_potential(otf, cworkspace, gwf);
     cgrid_add(cworkspace, -mu0);
-    grid_wf_propagate(gwf, cworkspace, TIME_STEP  -I * TIME_STEP/100.0);
+    cgrid_copy(gwfp->grid, gwf->grid);
+    grid_wf_propagate(gwf, cworkspace, 0.5 * TIME_STEP - I * TIME_STEP / 100.0);
+#if 0
+    grid_wf_propagate(gwfp, cworkspace, -I * TIME_STEP);
+#define C 0.92
+#define WIDTH 40
+    cgrid_multiply(gwfp->grid, 1.0 - C);
+    cgrid_add_scaled(gwfp->grid, C, gwf->grid);
+    cgrid_zero_index(gwf->grid, 0, NX, 0, NY, 0, WIDTH);  // remove outside
+    cgrid_zero_index(gwf->grid, 0, NX, 0, NY, NZ-WIDTH, NZ);
+    cgrid_zero_index(gwfp->grid, 0, NX, 0, NY, WIDTH, NZ-WIDTH); // remove inside
+    cgrid_sum(gwf->grid, gwf->grid, gwfp->grid); // join together
+#endif
+
 #endif
 //    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
   }

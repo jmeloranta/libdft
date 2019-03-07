@@ -7,8 +7,8 @@
 #define TIME_STEP (15.0 / GRID_AUTOFS)
 
 /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
-#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-// #define FUNCTIONAL (DFT_OT_PLAIN)
+//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+#define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Start real time simulation at this time (fs) - (10,000) */
 #define STARTING_TIME (10000.0 / GRID_AUTOFS)
@@ -22,7 +22,7 @@
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))
 
 /* Output grid at given iterations (10,000) (leave undefined if not needed) */
-#define OUTPUT_GRID (5*OUTPUT_ITER)
+#define OUTPUT_GRID (OUTPUT_ITER)
 
 /* Use CUDA ? (auto detect) */
 #ifdef USE_CUDA
@@ -33,21 +33,18 @@
 /* #define PC */
 
 /* Flow acceleration (m/s^2); 100 m/s in 10 ns -> 10^10 m/s^2 */
-#define AZ (1.0E10 * GRID_AUTOS / GRID_AUTOMPS)
+#define AZ (1.0E11 * GRID_AUTOS / GRID_AUTOMPS)
 
-/* Maximum final velocity (m/s) */
-#define MAXVZ (100.0 / GRID_AUTOMPS)
-
-/* Maximum velocity allowed for evaluating backflow */
-#define MAXVELOC (250.0 / GRID_AUTOMPS);
+/* Max velocity for evaluating backflow */
+#define MAXVELOC (200.0 / GRID_AUTOMPS)
 
 /* External pressure in bar (normal = 0) */
-#define PRESSURE (10.0 / GRID_AUTOBAR)
+#define PRESSURE (0.0 / GRID_AUTOBAR)
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define NX 256    	/* # of grid points along x */ /* Largest: 729x384x384 */
 #define NY 256         /* # of grid points along y */
-#define NZ 512        	/* # of grid points along z */
+#define NZ 1024        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 /*#define ABS_AMP 1.0*/     /* Absorption strength (2.0) (leave undefined to omit absorbing BC) */
 #define ABS_WIDTH_X 25.0  /* Width of the absorbing boundary */

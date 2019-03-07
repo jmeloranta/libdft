@@ -9,4 +9,3 @@
 #include <dft/ot.h>
 #include "config.h"
 
-#define HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* helium mass in AMU */
