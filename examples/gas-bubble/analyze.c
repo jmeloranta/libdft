@@ -92,6 +92,7 @@ void analyze(dft_ot_functional *otf, wf *wf, INT iter, REAL vz) {
 
   rgrid_abs_rot(circ, cur_x, cur_y, cur_z);
   rgrid_abs_power(circ, circ, NN);
+
   printf("Total circulation = " FMT_R " (au; NN = " FMT_R ") at velocity " FMT_R ".\n", rgrid_integral(circ), NN, vz * GRID_AUTOMPS);
 #ifdef USE_CUDA
   cuda_statistics(0);
