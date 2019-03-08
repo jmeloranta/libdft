@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
   /* Real time iterations */
   printf("Real time propagation.\n");
 
-  vz = 76.0 / GRID_AUTOMPS;
+  vz = 85.0 / GRID_AUTOMPS;
   printf("Current velocity = " FMT_R " m/s.\n", vz * GRID_AUTOMPS);
   kz = momentum(vz);
   cgrid_set_momentum(gwf->grid, 0.0, 0.0, kz);
@@ -187,19 +187,8 @@ int main(int argc, char *argv[]) {
     dft_ot_potential(otf, cworkspace, gwf);
     cgrid_add(cworkspace, -mu0);
     cgrid_copy(gwfp->grid, gwf->grid);
-    grid_wf_propagate(gwf, cworkspace, 0.5 * TIME_STEP - I * TIME_STEP / 100.0);
-#if 0
-    grid_wf_propagate(gwfp, cworkspace, -I * TIME_STEP);
-#define C 0.92
-#define WIDTH 40
-    cgrid_multiply(gwfp->grid, 1.0 - C);
-    cgrid_add_scaled(gwfp->grid, C, gwf->grid);
-    cgrid_zero_index(gwf->grid, 0, NX, 0, NY, 0, WIDTH);  // remove outside
-    cgrid_zero_index(gwf->grid, 0, NX, 0, NY, NZ-WIDTH, NZ);
-    cgrid_zero_index(gwfp->grid, 0, NX, 0, NY, WIDTH, NZ-WIDTH); // remove inside
-    cgrid_sum(gwf->grid, gwf->grid, gwfp->grid); // join together
-#endif
-
+//    grid_wf_propagate(gwf, cworkspace, 0.5 * TIME_STEP - I * TIME_STEP / 100.0);
+    grid_wf_propagate(gwf, cworkspace, 0.5 * TIME_STEP);
 #endif
 //    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
   }

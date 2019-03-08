@@ -11,15 +11,6 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 256
-#define NY 256
-#define NZ 1024
-#define STEP 2.0
-
-#define LX (NX * STEP)
-#define LY (NY * STEP)
-#define LZ (NZ * STEP)
-
 #define THREADS 0
 
 /* Vortex line recognition tuning parameters */
@@ -39,11 +30,14 @@ INT npts = 0;
 REAL ring_x[MAXRINGS][MAXRING_PTS], ring_y[MAXRINGS][MAXRING_PTS], ring_z[MAXRINGS][MAXRING_PTS];
 INT max_ring = 0, max_rings[MAXRINGS];
 
+REAL STEP;
+REAL LX, LY, LZ;
 REAL dist(REAL x1, REAL y1, REAL z1, REAL x2, REAL y2, REAL z2) {
 
-  REAL dx, dy, dz, tmp;
+  REAL dx, dy, dz;
 
 #if PERIODIC == 1
+  REAL tmp;
   // Periodic boundary along X
   dx = (x1 - x2) * (x1 - x2);
   tmp = (x1 - (x2 + LX)) * (x1 - (x2 + LX));
@@ -154,9 +148,9 @@ void local_max(rgrid *circ, INT i, INT j, INT k) {
       }
     }
   }
-  x[npts] = ((REAL) (iim - NX/2)) * STEP;
-  y[npts] = ((REAL) (jjm - NY/2)) * STEP;
-  z[npts] = ((REAL) (kkm - NZ/2)) * STEP;
+  x[npts] = ((REAL) (iim - circ->nx/2)) * circ->step;
+  y[npts] = ((REAL) (jjm - circ->ny/2)) * circ->step;
+  z[npts] = ((REAL) (kkm - circ->nz/2)) * circ->step;
   npts++;
   if(npts == MAXPTS) {
     printf("Too many points.\n");
@@ -167,22 +161,40 @@ void local_max(rgrid *circ, INT i, INT j, INT k) {
 int main(int argc, char **argv) {
 
   rgrid *circ, *cur_x, *cur_y, *cur_z;
+  cgrid *tmp;
   wf *wf;
   REAL max_val, min_val, length;
-  INT i, j, k, idx, nzz;
+  INT i, j, k;
+  FILE *fp;
 
   /* Initialize threads & use wisdom */
   grid_set_fftw_flags(1);    // FFTW_MEASURE
   grid_threads_init(THREADS);
   grid_fft_read_wisdom(NULL);
 
+  if(!(fp = fopen(argv[1], "r"))) {
+    fprintf(stderr, "Can't open file %s.\n", argv[1]);
+    exit(1);
+  }
+  tmp = cgrid_read(NULL, fp);
+  fclose(fp);
+  fprintf(stderr, "grid: nx = " FMT_I ", ny = " FMT_I ", nz = " FMT_I ", step = " FMT_R ".\n", tmp->nx, tmp->ny, tmp->nz, tmp->step);
+
   /* Allocate grid functions */
-  if(!(wf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "wf"))) {
+  if(!(wf = grid_wf_alloc(tmp->nx, tmp->ny, tmp->nz, tmp->step, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "wf"))) {
     fprintf(stderr, "Cannot allocate grid.\n");
     exit(1);
   }
+  cgrid_free(wf->grid);
+  wf->grid = tmp;
+
+  LX = ((REAL) tmp->nx) * tmp->step;
+  LY = ((REAL) tmp->ny) * tmp->step;
+  LZ = ((REAL) tmp->nz) * tmp->step;
+  STEP = tmp->step;
+
   /* Allocate grid functions */
-  if(!(circ = rgrid_alloc(NX, NY, NZ, STEP, RGRID_PERIODIC_BOUNDARY, NULL, "circ"))) {
+  if(!(circ = rgrid_alloc(tmp->nx, tmp->ny, tmp->nz, tmp->step, RGRID_PERIODIC_BOUNDARY, NULL, "circ"))) {
     fprintf(stderr, "Cannot allocate grid.\n");
     exit(1);
   }
@@ -203,12 +215,10 @@ int main(int argc, char **argv) {
   fprintf(stderr, "Minimum = " FMT_R "\n", min_val);
   if(max_val < 1E-7) max_val = 1E-7;
 
-  nzz = circ->nz2;
-  for (i = 0; i < NX; i++) {
-    for (j = 0; j < NY; j++) {
-      for (k = 0; k < NZ; k++) {
-        idx = (i * NY + j) * nzz + k;
-        if(circ->value[idx] > CUT * max_val) local_max(circ, i, j, k);
+  for (i = 0; i < circ->nx; i++) {
+    for (j = 0; j < circ->ny; j++) {
+      for (k = 0; k < circ->nz; k++) {
+        if(rgrid_value_at_index(circ, i, j, k) > CUT * max_val) local_max(circ, i, j, k);
       }
     }
   }
