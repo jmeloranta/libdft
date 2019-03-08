@@ -187,8 +187,9 @@ int main(int argc, char *argv[]) {
     dft_ot_potential(otf, cworkspace, gwf);
     cgrid_add(cworkspace, -mu0);
     cgrid_copy(gwfp->grid, gwf->grid);
-//    grid_wf_propagate(gwf, cworkspace, 0.5 * TIME_STEP - I * TIME_STEP / 100.0);
-    grid_wf_propagate(gwf, cworkspace, 0.5 * TIME_STEP);
+    if(iter < ACCITER)
+      grid_wf_propagate(gwf, cworkspace, 0.5 * TIME_STEP - I * TIME_STEP / 100.0);
+    else grid_wf_propagate(gwf, cworkspace, 0.5 * TIME_STEP);
 #endif
 //    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
   }

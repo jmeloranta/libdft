@@ -17,6 +17,10 @@
 /* Maximum number of real time iterations */
 #define MAXITER 80000000
 
+/* Add small imag time component for this many iterations (accel. noise remove) */
+/* (50,000) */
+#define ACCITER 50000
+
 /* Output interval time (fs) (5,000) */
 #define OUTPUT_TIME (5000.0 / GRID_AUTOFS)
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))

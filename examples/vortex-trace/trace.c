@@ -14,12 +14,13 @@
 #define THREADS 0
 
 /* Vortex line recognition tuning parameters */
-#define CUT 0.5         // start at 0.5 * max on grid
-#define AVEPTS 4
-#define DIST_CUT 1.8    // drop points within DIST_CUT * STEP (0.0 = disabled)
-#define RINGCUT 20.0    // include points on ring with distance < RINGCUT * STEP
-#define RINGCLOSE 20.0  // max distance between first and last points in ring, RINGCLOSE * STEP (0.0 = disabled)
+#define CUT 0.22         // start at 0.5 * max on grid
+#define AVEPTS 1        // Average around this many points inside a vortex 
+#define DIST_CUT 1.0    // drop points within DIST_CUT * STEP (0.0 = disabled)
+#define RINGCUT 4.0    // include points on ring with distance < RINGCUT * STEP
+#define RINGCLOSE 4.0  // max distance between first and last points in ring, RINGCLOSE * STEP (0.0 = disabled)
 #define PERIODIC 0      // 1 = use periodic BC for distance, 0 = use direct distance
+#define NN 1.0          // Exponent for |curl rho v|^NN
 
 #define MAXPTS 65535
 #define MAXRINGS 25
@@ -37,6 +38,7 @@ REAL dist(REAL x1, REAL y1, REAL z1, REAL x2, REAL y2, REAL z2) {
   REAL dx, dy, dz;
 
 #if PERIODIC == 1
+  // likely wrong... check direct paths rather than rectangular
   REAL tmp;
   // Periodic boundary along X
   dx = (x1 - x2) * (x1 - x2);
@@ -72,14 +74,14 @@ void ring_close_check() {
   INT r;
 
   if(RINGCLOSE == 0.0) return;
-  for (r = 0; r < max_ring; r++) 
-    if(dist(ring_x[r][0], ring_y[r][0], ring_z[r][0], ring_x[r][max_rings[r]-1], ring_y[r][max_rings[r]-1], ring_z[r][max_rings[r]-1]) > STEP * RINGCLOSE)
+  for (r = 0; r < max_ring; r++) // make sure ring closes (also one point cannot represent a ring)
+    if(max_rings[r] == 1 || dist(ring_x[r][0], ring_y[r][0], ring_z[r][0], ring_x[r][max_rings[r]-1], ring_y[r][max_rings[r]-1], ring_z[r][max_rings[r]-1]) > STEP * RINGCLOSE)
       max_rings[r] = 0; // discard non-closed ring
 }
 
 void segment() {
 
-  INT i, j, r, bj, rp = 0;
+  INT i, j, r, bj, rp;
   REAL d, tmp;
 
   for(r = 0; r < MAXRINGS; r++) { // for all rings
@@ -96,14 +98,14 @@ void segment() {
       d = 1E99;
       bj = -1;
       for (j = 0; j < npts; j++) {
-        if(i == j || x[j] == FP_NAN) continue;
+        if(x[j] == FP_NAN) continue;
         tmp = dist(ring_x[r][rp-1], ring_y[r][rp-1], ring_z[r][rp-1], x[j], y[j], z[j]);
         if(tmp < d) {
           d = tmp;
           bj = j;
         }
       }
-      if(d > RINGCUT * STEP) break; // ring complete? (no neighbors found)
+      if(d > RINGCUT * STEP || bj == -1) break; // ring complete? (no neighbors found)
       ring_x[r][rp] = x[bj];  // add new point to the ring
       ring_y[r][rp] = y[bj];
       ring_z[r][rp] = z[bj];
@@ -135,15 +137,21 @@ void local_max(rgrid *circ, INT i, INT j, INT k) {
   INT iim = 0, jjm = 0, kkm = 0;
   REAL max_val = -1.0, tmp;
 
-  for (ii = i - AVEPTS; ii < i + AVEPTS; ii++) {
-    for(jj = j - AVEPTS; jj < j + AVEPTS; jj++) {
-      for(kk = k - AVEPTS; kk < k + AVEPTS; kk++) {
-        tmp = rgrid_value_at_index(circ, ii, jj, kk);
-        if(tmp > max_val) {
-          max_val = tmp;
-          iim = ii;
-          jjm = jj;
-          kkm = kk;
+  if(AVEPTS == 0) {
+    iim = i;
+    jjm = j;
+    kkm = k;
+  } else {
+    for (ii = i - AVEPTS; ii <= i + AVEPTS; ii++) {
+      for(jj = j - AVEPTS; jj <= j + AVEPTS; jj++) {
+        for(kk = k - AVEPTS; kk <= k + AVEPTS; kk++) {
+          tmp = rgrid_value_at_index(circ, ii, jj, kk);
+          if(tmp > max_val) {
+            max_val = tmp;
+            iim = ii;
+            jjm = jj;
+            kkm = kk;
+          }
         }
       }
     }
@@ -155,6 +163,19 @@ void local_max(rgrid *circ, INT i, INT j, INT k) {
   if(npts == MAXPTS) {
     printf("Too many points.\n");
     exit(1);
+  }
+}
+
+void cutoff_points(rgrid *circ, REAL max_val) {
+
+  INT i, j, k;
+
+  for (i = 0; i < circ->nx; i++) {
+    for (j = 0; j < circ->ny; j++) {
+      for (k = 0; k < circ->nz; k++) {
+        if(rgrid_value_at_index(circ, i, j, k) > CUT * max_val) local_max(circ, i, j, k);
+      }
+    }
   }
 }
 
@@ -207,38 +228,42 @@ int main(int argc, char **argv) {
   grid_wf_probability_flux(wf, cur_x, cur_y, cur_z);
 
   rgrid_abs_rot(circ, cur_x, cur_y, cur_z);
-  rgrid_abs_power(circ, circ, 1.0);
+  rgrid_abs_power(circ, circ, NN);
 
   min_val = rgrid_min(circ);
   max_val = rgrid_max(circ);
   fprintf(stderr, "Maximum = " FMT_R "\n", max_val);
   fprintf(stderr, "Minimum = " FMT_R "\n", min_val);
-  if(max_val < 1E-7) max_val = 1E-7;
+  if(max_val < 1E-7) max_val = 1E-7;  // change if NN != 1
 
-  for (i = 0; i < circ->nx; i++) {
-    for (j = 0; j < circ->ny; j++) {
-      for (k = 0; k < circ->nz; k++) {
-        if(rgrid_value_at_index(circ, i, j, k) > CUT * max_val) local_max(circ, i, j, k);
-      }
-    }
-  }
+  cutoff_points(circ, max_val);  // also builds point arrays
 
   drop_points();
+
+#if 0
+  for(i = 0; i < npts; i++)
+    printf(FMT_R " " FMT_R " " FMT_R "\n", x[i], y[i], z[i]);
+  exit(0);
+#endif
 
   segment();
   
   ring_close_check();
 
+  k = 0;
   for(i = 0; i < max_ring; i++) { // loop over rings
     if(max_rings[i] == 0) continue;
 //    printf("Ring #" FMT_I "\n", i+1);
     length = 0.0;
-    for(j = 0; j < max_rings[i]; j++) {
-      printf(FMT_R " " FMT_R " " FMT_R "\n", ring_x[i][j], ring_y[i][j], ring_z[i][j]);
+    for(j = 0; j < max_rings[i]; j++)
       if(j) length += dist(ring_x[i][j-1], ring_y[i][j-1], ring_z[i][j-1], ring_x[i][j], ring_y[i][j], ring_z[i][j]);
-    }
+    length += dist(ring_x[i][0], ring_y[i][0], ring_z[i][0], ring_x[i][max_rings[i]-1], ring_y[i][max_rings[i]-1], ring_z[i][max_rings[i]-1]);
+    if(length < 24.0) continue;
+    for(j = 0; j < max_rings[i]; j++)
+      printf(FMT_R " " FMT_R " " FMT_R "\n", ring_x[i][j], ring_y[i][j], ring_z[i][j]);
+    // close the loop: last point to first
     printf("\n");
-    fprintf(stderr, "Ring #" FMT_I " length = " FMT_R "\n", i+1, length);    
+    fprintf(stderr, "Ring #" FMT_I " length = " FMT_R "\n", ++k, length);
   }
 
   return 0;
