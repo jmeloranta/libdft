@@ -21,14 +21,17 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 1.0 /* Time step (fs) */
-#define NZ (32768)  /* Length of the 1-D grid */
+#define TS 10.0 /* Time step (fs) */
+#define NZ (4096)  /* Length of the 1-D grid */
 #define STEP 0.2    /* Step length for the grid */
-#define IITER 200000 /* Number of warm-up imaginary time iterations */
-#define SITER 250000 /* Stop liquid flow after this many iterations */
+#define IITER 10000 /* Number of warm-up imaginary time iterations */
+#define SITER 50000 /* Stop liquid flow after this many iterations */
 #define MAXITER 80000000  /* Maximum iterations */
-#define NTH 2000          /* Output liquid density every NTH iterations */
+#define NTH 1000          /* Output liquid density every NTH iterations */
 #define VZ (2.0 / GRID_AUTOMPS)  /* Liquid velocity (m/s) */
+
+#define ABS_LEN 60.0
+#define ABS_AMP (10.0 * ABS_LEN / GRID_AUTOK)
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)  /* External pressure (bar) */
 #define THREADS 16                     /* Use this many OpenMP threads */
@@ -132,7 +135,7 @@ int main(int argc, char **argv) {
   cgrid_set_momentum(gwfp->grid, 0.0, 0.0, kz);
 
   /* Allocate OT functional (full Orsay-Trento) */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
@@ -141,7 +144,7 @@ int main(int argc, char **argv) {
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   /* Chemical potential at pressure PRESSURE + hbar^2 kz * kz / (2 * mass) */
   /* So, mu0 = mu0 + moving background contribution */
-  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE) + (HBAR * HBAR / (2.0 * gwf->mass)) * kz * kz;
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE) /* + (HBAR * HBAR / (2.0 * gwf->mass)) * kz * kz */;
   printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
   /* Use the real grid in otf structure (otf->density) rather than allocate new grid */
@@ -184,9 +187,24 @@ int main(int argc, char **argv) {
 
     /* determine time step */
     if(iter < IITER) tstep = -I * TS; /* Imaginary time */
-    else tstep = TS; /* Real time */
-
-    /* AFter SITER's, stop the flow */
+    else {
+      tstep = TS; /* Real time */
+      gwf->ts_func = NULL; // we will use complex absorbing potential
+      gwf->abs_data.data[0] = 0;
+      gwf->abs_data.data[1] = 1;
+      gwf->abs_data.data[2] = 0;
+      gwf->abs_data.data[3] = 1;
+      gwf->abs_data.data[4] = ABS_LEN / STEP;
+      gwf->abs_data.data[5] = NZ - ABS_LEN / STEP;
+      gwfp->ts_func = NULL;
+      gwfp->abs_data.data[0] = gwf->abs_data.data[0];
+      gwfp->abs_data.data[1] = gwf->abs_data.data[1];
+      gwfp->abs_data.data[2] = gwf->abs_data.data[2];
+      gwfp->abs_data.data[3] = gwf->abs_data.data[3];
+      gwfp->abs_data.data[4] = gwf->abs_data.data[4];
+      gwfp->abs_data.data[5] = gwf->abs_data.data[5];
+    }
+    /* After SITER's, stop the flow */
     if(iter > SITER) {
       cgrid_set_momentum(gwf->grid, 0.0, 0.0, 0.0);   /* Reset background velocity to zero */
       cgrid_set_momentum(gwfp->grid, 0.0, 0.0, 0.0);
@@ -203,10 +221,12 @@ int main(int argc, char **argv) {
     dft_ot_potential(otf, potential_store, gwf);  /* Add O-T potential at current time */
     grid_add_real_to_complex_re(potential_store, ext_pot); /* Add external potential */
     cgrid_add(potential_store, -mu0); /* Add -chemical potential */
+    if(iter >= IITER) grid_wf_absorb_potential(gwf, potential_store, ABS_AMP, rho0);
     grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep / GRID_AUTOFS); /* predict step */
     dft_ot_potential(otf, potential_store, gwfp);   /* Get O-T potential at prediction point */
     grid_add_real_to_complex_re(potential_store, ext_pot); /* Add external potential */
     cgrid_add(potential_store, -mu0);              /* add -chemical potential */
+    if(iter >= IITER) grid_wf_absorb_potential(gwfp, potential_store, ABS_AMP, rho0);
     cgrid_multiply(potential_store, 0.5);  /* For correct step, use potential (current + future) / 2 */
     grid_wf_propagate_correct(gwf, potential_store, tstep / GRID_AUTOFS); /* Take the correct step */
 #else
@@ -214,6 +234,7 @@ int main(int argc, char **argv) {
     dft_ot_potential(otf, potential_store, gwf);  /* Get O-T potential */
     grid_add_real_to_complex_re(potential_store, ext_pot); /* Add external potential */
     cgrid_add(potential_store, -mu0);             /* Add -chemical potential */
+    if(iter >= IITER) grid_wf_absorb_potential(gwf, potential_store, ABS_AMP, rho0);
     grid_wf_propagate(gwf, potential_store, tstep / GRID_AUTOFS);  /* Propagate */
 #endif
 

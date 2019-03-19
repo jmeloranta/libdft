@@ -7,6 +7,8 @@
 
 #include "bubble.h"
 
+extern grid_timer timer;
+
 /* Output incompressible kinetic energy distribution in the k-space */
 void do_ke(dft_ot_functional *otf, wf *gwf, INT iter) {
 
@@ -57,8 +59,10 @@ void analyze(dft_ot_functional *otf, wf *wf, INT iter, REAL vz) {
   extern REAL dpot_func_x(void *, REAL, REAL, REAL);
   extern REAL dpot_func_y(void *, REAL, REAL, REAL);
   extern REAL dpot_func_z(void *, REAL, REAL, REAL);
-
+  
+  printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
   printf("Iteration = " FMT_I ", Current time = " FMT_R " fs, velocity = " FMT_R ".\n", iter, ((REAL) iter) * TIME_STEP * GRID_AUTOFS, vz * GRID_AUTOMPS);
+  fflush(stdout);
 
   if(!(otf->workspace1)) otf->workspace1 = rgrid_clone(otf->density, "OT Workspace 1");
   if(!(otf->workspace2)) otf->workspace2 = rgrid_clone(otf->density, "OT Workspace 2");
@@ -98,4 +102,6 @@ void analyze(dft_ot_functional *otf, wf *wf, INT iter, REAL vz) {
   cuda_statistics(0);
 #endif
   fflush(stdout);    
+
+  grid_timer_start(&timer);
 }  

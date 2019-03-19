@@ -4,7 +4,7 @@
  */
 
 /* Time step in imag/real iterations (fs) */
-#define TIME_STEP (15.0 / GRID_AUTOFS)
+#define TIME_STEP (10.0 / GRID_AUTOFS)
 
 /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
@@ -19,14 +19,14 @@
 
 /* Add small imag time component for this many iterations (accel. noise remove) */
 /* (50,000) */
-#define ACCITER 50000
+#define ACCITER 500
 
 /* Output interval time (fs) (5,000) */
 #define OUTPUT_TIME (5000.0 / GRID_AUTOFS)
 #define OUTPUT_ITER ((INT) (OUTPUT_TIME / TIME_STEP))
 
 /* Output grid at given iterations (10,000) (leave undefined if not needed) */
-#define OUTPUT_GRID (OUTPUT_ITER)
+#define OUTPUT_GRID (2*OUTPUT_ITER)
 
 /* Use CUDA ? (auto detect) */
 #ifdef USE_CUDA
@@ -34,10 +34,7 @@
 #endif
 
 /* Predict-Correct (accurate but uses more memory) (at ts = 15 fs, no PC needed) */
-/* #define PC */
-
-/* Flow acceleration (m/s^2); 100 m/s in 10 ns -> 10^10 m/s^2 */
-#define AZ (1.0E11 * GRID_AUTOS / GRID_AUTOMPS)
+//#define PC
 
 /* Max velocity for evaluating backflow */
 #define MAXVELOC (200.0 / GRID_AUTOMPS)
@@ -50,10 +47,12 @@
 #define NY 256         /* # of grid points along y */
 #define NZ 1024        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
-/*#define ABS_AMP 1.0*/     /* Absorption strength (2.0) (leave undefined to omit absorbing BC) */
+
 #define ABS_WIDTH_X 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Y 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Z 60.0  /* Width of the absorbing boundary */
+#define CN_ABS_AMP 10.0     /* Absorption strength (10.0) (leave undefined to omit absorbing BC) CN */
+#define FFT_ABS_AMP (5E3 / GRID_AUTOK)   /* Absorption strength (???) (leave undefined to omit absorbing BC) FFT */
 
 #define NBINS 32                          /* Number of bins for kinetic energy */
 #define BINSTEP (0.1 * GRID_AUTOANG)      /* Bin step */
