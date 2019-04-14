@@ -28,7 +28,8 @@
  * DFT_OT_T2600MK  Thermal model 2.6 K
  * DFT_OT_T2800MK  Thermal model 2.8 K
  * DFT_OT_T3000MK  Thermal model 3.0 K
- * DFT_GP          Gross-Pitaevskii potential
+ * DFT_GP          Gross-Pitaevskii potential (gives good solvation structures)
+ * DFT_GP2         Gross-Pitaevskii potential (gives the correct speed of sound)
  * DFT_DR          Dupont-Roc functional   
  *
  */

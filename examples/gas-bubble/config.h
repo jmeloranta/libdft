@@ -4,22 +4,28 @@
  */
 
 /* Time step in imag/real iterations (fs) */
-#define TIME_STEP (10.0 / GRID_AUTOFS)
+#define TIME_STEP (5.0 / GRID_AUTOFS)
 
 /* Functional to be used (could add DFT_OT_KC and/or DFT_OT_BACKFLOW) */
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
 #define FUNCTIONAL (DFT_OT_PLAIN)
+//#define FUNCTIONAL (DFT_GP)
 
-/* Start real time simulation at this time (fs) - (10,000) */
-#define STARTING_TIME (10000.0 / GRID_AUTOFS)
+/* Start real time simulation at this time (fs) - (100,000) */
+#define STARTING_TIME (200000.0 / GRID_AUTOFS)
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP))
 
 /* Maximum number of real time iterations */
 #define MAXITER 80000000
 
-/* Add small imag time component for this many iterations (accel. noise remove) */
-/* (50,000) */
-#define ACCITER 500
+/* Initial velocity */
+#define INIVZ (57.0 / GRID_AUTOMPS)
+
+/* Flow acceleration (m/s^2); 100 m/s in 10 ns -> 10^10 m/s^2 */
+// NOT IN USE #define AZ (1.0E10 * GRID_AUTOS / GRID_AUTOMPS)
+
+/* Maximum final velocity (m/s) */
+#define MAXVZ (100.0 / GRID_AUTOMPS)
 
 /* Output interval time (fs) (5,000) */
 #define OUTPUT_TIME (5000.0 / GRID_AUTOFS)
@@ -34,7 +40,7 @@
 #endif
 
 /* Predict-Correct (accurate but uses more memory) (at ts = 15 fs, no PC needed) */
-//#define PC
+// #define PC
 
 /* Max velocity for evaluating backflow */
 #define MAXVELOC (200.0 / GRID_AUTOMPS)
@@ -45,21 +51,23 @@
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define NX 256    	/* # of grid points along x */ /* Largest: 729x384x384 */
 #define NY 256         /* # of grid points along y */
-#define NZ 1024        	/* # of grid points along z */
+#define NZ 512        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
+
+/* Kinetic energy propagator */
+//#define PROPAGATOR WF_2ND_ORDER_FFT
+#define PROPAGATOR WF_2ND_ORDER_CFFT
+//#define PROPAGATOR WF_4TH_ORDER_FFT
+//#define PROPAGATOR WF_4TH_ORDER_CFFT
+//#define PROPAGATOR WF_2ND_ORDER_CN
 
 #define ABS_WIDTH_X 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Y 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Z 60.0  /* Width of the absorbing boundary */
-#define CN_ABS_AMP 10.0     /* Absorption strength (10.0) (leave undefined to omit absorbing BC) CN */
-#define FFT_ABS_AMP (5E3 / GRID_AUTOK)   /* Absorption strength (???) (leave undefined to omit absorbing BC) FFT */
+#define ABS_AMP 1.0       /* Use the baseline value (comment out to remove the abs boundary) */
 
 #define NBINS 32                          /* Number of bins for kinetic energy */
 #define BINSTEP (0.1 * GRID_AUTOANG)      /* Bin step */
-
-/* Kinetic energy propagator */
-#define PROPAGATOR WF_2ND_ORDER_FFT
-/* #define PROPAGATOR WF_2ND_ORDER_CN */
 
 #define FFTW_PLANNER 1 /* 0: FFTW_ESTIMATE, 1: FFTW_MEASURE (default), 2: FFTW_PATIENT, 3: FFTW_EXHAUSTIVE */
 
@@ -73,5 +81,5 @@
 #define A4 0.0
 #define A5 0.0
 #define RMIN 2.0
-#define RADD 6.0
-
+#define RADD 6.0  // was 6.0
+#define EPS 1E-6
