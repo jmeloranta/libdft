@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
   char filename[2048];
 #endif
   REAL vz = 0.0, mu0, kz, rho0;
-  INT iter;
+  INT iter, sav_func;
   extern void analyze(dft_ot_functional *, wf *, INT, REAL);
   extern REAL pot_func(void *, REAL, REAL, REAL);
   
@@ -74,6 +74,9 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
+  sav_func = otf->model;
+  otf->model = DFT_OT_PLAIN;  // Obtain the initial structure using plain OT DFT
+
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
   printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
@@ -117,23 +120,24 @@ int main(int argc, char *argv[]) {
 
       grid_timer_start(&timer);
 
+      /* Obtain the initial state by half real and half imag time propagation */
 #ifdef PC
       /* Predict-Correct */
       grid_real_to_complex_re(cworkspace, ext_pot);
       cgrid_add(cworkspace, -mu0);
       dft_ot_potential(otf, cworkspace, gwf);
-      grid_wf_propagate_predict(gwf, gwfp, cworkspace, -I * TIME_STEP);
+      grid_wf_propagate_predict(gwf, gwfp, cworkspace, - I * TIME_STEP);
       grid_add_real_to_complex_re(cworkspace, ext_pot);
       cgrid_add(cworkspace, -mu0);
       dft_ot_potential(otf, cworkspace, gwfp);
       cgrid_multiply(cworkspace, 0.5);  // Use (current + future) / 2
-      grid_wf_propagate_correct(gwf, cworkspace, -I * TIME_STEP);
+      grid_wf_propagate_correct(gwf, cworkspace, - I * TIME_STEP);
       // Chemical potential included - no need to normalize
 #else
       grid_real_to_complex_re(cworkspace, ext_pot);
       cgrid_add(cworkspace, -mu0);
       dft_ot_potential(otf, cworkspace, gwf);
-      grid_wf_propagate(gwf, cworkspace, -I * TIME_STEP);
+      grid_wf_propagate(gwf, cworkspace, - I * TIME_STEP);
 #endif
       printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
       fflush(stdout);
@@ -160,6 +164,8 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* Real time iterations */
+  otf->model = sav_func;  // Restore the original requested functional for real time iterations
+
   printf("Real time propagation.\n");
 
   grid_timer_start(&timer);
@@ -189,12 +195,11 @@ int main(int argc, char *argv[]) {
     dft_ot_potential(otf, cworkspace, gwfp);
     cgrid_multiply(cworkspace, 0.5);  // Use (current + future) / 2
     grid_wf_propagate_correct(gwf, cworkspace, TIME_STEP);
-
 #else /* PC */
     grid_real_to_complex_re(cworkspace, ext_pot);
     cgrid_add(cworkspace, -mu0);  // TODO: this could be moved out of the iteration loop if we don't change velocity
     dft_ot_potential(otf, cworkspace, gwf);
-    grid_wf_propagate(gwf, cworkspace, TIME_STEP);
+    grid_wf_propagate(gwf, cworkspace, TIME_STEP - I * TIME_STEP*FFT_STAB);
 #endif /* PC */
   }
 
