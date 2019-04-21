@@ -1,4 +1,3 @@
-
 /*
  * Dynamics of a bubble (formed by external potential) travelling at
  * constant velocity in liquid helium (moving background). 
