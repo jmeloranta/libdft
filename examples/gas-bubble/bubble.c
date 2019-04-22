@@ -55,8 +55,8 @@ int main(int argc, char *argv[]) {
 
   /* Allocate wave functions */
 #if PROPAGATOR == WF_2ND_ORDER_CN
-//  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_NEUMANN_BOUNDARY, PROPAGATOR, "gwf"))) { // works equally well, but is faster
-  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, PROPAGATOR, "gwf"))) { // works equally well, but is faster
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_NEUMANN_BOUNDARY, PROPAGATOR, "gwf"))) { // works equally well, but is faster
+//  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, PROPAGATOR, "gwf"))) { // slow
 #else
   if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, PROPAGATOR, "gwf"))) {
 #endif
@@ -96,17 +96,15 @@ int main(int argc, char *argv[]) {
 //  rgrid_smooth_map(ext_pot, pot_func, NULL, 3); /* External potential */
   rgrid_map(ext_pot, pot_func, NULL); /* External potential */
 //  rgrid_write_grid("pot", ext_pot); exit(0);
+  rgrid_add(ext_pot, -mu0);
 
-    vz = round_veloc(INIVZ);
-    printf("Current velocity = " FMT_R " m/s.\n", vz * GRID_AUTOMPS);
-    kz = momentum(vz);
-    cgrid_set_momentum(gwf->grid, 0.0, 0.0, kz);
+  vz = round_veloc(INIVZ);
+  printf("Current velocity = " FMT_R " m/s.\n", vz * GRID_AUTOMPS);
+  kz = momentum(vz);
+  cgrid_set_momentum(gwf->grid, 0.0, 0.0, kz);
 #ifdef PC
-    cgrid_set_momentum(gwfp->grid, 0.0, 0.0, kz);
+  cgrid_set_momentum(gwfp->grid, 0.0, 0.0, kz);
 #endif
-    mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);     // update 
-    mu0 = mu0 + (HBAR * HBAR / (2.0 * gwf->mass)) * kz * kz;  // moving background
-//    printf("New chemical potential = " FMT_R " K.\n", mu0 * GRID_AUTOK);
 
   if(argc == 1) {
     grid_wf_constant(gwf, SQRT(rho0));
@@ -123,18 +121,15 @@ int main(int argc, char *argv[]) {
 #ifdef PC
       /* Predict-Correct */
       grid_real_to_complex_re(cworkspace, ext_pot);
-      cgrid_add(cworkspace, -mu0);
       dft_ot_potential(otf, cworkspace, gwf);
       grid_wf_propagate_predict(gwf, gwfp, cworkspace, - I * TIME_STEP);
       grid_add_real_to_complex_re(cworkspace, ext_pot);
-      cgrid_add(cworkspace, -mu0);
       dft_ot_potential(otf, cworkspace, gwfp);
       cgrid_multiply(cworkspace, 0.5);  // Use (current + future) / 2
       grid_wf_propagate_correct(gwf, cworkspace, - I * TIME_STEP);
       // Chemical potential included - no need to normalize
 #else
       grid_real_to_complex_re(cworkspace, ext_pot);
-      cgrid_add(cworkspace, -mu0);
       dft_ot_potential(otf, cworkspace, gwf);
       grid_wf_propagate(gwf, cworkspace, - I * TIME_STEP);
 #endif
@@ -185,18 +180,15 @@ int main(int argc, char *argv[]) {
 #ifdef PC
     /* Predict-Correct */
     grid_real_to_complex_re(cworkspace, ext_pot);
-    cgrid_add(cworkspace, -mu0);
     dft_ot_potential(otf, cworkspace, gwf);
     grid_wf_propagate_predict(gwf, gwfp, cworkspace, TIME_STEP);
 
     grid_add_real_to_complex_re(cworkspace, ext_pot);
-    cgrid_add(cworkspace, -mu0);
     dft_ot_potential(otf, cworkspace, gwfp);
     cgrid_multiply(cworkspace, 0.5);  // Use (current + future) / 2
     grid_wf_propagate_correct(gwf, cworkspace, TIME_STEP);
 #else /* PC */
     grid_real_to_complex_re(cworkspace, ext_pot);
-    cgrid_add(cworkspace, -mu0);  // TODO: this could be moved out of the iteration loop if we don't change velocity
     dft_ot_potential(otf, cworkspace, gwf);
     grid_wf_propagate(gwf, cworkspace, TIME_STEP - I * TIME_STEP*FFT_STAB);
 #endif /* PC */

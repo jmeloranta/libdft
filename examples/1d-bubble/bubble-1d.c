@@ -142,9 +142,7 @@ int main(int argc, char **argv) {
 
   /* Bulk density at pressure PRESSURE */
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
-  /* Chemical potential at pressure PRESSURE + hbar^2 kz * kz / (2 * mass) */
-  /* So, mu0 = mu0 + moving background contribution */
-  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE) /* + (HBAR * HBAR / (2.0 * gwf->mass)) * kz * kz */;
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
   printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
   /* Use the real grid in otf structure (otf->density) rather than allocate new grid */

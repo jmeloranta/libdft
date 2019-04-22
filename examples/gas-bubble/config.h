@@ -11,7 +11,7 @@
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC)
 #define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_BACKFLOW)
-// #define FUNCTIONAL (DFT_OT_PLAIN)
+//#define FUNCTIONAL (DFT_OT_PLAIN)
 //#define FUNCTIONAL (DFT_GP)
 
 /* Start real time simulation at this time (fs) - (100,000) */
@@ -54,11 +54,11 @@
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define NX 256    	/* # of grid points along x */ /* Largest: 729x384x384 */
 #define NY 256         /* # of grid points along y */
-#define NZ 768        	/* # of grid points along z */
+#define NZ 512        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 
 /* Kinetic energy propagator */
-//#define PROPAGATOR WF_2ND_ORDER_FFT
+// #define PROPAGATOR WF_2ND_ORDER_FFT
 // #define PROPAGATOR WF_2ND_ORDER_CFFT
 //#define PROPAGATOR WF_4TH_ORDER_FFT
 //#define PROPAGATOR WF_4TH_ORDER_CFFT
