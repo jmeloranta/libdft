@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
 #ifdef OUTPUT_GRID
   char filename[2048];
 #endif
-  REAL vz = 0.0, mu0, kz, rho0;
+  REAL vz = 0.0, mu0, kz, rho0, vv;
   INT iter, sav_func;
   extern void analyze(dft_ot_functional *, wf *, INT, REAL);
   extern REAL pot_func(void *, REAL, REAL, REAL);
@@ -166,6 +166,15 @@ int main(int argc, char *argv[]) {
 
   for( ; iter < MAXITER; iter++) {
 
+    vv = INIVZ + TIME_STEP * ((REAL) iter) * ACCVZ;
+    if(vv > FINVZ) vv = FINVZ;
+    vz = round_veloc(vv);
+    kz = momentum(vz);
+    cgrid_set_momentum(gwf->grid, 0.0, 0.0, kz);
+#ifdef PC
+    cgrid_set_momentum(gwfp->grid, 0.0, 0.0, kz);
+#endif
+
 #ifdef OUTPUT_GRID
     if(!(iter % OUTPUT_GRID)) {
       printf("Current velocity = " FMT_R " m/s.\n", vz * GRID_AUTOMPS);
@@ -176,21 +185,24 @@ int main(int argc, char *argv[]) {
       fflush(stdout);
     }
 #endif
-    if(!(iter % OUTPUT_ITER)) analyze(otf, gwf, iter, vz);
+    if(!(iter % OUTPUT_ITER)) {
+      printf("Current velocity = " FMT_R " m/s.\n", vz * GRID_AUTOMPS);
+      analyze(otf, gwf, iter, vz);
+    }
 #ifdef PC
     /* Predict-Correct */
     grid_real_to_complex_re(cworkspace, ext_pot);
     dft_ot_potential(otf, cworkspace, gwf);
-    grid_wf_propagate_predict(gwf, gwfp, cworkspace, TIME_STEP);
+    grid_wf_propagate_predict(gwf, gwfp, cworkspace, TIME_STEP - I * TIME_STEP * FFT_STAB);
 
     grid_add_real_to_complex_re(cworkspace, ext_pot);
     dft_ot_potential(otf, cworkspace, gwfp);
     cgrid_multiply(cworkspace, 0.5);  // Use (current + future) / 2
-    grid_wf_propagate_correct(gwf, cworkspace, TIME_STEP);
+    grid_wf_propagate_correct(gwf, cworkspace, TIME_STEP - I * TIME_STEP * FFT_STAB);
 #else /* PC */
     grid_real_to_complex_re(cworkspace, ext_pot);
     dft_ot_potential(otf, cworkspace, gwf);
-    grid_wf_propagate(gwf, cworkspace, TIME_STEP - I * TIME_STEP*FFT_STAB);
+    grid_wf_propagate(gwf, cworkspace, TIME_STEP - I * TIME_STEP * FFT_STAB);
 #endif /* PC */
   }
 
