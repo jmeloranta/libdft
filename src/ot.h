@@ -141,4 +141,21 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
 #define DFT_MIN_SUBSTEPS 4
 #define DFT_MAX_SUBSTEPS 32
 
+/* Use FD or FFT derivatives? */
+#define FD_GRAD /* Finite difference (original) */
+//#define FFT_GRAD /* FFT gradient. Although slightly slower than FD, this will be important for multi GPU systems later. */
+                 /* With this there are no non-local grid operations, which could force GPU-GPU crosstalk. */
+
+#ifdef FD_GRAD
+#define RGRID_GRADIENT_X rgrid_fd_gradient_x
+#define RGRID_GRADIENT_Y rgrid_fd_gradient_y
+#define RGRID_GRADIENT_Z rgrid_fd_gradient_z
+#endif
+
+#ifdef FFT_GRAD
+#define RGRID_GRADIENT_X rgrid_fft_gradient_x
+#define RGRID_GRADIENT_Y rgrid_fft_gradient_y
+#define RGRID_GRADIENT_Z rgrid_fft_gradient_z
+#endif
+
 #endif /* __DFT_OT__ */

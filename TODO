@@ -1,4 +1,6 @@
 - For 1D: Check energy density.
 - Check spectroscopy routines & implement the simple energy binning method
   at given times.
+- 2D: plane integrate over x and solve over (y, z). Similar to 1-D.
+
 
