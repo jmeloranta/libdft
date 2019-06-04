@@ -142,20 +142,22 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
 #define DFT_MAX_SUBSTEPS 32
 
 /* Use FD or FFT derivatives? */
-#define FD_GRAD /* Finite difference (original) */
-//#define FFT_GRAD /* FFT gradient. Although slightly slower than FD, this will be important for multi GPU systems later. */
+//#define FD_GRAD /* Finite difference (original) */
+#define FFT_GRAD /* FFT gradient. Although slightly slower than FD, this will be important for multi GPU systems later. */
                  /* With this there are no non-local grid operations, which could force GPU-GPU crosstalk. */
+                 /* We may be able to eliminate some FFTs since rgrid_fft_gradient_X()'s operate in the Fourier space. (TODO) */
+                 /* Currently, on CPU-based systems the performance penalty is about 17% (FD being faster). */
 
 #ifdef FD_GRAD
-#define RGRID_GRADIENT_X rgrid_fd_gradient_x
-#define RGRID_GRADIENT_Y rgrid_fd_gradient_y
-#define RGRID_GRADIENT_Z rgrid_fd_gradient_z
+#define RGRID_GRADIENT_X(x,y) rgrid_fd_gradient_x(x,y)
+#define RGRID_GRADIENT_Y(x,y) rgrid_fd_gradient_y(x,y)
+#define RGRID_GRADIENT_Z(x,y) rgrid_fd_gradient_z(x,y)
 #endif
 
 #ifdef FFT_GRAD
-#define RGRID_GRADIENT_X rgrid_fft_gradient_x
-#define RGRID_GRADIENT_Y rgrid_fft_gradient_y
-#define RGRID_GRADIENT_Z rgrid_fft_gradient_z
+#define RGRID_GRADIENT_X(x,y) {rgrid_copy(y,x); rgrid_fft(y); rgrid_fft_gradient_x(y, y); rgrid_inverse_fft(y);}
+#define RGRID_GRADIENT_Y(x,y) {rgrid_copy(y,x); rgrid_fft(y); rgrid_fft_gradient_y(y, y); rgrid_inverse_fft(y);}
+#define RGRID_GRADIENT_Z(x,y) {rgrid_copy(y,x); rgrid_fft(y); rgrid_fft_gradient_z(y, y); rgrid_inverse_fft(y);}
 #endif
 
 #endif /* __DFT_OT__ */

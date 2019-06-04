@@ -15,8 +15,8 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 1
-#define NY 1
+#define NX 64
+#define NY 64
 #define NZ 128
 #define STEP 0.5 /* Bohr */
 #define TS 20.0 /* fs */

@@ -17,7 +17,7 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TIME_STEP 10.0  /* fs */
+#define TIME_STEP 1.0  /* fs */
 #define MAXITER 10000
 #define NX 128
 #define NY 128
@@ -26,6 +26,7 @@
 #define THREADS 0
 
 #define PRESSURE 0.0
+#define OMEGA 1E-5
 
 /* Molecule */
 #define OCS 1
@@ -45,7 +46,6 @@ static REAL z[NN] = {0.0, 0.0, 0.0};
 // #define POTENTIAL "newocs_pairpot_128_0.5.grd"
 #define POTENTIAL "ocs_pairpot_128_0.5.grd"
 #define SWITCH_AXIS 1                  /* Potential was along z - switch to x */
-#define OMEGA 1E-9
 #endif
 
 #ifdef HCN
@@ -59,7 +59,6 @@ static REAL y[NN] = {0.0, 0.0, 0.0};
 static REAL z[NN] = {0.0, 0.0, 0.0};
 #define POTENTIAL "hcn_pairpot_128_0.5"
 #define SWITCH_AXIS 1                  /* Potential was along z - switch to x */
-#define OMEGA 1E-9
 #endif
 
 REAL switch_axis(void *xx, REAL x, REAL y, REAL z) {
@@ -78,6 +77,8 @@ int main(int argc, char **argv) {
   INT iter, N, i;
   REAL energy, natoms, beff, i_add, lz, i_free, b_free, mass, cmx, cmy, cmz, mu0, rho0;
   grid_timer timer;
+  REAL complex TC; // 1.0 for real or -I for imag time
+
 
   /* Normalization condition */
   if(argc != 2) {
@@ -107,7 +108,7 @@ int main(int argc, char **argv) {
   } else printf("Bulk helium liquid.\n");
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
@@ -136,13 +137,21 @@ int main(int argc, char **argv) {
   density->value_outside = RGRID_PERIODIC_BOUNDARY;   // done, back to original
 
   /* Rotation about z-axis */
-  printf("Omega = " FMT_R "\n", OMEGA);
+  printf("Omega = " FMT_R " a.u.\n", OMEGA);
+  printf("Omega = " FMT_R " GHz.\n", 1E-9 * OMEGA / (GRID_AUTOS));
   cgrid_set_rotation(gwf->grid, OMEGA);
   cgrid_set_rotation(gwfp->grid, OMEGA);
 
   cgrid_constant(gwf->grid, SQRT(rho0));
 
   for (iter = 0; iter < MAXITER; iter++) {
+
+#if 0
+    if(iter < 200) TC = -I;
+    else TC = 1.0;
+#else
+    TC = -I;
+#endif
     
     // Center of mass of the rotating system
     // 1. The molecule
@@ -191,12 +200,12 @@ int main(int argc, char **argv) {
     grid_real_to_complex_re(potential_store, ext_pot);
     dft_ot_potential(otf, potential_store, gwf);
     cgrid_add(potential_store, -mu0);
-    grid_wf_propagate_predict(gwf, gwfp, potential_store, -I * TIME_STEP / GRID_AUTOFS);
+    grid_wf_propagate_predict(gwf, gwfp, potential_store, TC * TIME_STEP / GRID_AUTOFS);
     grid_add_real_to_complex_re(potential_store, ext_pot);
     dft_ot_potential(otf, potential_store, gwfp);
     cgrid_add(potential_store, -mu0);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
-    grid_wf_propagate_correct(gwf, potential_store, -I * TIME_STEP / GRID_AUTOFS);
+    grid_wf_propagate_correct(gwf, potential_store, TC * TIME_STEP / GRID_AUTOFS);
     if(N) grid_wf_normalize(gwf); // droplet
     // If N = 0, Chemical potential included - no need to normalize
     printf("Norm = " FMT_R "\n", grid_wf_norm(gwf));
