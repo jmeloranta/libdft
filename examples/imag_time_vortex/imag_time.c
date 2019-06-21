@@ -25,7 +25,7 @@
 #define THREADS 0
 
 /* Impurity */
-#define HE2STAR 1
+/* #define HE2STAR 1 */
 /* #define HESTAR  1 */
 /* #define AG 1 */
 /* #define CU 1 */
@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
   gwfp = grid_wf_clone(gwf, "gwfp");
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN /* | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD */, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
@@ -146,12 +146,13 @@ int main(int argc, char **argv) {
 #ifndef ONSAGER
 #if defined(VORTEX) || defined(BOTH)
   grid_wf_map(gwf, &dft_initial_vortex_z_n1, NULL);
+  cgrid_multiply(gwf->grid, SQRT(rho0));
 #endif
 #endif
 
   for (iter = 1; iter < MAXITER; iter++) {
     
-    if(iter == 1 || !(iter % 200)) {
+    if(iter == 1 || !(iter % 100)) {
       char buf[512];
       grid_wf_density(gwf, density);
       sprintf(buf, "output-" FMT_I, iter);

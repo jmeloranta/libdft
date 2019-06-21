@@ -134,23 +134,29 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
       }
     } else otf->backflow_pot = NULL;
 
+#ifdef DFT_OT_1D
     if(nx == 1 && ny == 1)
       fprintf(stderr, "libdft: Using 1-D model with effective 3-D potential.\n");
+#endif
   
     /* pre-calculate */
     if(otf->model & DFT_DR) {
+#ifdef DFT_OT_1D
       if(nx == 1 && ny == 1) {
         fprintf(stderr, "libdft: DFT_DR not implemented for 1-D.\n");
         exit(1);
       }
+#endif
       fprintf(stderr, "libdft: LJ according to DR - ");
       rgrid_adaptive_map(otf->lennard_jones, dft_common_lennard_jones_smooth, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid_fft(otf->lennard_jones);
     } else {
       fprintf(stderr, "libdft: LJ according to OT - ");
+#ifdef DFT_OT_1D
       if(nx == 1 && ny == 1)
         rgrid_adaptive_map(otf->lennard_jones, dft_common_lennard_jones_1d, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       else 
+#endif
         rgrid_adaptive_map(otf->lennard_jones, dft_common_lennard_jones, &(otf->lj_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);      
       rgrid_fft(otf->lennard_jones);
       /* Scaling of LJ so that the integral is exactly b */
@@ -167,9 +173,11 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
       fprintf(stderr, "libdft: Spherical average (original) - ");
     }
 
+#ifdef DFT_OT_1D
     if(nx == 1 && ny == 1)
       rgrid_adaptive_map(otf->spherical_avg, dft_common_spherical_avg_1d, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     else 
+#endif
       rgrid_adaptive_map(otf->spherical_avg, dft_common_spherical_avg, &radius, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
     rgrid_fft(otf->spherical_avg);
     /* Scaling of sph. avg. so that the integral is exactly 1 */
@@ -180,12 +188,14 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
     if(model & DFT_OT_KC) {
       fprintf(stderr, "libdft: Kinetic correlation - ");	
       inv_width = 1.0 / otf->l_g;
+#ifdef DFT_OT_1D
       if(nx == 1 && ny == 1) {
         rgrid_adaptive_map(otf->gaussian_tf, dft_common_gaussian_1d, &inv_width, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
         RGRID_GRADIENT_Z(otf->gaussian_tf, otf->gaussian_z_tf);
         rgrid_fft(otf->gaussian_z_tf);
         rgrid_fft(otf->gaussian_tf);
       } else {
+#endif
         rgrid_adaptive_map(otf->gaussian_tf, dft_common_gaussian, &inv_width, min_substeps, max_substeps, 0.01 / GRID_AUTOK);
         RGRID_GRADIENT_X(otf->gaussian_tf, otf->gaussian_x_tf);
         RGRID_GRADIENT_Y(otf->gaussian_tf, otf->gaussian_y_tf);
@@ -194,15 +204,19 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
         rgrid_fft(otf->gaussian_y_tf);
         rgrid_fft(otf->gaussian_z_tf);
         rgrid_fft(otf->gaussian_tf);
+#ifdef DFT_OT_1D
       }
+#endif
       fprintf(stderr, "Done.\n");
     }
     
     if(model & DFT_OT_BACKFLOW) {
       fprintf(stderr, "libdft: Backflow - ");
+#ifdef DFT_OT_1D
       if(nx == 1 && ny == 1)
         rgrid_adaptive_map(otf->backflow_pot, dft_ot_backflow_pot_1d, &(otf->bf_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       else
+#endif
         rgrid_adaptive_map(otf->backflow_pot, dft_ot_backflow_pot, &(otf->bf_params), min_substeps, max_substeps, 0.01 / GRID_AUTOK);
       rgrid_fft(otf->backflow_pot);
       fprintf(stderr, "Done.\n");
@@ -368,9 +382,11 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf) {
     rgrid_claim(workspace1); rgrid_claim(workspace2); rgrid_claim(workspace3);
     rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6);
     rgrid_claim(workspace7); rgrid_claim(workspace8); rgrid_claim(workspace9);
+#ifdef DFT_OT_1D
     if(density->nx == 1 && density->ny == 1) 
       grid_wf_velocity_z(wf, workspace3, otf->veloc_cutoff);
     else
+#endif
       grid_wf_velocity(wf, workspace1, workspace2, workspace3, otf->veloc_cutoff);
     dft_ot_backflow_potential(otf, potential, density, workspace1 /* veloc_x */, workspace2 /* veloc_y */, workspace3 /* veloc_z */, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
     rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
@@ -707,6 +723,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
     rgrid_add_scaled_product(workspace2, 1.0, veloc_y, veloc_y);
     rgrid_add_scaled_product(workspace2, 1.0, veloc_x, veloc_x);
   }
+
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
     grid_func2_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);  /* multiply by g rho */
   else

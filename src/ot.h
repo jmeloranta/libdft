@@ -160,4 +160,7 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
 #define RGRID_GRADIENT_Z(x,y) {rgrid_copy(y,x); rgrid_fft(y); rgrid_fft_gradient_z(y, y); rgrid_inverse_fft(y);}
 #endif
 
+/* Use special 1D OT-DFT code? */
+#define DFT_OT_1D
+
 #endif /* __DFT_OT__ */
