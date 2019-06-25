@@ -15,10 +15,10 @@
 
 #define TS 5.0 /* fs */
 #define NX 32
-#define NY 256
-#define NZ 256
+#define NY 512
+#define NZ 512
 #define STEP 1.0
-#define NTH 2000
+#define NTH 1000
 #define THREADS 0
 
 /* Start simulation after this many iterations */
@@ -26,6 +26,9 @@
 
 /* Number of He atoms (0 = no normalization) */
 #define NHE 0
+
+/* Imag. time component */
+#define ITS (0.05 * TS)
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
@@ -37,22 +40,34 @@ REAL rho0;
 #define LINE1_Z   0.0
 #define DIR1 1.0
 #define OFFSET1 0.0
+// #define FIXLINE1
 
 #define LINE2_Y  20.0
 #define LINE2_Z  0.0
-#define DIR2 -1.0
+#define DIR2 1.0
 #define OFFSET2 0.0
+// #define FIXLINE2
 
 /* "stick" holding vortex line in place */
 REAL stick(void *prm, REAL x, REAL y, REAL z) {
 
-  REAL dy, dz;
+  REAL dy, dz, val = 0.0;
 
+#ifdef FIXLINE1
   dy = LINE1_Y - y;
   dz = LINE1_Z - z;
 
-  if(SQRT(dy*dy + dz*dz) < STEP/2.0) return 1E-2;
-  else return 0.0;
+  if(SQRT(dy*dy + dz*dz) < STEP/2.0) val += 1E-2;
+#endif
+
+#ifdef FIXLINE2
+  dy = LINE2_Y - y;
+  dz = LINE2_Z - z;
+
+  if(SQRT(dy*dy + dz*dz) < STEP/2.0) val += 1E-2;
+#endif
+
+  return val;
 }
 
 /* vortex ring initial guess (ring in yz-plane) */
@@ -94,7 +109,8 @@ int main(int argc, char **argv) {
   grid_fft_read_wisdom(NULL);
 
   /* Allocate wave functions */
-  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_FFT_EOO_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
+//  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_FFT_EOO_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }
@@ -129,7 +145,7 @@ int main(int argc, char **argv) {
 
   for (iter = 1; iter < 800000; iter++) {
     if(iter < START) tstep = -I * TS / GRID_AUTOFS;
-    else tstep = TS / GRID_AUTOFS;
+    else tstep = (TS - I * ITS) / GRID_AUTOFS;
     if(iter == 1 || !(iter % NTH)) {
       sprintf(buf, "film-" FMT_I, iter);
       cgrid_write_grid(buf, gwf->grid);

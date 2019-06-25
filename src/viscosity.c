@@ -50,6 +50,15 @@ EXPORT void dft_viscous_potential(wf *gwf, dft_ot_functional *otf, cgrid *pot, R
   REAL rho0 = otf->rho0;
   struct visc_func_param prm;  
   
+  if(!otf->workspace1) workspace1 = otf->workspace1 = rgrid_clone(otf->density, "OTF workspace 1");
+  if(!otf->workspace2) workspace2 = otf->workspace2 = rgrid_clone(otf->density, "OTF workspace 2");
+  if(!otf->workspace3) workspace3 = otf->workspace3 = rgrid_clone(otf->density, "OTF workspace 3");
+  if(!otf->workspace4) workspace4 = otf->workspace4 = rgrid_clone(otf->density, "OTF workspace 4");
+  if(!otf->workspace5) workspace5 = otf->workspace5 = rgrid_clone(otf->density, "OTF workspace 5");
+  if(!otf->workspace6) workspace6 = otf->workspace6 = rgrid_clone(otf->density, "OTF workspace 6");
+  if(!otf->workspace7) workspace7 = otf->workspace7 = rgrid_clone(otf->density, "OTF workspace 7");
+  if(!otf->workspace8) workspace8 = otf->workspace8 = rgrid_clone(otf->density, "OTF workspace 8");
+
   prm.rho0 = rho0;
   prm.viscosity = viscosity;
   prm.viscosity_alpha = viscosity_alpha;

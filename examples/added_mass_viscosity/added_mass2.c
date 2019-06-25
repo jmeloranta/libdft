@@ -20,10 +20,10 @@
 #define MAXITER 50000   /* Maximum number of iterations (was 300) */
 #define OUTPUT     100	/* output every this iteration (was 1000) */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 1024      	/* # of grid points along x */
-#define NY 512          /* # of grid points along y */
-#define NZ 512      	/* # of grid points along z */
-#define STEP 0.15       /* spatial step length (Bohr) */
+#define NX 256      	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 256      	/* # of grid points along z */
+#define STEP 1.0       /* spatial step length (Bohr) */
 #define PRESSURE 0.0    /* External pressure */
 
 #define ALPHA 2.00 /**/
@@ -33,9 +33,9 @@
 /* #define INITIAL_GUESS_FROM_DENSITY */
 
 /* velocity components */
-#define KX	(1.0 * 2.0 * M_PI / (NX * STEP))
+#define KX	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NX * STEP))
-#define KZ	(0.0 * 2.0 * M_PI / (NX * STEP))
+#define KZ	(1.0 * 2.0 * M_PI / (NX * STEP))
 #define VX	(KX * HBAR / DFT_HELIUM_MASS)
 #define VY	(KY * HBAR / DFT_HELIUM_MASS)
 #define VZ	(KZ * HBAR / DFT_HELIUM_MASS)
@@ -322,7 +322,7 @@ int main(int argc, char *argv[]) {
   cgrid_set_momentum(gwfp->grid, KX, KY, KZ);
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN /* | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD */, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
@@ -415,7 +415,7 @@ int main(int argc, char *argv[]) {
       printf("Helium energy    = " FMT_R "\n", (kin + pot) * GRID_AUTOK);  /* Print result in K */
 
       grid_wf_probability_flux_x(gwf, rworkspace);
-      printf("Added mass = " FMT_R "\n", rgrid_integral(rworkspace) / VX); 
+      printf("Added mass = " FMT_R "\n", rgrid_integral(rworkspace) / VZ); 
 
       grid_wf_density(gwf, otf->density);                     /* Density from gwf */
       force = rgrid_weighted_integral(otf->density, dpot_func, NULL);   /* includes the minus already somehow (cmp FD below) */
@@ -423,7 +423,7 @@ int main(int argc, char *argv[]) {
       printf("Drag force on ion = " FMT_R " a.u.\n", force);
 
       printf("E-field = " FMT_R " V/m\n", -force * GRID_AUTOVPM);
-      mobility = VX * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
+      mobility = VZ * GRID_AUTOMPS / (-force * GRID_AUTOVPM);
       printf("Mobility = " FMT_R " [cm^2/(Vs)]\n", 1.0E4 * mobility); /* 1E4 = m^2 to cm^2 */
       printf("Hydrodynamic radius (Stokes) = " FMT_R " Angs.\n", 1E10 * 1.602176565E-19 / (SBC * M_PI * mobility * RHON * VISCOSITY));
 
