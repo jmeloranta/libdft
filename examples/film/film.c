@@ -40,7 +40,7 @@
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
-#define RANDOM_SEED 123456L
+#define RANDOM_SEED 1234567L
 
 REAL rho0;
 
