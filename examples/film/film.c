@@ -15,11 +15,19 @@
 
 #define TS 5.0 /* fs */
 #define NX 32
-#define NY 512
-#define NZ 512
+#define NY 1024
+#define NZ 1024
 #define STEP 1.0
 #define NTH 1000
 #define THREADS 0
+
+/* safe zone without boundary interference */
+#define SNY (NY / 2)
+#define SNZ (NZ / 2)
+
+#define XVAL(i) (((REAL) (i - NX/2)) * STEP)
+#define YVAL(j) (((REAL) (j - SNY/2)) * STEP)
+#define ZVAL(k) (((REAL) (k - SNZ/2)) * STEP)
 
 /* Start simulation after this many iterations */
 #define START 1000
@@ -27,47 +35,31 @@
 /* Number of He atoms (0 = no normalization) */
 #define NHE 0
 
-/* Imag. time component */
+/* Imag. time component (dissipation) */
 #define ITS (0.05 * TS)
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 REAL rho0;
 
-/* positions for vortex lines in yz-plane (vortex line along x) */
+/* Number of vortex line pais (with opposite circulation) in YZ-plane */
+#define NPAIRS 8
+#define PAIR_DIST (SNY * STEP / 5.0)
 
-#define LINE1_Y   -20.0
-#define LINE1_Z   0.0
-#define DIR1 1.0
-#define OFFSET1 0.0
-// #define FIXLINE1
+REAL y[2*NPAIRS], z[2*NPAIRS];
+INT npts = 0;
 
-#define LINE2_Y  20.0
-#define LINE2_Z  0.0
-#define DIR2 1.0
-#define OFFSET2 0.0
-// #define FIXLINE2
+INT check_proximity(REAL yy, REAL zz) {
 
-/* "stick" holding vortex line in place */
-REAL stick(void *prm, REAL x, REAL y, REAL z) {
+  INT i;
+  REAL y2, z2;
 
-  REAL dy, dz, val = 0.0;
-
-#ifdef FIXLINE1
-  dy = LINE1_Y - y;
-  dz = LINE1_Z - z;
-
-  if(SQRT(dy*dy + dz*dz) < STEP/2.0) val += 1E-2;
-#endif
-
-#ifdef FIXLINE2
-  dy = LINE2_Y - y;
-  dz = LINE2_Z - z;
-
-  if(SQRT(dy*dy + dz*dz) < STEP/2.0) val += 1E-2;
-#endif
-
-  return val;
+  for (i = 0; i < npts; i++) {
+    y2 = yy - y[i]; y2 *= y2;
+    z2 = zz - z[i]; z2 *= z2;
+    if(SQRT(y2 + z2) < PAIR_DIST) return 1;  // something too close
+  }
+  return 0; // OK
 }
 
 /* vortex ring initial guess (ring in yz-plane) */
@@ -90,13 +82,12 @@ int main(int argc, char **argv) {
 
   dft_ot_functional *otf;
   cgrid *potential_store;
-  rgrid *rworkspace, *ext_pot;
-  wf *gwf, *gwfp;
+  rgrid *rworkspace;
+  wf *gwf;
   INT iter;
-  REAL mu0, kin, pot, n;
+  REAL mu0, kin, pot, n, line[5];
   char buf[512];
   grid_timer timer;
-  REAL line1[] = {0.0, LINE1_Y, LINE1_Z, DIR1, OFFSET1}, line2[] = {0.0, LINE2_Y, LINE2_Z, DIR2, OFFSET2};
   REAL complex tstep;
 
 #ifdef USE_CUDA
@@ -114,7 +105,6 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }
-  gwfp = grid_wf_clone(gwf, "gwfp");
 
   /* Allocate OT functional */
   if(!(otf = dft_ot_alloc(DFT_OT_PLAIN, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
@@ -128,16 +118,44 @@ int main(int argc, char **argv) {
   /* Allocate space for external potential */
   potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
   rworkspace = rgrid_clone(otf->density, "rworkspace"); /* temporary storage */
-  ext_pot = rgrid_clone(otf->density, "rworkspace"); /* potential storage */
  
-  /* setup initial guess for two vortex lines */
-  grid_wf_map(gwf, vline, line1);
-  grid_wf_map(gwfp, vline, line2);
-  cgrid_product(gwf->grid, gwf->grid, gwfp->grid);
-  cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
+  /* setup initial guess for vortex lines */
+  srand48(time(0));
+  cgrid_constant(gwf->grid, SQRT(rho0));
+  for (iter = 0; iter < NPAIRS; iter++) {
+    REAL rv;
+    // First in pair
+    do {
+      line[0] = 0.0; 
+      line[1] = YVAL(0) + drand48() * STEP * (REAL) SNY;
+      line[2] = ZVAL(0) + drand48() * STEP * (REAL) SNZ;
+    } while(check_proximity(line[1], line[2]));
+    line[3] = 1.0; line[4] = 0.0;
+    y[npts] = line[1];
+    z[npts] = line[2];
+    npts++;
+    cgrid_map(potential_store, vline, line);
+    cgrid_product(gwf->grid, gwf->grid, potential_store);
+    cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
+    printf("Pair+ " FMT_I ": " FMT_R "," FMT_R "\n", iter, line[1], line[2]);
+    // Second in pair
+    line[0] = 0.0; 
+    do {
+      rv = drand48();
+      line[1] += SIN(2.0 * M_PI * rv) * PAIR_DIST;
+      line[2] += COS(2.0 * M_PI * rv) * PAIR_DIST;
+    } while (FABS(line[1]) >= YVAL(SNY) || FABS(line[2]) >= ZVAL(SNZ) || check_proximity(line[1], line[2]));
+    line[3] = -1.0; line[4] = 0.0;
+    y[npts] = line[1];
+    z[npts] = line[2];
+    npts++;
+    cgrid_map(potential_store, vline, line);
+    cgrid_product(gwf->grid, gwf->grid, potential_store);
+    cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
+    printf("Pair- " FMT_I ": " FMT_R "," FMT_R "\n", iter, line[1], line[2]);
+  }
 
   /* external potential */
-  rgrid_map(ext_pot, &stick, NULL);
 
 #if NHE != 0
   gwf->norm = 5000;
@@ -147,6 +165,7 @@ int main(int argc, char **argv) {
     if(iter < START) tstep = -I * TS / GRID_AUTOFS;
     else tstep = (TS - I * ITS) / GRID_AUTOFS;
     if(iter == 1 || !(iter % NTH)) {
+      printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
       sprintf(buf, "film-" FMT_I, iter);
       cgrid_write_grid(buf, gwf->grid);
       kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
@@ -165,20 +184,13 @@ int main(int argc, char **argv) {
     grid_timer_start(&timer);
 
     /* Predict-Correct */
-    grid_real_to_complex_re(potential_store, ext_pot);
+    cgrid_zero(potential_store);
     dft_ot_potential(otf, potential_store, gwf);
     cgrid_add(potential_store, -mu0);
-    grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep);
-    dft_ot_potential(otf, potential_store, gwfp);
-    cgrid_add(potential_store, -mu0);
-    grid_add_real_to_complex_re(potential_store, ext_pot);
-    cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
-    grid_wf_propagate_correct(gwf, potential_store, tstep);
-    // Chemical potential included - no need to normalize
+    grid_wf_propagate(gwf, potential_store, tstep);
 #if NHE != 0
     grid_wf_normalize(gwf);
 #endif
-    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
   }
   return 0;
 }

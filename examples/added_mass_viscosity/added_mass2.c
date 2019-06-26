@@ -414,7 +414,7 @@ int main(int argc, char *argv[]) {
       printf("Helium potential = " FMT_R "\n", pot * GRID_AUTOK);  /* Print result in K */
       printf("Helium energy    = " FMT_R "\n", (kin + pot) * GRID_AUTOK);  /* Print result in K */
 
-      grid_wf_probability_flux_x(gwf, rworkspace);
+      grid_wf_probability_flux_z(gwf, rworkspace);
       printf("Added mass = " FMT_R "\n", rgrid_integral(rworkspace) / VZ); 
 
       grid_wf_density(gwf, otf->density);                     /* Density from gwf */
