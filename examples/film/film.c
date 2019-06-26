@@ -40,6 +40,8 @@
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
+#define RANDOM_SEED 123456L
+
 REAL rho0;
 
 /* Number of vortex line pais (with opposite circulation) in YZ-plane */
@@ -120,7 +122,8 @@ int main(int argc, char **argv) {
   rworkspace = rgrid_clone(otf->density, "rworkspace"); /* temporary storage */
  
   /* setup initial guess for vortex lines */
-  srand48(time(0));
+  srand48(RANDOM_SEED); // or time(0)
+  printf("Random seed = %ld\n", RANDOM_SEED);
   cgrid_constant(gwf->grid, SQRT(rho0));
   for (iter = 0; iter < NPAIRS; iter++) {
     REAL rv;
@@ -137,7 +140,7 @@ int main(int argc, char **argv) {
     cgrid_map(potential_store, vline, line);
     cgrid_product(gwf->grid, gwf->grid, potential_store);
     cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
-    printf("Pair+ " FMT_I ": " FMT_R "," FMT_R "\n", iter, line[1], line[2]);
+    printf("Pair+ " FMT_I ": " FMT_R "," FMT_R "\n", iter, line[1], line[2]); fflush(stdout);
     // Second in pair
     line[0] = 0.0; 
     do {
@@ -152,7 +155,7 @@ int main(int argc, char **argv) {
     cgrid_map(potential_store, vline, line);
     cgrid_product(gwf->grid, gwf->grid, potential_store);
     cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
-    printf("Pair- " FMT_I ": " FMT_R "," FMT_R "\n", iter, line[1], line[2]);
+    printf("Pair- " FMT_I ": " FMT_R "," FMT_R "\n", iter, line[1], line[2]); fflush(stdout);
   }
 
   /* external potential */
