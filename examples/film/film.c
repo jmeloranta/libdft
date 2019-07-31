@@ -13,30 +13,27 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 5.0 /* fs */
+#define TS 30.0 /* fs */
+/* Was 32x1024x1024 step = 1.0 */
 #define NX 32
-#define NY 1024
-#define NZ 1024
+#define NY 4096
+#define NZ 4096
 #define STEP 1.0
 #define NTH 1000
 #define THREADS 0
+
+/* Print vortex line locations only? (otherwise write full grids) */
+#define LINE_LOCATIONS_ONLY
 
 /* safe zone without boundary interference */
 #define SNY (NY / 2)
 #define SNZ (NZ / 2)
 
-#define XVAL(i) (((REAL) (i - NX/2)) * STEP)
-#define YVAL(j) (((REAL) (j - SNY/2)) * STEP)
-#define ZVAL(k) (((REAL) (k - SNZ/2)) * STEP)
-
 /* Start simulation after this many iterations */
-#define START 1000
-
-/* Number of He atoms (0 = no normalization) */
-#define NHE 0
+#define START 200
 
 /* Imag. time component (dissipation) */
-#define ITS (0.05 * TS)
+#define ITS (0.02 * TS)
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
@@ -45,13 +42,17 @@
 REAL rho0;
 
 /* Number of vortex line pais (with opposite circulation) in YZ-plane */
-#define NPAIRS 8
-#define PAIR_DIST (SNY * STEP / 5.0)
+#define NPAIRS 16
+/* #define PAIR_DIST (SNY * STEP / 5.0) */
+#define PAIR_DIST 100.0
 
+/* These hold the initial guess vortex line positions */
+/* and later on the vortex line positions determined */
+/* during the simulation. */
 REAL y[2*NPAIRS], z[2*NPAIRS];
 INT npts = 0;
 
-INT check_proximity(REAL yy, REAL zz) {
+INT check_proximity(REAL yy, REAL zz, REAL dist) {
 
   INT i;
   REAL y2, z2;
@@ -59,9 +60,62 @@ INT check_proximity(REAL yy, REAL zz) {
   for (i = 0; i < npts; i++) {
     y2 = yy - y[i]; y2 *= y2;
     z2 = zz - z[i]; z2 *= z2;
-    if(SQRT(y2 + z2) < PAIR_DIST) return 1;  // something too close
+    if(SQRT(y2 + z2) < dist) return 1;  // something too close
   }
   return 0; // OK
+}
+
+#define CORE_DENS (rho0 / 4.0)  // for step = 2.0, 2.0 is ok
+#define MIN_DIST_CORE 3.0
+
+void locate_lines(rgrid *density) {
+
+  INT i, k, j;
+  REAL yy, zz;
+
+  npts = 0;
+  i = NX / 2;
+  for (j = 0; j < NY; j++) {
+    yy = ((REAL) (j - NY/2)) * STEP;
+    for (k = 0; k < NZ; k++) {
+      zz = ((REAL) (k - NZ/2)) * STEP;
+      if(FABS(rgrid_value_at_index(density, i, j, k)) < CORE_DENS && !check_proximity(yy, zz, MIN_DIST_CORE)) {
+        if(npts >= 2*NPAIRS) {
+          fprintf(stderr, "Error: More lines than generated initially!\n");
+          exit(1);
+        }
+        printf(FMT_R " " FMT_R "\n", yy, zz);
+        y[npts] = yy;
+        z[npts] = zz;
+        npts++;
+      }
+    }
+  }
+}
+
+void print_lines() {
+
+  INT i;
+
+//  printf("XXX " FMT_I "\n", npts);
+  printf("XXX\n");
+  for (i = 0; i < npts; i++)
+    printf("XXX " FMT_R " " FMT_R "\n", y[i], z[i]);
+}  
+
+void print_pair_dist(char *file) {
+
+  INT i, j;
+  FILE *fp;
+
+  if(!(fp = fopen(file, "w"))) {
+    fprintf(stderr, "Can't open pair dist file.\n");
+    exit(1);
+  }
+  for (i = 0; i < npts; i++)
+    for (j = i+1; j < npts; j++)
+      fprintf(fp, FMT_R "\n", SQRT((y[i] - y[j]) * (y[i] - y[j]) + (z[i] - z[j]) * (z[i] - z[j])));
+  fclose(fp);
 }
 
 /* vortex ring initial guess (ring in yz-plane) */
@@ -127,12 +181,12 @@ int main(int argc, char **argv) {
   cgrid_constant(gwf->grid, SQRT(rho0));
   for (iter = 0; iter < NPAIRS; iter++) {
     REAL rv;
-    // First in pair
+    // First line in pair
     do {
-      line[0] = 0.0; 
-      line[1] = YVAL(0) + drand48() * STEP * (REAL) SNY;
-      line[2] = ZVAL(0) + drand48() * STEP * (REAL) SNZ;
-    } while(check_proximity(line[1], line[2]));
+      line[0] = 0.0;
+      line[1] = -(STEP/2.0) * ((REAL) SNY) + drand48() * STEP * (REAL) SNY; // origin +- displacement
+      line[2] = -(STEP/2.0) * ((REAL) SNZ) + drand48() * STEP * (REAL) SNZ;
+    } while(FABS(line[1]) > STEP * SNY / 2.0 || FABS(line[2]) > STEP * SNZ / 2.0 || check_proximity(line[1], line[2], PAIR_DIST));
     line[3] = 1.0; line[4] = 0.0;
     y[npts] = line[1];
     z[npts] = line[2];
@@ -147,8 +201,9 @@ int main(int argc, char **argv) {
       rv = drand48();
       line[1] += SIN(2.0 * M_PI * rv) * PAIR_DIST;
       line[2] += COS(2.0 * M_PI * rv) * PAIR_DIST;
-    } while (FABS(line[1]) >= YVAL(SNY) || FABS(line[2]) >= ZVAL(SNZ) || check_proximity(line[1], line[2]));
-    line[3] = -1.0; line[4] = 0.0;
+    } while (check_proximity(line[1], line[2], PAIR_DIST));
+    line[3] = -1.0; 
+    line[4] = 0.0;
     y[npts] = line[1];
     z[npts] = line[2];
     npts++;
@@ -158,19 +213,21 @@ int main(int argc, char **argv) {
     printf("Pair- " FMT_I ": " FMT_R "," FMT_R "\n", iter, line[1], line[2]); fflush(stdout);
   }
 
-  /* external potential */
-
-#if NHE != 0
-  gwf->norm = 5000;
-#endif
-
   for (iter = 1; iter < 800000; iter++) {
     if(iter < START) tstep = -I * TS / GRID_AUTOFS;
     else tstep = (TS - I * ITS) / GRID_AUTOFS;
     if(iter == 1 || !(iter % NTH)) {
       printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
+#ifdef LINE_LOCATIONS_ONLY
+      grid_wf_density(gwf, rworkspace);
+      locate_lines(rworkspace);
+      print_lines();
+      sprintf(buf, "film-" FMT_I ".pair", iter);
+      print_pair_dist(buf);
+#else
       sprintf(buf, "film-" FMT_I, iter);
       cgrid_write_grid(buf, gwf->grid);
+#endif
       kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
       dft_ot_energy_density(otf, rworkspace, gwf);
       pot = rgrid_integral(rworkspace);
