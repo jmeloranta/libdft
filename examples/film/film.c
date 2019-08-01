@@ -13,42 +13,44 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
+/* Time integration and spatial grid parameters */
 #define TS 40.0 /* fs */
-/* Was 32x1024x1024 step = 1.0 */
 #define NX 16
 #define NY 2048
 #define NZ 2048
 #define STEP 2.0
-#define NTH 1000
+
+/* Vortex line params */
+#define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
+#define NPAIRS 128        /* Number of + and - vortex pairs */
+#define PAIR_DIST 100.0  /* Minimum distance between vortices allowed */
+#define ITS (0.02 * TS)  /* Imag. time component (dissipation; 0 = none or 1 = full) */
+
+/* Pressure */
+#define PRESSURE (0.0 / GRID_AUTOBAR)
+
+/* Start simulation after this many iterations */
+#define START 200
+
+/* Output every NTH iteration */
+#define NTH 10000
+
+/* Use all threads available on the computer */
 #define THREADS 0
 
 /* Print vortex line locations only? (otherwise write full grids) */
 #define LINE_LOCATIONS_ONLY
 
-/* safe zone without boundary interference */
-#define SNY (NY / 2)
-#define SNZ (NZ / 2)
+/* safe zone without boundary interference (was / 2) */
+#define SNY (0.9*NY)
+#define SNZ (0.9*NZ)
 
-/* Start simulation after this many iterations */
-#define START 200
-
-/* Imag. time component (dissipation) */
-#define ITS (0.02 * TS)
-
-#define PRESSURE (0.0 / GRID_AUTOBAR)
-
-#define RANDOM_SEED 1234567L
+/* Vortex line search parameters */
+#define MIN_DIST_CORE 3.0
+#define ADJUST 0.75
 
 REAL rho0;
 
-/* Number of vortex line pais (with opposite circulation) in YZ-plane */
-#define NPAIRS 16
-/* #define PAIR_DIST (SNY * STEP / 5.0) */
-#define PAIR_DIST 100.0
-
-/* These hold the initial guess vortex line positions */
-/* and later on the vortex line positions determined */
-/* during the simulation. */
 REAL yp[NPAIRS], zp[NPAIRS], ym[NPAIRS], zm[NPAIRS];
 INT nptsp = 0, nptsm = 0;
 
@@ -72,10 +74,6 @@ INT check_proximity(REAL yy, REAL zz, REAL dist) {
   return 0; // OK
 }
 
-#define MIN_DIST_CORE 3.0
-#define BOUNDARY 0
-#define ADJUST 0.8
-
 void locate_lines(rgrid *rot) {
 
   INT i, k, j;
@@ -85,9 +83,9 @@ void locate_lines(rgrid *rot) {
   i = NX / 2;
   m = rgrid_max(rot) * ADJUST;
   printf("m = " FMT_R "\n", m);
-  for (j = BOUNDARY; j < NY - BOUNDARY; j++) {
+  for (j = 0; j < NY; j++) {
     yy = ((REAL) (j - NY/2)) * STEP;
-    for (k = BOUNDARY; k < NZ - BOUNDARY; k++) {
+    for (k = 0; k < NZ; k++) {
       zz = ((REAL) (k - NZ/2)) * STEP;
       if(FABS(tmp = rgrid_value_at_index(rot, i, j, k)) > m && !check_proximity(yy, zz, MIN_DIST_CORE)) {
         printf(FMT_R " " FMT_R, yy, zz);
@@ -127,9 +125,12 @@ void print_lines() {
     printf("XXX " FMT_R " " FMT_R "\n", yp[i], zp[i]);
 }  
 
+#define BOXYL (NY * STEP)
+#define BOXZL (NZ * STEP)
 void print_pair_dist(char *file) {
 
   INT i, j;
+  REAL dy, dz;
   FILE *fp;
 
   if(!(fp = fopen(file, "w"))) {
@@ -137,8 +138,14 @@ void print_pair_dist(char *file) {
     exit(1);
   }
   for (i = 0; i < nptsp; i++)
-    for (j = 0; j < nptsm; j++)
-      fprintf(fp, FMT_R "\n", SQRT((yp[i] - ym[j]) * (yp[i] - ym[j]) + (zp[i] - zm[j]) * (zp[i] - zm[j])));
+    for (j = 0; j < nptsm; j++) {
+      dy = yp[i] - ym[j];
+      dz = zp[i] - zm[j];
+      /* periodic boundary */
+      dy -= BOXYL * (REAL) ((INT) (0.5 + dy / BOXYL));
+      dz -= BOXZL * (REAL) ((INT) (0.5 + dz / BOXZL));
+      fprintf(fp, FMT_R "\n", SQRT(dy * dy + dz * dz));
+  }
   fclose(fp);
 }
 
@@ -205,14 +212,17 @@ int main(int argc, char **argv) {
   srand48(RANDOM_SEED); // or time(0)
   printf("Random seed = %ld\n", RANDOM_SEED);
   cgrid_constant(gwf->grid, SQRT(rho0));
+  nptsm = nptsp = 0;
   for (iter = 0; iter < NPAIRS; iter++) {
     REAL rv;
     // First line in pair
     do {
       line[0] = 0.0;
-      line[1] = -(STEP/2.0) * ((REAL) SNY) + drand48() * STEP * (REAL) SNY; // origin +- displacement
-      line[2] = -(STEP/2.0) * ((REAL) SNZ) + drand48() * STEP * (REAL) SNZ;
-    } while(FABS(line[1]) > STEP * SNY / 2.0 || FABS(line[2]) > STEP * SNZ / 2.0 || check_proximity(line[1], line[2], PAIR_DIST));
+      yp[nptsp] = line[1] = -(STEP/2.0) * SNY + drand48() * STEP * SNY; // origin +- displacement
+      zp[nptsp] = line[2] = -(STEP/2.0) * SNZ + drand48() * STEP * SNZ;
+//    } while(FABS(line[1]) > STEP * SNY / 2.0 || FABS(line[2]) > STEP * SNZ / 2.0 || check_proximity(line[1], line[2], PAIR_DIST));
+    } while(check_proximity(line[1], line[2], PAIR_DIST));
+    nptsp++;
     line[3] = 1.0; line[4] = 0.0;
     cgrid_map(potential_store, vline, line);
     cgrid_product(gwf->grid, gwf->grid, potential_store);
@@ -224,7 +234,10 @@ int main(int argc, char **argv) {
       rv = drand48();
       line[1] += SIN(2.0 * M_PI * rv) * PAIR_DIST;
       line[2] += COS(2.0 * M_PI * rv) * PAIR_DIST;
+      ym[nptsm] = line[1];
+      zm[nptsm] = line[2];
     } while (check_proximity(line[1], line[2], PAIR_DIST));
+    nptsm++;
     line[3] = -1.0; 
     line[4] = 0.0;
     cgrid_map(potential_store, vline, line);
