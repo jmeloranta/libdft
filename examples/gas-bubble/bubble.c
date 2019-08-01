@@ -15,10 +15,10 @@ REAL round_veloc(REAL veloc) {   // Round to fit the simulation box
   INT n;
   REAL v;
 
-  n = (INT) (0.5 + (NX * STEP * DFT_HELIUM_MASS * veloc) / (HBAR * 2.0 * M_PI));
-  v = ((REAL) n) * 2.0 * HBAR * M_PI / (NX * STEP * DFT_HELIUM_MASS);
-//  printf("Requested velocity = %le m/s.\n", veloc * GRID_AUTOMPS);
-//  printf("Nearest velocity compatible with PBC = %le m/s.\n", v * GRID_AUTOMPS);
+  n = (INT) (0.5 + (NZ * STEP * DFT_HELIUM_MASS * veloc) / (HBAR * 2.0 * M_PI));
+  v = ((REAL) n) * 2.0 * HBAR * M_PI / (NZ * STEP * DFT_HELIUM_MASS);
+  printf("Requested velocity = %le m/s.\n", veloc * GRID_AUTOMPS);
+  printf("Nearest velocity compatible with PBC = %le m/s.\n", v * GRID_AUTOMPS);
   return v;
 }
 

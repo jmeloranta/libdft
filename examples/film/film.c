@@ -13,12 +13,12 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 30.0 /* fs */
+#define TS 40.0 /* fs */
 /* Was 32x1024x1024 step = 1.0 */
-#define NX 32
-#define NY 4096
-#define NZ 4096
-#define STEP 1.0
+#define NX 16
+#define NY 2048
+#define NZ 2048
+#define STEP 2.0
 #define NTH 1000
 #define THREADS 0
 
@@ -49,45 +49,67 @@ REAL rho0;
 /* These hold the initial guess vortex line positions */
 /* and later on the vortex line positions determined */
 /* during the simulation. */
-REAL y[2*NPAIRS], z[2*NPAIRS];
-INT npts = 0;
+REAL yp[NPAIRS], zp[NPAIRS], ym[NPAIRS], zm[NPAIRS];
+INT nptsp = 0, nptsm = 0;
 
 INT check_proximity(REAL yy, REAL zz, REAL dist) {
 
   INT i;
   REAL y2, z2;
 
-  for (i = 0; i < npts; i++) {
-    y2 = yy - y[i]; y2 *= y2;
-    z2 = zz - z[i]; z2 *= z2;
+  for (i = 0; i < nptsm; i++) {
+    y2 = yy - ym[i]; y2 *= y2;
+    z2 = zz - zm[i]; z2 *= z2;
     if(SQRT(y2 + z2) < dist) return 1;  // something too close
   }
+
+  for (i = 0; i < nptsp; i++) {
+    y2 = yy - yp[i]; y2 *= y2;
+    z2 = zz - zp[i]; z2 *= z2;
+    if(SQRT(y2 + z2) < dist) return 1;  // something too close
+  }
+
   return 0; // OK
 }
 
-#define CORE_DENS (rho0 / 4.0)  // for step = 2.0, 2.0 is ok
 #define MIN_DIST_CORE 3.0
+#define BOUNDARY 0
+#define ADJUST 0.8
 
-void locate_lines(rgrid *density) {
+void locate_lines(rgrid *rot) {
 
   INT i, k, j;
-  REAL yy, zz;
+  REAL yy, zz, m, tmp;
 
-  npts = 0;
+  nptsm = nptsp = 0;
   i = NX / 2;
-  for (j = 0; j < NY; j++) {
+  m = rgrid_max(rot) * ADJUST;
+  printf("m = " FMT_R "\n", m);
+  for (j = BOUNDARY; j < NY - BOUNDARY; j++) {
     yy = ((REAL) (j - NY/2)) * STEP;
-    for (k = 0; k < NZ; k++) {
+    for (k = BOUNDARY; k < NZ - BOUNDARY; k++) {
       zz = ((REAL) (k - NZ/2)) * STEP;
-      if(FABS(rgrid_value_at_index(density, i, j, k)) < CORE_DENS && !check_proximity(yy, zz, MIN_DIST_CORE)) {
-        if(npts >= 2*NPAIRS) {
-          fprintf(stderr, "Error: More lines than generated initially!\n");
-          exit(1);
+      if(FABS(tmp = rgrid_value_at_index(rot, i, j, k)) > m && !check_proximity(yy, zz, MIN_DIST_CORE)) {
+        printf(FMT_R " " FMT_R, yy, zz);
+        if(tmp < 0.0) {
+          if(nptsm >= NPAIRS) {
+            fprintf(stderr, "Error: More lines than generated initially!\n");
+            exit(1);
+          }
+          ym[nptsm] = yy;
+          zm[nptsm] = zz;
+          nptsm++;
+          printf(" -\n");
+        } else {
+          if(nptsp >= NPAIRS) {
+            fprintf(stderr, "Error: More lines than generated initially!\n");
+            exit(1);
+          }
+          yp[nptsp] = yy;
+          zp[nptsp] = zz;
+          nptsp++;
+          printf(" +\n");
         }
-        printf(FMT_R " " FMT_R "\n", yy, zz);
-        y[npts] = yy;
-        z[npts] = zz;
-        npts++;
       }
     }
   }
@@ -99,8 +121,10 @@ void print_lines() {
 
 //  printf("XXX " FMT_I "\n", npts);
   printf("XXX\n");
-  for (i = 0; i < npts; i++)
-    printf("XXX " FMT_R " " FMT_R "\n", y[i], z[i]);
+  for (i = 0; i < nptsm; i++)
+    printf("XXX " FMT_R " " FMT_R "\n", ym[i], zm[i]);
+  for (i = 0; i < nptsp; i++)
+    printf("XXX " FMT_R " " FMT_R "\n", yp[i], zp[i]);
 }  
 
 void print_pair_dist(char *file) {
@@ -112,9 +136,9 @@ void print_pair_dist(char *file) {
     fprintf(stderr, "Can't open pair dist file.\n");
     exit(1);
   }
-  for (i = 0; i < npts; i++)
-    for (j = i+1; j < npts; j++)
-      fprintf(fp, FMT_R "\n", SQRT((y[i] - y[j]) * (y[i] - y[j]) + (z[i] - z[j]) * (z[i] - z[j])));
+  for (i = 0; i < nptsp; i++)
+    for (j = 0; j < nptsm; j++)
+      fprintf(fp, FMT_R "\n", SQRT((yp[i] - ym[j]) * (yp[i] - ym[j]) + (zp[i] - zm[j]) * (zp[i] - zm[j])));
   fclose(fp);
 }
 
@@ -138,7 +162,7 @@ int main(int argc, char **argv) {
 
   dft_ot_functional *otf;
   cgrid *potential_store;
-  rgrid *rworkspace;
+  rgrid *rworkspace, *fy, *fz;
   wf *gwf;
   INT iter;
   REAL mu0, kin, pot, n, line[5];
@@ -174,6 +198,8 @@ int main(int argc, char **argv) {
   /* Allocate space for external potential */
   potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
   rworkspace = rgrid_clone(otf->density, "rworkspace"); /* temporary storage */
+  fy = rgrid_clone(rworkspace, "fy");
+  fz = rgrid_clone(rworkspace, "fz");
  
   /* setup initial guess for vortex lines */
   srand48(RANDOM_SEED); // or time(0)
@@ -188,9 +214,6 @@ int main(int argc, char **argv) {
       line[2] = -(STEP/2.0) * ((REAL) SNZ) + drand48() * STEP * (REAL) SNZ;
     } while(FABS(line[1]) > STEP * SNY / 2.0 || FABS(line[2]) > STEP * SNZ / 2.0 || check_proximity(line[1], line[2], PAIR_DIST));
     line[3] = 1.0; line[4] = 0.0;
-    y[npts] = line[1];
-    z[npts] = line[2];
-    npts++;
     cgrid_map(potential_store, vline, line);
     cgrid_product(gwf->grid, gwf->grid, potential_store);
     cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
@@ -204,9 +227,6 @@ int main(int argc, char **argv) {
     } while (check_proximity(line[1], line[2], PAIR_DIST));
     line[3] = -1.0; 
     line[4] = 0.0;
-    y[npts] = line[1];
-    z[npts] = line[2];
-    npts++;
     cgrid_map(potential_store, vline, line);
     cgrid_product(gwf->grid, gwf->grid, potential_store);
     cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
@@ -219,7 +239,8 @@ int main(int argc, char **argv) {
     if(iter == 1 || !(iter % NTH)) {
       printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
 #ifdef LINE_LOCATIONS_ONLY
-      grid_wf_density(gwf, rworkspace);
+      grid_wf_probability_flux(gwf, NULL, fy, fz);
+      rgrid_rot(rworkspace, NULL, NULL, NULL, fy, fz);
       locate_lines(rworkspace);
       print_lines();
       sprintf(buf, "film-" FMT_I ".pair", iter);
