@@ -14,10 +14,10 @@
 #include <dft/ot.h>
 
 /* Time integration and spatial grid parameters */
-#define TS 10.0 /* fs */
+#define TS 5.0 /* fs */
 #define NX 16
-#define NY 1024
-#define NZ 1024
+#define NY 512
+#define NZ 512
 #define STEP 2.0
 
 /* Predict-correct? */
@@ -25,7 +25,7 @@
 
 /* Vortex line params */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 0           /* Number of + and - vortex pairs */
+#define NPAIRS 100           /* Number of + and - vortex pairs */
 #define PAIR_DIST 40.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
 #define ITS (0.00 * TS)      /* Imag. time component (dissipation; 0 = none or 1 = full) */
@@ -36,7 +36,8 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Start simulation after this many iterations */
-#define START 10000
+#define START 50  // vortex lines
+#define START2 4000  // cylinder
 
 /* Output every NTH iteration was 10000 */
 #define NTH 10000
@@ -55,10 +56,21 @@
 #define MIN_DIST_CORE 4.0
 #define ADJUST 0.7
 
-REAL rho0;
+/* Initial guess parameters (undefine MU0 to impose particle # normalization) */
+// #define MU0 (-6.91448 / GRID_AUTOK)
+#define RADIUS (NY * STEP / 2.0 - 50.0)
+
+REAL rho0, mu0;
 
 REAL yp[2*NPAIRS], zp[2*NPAIRS], ym[2*NPAIRS], zm[2*NPAIRS];
 INT nptsp = 0, nptsm = 0;
+
+/* Cylinder initial guess */
+REAL complex cylinder(void *NA, REAL x, REAL y, REAL z) {
+
+  if(SQRT(y*y + z*z) < RADIUS) return SQRT(rho0);
+  else return 0.0;
+}
 
 INT check_proximity(REAL yy, REAL zz, REAL dist) {
 
@@ -186,13 +198,13 @@ int main(int argc, char **argv) {
 
   dft_ot_functional *otf;
   cgrid *potential_store;
-  rgrid *pot_grid;
+  rgrid *rworkspace;
   wf *gwf;
 #ifdef PC
   wf *gwfp;
 #endif
   INT iter, try, i, j, k;
-  REAL mu0, kin, pot, n, linep[5], linem[5];
+  REAL kin, pot, n, linep[5], linem[5];
   char buf[512];
   grid_timer timer;
   REAL complex tstep;
@@ -208,13 +220,13 @@ int main(int argc, char **argv) {
 
   /* Allocate wave functions */
 //  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_FFT_EOO_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
-  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_CFFT, "gwf"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }
 #ifdef PC
   if(!(gwfp = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwfp"))) {
-    fprintf(stderr, "Cannot allocate gwf.\n");
+    fprintf(stderr, "Cannot allocate gwfp.\n");
     exit(1);
   }
 #endif  
@@ -226,47 +238,34 @@ int main(int argc, char **argv) {
   }
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
-  printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+  printf("Bulk mu0 = " FMT_R " K/atom, Bulk rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+
+#ifdef MU0
+  mu0 = MU0;
+  printf("Using mu0 = " FMT_R " K\n", MU0 * GRID_AUTOK);
+#else
+  mu0 = 0.0;
+#endif
 
   /* Allocate space for external potential */
   potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
-  pot_grid = rgrid_clone(otf->density, "pot");
+  rworkspace = rgrid_clone(otf->density, "external potential");
 
-  rgrid_zero(pot_grid);
-  cuda_remove_block(pot_grid->value, 0);
-  rgrid_constant(pot_grid, -mu0);
-//  i = 0;
-//  for(j = 0; j < NY; j++)
-//    for(k = 0; k < NZ; k++)
-//      rgrid_value_to_index(pot_grid, i, j, k, 1000.0 / GRID_AUTOK);
-
-#define SIZE 10
-  for(j = 0; j < SIZE; j++)
-    for(i = 0; i < NX; i++)
-      for(k = 0; k < NZ; k++)
-        rgrid_value_to_index(pot_grid,i, j, k, 20.0 / GRID_AUTOK - mu0);
-  for(j = NY-(SIZE-1); j < NY; j++)
-    for(i = 0; i < NX; i++)
-      for(k = 0; k < NZ; k++)
-        rgrid_value_to_index(pot_grid,i, j, k, 20.0 / GRID_AUTOK - mu0);
-
-  for(k = 0; k < SIZE; k++)
-    for(i = 0; i < NX; i++)
-      for(j = 0; j < NY; j++)
-        rgrid_value_to_index(pot_grid,i, j, k, 20.0 / GRID_AUTOK - mu0);
-  for(k = NZ-(SIZE-1); k < NZ; k++)
-    for(i = 0; i < NX; i++)
-      for(j = 0; j < NY; j++)
-        rgrid_value_to_index(pot_grid,i, j, k, 20.0 / GRID_AUTOK - mu0);
-
-  /* Film with boundaries */
-  tstep = -I * TS / GRID_AUTOFS;
-  cgrid_constant(gwf->grid, SQRT(rho0));
-  printf("Film generation...");
-  for (iter = 0; iter < START; iter++) {
-    grid_real_to_complex_re(potential_store, pot_grid);
+  /* Set up cylinder */
+  cgrid_map(gwf->grid, &cylinder, NULL);
+  gwf->norm = grid_wf_norm(gwf);
+  /* Relax for a bit */
+  printf("Cylinder equilibriation...");
+  tstep = - 5.0 * I * TS / GRID_AUTOFS;
+  for (iter = 0; iter < START2; iter++) {
+    grid_timer_start(&timer);
+    cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate(gwf, potential_store, tstep);
+#ifndef MU0
+    grid_wf_normalize(gwf);
+#endif
+    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
   }
   printf("done.\n");
 
@@ -334,17 +333,24 @@ int main(int argc, char **argv) {
   /* Relax vortices for a bit */
   printf("Vortex equilibriation...");
   tstep = -I * TS / GRID_AUTOFS;
-  for (iter = 0; iter < 200; iter++) {
-    grid_real_to_complex_re(potential_store, pot_grid);
+  for (iter = 0; iter < START; iter++) {
+    grid_timer_start(&timer);
+    cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate(gwf, potential_store, tstep);
+#ifndef MU0
+    grid_wf_normalize(gwf);
+#endif
+    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
   }
   printf("done.\n");
 
   printf("Starting dynamics.\n");
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);  // Use bulk chemical potential (approximate)
   tstep = (TS - I * ITS) / GRID_AUTOFS;     
+  grid_timer_start(&timer);
   for (iter = 0; iter < 800000; iter++) {
-    if(iter == 1 || !(iter % NTH)) {
+    if(iter == 0 || !(iter % NTH)) {
       printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
 #ifdef LINE_LOCATIONS_ONLY
       grid_wf_probability_flux(gwf, NULL, otf->workspace1, otf->workspace2);
@@ -358,36 +364,37 @@ int main(int argc, char **argv) {
       cgrid_write_grid(buf, gwf->grid);
 #endif
       kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
-      dft_ot_energy_density(otf, otf->density, gwf);
-      pot = rgrid_integral(otf->density);
+      dft_ot_energy_density(otf, rworkspace, gwf);
+      pot = rgrid_integral(rworkspace) - mu0;
       n = grid_wf_norm(gwf);
       printf("Iteration " FMT_I " helium natoms    = " FMT_R " particles.\n", iter, n);   /* Energy / particle in K */
-      printf("Iteration " FMT_I " helium kinetic   = " FMT_R "\n", iter, kin * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration " FMT_I " helium potential = " FMT_R "\n", iter, pot * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration " FMT_I " helium energy    = " FMT_R "\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration " FMT_I " helium kinetic   = " FMT_R " K\n", iter, kin * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration " FMT_I " helium potential = " FMT_R " K\n", iter, pot * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration " FMT_I " helium energy    = " FMT_R " K\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       fflush(stdout);
+      grid_timer_start(&timer);
     }
 
     if(iter == 5) grid_fft_write_wisdom(NULL);
 
-    grid_timer_start(&timer);
-
 #ifdef PC
     /* Predict-Correct */
-    grid_real_to_complex_re(potential_store, pot_grid);
+    cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep);
 
-    grid_add_real_to_complex_re(potential_store, pot_grid);
+    cgrid_add(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwfp);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
     grid_wf_propagate_correct(gwf, potential_store, tstep);
 #else /* PC */
     /* Propagate */
-    grid_real_to_complex_re(potential_store, pot_grid);
+    cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate(gwf, potential_store, tstep);
 #endif /* PC */
+// If chem pot is not known, this could help with imag time?
+//     grid_wf_normalize(gwf);
   }
   return 0;
 }
