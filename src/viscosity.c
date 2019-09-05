@@ -156,8 +156,8 @@ EXPORT void dft_viscous_potential(wf *gwf, dft_ot_functional *otf, cgrid *pot, R
   rgrid_div(workspace8, workspace1, workspace2, workspace3);
   
   // Solve the Poisson equation to get the viscous potential
-#if 0
-// TODO: New libgrid does not include fft's automatically!
+#ifdef GRID_MGPU
+//  New libgrid does not include fft's automatically!
   rgrid_fft(workspace8);
   rgrid_poisson(workspace8);
   rgrid_inverse_fft(workspace8);
