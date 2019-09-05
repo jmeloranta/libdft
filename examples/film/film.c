@@ -16,9 +16,10 @@
 /* Time integration and spatial grid parameters */
 #define TS 5.0 /* fs */
 #define NX 16
-#define NY 512
-#define NZ 512
+#define NY 2048
+#define NZ 2048
 #define STEP 2.0
+#define MAXITER 8000000
 
 /* Predict-correct? */
 //#define PC
@@ -27,6 +28,7 @@
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
 #define NPAIRS 100           /* Number of + and - vortex pairs */
 #define PAIR_DIST 40.0       /* Min. distance between + and - vortex pairs */
+#define MANUAL_LINES         /* Enter vortex lines manually */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
 #define ITS (0.00 * TS)      /* Imag. time component (dissipation; 0 = none or 1 = full) */
                              /* Tsubota gamma = 0.02 */
@@ -36,41 +38,25 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Start simulation after this many iterations */
-#define START 50  // vortex lines
-#define START2 4000  // cylinder
+#define START (4*200)  // vortex lines
 
 /* Output every NTH iteration was 10000 */
-#define NTH 10000
+#define NTH 2000
 
 /* Use all threads available on the computer */
 #define THREADS 0
 
 /* Print vortex line locations only? (otherwise write full grids) */
-//#define LINE_LOCATIONS_ONLY
-
-/* safe zone without boundary interference */
-#define SNY (0.9*NY)
-#define SNZ (0.9*NZ)
+#define LINE_LOCATIONS_ONLY
 
 /* Vortex line search parameters */
 #define MIN_DIST_CORE 4.0
-#define ADJUST 0.7
-
-/* Initial guess parameters (undefine MU0 to impose particle # normalization) */
-// #define MU0 (-6.91448 / GRID_AUTOK)
-#define RADIUS (NY * STEP / 2.0 - 50.0)
+#define ADJUST 0.8
 
 REAL rho0, mu0;
 
 REAL yp[2*NPAIRS], zp[2*NPAIRS], ym[2*NPAIRS], zm[2*NPAIRS];
 INT nptsp = 0, nptsm = 0;
-
-/* Cylinder initial guess */
-REAL complex cylinder(void *NA, REAL x, REAL y, REAL z) {
-
-  if(SQRT(y*y + z*z) < RADIUS) return SQRT(rho0);
-  else return 0.0;
-}
 
 INT check_proximity(REAL yy, REAL zz, REAL dist) {
 
@@ -94,9 +80,8 @@ INT check_proximity(REAL yy, REAL zz, REAL dist) {
 
 int check_boundary(REAL y, REAL z) {
 
-  if(FABS(y) >= STEP * SNY / 2.0) return 1;
-  if(FABS(z) >= STEP * SNZ / 2.0) return 1;
-  return 0;
+  if(SQRT(y*y + z*z) > 0.6 * (STEP * NY / 2.0)) return 1;  // in the boundary region
+  return 0; // inside
 }
 
 void locate_lines(rgrid *rot) {
@@ -108,14 +93,17 @@ void locate_lines(rgrid *rot) {
   nptsm = nptsp = 0;
   i = NX / 2;
   if(m < 0.0) {
+    REAL tmp;
     m = rgrid_max(rot) * ADJUST;
+    tmp = FABS(rgrid_min(rot)) * ADJUST;
+    if(tmp > m) m = tmp;
     printf("m = " FMT_R "\n", m);
   }
   for (j = 0; j < NY; j++) {
     yy = ((REAL) (j - NY/2)) * STEP;
     for (k = 0; k < NZ; k++) {
       zz = ((REAL) (k - NZ/2)) * STEP;
-      if(FABS(tmp = rgrid_value_at_index(rot, i, j, k)) > m && !check_proximity(yy, zz, MIN_DIST_CORE)) {
+      if(!check_boundary(yy, zz) && FABS(tmp = rgrid_value_at_index(rot, i, j, k)) > m && !check_proximity(yy, zz, MIN_DIST_CORE)) {
         printf(FMT_R " " FMT_R, yy, zz);
         if(tmp < 0.0) {
           if(nptsm >= 2*NPAIRS) {
@@ -219,8 +207,7 @@ int main(int argc, char **argv) {
   grid_fft_read_wisdom(NULL);
 
   /* Allocate wave functions */
-//  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_FFT_EOO_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
-  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_CFFT, "gwf"))) {
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }
@@ -240,36 +227,36 @@ int main(int argc, char **argv) {
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
   printf("Bulk mu0 = " FMT_R " K/atom, Bulk rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
-#ifdef MU0
-  mu0 = MU0;
-  printf("Using mu0 = " FMT_R " K\n", MU0 * GRID_AUTOK);
-#else
-  mu0 = 0.0;
-#endif
-
   /* Allocate space for external potential */
   potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
   rworkspace = rgrid_clone(otf->density, "external potential");
 
-  /* Set up cylinder */
-  cgrid_map(gwf->grid, &cylinder, NULL);
-  gwf->norm = grid_wf_norm(gwf);
-  /* Relax for a bit */
-  printf("Cylinder equilibriation...");
-  tstep = - 5.0 * I * TS / GRID_AUTOFS;
-  for (iter = 0; iter < START2; iter++) {
-    grid_timer_start(&timer);
-    cgrid_constant(potential_store, -mu0);
-    dft_ot_potential(otf, potential_store, gwf);
-    grid_wf_propagate(gwf, potential_store, tstep);
-#ifndef MU0
-    grid_wf_normalize(gwf);
-#endif
-    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
-  }
-  printf("done.\n");
+  cgrid_constant(gwf->grid, SQRT(rho0));
 
   /* setup initial guess for vortex lines */
+#ifdef MANUAL_LINES
+
+  linep[0] = 0.0;
+  linep[1] = -50.0;
+  linep[2] = 0.0;
+  linep[3] = -1.0;
+  linep[4] = 0.0;
+  cgrid_map(potential_store, vline, linep);
+  cgrid_product(gwf->grid, gwf->grid, potential_store);
+  cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
+  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[1], linep[2]); fflush(stdout);
+
+  linep[0] = 0.0;
+  linep[1] = 50.0;
+  linep[2] = 0.0;
+  linep[3] = 1.0;
+  linep[4] = 0.0;
+  cgrid_map(potential_store, vline, linep);
+  cgrid_product(gwf->grid, gwf->grid, potential_store);
+  cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
+  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[1], linep[2]); fflush(stdout);
+  nptsm = 1;
+#else
   srand48(RANDOM_SEED); // or time(0)
   printf("Random seed = %ld\n", RANDOM_SEED);
   nptsm = nptsp = 0;
@@ -279,20 +266,19 @@ int main(int argc, char **argv) {
     // First line in pair
     do {
       linep[0] = 0.0;
-      yp[nptsp] = linep[1] = -(STEP/2.0) * SNY + drand48() * STEP * SNY; // origin +- displacement
-      zp[nptsp] = linep[2] = -(STEP/2.0) * SNZ + drand48() * STEP * SNZ;
-    } while(check_proximity(linep[1], linep[2], PAIR_DIST));
+      yp[nptsp] = linep[1] = -(STEP/2.0) * NY + drand48() * STEP * NY; // origin +- displacement
+      zp[nptsp] = linep[2] = -(STEP/2.0) * NZ + drand48() * STEP * NZ;
+    } while(check_proximity(linep[1], linep[2], PAIR_DIST) || check_boundary(linep[1], linep[2]));
     nptsp++;
     linep[3] = 1.0; 
     linep[4] = 0.0;
-
     // Second in pair
 #ifdef UNRESTRICTED_PAIRS
     do {
       linem[0] = 0.0;
-      ym[nptsm] = linem[1] = -(STEP/2.0) * SNY + drand48() * STEP * SNY; // origin +- displacement
-      zm[nptsm] = linem[2] = -(STEP/2.0) * SNZ + drand48() * STEP * SNZ;
-    } while(check_proximity(linem[1], linem[2], PAIR_DIST));
+      ym[nptsm] = linem[1] = -(STEP/2.0) * NY + drand48() * STEP * NY; // origin +- displacement
+      zm[nptsm] = linem[2] = -(STEP/2.0) * NZ + drand48() * STEP * NZ;
+    } while(check_proximity(linem[1], linem[2], PAIR_DIST) || check_boundary(linem[1], linem[2]));
     nptsm++;
     linem[3] = -1.0; 
     linem[4] = 0.0;
@@ -329,6 +315,7 @@ int main(int argc, char **argv) {
     cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
     printf("Pair- " FMT_I ": " FMT_R "," FMT_R "\n", iter, linem[1], linem[2]); fflush(stdout);
   }
+#endif
 
   /* Relax vortices for a bit */
   printf("Vortex equilibriation...");
@@ -338,18 +325,14 @@ int main(int argc, char **argv) {
     cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate(gwf, potential_store, tstep);
-#ifndef MU0
-    grid_wf_normalize(gwf);
-#endif
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
   }
   printf("done.\n");
 
   printf("Starting dynamics.\n");
-  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);  // Use bulk chemical potential (approximate)
   tstep = (TS - I * ITS) / GRID_AUTOFS;     
   grid_timer_start(&timer);
-  for (iter = 0; iter < 800000; iter++) {
+  for (iter = 0; iter < MAXITER; iter++) {
     if(iter == 0 || !(iter % NTH)) {
       printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
 #ifdef LINE_LOCATIONS_ONLY
@@ -365,8 +348,8 @@ int main(int argc, char **argv) {
 #endif
       kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
       dft_ot_energy_density(otf, rworkspace, gwf);
-      pot = rgrid_integral(rworkspace) - mu0;
       n = grid_wf_norm(gwf);
+      pot = rgrid_integral(rworkspace) - mu0 * n;
       printf("Iteration " FMT_I " helium natoms    = " FMT_R " particles.\n", iter, n);   /* Energy / particle in K */
       printf("Iteration " FMT_I " helium kinetic   = " FMT_R " K\n", iter, kin * GRID_AUTOK);  /* Print result in K */
       printf("Iteration " FMT_I " helium potential = " FMT_R " K\n", iter, pot * GRID_AUTOK);  /* Print result in K */
@@ -393,8 +376,6 @@ int main(int argc, char **argv) {
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate(gwf, potential_store, tstep);
 #endif /* PC */
-// If chem pot is not known, this could help with imag time?
-//     grid_wf_normalize(gwf);
   }
   return 0;
 }
