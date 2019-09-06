@@ -247,6 +247,16 @@ int main(int argc, char **argv) {
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[1], linep[2]); fflush(stdout);
 
   linep[0] = 0.0;
+  linep[1] = 0.0;
+  linep[2] = 0.0;
+  linep[3] = -1.0;
+  linep[4] = 0.0;
+  cgrid_map(potential_store, vline, linep);
+  cgrid_product(gwf->grid, gwf->grid, potential_store);
+  cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
+  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[1], linep[2]); fflush(stdout);
+
+  linep[0] = 0.0;
   linep[1] = 50.0;
   linep[2] = 0.0;
   linep[3] = 1.0;
@@ -255,7 +265,7 @@ int main(int argc, char **argv) {
   cgrid_product(gwf->grid, gwf->grid, potential_store);
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[1], linep[2]); fflush(stdout);
-  nptsm = 1;
+
 #else
   srand48(RANDOM_SEED); // or time(0)
   printf("Random seed = %ld\n", RANDOM_SEED);
