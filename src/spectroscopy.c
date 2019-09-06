@@ -272,10 +272,23 @@ static INT ntime, cur_time, zerofill;
 
 EXPORT rgrid *dft_spectrum_init(dft_ot_functional *otf, rgrid *idensity, INT nt, INT zf, char upperave, char *upperx, char *uppery, char *upperz, char lowerave, char *lowerx, char *lowery, char *lowerz) {
  
-  rgrid *workspace1 = otf->workspace1, *workspace2 = otf->workspace2, *workspace3 = otf->workspace3;
-  rgrid *workspace4 = otf->workspace4;
-  INT nx = workspace1->nx, ny = workspace1->ny, nz = workspace1->nz;
-  REAL step = workspace1->step;
+  rgrid *workspace1, *workspace2, *workspace3, *workspace4;
+  INT nx, ny, nz;
+  REAL step;
+
+  if(!otf->workspace1) otf->workspace1 = rgrid_clone(otf->density, "OTF workspace 1");
+  if(!otf->workspace2) otf->workspace2 = rgrid_clone(otf->density, "OTF workspace 2");
+  if(!otf->workspace3) otf->workspace3 = rgrid_clone(otf->density, "OTF workspace 3");
+  if(!otf->workspace4) otf->workspace4 = rgrid_clone(otf->density, "OTF workspace 4");
+
+  workspace1 = otf->workspace1;
+  workspace2 = otf->workspace2;
+  workspace3 = otf->workspace3;
+  workspace4 = otf->workspace4;
+  nx = workspace1->nx;
+  ny = workspace1->ny;
+  nz = workspace1->nz;
+  step = workspace1->step;
 
   cur_time = 0;
   ntime = nt;
