@@ -1,5 +1,10 @@
 Library for Orsay-Trento helium DFT (and related functions) as well as
-general Gross-Pitaevskii model.
+general Gross-Pitaevskii model. Before using the code, please read the
+following review article:
+
+"Density functional theory of doped superfluid liquid helium and nanodroplets", 
+F. Ancilotto, M. Barranco, F. Coppens, J. Eloranta, N. Halberstadt, A. Hernando, 
+D. Mateo, and M. Pi. International Reviews in Physical Chemistry 36, 621 (2017).
 
 List of people who contributed to the code:
 
@@ -12,4 +17,3 @@ directory.
 
 This project was partly funded by National Science Foundation grants 
 CHE-0949057, CHE-1262306 and DMR-1205734.
-

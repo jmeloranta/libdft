@@ -1,5 +1,5 @@
 /*
- * Spectroscopy related routines (Part 2).
+ * Spectroscopy related routines (Part 2): direct calculation of 1st order polarizability.
  *
  */
 
@@ -17,15 +17,15 @@
  * potential of gnd and excited states (returned by the init routine).
  *
  * 1) Initialize the difference potential:
- *     dft_spectrum_init().
+ *     dft_spectrum_pol_init().
  * 
  * 2) During the trajectory, call function:
- *     dft_spectrum_collect() to record the time dependent difference
+ *     dft_spectrum_pol_collect() to record the time dependent difference
  *     energy (difference potential convoluted with the time dependent
  *     liquid density).
  *
  * 3) At the end, call the following function to evaluate the spectrum:
- *     dft_spectrum_evaluate() to evaluate the lineshape.
+ *     dft_spectrum_pol_evaluate() to evaluate the lineshape.
  *
  */
 
@@ -35,13 +35,14 @@
  * otf        = Orsay-Trento functional pointer (dft_ot_functional *; input).
  * idensity   = NULL: no averaging of pair potentials or impurity density for convoluting with pair potential.
  *              Note that the impurity density is assumed to be time independent! (rgrid *; input)
- * nt         = Maximum number of time steps to be collected (INT, input).
- * zerofill   = How many zeros to fill in before FFT (int, input).
- * finalave   = Averaging on the final state (see dft_common_potential_map()) (int, input).
+ *              This is overwritten on exit.
+ * nt         = Maximum number of time steps to be collected (INT; input).
+ * zerofill   = How many zeros to fill in before FFT (INT; input).
+ * finalave   = Averaging on the final state (see dft_common_potential_map()) (INT; input).
  * finalx     = Final potential file name along-x (char *, input).
  * finaly     = Final potential file name along-y (char *, input).
  * finalz     = Final potential file name along-z (char *, input).
- * initialave = Averaging on the initial state (see dft_common_potential_map()) (int, input).
+ * initialave = Averaging on the initial state (see dft_common_potential_map()) (INT; input).
  * initialx   = Initial potential file name along-x (char *, input).
  * initialy   = Initial potential file name along-y (char *, input).
  * initialz   = Initial potential file name along-z (char *, input).
@@ -54,7 +55,7 @@ static rgrid *xxdiff = NULL, *xxave = NULL;
 static cgrid *tdpot = NULL;
 static INT ntime, cur_time, zerofill;
 
-EXPORT rgrid *dft_spectrum_init(dft_ot_functional *otf, rgrid *idensity, INT nt, INT zf, char finalave, char *finalx, char *finaly, char *finalz, char initialave, char *initialx, char *initialy, char *initialz) {
+EXPORT rgrid *dft_spectrum_pol_init(dft_ot_functional *otf, rgrid *idensity, INT nt, INT zf, char finalave, char *finalx, char *finaly, char *finalz, char initialave, char *initialx, char *initialy, char *initialz) {
  
   rgrid *workspace1, *workspace2, *workspace3, *workspace4;
   INT nx, ny, nz;
@@ -88,11 +89,6 @@ EXPORT rgrid *dft_spectrum_init(dft_ot_functional *otf, rgrid *idensity, INT nt,
   if(!xxave)
     xxave = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "xxave");
 
-  rgrid_claim(workspace1); 
-  rgrid_claim(workspace2);
-  rgrid_claim(workspace3);
-  rgrid_claim(workspace4);
-
   dft_common_potential_map(finalave, finalx, finaly, finalz, workspace1);
   dft_common_potential_map(initialave, initialx, initialy, initialz, workspace2);
 
@@ -114,11 +110,6 @@ EXPORT rgrid *dft_spectrum_init(dft_ot_functional *otf, rgrid *idensity, INT nt,
   rgrid_sum(xxave, workspace3, workspace4);
   rgrid_multiply(xxave, 0.5);
 
-  rgrid_release(workspace1);
-  rgrid_release(workspace2);
-  rgrid_release(workspace3); 
-  rgrid_release(workspace4);
-
   return xxave;
 }
 
@@ -136,7 +127,7 @@ EXPORT rgrid *dft_spectrum_init(dft_ot_functional *otf, rgrid *idensity, INT nt,
  *
  */
 
-EXPORT rgrid *dft_spectrum_init2(dft_ot_functional *otf, INT nt, INT zf, rgrid *upper, rgrid *lower) {
+EXPORT rgrid *dft_spectrum_pol_init2(dft_ot_functional *otf, INT nt, INT zf, rgrid *upper, rgrid *lower) {
 
   INT nx, ny, nz;
   REAL step;
@@ -174,7 +165,7 @@ EXPORT rgrid *dft_spectrum_init2(dft_ot_functional *otf, INT nt, INT zf, rgrid *
  *
  */
 
-EXPORT void dft_spectrum_collect_user(REAL val) {
+EXPORT void dft_spectrum_pol_collect_user(REAL val) {
 
   if(cur_time > ntime) {
     fprintf(stderr, "libdft: initialized with too few points (spectrum collect).\n");
@@ -194,7 +185,7 @@ EXPORT void dft_spectrum_collect_user(REAL val) {
  *
  */
 
-EXPORT void dft_spectrum_collect(dft_ot_functional *otf, wf *gwf) {
+EXPORT void dft_spectrum_pol_collect(dft_ot_functional *otf, wf *gwf) {
 
   rgrid *workspace1;
 
@@ -205,11 +196,9 @@ EXPORT void dft_spectrum_collect(dft_ot_functional *otf, wf *gwf) {
     fprintf(stderr, "libdft: initialized with too few points (spectrum collect).\n");
     exit(1);
   }
-  rgrid_claim(workspace1);
   grid_wf_density(gwf, workspace1);
   rgrid_product(workspace1, workspace1, xxdiff);
   tdpot->value[cur_time] = rgrid_integral(workspace1);
-  rgrid_release(workspace1);
 
   fprintf(stderr, "libdft: spectrum collect complete (point = " FMT_I ", value = " FMT_R " K).\n", cur_time, CREAL(tdpot->value[cur_time]) * GRID_AUTOK);
   cur_time++;
@@ -226,7 +215,7 @@ EXPORT void dft_spectrum_collect(dft_ot_functional *otf, wf *gwf) {
  *
  */
 
-EXPORT cgrid *dft_spectrum_evaluate(REAL tstep, REAL tc) {
+EXPORT cgrid *dft_spectrum_pol_evaluate(REAL tstep, REAL tc) {
 
   INT t, npts;
   static cgrid *spectrum = NULL;
@@ -237,10 +226,12 @@ EXPORT cgrid *dft_spectrum_evaluate(REAL tstep, REAL tc) {
     exit(1);
   }
 
-  npts = 2 * (cur_time + zerofill - 1);
+  npts = cur_time + zerofill;
 
   if(!spectrum)
     spectrum = cgrid_alloc(1, 1, npts, GRID_HZTOCM1 / (tstep * GRID_AUTOFS * 1E-15 * ((REAL) npts)), CGRID_PERIODIC_BOUNDARY, 0, "spectrum");
+
+  cgrid_zero(spectrum);
 
   /* P(t) - full expression - see the Eloranta/Apkarian CPL paper on lineshapes */
   /* NOTE: Instead of propagating the liquid on the excited state, it is run on the average (V_e + V_g)/2 potential */
@@ -259,21 +250,20 @@ EXPORT cgrid *dft_spectrum_evaluate(REAL tstep, REAL tc) {
     }
     spectrum->value[t] = -2.0 * CIMAG(tmp2) * EXP(-((REAL) t) * tstep / tc);
     fprintf(stderr, "libdft: Polarization at time " FMT_R " fs = %le.\n", ((REAL) t) * tstep * GRID_AUTOFS, CREAL(spectrum->value[t]));
-    spectrum->value[npts - t] = -spectrum->value[t];
   }
   
   /* zero fill */
-  for (t = cur_time; t < cur_time + zerofill; t++)
-    spectrum->value[t] = spectrum->value[npts - t] = 0.0;
+  for (t = cur_time; t < npts; t++)
+    spectrum->value[t] = 0.0;
 
   /* flip zero frequency to the middle */
-  for (t = 0; t < 2 * (cur_time + zerofill - 1); t++)
+  for (t = 0; t < npts; t++)
     spectrum->value[t] *= POW(-1.0, (REAL) t);
   
   cgrid_inverse_fft(spectrum);
 
   for(t = 0; t < npts; t++)
-    spectrum->value[t] *= -I;
+    spectrum->value[t] = CIMAG(spectrum->value[t]);
   
   return spectrum;
 }

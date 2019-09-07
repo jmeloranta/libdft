@@ -1,7 +1,5 @@
 /*
- * Spectroscopy related routines (Part 1).
- *
- * TODO: Add simple binning of energies as a function of time.
+ * Spectroscopy related routines (Part 1): Andersson lineshape.
  *
  */
 
@@ -57,7 +55,7 @@ static REAL complex dft_do_int(rgrid *dens, rgrid *dpot, REAL t, cgrid *wrk) {
   return cgrid_integral(wrk);
 }
 
-EXPORT cgrid *dft_spectrum(dft_ot_functional *otf, rgrid *density, REAL tstep, REAL endtime, char finalave, char *finalx, char *finaly, char *finalz, char initialave, char *initialx, char *initialy, char *initialz) {
+EXPORT cgrid *dft_spectrum_andersson(dft_ot_functional *otf, rgrid *density, REAL tstep, REAL endtime, char finalave, char *finalx, char *finaly, char *finalz, char initialave, char *initialx, char *initialy, char *initialz) {
 
   rgrid *workspace1, *workspace2;
   cgrid *cworkspace;
@@ -84,9 +82,6 @@ EXPORT cgrid *dft_spectrum(dft_ot_functional *otf, rgrid *density, REAL tstep, R
     prev_ntime = ntime;
   }
 
-  rgrid_claim(workspace1);
-  rgrid_claim(workspace2);
-
   dft_common_potential_map(finalave, finalx, finaly, finalz, workspace1);
   dft_common_potential_map(initialave, initialx, initialy, initialz, workspace2);
   rgrid_difference(workspace1, workspace1, workspace2); /* final - initial */
@@ -98,8 +93,6 @@ EXPORT cgrid *dft_spectrum(dft_ot_functional *otf, rgrid *density, REAL tstep, R
     t = tstep * (REAL) i;
     corr->value[i] = CEXP(dft_do_int(density, workspace1, t, cworkspace)) * POW(-1.0, (REAL) i);  // Omit minus sign from exponent since we are doing forward FFT...
   }
-  rgrid_release(workspace1);
-  rgrid_release(workspace2);
 
   cgrid_fft(corr);
   for (i = 0; i < corr->nx; i++)
@@ -161,7 +154,7 @@ static REAL complex dft_do_int2(cgrid *gexp, rgrid *imdens, cgrid *fft_dens, REA
   return cgrid_integral(wrk);
 }
 
-EXPORT cgrid *dft_spectrum_zp(dft_ot_functional *otf, rgrid *density, rgrid *imdensity, REAL tstep, REAL endtime, char finalave, char *finalx, char *finaly, char *finalz, char initialave, char *initialx, char *initialy, char *initialz) {
+EXPORT cgrid *dft_spectrum_andersson_zp(dft_ot_functional *otf, rgrid *density, rgrid *imdensity, REAL tstep, REAL endtime, char finalave, char *finalx, char *finaly, char *finalz, char initialave, char *initialx, char *initialy, char *initialz) {
 
   cgrid *wrk, *fft_density, *gexp;
   rgrid *workspace1 = otf->workspace1, *workspace2 = otf->workspace2;
@@ -191,15 +184,10 @@ EXPORT cgrid *dft_spectrum_zp(dft_ot_functional *otf, rgrid *density, rgrid *imd
     prev_ntime = ntime;
   }
   
-  rgrid_claim(workspace1);
-  rgrid_claim(workspace2);
-
   dft_common_potential_map(finalave, finalx, finaly, finalz, workspace1);
   dft_common_potential_map(initialave, initialx, initialy, initialz, workspace2);
   rgrid_difference(workspace1, workspace1, workspace2);
 
-  rgrid_release(workspace2);
-  
   grid_real_to_complex_re(fft_density, density);
   cgrid_fft(fft_density);
   
@@ -209,7 +197,6 @@ EXPORT cgrid *dft_spectrum_zp(dft_ot_functional *otf, rgrid *density, rgrid *imd
     corr->value[i] = CEXP(dft_do_int2(gexp, imdensity, fft_density, t, wrk)) * POW(-1.0, (REAL) i);
     fprintf(stderr,"libdft: Corr(" FMT_R " fs) = " FMT_R " " FMT_R "\n", t * GRID_AUTOFS, CREAL(corr->value[i]), CIMAG(corr->value[i]));
   }
-  rgrid_release(workspace1);
 
   cgrid_fft(corr);   // forward, so omit minus sign in the exponent above
   for (i = 0; i < corr->nx; i++)
