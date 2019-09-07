@@ -184,7 +184,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Can't open spectrum.dat for writing.\n");
     exit(1);
   }
-  for (iter = 0, en = -0.5 * spectrum->step * (REAL) (spectrum->nx - 1); iter < spectrum->nx; iter++, en += spectrum->step)
+  for (iter = 0, en = -0.5 * spectrum->step * (REAL) (spectrum->nz - 1); iter < spectrum->nz; iter++, en += spectrum->step)
     // fprintf(fp, FMT_R " " FMT_R "\n", en, CREAL(cgrid_value_at_index(spectrum, 1, 1, iter)));
     fprintf(fp, FMT_R " " FMT_R "\n", en, POW(CREAL(cgrid_value_at_index(spectrum, 1, 1, iter)), 2.0) + POW(CIMAG(cgrid_value_at_index(spectrum, 1, 1, iter)), 2.0));
   fclose(fp);
