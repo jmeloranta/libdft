@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
       rgrid_write_grid(buf, density);
     }
   }
-  spectrum = dft_spectrum_evaluate(TS, TC);
+  spectrum = dft_spectrum_evaluate(TS / GRID_AUTOFS, TC / GRID_AUTOFS);
 
   if(!(fp = fopen("spectrum.dat", "w"))) {
     fprintf(stderr, "Can't open spectrum.dat for writing.\n");

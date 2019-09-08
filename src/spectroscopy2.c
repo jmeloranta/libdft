@@ -217,7 +217,7 @@ EXPORT void dft_spectrum_pol_collect(dft_ot_functional *otf, wf *gwf) {
 
 EXPORT cgrid *dft_spectrum_pol_evaluate(REAL tstep, REAL tc) {
 
-  INT t, npts;
+  INT t, tp, npts;
   static cgrid *spectrum = NULL;
 
   if(cur_time > ntime) {
@@ -235,35 +235,24 @@ EXPORT cgrid *dft_spectrum_pol_evaluate(REAL tstep, REAL tc) {
 
   /* P(t) - full expression - see the Eloranta/Apkarian CPL paper on lineshapes */
   /* NOTE: Instead of propagating the liquid on the excited state, it is run on the average (V_e + V_g)/2 potential */
-  spectrum->value[0] = 0.0;
+  /* The experssion is slightly different than in the papers but does the same */
+  spectrum->value[0] = 1.0;
   fprintf(stderr, "libdft: Polarization at time 0 fs = 0.\n");
   for (t = 1; t < cur_time; t++) {
-    REAL tmp;
-    REAL complex tmp2;
-    INT tp, tpp;
-    tmp2 = 0.0;
-    for(tp = 0; tp < t; tp++) {
-      tmp = 0.0;
-      for(tpp = tp; tpp < t; tpp++)
-	tmp += CREAL(tdpot->value[tpp]) * tstep;
-      tmp2 += CEXP(-I * tmp) * tstep;
-    }
-    spectrum->value[t] = -2.0 * CIMAG(tmp2) * EXP(-((REAL) t) * tstep / tc);
-    fprintf(stderr, "libdft: Polarization at time " FMT_R " fs = %le.\n", ((REAL) t) * tstep * GRID_AUTOFS, CREAL(spectrum->value[t]));
-  }
-  
-  /* zero fill */
-  for (t = cur_time; t < npts; t++)
     spectrum->value[t] = 0.0;
+    for (tp = 0; tp < t; tp++)
+      spectrum->value[t] += tdpot->value[tp] * tstep;
+    spectrum->value[t] = CEXP(-((REAL) t) * tstep / tc + I * spectrum->value[t]);
+  }
 
   /* flip zero frequency to the middle */
   for (t = 0; t < npts; t++)
     spectrum->value[t] *= POW(-1.0, (REAL) t);
   
-  cgrid_inverse_fft(spectrum);
+  cgrid_fft(spectrum);
 
   for(t = 0; t < npts; t++)
-    spectrum->value[t] = CIMAG(spectrum->value[t]);
+    spectrum->value[t] = CABS(spectrum->value[t]) * CABS(spectrum->value[t]);  // power spectrum
   
   return spectrum;
 }
