@@ -4,7 +4,7 @@ all:
 	make prototypes
 	make libdft.a
 
-OBJS = ot.o ot-energy.o common.o bulk.o spectroscopy.o spectroscopy2.o spectroscopy3.o initial.o viscosity.o
+OBJS = ot.o ot-energy.o common.o bulk.o spectroscopy1a.o spectroscopy1b.o spectroscopy2.o spectroscopy3.o initial.o viscosity.o
 
 libdft.a: $(OBJS)
 	ar cr libdft.a $(OBJS)
@@ -33,8 +33,11 @@ ot-energy.o: ot-energy.c ot.h dft.h
 bulk.o: bulk.c dft.h ot.h
 	$(CC) -I. $(CFLAGS) -c bulk.c
 
-spectroscopy.o: spectroscopy.c dft.h ot.h
-	$(CC) -I. $(CFLAGS) -c spectroscopy.c
+spectroscopy1a.o: spectroscopy1a.c dft.h ot.h
+	$(CC) -I. $(CFLAGS) -c spectroscopy1a.c
+
+spectroscopy1b.o: spectroscopy1b.c dft.h ot.h
+	$(CC) -I. $(CFLAGS) -c spectroscopy1b.c
 
 spectroscopy2.o: spectroscopy2.c dft.h ot.h
 	$(CC) -I. $(CFLAGS) -c spectroscopy2.c
