@@ -125,7 +125,6 @@ int main(int argc, char **argv) {
   printf("Number of He atoms is " FMT_R ".\n", natoms);
   printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
 
-  rgrid_free(ext_pot);
   ext_pot = dft_spectrum_init(otf, NULL, REITER, ZEROFILL, 0, UPPER_X, UPPER_Y, UPPER_Z, 0, LOWER_X, LOWER_Y, LOWER_Z);
 
   for (iter = 0; iter < REITER; iter++) {

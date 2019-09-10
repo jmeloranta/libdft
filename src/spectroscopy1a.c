@@ -1,5 +1,5 @@
 /*
- * Spectroscopy related routines (Part 1a): Andersson lineshape for classical impurity.
+ * Spectroscopy related routines (Part 1a): Anderson lineshape for classical impurity.
  *
  */
 
@@ -12,6 +12,7 @@
 #include "ot.h"
 
 /* Local auxiliary functions */
+
 static REAL complex dft_eval_exp(REAL complex a, void *NA) { /* a contains t */
 
   return (1.0 - CEXP(-I * a));
@@ -29,11 +30,11 @@ static REAL complex dft_do_int(rgrid *dens, rgrid *dpot, REAL t, cgrid *wrk) {
 /* End aux */
 
 /*
- * Evaluate absorption/emission spectrum using the Andersson
+ * Evaluate absorption/emission spectrum using the Anderson
  * expression (no dynamics). No zero-point correction for the impurity.
  *
  * density    = Current liquid density (rgrid *; input/output). Overwritten on exit!
- * diffpot    = Difference potential (rgrid *; input).
+ * diffpot    = Difference potential: Final state - Initial state (rgrid *; input).
  * spectrum   = Complex spectrum grid (cgrid *; input/output). This must be 1-D grid.
  *              On input: nz and step are the number of points used and time step.
  *              On output: step is the spectrum step length in cm-1.
@@ -46,7 +47,7 @@ static REAL complex dft_do_int(rgrid *dens, rgrid *dpot, REAL t, cgrid *wrk) {
  *
  */
 
-EXPORT void dft_spectrum_andersson(rgrid *density, rgrid *diffpot, cgrid *spectrum, cgrid *wrk) {
+EXPORT void dft_spectrum_anderson(rgrid *density, rgrid *diffpot, cgrid *spectrum, cgrid *wrk) {
 
   INT i;
 
@@ -56,11 +57,16 @@ EXPORT void dft_spectrum_andersson(rgrid *density, rgrid *diffpot, cgrid *spectr
   }
   cgrid_host_lock(spectrum);
 
-  for(i = 0; i < spectrum->nz; i++)
-    spectrum->value[i] = CEXP(dft_do_int(density, diffpot, spectrum->step * (REAL) i, wrk)) * POW(-1.0, (REAL) i);  // Omit minus sign from exponent since we are doing forward FFT...
-  cgrid_fft(spectrum);
-  for(i = 0; i < spectrum->nz; i++)
-    spectrum->value[i] = CREAL(spectrum->value[i]); // TODO: real, imag, or power?
+  for(i = 0; i < spectrum->nz; i++) {
+    if(i <= spectrum->nz/2)
+      spectrum->value[i] = CEXP(-dft_do_int(density, diffpot, ((REAL) i) * spectrum->step, wrk));
+    else
+      spectrum->value[i] = CEXP(-dft_do_int(density, diffpot, ((REAL) (i - spectrum->nz)) * spectrum->step, wrk));
+    if(i & 1) spectrum->value[i] *= -1.0;
+  }
+
+  cgrid_inverse_fft(spectrum);
+
   spectrum->step = GRID_HZTOCM1 / (spectrum->step * GRID_AUTOFS * 1E-15 * (REAL) spectrum->nz);
 
   rgrid_product(density, density, diffpot);

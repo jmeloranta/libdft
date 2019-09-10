@@ -4,13 +4,32 @@ else
   include /usr/include/dft/make.conf
 endif
 
-all: spectrum-nozp
+all: spectrum-pol spectrum-anderson spectrum-anderson-zp spectrum-bin
 
-spectrum-nozp: spectrum-nozp.o
-	$(CC) $(CFLAGS) -o spectrum-nozp spectrum-nozp.o $(LDFLAGS)
+spectrum-pol: spectrum-pol.o
+	$(CC) $(CFLAGS) -o spectrum-pol spectrum-pol.o $(LDFLAGS)
 
-spectrum-nozp.o: spectrum-nozp.c
-	$(CC) $(CFLAGS) -c spectrum-nozp.c
+spectrum-pol.o: spectrum-pol.c
+	$(CC) $(CFLAGS) -c spectrum-pol.c
+
+spectrum-anderson: spectrum-anderson.o
+	$(CC) $(CFLAGS) -o spectrum-anderson spectrum-anderson.o $(LDFLAGS)
+
+spectrum-anderson.o: spectrum-anderson.c
+	$(CC) $(CFLAGS) -c spectrum-anderson.c
+
+spectrum-anderson-zp: spectrum-anderson-zp.o
+	$(CC) $(CFLAGS) -o spectrum-anderson-zp spectrum-anderson-zp.o $(LDFLAGS)
+
+spectrum-anderson-zp.o: spectrum-anderson-zp.c
+	$(CC) $(CFLAGS) -c spectrum-anderson-zp.c
+
+spectrum-bin: spectrum-bin.o
+	$(CC) $(CFLAGS) -o spectrum-bin spectrum-bin.o $(LDFLAGS)
+
+spectrum-bin.o: spectrum-bin.c
+	$(CC) $(CFLAGS) -c spectrum-bin.c
 
 clean:
-	-rm *.o spectrum-nozp spectrum-nozp.o output* *~
+	-rm *.o spectrum-pol spectrum-pol.o spectrum-anderson spectrum-anderson.o 
+	-rm spectrum-anderson-zp spectrum-anderson-zp.o spectrum-bin spectrum-bin.o output* *~
