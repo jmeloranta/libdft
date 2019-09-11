@@ -1,7 +1,9 @@
 /*
- * Impurity atom in superfluid helium (no zero-point).
+ * Compute absorption spectrum of solvated impurity (Cu2)
+ * in bulk superfluid helium. Classical impurity (no zero-point).
  *
- * All input in a.u. except the time step, which is fs.
+ * This uses the polarization expression, which requires dynamics
+ * to be run also on the final state.
  *
  */
 
@@ -13,37 +15,45 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
+/* DFT model */
+#define MODEL (DFT_OT_PLAIN | DFT_OT_HD)
+
+/* Time step length */
 #define TS 5.0 /* fs */
 
+/* Grid parameters */
 #define NX 128
 #define NY 128
 #define NZ 128
 #define STEP 1.0
 
+/* External pressure */
 #define PRESSURE 0.0
 
-#define THREADS 0
+/* Number of OpenMP threads to use (0 = all available cores) */
+#define THREADS 6
 
+/* FFT zero-fill for spectrum calculation */
 #define ZEROFILL 1024
 
-#define IMITER 200
-#define REITER 400
-
-#define UPPER_X "potentials/cu2-b-s.dat"
-#define UPPER_Y "potentials/cu2-b-s.dat"
-#define UPPER_Z "potentials/cu2-b-s.dat"
-
-#define LOWER_X "potentials/cu2-x-s.dat"
-#define LOWER_Y "potentials/cu2-x-s.dat"
-#define LOWER_Z "potentials/cu2-x-s.dat"
-
-/* #define MODEL (DFT_OT_PLAIN | DFT_OT_HD | DFT_OT_KC | DFT_OT_BACKFLOW) */
-#define MODEL (DFT_OT_PLAIN | DFT_OT_HD)
-/* #define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG) */
-#define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
+/* Dephasing constant for spectrum calculation (exponential decay of polarization) */
 #define TC 150.0
 
-#define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
+/* Initial imaginary time iterations */
+#define IMITER 200
+
+/* Real time dynamics iterations */
+#define REITER 400
+
+/* Ground state potential */
+#define GND_X "potentials/cu2-x-s.dat"
+#define GND_Y "potentials/cu2-x-s.dat"
+#define GND_Z "potentials/cu2-x-s.dat"
+
+/* Excited state potential */
+#define EXC_X "potentials/cu2-b-s.dat"
+#define EXC_Y "potentials/cu2-b-s.dat"
+#define EXC_Z "potentials/cu2-b-s.dat"
 
 int main(int argc, char **argv) {
 
@@ -63,7 +73,6 @@ int main(int argc, char **argv) {
 #endif
 
   /* Initialize threads & use wisdom */
-  grid_set_fftw_flags(1);    // FFTW_MEASURE
   grid_threads_init(THREADS);
   grid_fft_read_wisdom(NULL);
 
@@ -87,8 +96,9 @@ int main(int argc, char **argv) {
   ext_pot = rgrid_clone(otf->density, "ext_pot");
   density = rgrid_clone(otf->density, "density");
   potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
-  /* Read external potential from file */
-  dft_common_potential_map(0, LOWER_X, LOWER_Y, LOWER_Z, ext_pot);
+
+  /* Read ground state potential from file */
+  dft_common_potential_map(0, GND_X, GND_Y, GND_Z, ext_pot);
 
   if(argc == 1) {
     /* Run imaginary time */
@@ -125,7 +135,14 @@ int main(int argc, char **argv) {
   printf("Number of He atoms is " FMT_R ".\n", natoms);
   printf("Energy / atom is " FMT_R " K\n", (energy/natoms) * GRID_AUTOK);
 
-  ext_pot = dft_spectrum_init(otf, NULL, REITER, ZEROFILL, 0, UPPER_X, UPPER_Y, UPPER_Z, 0, LOWER_X, LOWER_Y, LOWER_Z);
+  /* Read excited state potential from file */
+  dft_common_potential_map(0, EXC_X, EXC_Y, EXC_Z, otf->density);
+
+  /* Difference potential for dynamics and spectrum calculation */
+  rgrid_difference(ext_pot, otf->density, ext_pot);
+
+  /* Allocate 1-D complex grid for the spectrum */
+  spectrum = cgrid_alloc(1, 1, REITER, TS / GRID_AUTOFS, CGRID_PERIODIC_BOUNDARY, 0, "Spectrum");
 
   for (iter = 0; iter < REITER; iter++) {
     grid_timer_start(&timer);
@@ -140,11 +157,12 @@ int main(int argc, char **argv) {
     cgrid_add(potential_store, -mu0);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
     grid_wf_propagate_correct(gwf, potential_store, TS / GRID_AUTOFS);
-    // Chemical potential included - no need to normalize
 
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
 
-    dft_spectrum_collect(otf, gwf);
+    /* Collect energy difference values */ 
+    dft_spectrum_pol_collect(gwf, ext_pot, spectrum, iter, otf->density);
+
     if(!(iter % 10)) {
       char buf[512];
       grid_wf_density(gwf, density);
@@ -152,15 +170,14 @@ int main(int argc, char **argv) {
       rgrid_write_grid(buf, density);
     }
   }
-  spectrum = dft_spectrum_evaluate(TS / GRID_AUTOFS, TC / GRID_AUTOFS);
+  dft_spectrum_pol_evaluate(spectrum, TS / GRID_AUTOFS, TC / GRID_AUTOFS, potential_store);
 
   if(!(fp = fopen("spectrum.dat", "w"))) {
     fprintf(stderr, "Can't open spectrum.dat for writing.\n");
     exit(1);
   }
   for (iter = 0, en = -0.5 * spectrum->step * (REAL) spectrum->nz; iter < spectrum->nz; iter++, en += spectrum->step)
-    //    fprintf(fp, FMT_R " " FMT_R "\n", en, CREAL(cgrid_value_at_index(spectrum, 1, 1, iter)));
-    fprintf(fp, FMT_R " " FMT_R "\n", en, POW(CREAL(cgrid_value_at_index(spectrum, 1, 1, iter)), 2.0) + POW(CIMAG(cgrid_value_at_index(spectrum, 1, 1, iter)), 2.0));
+    fprintf(fp, FMT_R " " FMT_R "\n", en, CREAL(cgrid_value_at_index(spectrum, 1, 1, iter)));
   fclose(fp);
   printf("Spectrum written to spectrum.dat\n");
   exit(0);

@@ -16,220 +16,65 @@
  * see intro of JCP 141, 014107 (2014) + references there in). The dynamics should be run on average
  * potential of gnd and excited states (returned by the init routine).
  *
- * 1) Initialize the difference potential:
- *     dft_spectrum_pol_init().
- * 
- * 2) During the trajectory, call function:
+ * 1) During the trajectory, call function:
  *     dft_spectrum_pol_collect() to record the time dependent difference
  *     energy (difference potential convoluted with the time dependent
  *     liquid density).
  *
- * 3) At the end, call the following function to evaluate the spectrum:
+ * 2) At the end, call the following function to evaluate the spectrum:
  *     dft_spectrum_pol_evaluate() to evaluate the lineshape.
  *
  */
 
 /*
- * Collect the time dependent difference energy data.
- * 
- * otf        = Orsay-Trento functional pointer (dft_ot_functional *; input).
- * idensity   = NULL: no averaging of pair potentials or impurity density for convoluting with pair potential.
- *              Note that the impurity density is assumed to be time independent! (rgrid *; input)
- *              This is overwritten on exit.
- * nt         = Maximum number of time steps to be collected (INT; input).
- * zerofill   = How many zeros to fill in before FFT (INT; input).
- * finalave   = Averaging on the final state (see dft_common_potential_map()) (INT; input).
- * finalx     = Final potential file name along-x (char *, input).
- * finaly     = Final potential file name along-y (char *, input).
- * finalz     = Final potential file name along-z (char *, input).
- * initialave = Averaging on the initial state (see dft_common_potential_map()) (INT; input).
- * initialx   = Initial potential file name along-x (char *, input).
- * initialy   = Initial potential file name along-y (char *, input).
- * initialz   = Initial potential file name along-z (char *, input).
- *
- * Returns average potential for dynamics.
- *
- */
-
-static rgrid *xxdiff = NULL, *xxave = NULL;
-static cgrid *tdpot = NULL;
-static INT ntime, cur_time, zerofill;
-
-EXPORT rgrid *dft_spectrum_pol_init(dft_ot_functional *otf, rgrid *idensity, INT nt, INT zf, char finalave, char *finalx, char *finaly, char *finalz, char initialave, char *initialx, char *initialy, char *initialz) {
- 
-  rgrid *workspace1, *workspace2, *workspace3, *workspace4;
-  INT nx, ny, nz;
-  REAL step;
-
-  if(!otf->workspace1) otf->workspace1 = rgrid_clone(otf->density, "OTF workspace 1");
-  if(!otf->workspace2) otf->workspace2 = rgrid_clone(otf->density, "OTF workspace 2");
-  if(!otf->workspace3) otf->workspace3 = rgrid_clone(otf->density, "OTF workspace 3");
-  if(!otf->workspace4) otf->workspace4 = rgrid_clone(otf->density, "OTF workspace 4");
-
-  workspace1 = otf->workspace1;
-  workspace2 = otf->workspace2;
-  workspace3 = otf->workspace3;
-  workspace4 = otf->workspace4;
-  nx = workspace1->nx;
-  ny = workspace1->ny;
-  nz = workspace1->nz;
-  step = workspace1->step;
-
-  cur_time = 0;  /* watch out, these are static global variables */
-  ntime = nt;
-  zerofill = zf;
-
-  if(!tdpot) {
-    tdpot = cgrid_alloc(1, 1, ntime + zf, 0.1, CGRID_PERIODIC_BOUNDARY, 0, "tdpot");
-    cgrid_host_lock(tdpot); // Must stay in host memory
-  }
-
-  if(!xxdiff)
-    xxdiff = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "xxdiff");
-  if(!xxave)
-    xxave = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "xxave");
-
-  dft_common_potential_map(finalave, finalx, finaly, finalz, workspace1);
-  dft_common_potential_map(initialave, initialx, initialy, initialz, workspace2);
-
-  if(idensity) {
-    rgrid_fft(idensity);
-    rgrid_fft(workspace1);
-    rgrid_fft_convolute(workspace3, workspace1, idensity);
-    rgrid_inverse_fft(workspace3);
-    rgrid_fft(workspace2);
-    rgrid_fft_convolute(workspace4, workspace2, idensity);
-    rgrid_inverse_fft(workspace4);
-  } else {
-    rgrid_copy(workspace3, workspace1);
-    rgrid_copy(workspace4, workspace2);
-  }
-  /* wrk3 = final state potential, wrk4 = initial state potential */
-
-  rgrid_difference(xxdiff, workspace3, workspace4);
-  rgrid_sum(xxave, workspace3, workspace4);
-  rgrid_multiply(xxave, 0.5);
-
-  return xxave;
-}
-
-/*
- * Collect the time dependent difference energy data. Same as above but with direct
- * grid input for potentials.
- * 
- * otf      = Orsay-Trento functional pointer (dft_ot_functional *; input).
- * nt       = Maximum number of time steps to be collected (INT, input).
- * zerofill = How many zeros to fill in before FFT (INT, input).
- * final    = Final state potential grid (rgrid *, input).
- * initial    = Initial state potential grid (rgrid *, input).
- *
- * Returns average potential for dynamics.
- *
- */
-
-EXPORT rgrid *dft_spectrum_pol_init2(dft_ot_functional *otf, INT nt, INT zf, rgrid *upper, rgrid *lower) {
-
-  INT nx, ny, nz;
-  REAL step;
-
-  nx = otf->density->nx;
-  ny = otf->density->ny;
-  nz = otf->density->nz;
-  step = otf->density->step;
-
-  cur_time = 0;
-  ntime = nt;
-  zerofill = zf;
-
-  if(!tdpot) {
-    tdpot = cgrid_alloc(1, 1, ntime + zf, 0.1, CGRID_PERIODIC_BOUNDARY, 0, "tdpot");
-    cgrid_host_lock(tdpot); // Must stay in host memory
-  }
-
-  if(!xxdiff)
-    xxdiff = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "xxdiff");
-  if(!xxave)
-    xxave = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "xxave");
-
-  rgrid_difference(xxdiff, upper, lower);
-  rgrid_sum(xxave, upper, lower);
-  rgrid_multiply(xxave, 0.5);
-
-  return xxave;
-}
-
-/*
- * Collect the difference energy data (user specified).
- *
- * val = difference energy value to be inserted (input, REAL).
- *
- */
-
-EXPORT void dft_spectrum_pol_collect_user(REAL val) {
-
-  if(cur_time > ntime) {
-    fprintf(stderr, "libdft: initialized with too few points (spectrum collect).\n");
-    exit(1);
-  }
-  tdpot->value[cur_time] = val;
-
-  fprintf(stderr, "libdft: spectrum collect complete (point = " FMT_I ", value = " FMT_R " K).\n", cur_time, CREAL(tdpot->value[cur_time]) * GRID_AUTOK);
-  cur_time++;
-}
-
-/*
  * Collect the difference energy data. 
  *
- * otf     = Functional pointer (dft_ot_functional *).
- * gwf     = the current wavefunction (used for calculating the liquid density) (wf *, input).
+ * gwf      = Current wavefunction (used for calculating the liquid density) (wf *, input).
+ * diffpot  = Difference potential: Final - Initial state (rgrid *; input).
+ * spectrum = Spectrum where the energy values are initially stored (cgrid *; input/output).
+ * iter     = Current time step iteration (INT; input).
+ * wrk      = Workspace (rgrid *; input).
+ * 
+ * No return value.
  *
  */
 
-EXPORT void dft_spectrum_pol_collect(dft_ot_functional *otf, wf *gwf) {
+EXPORT void dft_spectrum_pol_collect(wf *gwf, rgrid *diffpot, cgrid *spectrum, INT iter, rgrid *wrk) {
 
-  rgrid *workspace1;
-
-  if(!otf->workspace1) otf->workspace1 = rgrid_clone(otf->density, "OTF workspace 1");
-  workspace1 = otf->workspace1;
-
-  if(cur_time > ntime) {
-    fprintf(stderr, "libdft: initialized with too few points (spectrum collect).\n");
+  if(spectrum->nx != 1 || spectrum->nz != 1) {
+    fprintf(stderr, "libdft: spectrum must be one dimensional grid (dft_spectrum_pol_collect).\n");
     exit(1);
   }
-  grid_wf_density(gwf, workspace1);
-  rgrid_product(workspace1, workspace1, xxdiff);
-  tdpot->value[cur_time] = rgrid_integral(workspace1);
+  if(iter >= spectrum->nz) {
+    fprintf(stderr, "libdft: Spectrum allocated with too few points (dft_spectrum_pol_collect).\n");
+    exit(1);
+  }
 
-  fprintf(stderr, "libdft: spectrum collect complete (point = " FMT_I ", value = " FMT_R " K).\n", cur_time, CREAL(tdpot->value[cur_time]) * GRID_AUTOK);
-  cur_time++;
+  grid_wf_density(gwf, wrk);
+  rgrid_product(wrk, wrk, diffpot);
+  spectrum->value[iter] = rgrid_integral(wrk);
+
+  fprintf(stderr, "libdft: spectrum collect complete (point = " FMT_I ", value = " FMT_R " K).\n", iter, CREAL(spectrum->value[iter]) * GRID_AUTOK);
 }
 
 /*
- * Evaluate the spectrum (full expression).
+ * Evaluate the spectrum.
  *
- * tstep  = Time step length at which the energy difference data was collected
+ * spectrum = On entry: 1-D grid of potential difference values. On exit: spectrum (cgrid *; input/output).
+ * tstep    = Time step length at which the energy difference data was collected
  *          (time stepin atomic units) (REAL, input).
- * tc     = Exponential decay time constant (atomic units; REAL, input).
+ * tc       = Exponential decay time constant (atomic units; REAL, input).
+ * wrk      = Workspace (cgrid *; input).
  *
  * Returns a pointer to the calculated spectrum (grid *). X-axis in cm$^{-1}$.
  *
  */
 
-EXPORT cgrid *dft_spectrum_pol_evaluate(REAL tstep, REAL tc) {
+EXPORT cgrid *dft_spectrum_pol_evaluate(cgrid *spectrum, REAL tstep, REAL tc, cgrid *wrk) {
 
-  INT t, tp, npts;
-  static cgrid *spectrum = NULL;
+  INT t, tp;
 
-  if(cur_time > ntime) {
-    printf(FMT_I " " FMT_I "\n", cur_time, ntime);
-    fprintf(stderr, "libdft: cur_time >= ntime. Increase ntime.\n");
-    exit(1);
-  }
-
-  npts = cur_time + zerofill;
-
-  if(!spectrum)
-    spectrum = cgrid_alloc(1, 1, npts, GRID_HZTOCM1 / (tstep * GRID_AUTOFS * 1E-15 * ((REAL) npts)), CGRID_PERIODIC_BOUNDARY, 0, "spectrum");
+  cgrid_copy(wrk, spectrum);
 
   cgrid_zero(spectrum);
 
@@ -238,21 +83,23 @@ EXPORT cgrid *dft_spectrum_pol_evaluate(REAL tstep, REAL tc) {
   /* The experssion is slightly different than in the papers but does the same */
   spectrum->value[0] = 1.0;
   fprintf(stderr, "libdft: Polarization at time 0 fs = 0.\n");
-  for (t = 1; t < cur_time; t++) {
+  for (t = 1; t < spectrum->nz; t++) {
     spectrum->value[t] = 0.0;
     for (tp = 0; tp < t; tp++)
-      spectrum->value[t] += tdpot->value[tp] * tstep;
+      spectrum->value[t] += wrk->value[tp] * tstep;
     spectrum->value[t] = CEXP(-((REAL) t) * tstep / tc + I * spectrum->value[t]);
   }
 
   /* flip zero frequency to the middle */
-  for (t = 0; t < npts; t++)
+  for (t = 0; t < spectrum->nz; t++)
     spectrum->value[t] *= POW(-1.0, (REAL) t);
   
   cgrid_fft(spectrum);
 
-  for(t = 0; t < npts; t++)
-    spectrum->value[t] = CABS(spectrum->value[t]) * CABS(spectrum->value[t]);  // power spectrum
+  spectrum->step = GRID_HZTOCM1 / (spectrum->step * GRID_AUTOFS * 1E-15 * (REAL) spectrum->nz);
+
+  for(t = 0; t < spectrum->nz; t++)
+    spectrum->value[t] = CABS(spectrum->value[t]) * CABS(spectrum->value[t]);
   
   return spectrum;
 }
