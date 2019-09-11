@@ -41,7 +41,7 @@
 
 EXPORT void dft_spectrum_pol_collect(wf *gwf, rgrid *diffpot, cgrid *spectrum, INT iter, rgrid *wrk) {
 
-  if(spectrum->nx != 1 || spectrum->nz != 1) {
+  if(spectrum->nx != 1 || spectrum->ny != 1) {
     fprintf(stderr, "libdft: spectrum must be one dimensional grid (dft_spectrum_pol_collect).\n");
     exit(1);
   }

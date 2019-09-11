@@ -33,9 +33,6 @@
 /* Number of OpenMP threads to use (0 = all available cores) */
 #define THREADS 6
 
-/* FFT zero-fill for spectrum calculation */
-#define ZEROFILL 1024
-
 /* Dephasing constant for spectrum calculation (exponential decay of polarization) */
 #define TC 150.0
 
@@ -46,14 +43,14 @@
 #define REITER 400
 
 /* Ground state potential */
-#define GND_X "potentials/cu2-x-s.dat"
-#define GND_Y "potentials/cu2-x-s.dat"
-#define GND_Z "potentials/cu2-x-s.dat"
+#define GND_X "potentials/2s-exp.dat"
+#define GND_Y "potentials/2s-exp.dat"
+#define GND_Z "potentials/2s-exp.dat"
 
 /* Excited state potential */
-#define EXC_X "potentials/cu2-b-s.dat"
-#define EXC_Y "potentials/cu2-b-s.dat"
-#define EXC_Z "potentials/cu2-b-s.dat"
+#define EXC_X "potentials/2p-exp.dat"
+#define EXC_Y "potentials/2p-exp.dat"
+#define EXC_Z "potentials/2p-exp.dat"
 
 int main(int argc, char **argv) {
 

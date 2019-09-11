@@ -46,14 +46,14 @@
 #define REITER 400
 
 /* Ground state potential */
-#define GND_X "potentials/cu2-x-s.dat"
-#define GND_Y "potentials/cu2-x-s.dat"
-#define GND_Z "potentials/cu2-x-s.dat"
+#define GND_X "potentials/2s-exp.dat"
+#define GND_Y "potentials/2s-exp.dat"
+#define GND_Z "potentials/2s-exp.dat"
 
 /* Excited state potential */
-#define EXC_X "potentials/cu2-b-s.dat"
-#define EXC_Y "potentials/cu2-b-s.dat"
-#define EXC_Z "potentials/cu2-b-s.dat"
+#define EXC_X "potentials/2p-exp.dat"
+#define EXC_Y "potentials/2p-exp.dat"
+#define EXC_Z "potentials/2p-exp.dat"
 
 int main(int argc, char **argv) {
 
