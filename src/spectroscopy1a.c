@@ -55,7 +55,9 @@ EXPORT void dft_spectrum_anderson(rgrid *density, rgrid *diffpot, cgrid *spectru
     fprintf(stderr, "libgrid: spectrum must be 1-D grid.\n");
     exit(1);
   }
+#ifdef GRID_MGPU
   cgrid_host_lock(spectrum);
+#endif
 
   for(i = 0; i < spectrum->nz; i++) {
     if(i <= spectrum->nz/2)
@@ -72,5 +74,7 @@ EXPORT void dft_spectrum_anderson(rgrid *density, rgrid *diffpot, cgrid *spectru
   rgrid_product(density, density, diffpot);
   fprintf(stderr, "libdft: Average shift = " FMT_R " cm-1.\n", rgrid_integral(density) * GRID_AUTOCM1);
 
+#ifdef GRID_MGPU
   cgrid_host_unlock(spectrum);
+#endif
 }

@@ -14,15 +14,15 @@
 #include <dft/ot.h>
 
 /* Time integration and spatial grid parameters */
-#define TS 5.0 /* fs */
+#define TS 2.0 /* fs */
 #define NX 16
-#define NY 2048
-#define NZ 2048
+#define NY 256
+#define NZ 256
 #define STEP 2.0
 #define MAXITER 8000000
 
 /* Predict-correct? */
-//#define PC
+#define PC
 
 /* Vortex line params */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
@@ -42,6 +42,10 @@
 
 /* Output every NTH iteration was 10000 */
 #define NTH 2000
+
+/* Absorbing boundary region */
+#define ABS_WIDTH_Y 60.0
+#define ABS_WIDTH_Z 60.0
 
 /* Use all threads available on the computer */
 #define THREADS 0
@@ -207,12 +211,14 @@ int main(int argc, char **argv) {
   grid_fft_read_wisdom(NULL);
 
   /* Allocate wave functions */
-  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
+//  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_NEUMANN_BOUNDARY, WF_2ND_ORDER_CN, "gwf"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }
 #ifdef PC
-  if(!(gwfp = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwfp"))) {
+//  if(!(gwfp = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwfp"))) {
+  if(!(gwfp = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_CN, "gwfp"))) {
     fprintf(stderr, "Cannot allocate gwfp.\n");
     exit(1);
   }
@@ -335,16 +341,26 @@ int main(int argc, char **argv) {
     cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate(gwf, potential_store, tstep);
-    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
+    printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer)); fflush(stdout);
   }
   printf("done.\n");
+
+#ifdef PC
+  grid_wf_boundary(gwf, gwfp, 1.0, 0.0, 0, NX,
+                   (INT) (ABS_WIDTH_Y / STEP), NY - (INT) (ABS_WIDTH_Y / STEP), (INT) (ABS_WIDTH_Z / STEP), 
+                   NZ - (INT) (ABS_WIDTH_Z / STEP));
+#else
+  grid_wf_boundary(gwf, NULL, 1.0, 0.0, 0, NX,
+                   (INT) (ABS_WIDTH_Y / STEP), NY - (INT) (ABS_WIDTH_Y / STEP), (INT) (ABS_WIDTH_Z / STEP), 
+                   NZ - (INT) (ABS_WIDTH_Z / STEP));
+#endif
 
   printf("Starting dynamics.\n");
   tstep = (TS - I * ITS) / GRID_AUTOFS;     
   grid_timer_start(&timer);
   for (iter = 0; iter < MAXITER; iter++) {
     if(iter == 0 || !(iter % NTH)) {
-      printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
+      printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer)); fflush(stdout);
 #ifdef LINE_LOCATIONS_ONLY
       grid_wf_probability_flux(gwf, NULL, otf->workspace1, otf->workspace2);
       rgrid_rot(otf->density, NULL, NULL, NULL, otf->workspace1, otf->workspace2);

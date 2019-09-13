@@ -45,6 +45,10 @@ EXPORT void dft_spectrum_bin_collect(wf *gwf, rgrid *diffpot, rgrid *bin, INT it
     exit(1);
   }
 
+#ifdef GRID_MGPU
+  rgrid_host_lock(bin);
+#endif
+
   grid_wf_density(gwf, wrk);
   rgrid_product(wrk, wrk, diffpot);
   energy = rgrid_integral(wrk) * GRID_AUTOCM1;
@@ -52,6 +56,10 @@ EXPORT void dft_spectrum_bin_collect(wf *gwf, rgrid *diffpot, rgrid *bin, INT it
   idx = ((INT) (energy / bin->step)) + bin->nz / 2; 
   if(idx < 0 || idx >= bin->nz) return;
   bin->value[idx] += EXP(-((REAL) iter) * tstep / tc);
+
+#ifdef GRID_MGPU
+  rgrid_host_unlock(bin);
+#endif
 
   return;
 }

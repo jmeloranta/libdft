@@ -41,6 +41,9 @@
 
 EXPORT void dft_spectrum_pol_collect(wf *gwf, rgrid *diffpot, cgrid *spectrum, INT iter, rgrid *wrk) {
 
+#ifdef GRID_MGPU
+  cgrid_host_lock(spectrum);
+#endif
   if(spectrum->nx != 1 || spectrum->ny != 1) {
     fprintf(stderr, "libdft: spectrum must be one dimensional grid (dft_spectrum_pol_collect).\n");
     exit(1);
@@ -74,6 +77,10 @@ EXPORT cgrid *dft_spectrum_pol_evaluate(cgrid *spectrum, REAL tstep, REAL tc, cg
 
   INT t, tp;
 
+#ifdef GRID_MGPU
+  cgrid_host_lock(spectrum);
+#endif
+
   cgrid_copy(wrk, spectrum);
 
   cgrid_zero(spectrum);
@@ -101,5 +108,9 @@ EXPORT cgrid *dft_spectrum_pol_evaluate(cgrid *spectrum, REAL tstep, REAL tc, cg
   for(t = 0; t < spectrum->nz; t++)
     spectrum->value[t] = CABS(spectrum->value[t]) * CABS(spectrum->value[t]);
   
+#ifdef GRID_MGPU
+  cgrid_host_unlock(spectrum);
+#endif
+
   return spectrum;
 }
