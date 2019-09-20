@@ -17,6 +17,9 @@ void do_ke(dft_ot_functional *otf, wf *gwf, INT iter) {
   char file[256];
   INT i;
 
+  return; // Not in use for now
+
+#if 0
   if(!(otf->workspace1)) otf->workspace1 = rgrid_clone(otf->density, "OT Workspace 1");
   if(!(otf->workspace2)) otf->workspace2 = rgrid_clone(otf->density, "OT Workspace 2");
   if(!(otf->workspace3)) otf->workspace3 = rgrid_clone(otf->density, "OT Workspace 3");
@@ -49,6 +52,7 @@ void do_ke(dft_ot_functional *otf, wf *gwf, INT iter) {
   for(i = 1; i < NBINS; i++)  /* Leave out the DC component (= zero) */
     fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
   fclose(fp);
+#endif
 }
 
 void analyze(dft_ot_functional *otf, wf *wf, INT iter, REAL vz) {

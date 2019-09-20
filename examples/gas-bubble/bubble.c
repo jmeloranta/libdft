@@ -6,6 +6,8 @@
 
 #include "bubble.h"
 
+int GPUs[NGPUS] = GPUS;
+
 extern void do_ke(dft_ot_functional *, wf *, INT);
 
 grid_timer timer;
@@ -45,7 +47,7 @@ int main(int argc, char *argv[]) {
   extern REAL pot_func(void *, REAL, REAL, REAL);
   
 #ifdef USE_CUDA
-  cuda_enable(1);
+  cuda_enable(1, NGPUS, GPUs);
 #endif
 
   /* Initialize threads & use wisdom */

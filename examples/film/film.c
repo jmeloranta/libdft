@@ -15,14 +15,17 @@
 
 /* Time integration and spatial grid parameters */
 #define TS 2.0 /* fs */
-#define NX 16
+#define NX 32
 #define NY 256
 #define NZ 256
 #define STEP 2.0
 #define MAXITER 8000000
 
+#define NGPUS 2
+int gpus[NGPUS] = {3, 4};
+
 /* Predict-correct? */
-#define PC
+//#define PC
 
 /* Vortex line params */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
@@ -202,7 +205,7 @@ int main(int argc, char **argv) {
   REAL complex tstep;
 
 #ifdef USE_CUDA
-  cuda_enable(1);  // enable CUDA ?
+  cuda_enable(1, NGPUS, gpus);  // enable CUDA ?
 #endif
 
   /* Initialize threads & use wisdom */

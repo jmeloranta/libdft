@@ -148,16 +148,14 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
                  /* We may be able to eliminate some FFTs since rgrid_fft_gradient_X()'s operate in the Fourier space. (TODO; rho_tf!) */
                  /* Currently, on CPU-based systems the performance penalty is about 17% (FD being faster). */
 
-#ifdef FD_GRAD
-#define RGRID_GRADIENT_X(x,y) rgrid_fd_gradient_x(x,y)
-#define RGRID_GRADIENT_Y(x,y) rgrid_fd_gradient_y(x,y)
-#define RGRID_GRADIENT_Z(x,y) rgrid_fd_gradient_z(x,y)
-#endif
-
-#ifdef FFT_GRAD
+#ifdef GRID_MGPU
 #define RGRID_GRADIENT_X(x,y) {rgrid_copy(y,x); rgrid_fft(y); rgrid_fft_gradient_x(y, y); rgrid_inverse_fft(y);}
 #define RGRID_GRADIENT_Y(x,y) {rgrid_copy(y,x); rgrid_fft(y); rgrid_fft_gradient_y(y, y); rgrid_inverse_fft(y);}
 #define RGRID_GRADIENT_Z(x,y) {rgrid_copy(y,x); rgrid_fft(y); rgrid_fft_gradient_z(y, y); rgrid_inverse_fft(y);}
+#else
+#define RGRID_GRADIENT_X(x,y) rgrid_fd_gradient_x(x,y)
+#define RGRID_GRADIENT_Y(x,y) rgrid_fd_gradient_y(x,y)
+#define RGRID_GRADIENT_Z(x,y) rgrid_fd_gradient_z(x,y)
 #endif
 
 /* Use special 1D OT-DFT code? */
