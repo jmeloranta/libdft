@@ -5,8 +5,8 @@
  */
 
 /* Number of GPUs to use */
-#define NGPUS 6
-#define GPUS {1, 2, 3, 4, 5, 6}
+#define NGPUS 2
+#define GPUS {3, 4}
 
 /* Time step in imag/real iterations (fs) */
 #define TIME_STEP (5.0 / GRID_AUTOFS)
@@ -56,8 +56,8 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 512    	/* # of grid points along x */ /* Largest: 729x384x384 */
-#define NY 512         /* # of grid points along y */
+#define NX 384    	/* # of grid points along x */ /* Largest: 729x384x384 */
+#define NY 384         /* # of grid points along y */
 #define NZ 1024        	/* # of grid points along z */
 #define STEP 1.0        /* spatial step length (Bohr) */
 

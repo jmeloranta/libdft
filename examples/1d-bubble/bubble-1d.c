@@ -112,7 +112,9 @@ int main(int argc, char **argv) {
   grid_timer timer;         /* Timer structure to record execution time */
 
 #ifdef USE_CUDA
-  cuda_enable(1);           /* If cuda available, enable it */
+#define NGPUS 1                /* Number of GPUs to use */
+  int gpus[NGPUS] = {0};       /* Which GPUs to use? */
+  cuda_enable(1, NGPUS, gpus); /* If cuda available, enable it */
 #endif
 
   /* Initialize threads & use wisdom */
@@ -187,20 +189,7 @@ int main(int argc, char **argv) {
     if(iter < IITER) tstep = -I * TS; /* Imaginary time */
     else {
       tstep = TS; /* Real time */
-      gwf->ts_func = NULL; // we will use complex absorbing potential
-      gwf->abs_data.data[0] = 0;
-      gwf->abs_data.data[1] = 1;
-      gwf->abs_data.data[2] = 0;
-      gwf->abs_data.data[3] = 1;
-      gwf->abs_data.data[4] = ABS_LEN / STEP;
-      gwf->abs_data.data[5] = NZ - ABS_LEN / STEP;
-      gwfp->ts_func = NULL;
-      gwfp->abs_data.data[0] = gwf->abs_data.data[0];
-      gwfp->abs_data.data[1] = gwf->abs_data.data[1];
-      gwfp->abs_data.data[2] = gwf->abs_data.data[2];
-      gwfp->abs_data.data[3] = gwf->abs_data.data[3];
-      gwfp->abs_data.data[4] = gwf->abs_data.data[4];
-      gwfp->abs_data.data[5] = gwf->abs_data.data[5];
+      grid_wf_boundary(gwf, gwfp, ABS_AMP, rho0, 0, 1, 0, 1, ABS_LEN / STEP, NZ - ABS_LEN / STEP); /* Absorbing BC */
     }
     /* After SITER's, stop the flow */
     if(iter > SITER) {
@@ -219,12 +208,10 @@ int main(int argc, char **argv) {
     dft_ot_potential(otf, potential_store, gwf);  /* Add O-T potential at current time */
     grid_add_real_to_complex_re(potential_store, ext_pot); /* Add external potential */
     cgrid_add(potential_store, -mu0); /* Add -chemical potential */
-    if(iter >= IITER) grid_wf_absorb_potential(gwf, potential_store, ABS_AMP, rho0);
     grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep / GRID_AUTOFS); /* predict step */
     dft_ot_potential(otf, potential_store, gwfp);   /* Get O-T potential at prediction point */
     grid_add_real_to_complex_re(potential_store, ext_pot); /* Add external potential */
     cgrid_add(potential_store, -mu0);              /* add -chemical potential */
-    if(iter >= IITER) grid_wf_absorb_potential(gwfp, potential_store, ABS_AMP, rho0);
     cgrid_multiply(potential_store, 0.5);  /* For correct step, use potential (current + future) / 2 */
     grid_wf_propagate_correct(gwf, potential_store, tstep / GRID_AUTOFS); /* Take the correct step */
 #else
