@@ -48,10 +48,12 @@ int main(int argc, char **argv) {
   INT i, j;
   dft_ot_functional *otf;
   REAL bins[NBINS];
-  rgrid *wrk1, *wrk2, *wrk3, *wrk4, *wrk5;
+  rgrid *wrk1, *wrk2, *wrk3, *wrk4;
 
 #ifdef USE_CUDA
-  cuda_enable(0);
+#define NGPUS 1
+int gpus[] = {0};
+  cuda_enable(0, NGPUS, gpus);
 #endif
 
   /* Initialize threads & use wisdom */
@@ -76,7 +78,6 @@ int main(int argc, char **argv) {
   wrk2 = rgrid_clone(otf->density, "wrk2");
   wrk3 = rgrid_clone(otf->density, "wrk3");
   wrk4 = rgrid_clone(otf->density, "wrk4");
-  wrk5 = rgrid_clone(otf->density, "wrk5");
 
   cgrid_constant(gwf->grid, SQRT(RHO0));
   cgrid_random(gwf->grid, 0.01 * SQRT(RHO0));

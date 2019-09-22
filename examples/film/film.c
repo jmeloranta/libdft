@@ -21,8 +21,8 @@
 #define STEP 2.0
 #define MAXITER 8000000
 
-#define NGPUS 2
-int gpus[NGPUS] = {3, 4};
+#define NGPUS 1
+int gpus[NGPUS] = {0};
 
 /* Predict-correct? */
 //#define PC

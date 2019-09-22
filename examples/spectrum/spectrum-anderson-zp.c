@@ -66,7 +66,9 @@ int main(int argc, char **argv) {
   grid_timer timer;
 
 #ifdef USE_CUDA
-  cuda_enable(1);
+#define NGPUS 1
+int gpus[] = {0};
+  cuda_enable(1, NGPUS, gpus);
 #endif
 
   /* Initialize threads & use wisdom */

@@ -57,7 +57,9 @@ int main(int argc, char **argv) {
   printf("N = " FMT_I "\n", N);
 
 #ifdef USE_CUDA
-  cuda_enable(1);  // enable CUDA ?
+#define NGPUS 1
+int gpus[] = {0};
+  cuda_enable(1, NGPUS, gpus);  // enable CUDA ?
 #endif
 
   /* Initialize threads & use wisdom */

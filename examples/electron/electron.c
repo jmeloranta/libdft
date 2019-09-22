@@ -23,7 +23,7 @@
 
 #define INCLUDE_VORTEX 1 /**/
 /* Include electron? */
-/* #define INCLUDE_ELECTRON 1 */
+#define INCLUDE_ELECTRON 1
 
 REAL rho0;
 
@@ -120,7 +120,9 @@ int main(int argc, char *argv[]) {
   fclose(fp);
 
 #ifdef USE_CUDA
-  cuda_enable(1);  // enable CUDA ?
+#define NGPUS 1
+int gpus[] = {0};
+  cuda_enable(1, NGPUS, gpus);  // enable CUDA ?
 #endif
 
   /* Initialize threads & use wisdom */
@@ -138,7 +140,7 @@ int main(int argc, char *argv[]) {
   egwf->mass = 1.0;
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }

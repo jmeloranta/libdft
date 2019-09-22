@@ -5,8 +5,8 @@
  */
 
 /* Number of GPUs to use */
-#define NGPUS 2
-#define GPUS {3, 4}
+#define NGPUS 1
+#define GPUS {0}
 
 /* Time step in imag/real iterations (fs) */
 #define TIME_STEP (5.0 / GRID_AUTOFS)

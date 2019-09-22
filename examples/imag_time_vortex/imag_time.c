@@ -77,7 +77,9 @@ int main(int argc, char **argv) {
   N = atoi(argv[1]);
 
 #ifdef USE_CUDA
-  cuda_enable(1);  // enable CUDA ?
+#define NGPUS 1
+int gpus[] = {0};
+  cuda_enable(1, NGPUS, gpus);  // enable CUDA ?
 #endif
 
   /* Initialize threads & use wisdom */

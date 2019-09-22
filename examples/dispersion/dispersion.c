@@ -61,7 +61,9 @@ int main(int argc, char **argv) {
   fprintf(stderr, "Momentum (" FMT_R " x " FMT_R " x " FMT_R ") Angs^-1\n", wave_params.kx / GRID_AUTOANG, wave_params.ky / GRID_AUTOANG, wave_params.kz / GRID_AUTOANG);
   
 #ifdef USE_CUDA
-  cuda_enable(1);
+#define NGPUS 1
+int gpus[] = {0};
+  cuda_enable(1, NGPUS, gpus);
 #endif
 
   /* Initialize threads & use wisdom */

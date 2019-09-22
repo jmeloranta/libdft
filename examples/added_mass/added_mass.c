@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef USE_CUDA
 #define NGPUS 1
-  int gpus[NGPUS] = {1};
+  int gpus[NGPUS] = {0};
   cuda_enable(1, NGPUS, gpus);
 #endif
 
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
   cgrid_set_momentum(gwfp->grid, KX, KY, KZ);
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
