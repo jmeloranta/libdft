@@ -5,8 +5,8 @@
  */
 
 /* Number of GPUs to use */
-#define NGPUS 1
-#define GPUS {0}
+#define NGPUS 6
+#define GPUS {0, 1, 2, 3, 4, 5}
 
 /* Time step in imag/real iterations (fs) */
 #define TIME_STEP (5.0 / GRID_AUTOFS)
@@ -47,7 +47,7 @@
 #endif
 
 /* Predict-Correct (accurate but uses more memory) (at ts = 15 fs, no PC needed) */
-// #define PC
+#define PC
 
 /* Max velocity for evaluating backflow */
 #define MAXVELOC (200.0 / GRID_AUTOMPS)
@@ -58,8 +58,8 @@
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
 #define NX 384    	/* # of grid points along x */ /* Largest: 729x384x384 */
 #define NY 384         /* # of grid points along y */
-#define NZ 1024        	/* # of grid points along z */
-#define STEP 1.0        /* spatial step length (Bohr) */
+#define NZ 2048        	/* # of grid points along z */
+#define STEP 2.0        /* spatial step length (Bohr) */
 
 /* Kinetic energy propagator */
 #define PROPAGATOR WF_2ND_ORDER_FFT
@@ -68,7 +68,7 @@
 //#define PROPAGATOR WF_4TH_ORDER_CFFT
 //#define PROPAGATOR WF_2ND_ORDER_CN
 
-#define FFT_STAB 0.00  /* Fraction of imaginary time to use during real-time propagation (to stabilize the solution) */
+#define FFT_STAB 0.005  /* Fraction of imaginary time to use during real-time propagation (to stabilize the solution) */
 
 #define ABS_WIDTH_X 25.0  /* Width of the absorbing boundary */
 #define ABS_WIDTH_Y 25.0  /* Width of the absorbing boundary */

@@ -21,9 +21,9 @@
 #define MAXITER 20000  /* Maximum number of iterations (was 300) */
 #define OUTPUT     200	/* output every this iteration */
 #define THREADS 0	/* # of parallel threads to use */
-#define NX 128       	/* # of grid points along x */
-#define NY 128          /* # of grid points along y */
-#define NZ 128        	/* # of grid points along z */
+#define NX 256       	/* # of grid points along x */
+#define NY 256          /* # of grid points along y */
+#define NZ 1024        	/* # of grid points along z */
 #define STEP 1.5        /* spatial step length (Bohr) */
 #define PRESSURE 0.0    /* External pressure */
 #define IMP_MASS 1.0 /* electron mass */
@@ -53,8 +53,8 @@ int main(int argc, char *argv[]) {
   grid_timer timer;
 
 #ifdef USE_CUDA
-#define NGPUS 2
-  int gpus[NGPUS] = {0, 1};
+#define NGPUS 1
+  int gpus[NGPUS] = {0};
   cuda_enable(1, NGPUS, gpus);
 #endif
 
