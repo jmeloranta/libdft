@@ -53,8 +53,8 @@ int main(int argc, char *argv[]) {
   grid_timer timer;
 
 #ifdef USE_CUDA
-#define NGPUS 1
-  int gpus[NGPUS] = {0};
+#define NGPUS 2
+  int gpus[NGPUS] = {0, 1};
   cuda_enable(1, NGPUS, gpus);
 #endif
 
@@ -154,6 +154,7 @@ int main(int argc, char *argv[]) {
     rgrid_fft(otf->density);
     rgrid_fft_convolute(ext_pot, otf->density, pair_pot);
     rgrid_inverse_fft(ext_pot);
+    rgrid_fft_space(otf->density, 0); // Reset back to real space    
 
     /* 2. Predict + correct */
     grid_real_to_complex_re(potential, ext_pot);

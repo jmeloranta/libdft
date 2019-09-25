@@ -69,61 +69,61 @@ EXPORT void dft_viscous_potential(wf *gwf, dft_ot_functional *otf, cgrid *pot, R
 
   /* Stress tensor elements (without viscosity) */
   /* 1 (diagonal; workspace2) */
-  grid_wf_velocity_x(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_x(gwf, workspace8);
   RGRID_GRADIENT_X(workspace8, workspace2);
   rgrid_multiply(workspace2, 4.0/3.0);
-  grid_wf_velocity_y(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_y(gwf, workspace8);
   RGRID_GRADIENT_Y(workspace8, workspace1);
   rgrid_multiply(workspace1, -2.0/3.0);
   rgrid_sum(workspace2, workspace2, workspace1);
-  grid_wf_velocity_z(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_z(gwf, workspace8);
   RGRID_GRADIENT_Z(workspace8, workspace1);
   rgrid_multiply(workspace1, -2.0/3.0);
   rgrid_sum(workspace2, workspace2, workspace1);
 
   /* 2 = 4 (symmetry; workspace3) */
-  grid_wf_velocity_y(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_y(gwf, workspace8);
   RGRID_GRADIENT_X(workspace8, workspace3);
-  grid_wf_velocity_x(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_x(gwf, workspace8);
   RGRID_GRADIENT_Y(workspace8, workspace1);
   rgrid_sum(workspace3, workspace3, workspace1);
   
   /* 3 = 7 (symmetry; workspace4) */
-  grid_wf_velocity_z(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_z(gwf, workspace8);
   RGRID_GRADIENT_X(workspace8, workspace4);
-  grid_wf_velocity_x(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_x(gwf, workspace8);
   RGRID_GRADIENT_Z(workspace8, workspace1);
   rgrid_sum(workspace4, workspace4, workspace1);
 
   /* 5 (diagonal; workspace5) */
-  grid_wf_velocity_y(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_y(gwf, workspace8);
   RGRID_GRADIENT_Y(workspace8, workspace5);
   rgrid_multiply(workspace5, 4.0/3.0);
-  grid_wf_velocity_x(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_x(gwf, workspace8);
   RGRID_GRADIENT_X(workspace8, workspace1);
   rgrid_multiply(workspace1, -2.0/3.0);
   rgrid_sum(workspace5, workspace5, workspace1);
-  grid_wf_velocity_z(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_z(gwf, workspace8);
   RGRID_GRADIENT_Z(workspace8, workspace1);
   rgrid_multiply(workspace1, -2.0/3.0);
   rgrid_sum(workspace5, workspace5, workspace1);
   
   /* 6 = 8 (symmetryl workspace6) */
-  grid_wf_velocity_z(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_z(gwf, workspace8);
   RGRID_GRADIENT_Y(workspace8, workspace6);
-  grid_wf_velocity_y(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_y(gwf, workspace8);
   RGRID_GRADIENT_Z(workspace8, workspace1);
   rgrid_sum(workspace6, workspace6, workspace1);
 
   /* 9 = (diagonal; workspace7) */
-  grid_wf_velocity_z(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_z(gwf, workspace8);
   RGRID_GRADIENT_Z(workspace8, workspace7);
   rgrid_multiply(workspace7, 4.0/3.0);
-  grid_wf_velocity_x(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_x(gwf, workspace8);
   RGRID_GRADIENT_X(workspace8, workspace1);
   rgrid_multiply(workspace1, -2.0/3.0);
   rgrid_sum(workspace7, workspace7, workspace1);
-  grid_wf_velocity_y(gwf, workspace8, otf->veloc_cutoff);
+  grid_wf_velocity_y(gwf, workspace8);
   RGRID_GRADIENT_Y(workspace8, workspace1);
   rgrid_multiply(workspace1, -2.0/3.0);
   rgrid_sum(workspace7, workspace7, workspace1);
