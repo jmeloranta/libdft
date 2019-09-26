@@ -15,17 +15,23 @@
 
 /* Time integration and spatial grid parameters */
 #define TS 2.0 /* fs */
-#define NX 32
-#define NY 256
-#define NZ 256
+#define NX 16
+#define NY 2048
+#define NZ 2048
 #define STEP 2.0
 #define MAXITER 8000000
 
-#define NGPUS 1
-int gpus[NGPUS] = {0};
-
 /* Predict-correct? */
-//#define PC
+#define PC
+
+/* Propagator: WF_2ND_ORDER_CN or WF_2ND_ORDER_FFT */
+#define PROPAGATOR WF_2ND_ORDER_CN
+
+#if PROPAGATOR == WF_2ND_ORDER_CN
+#define BOUNDARY WF_NEUMANN_BOUNDARY
+#else
+#define BOUNDARY WF_PERIODIC_BOUNDARY
+#endif
 
 /* Vortex line params */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
@@ -41,7 +47,7 @@ int gpus[NGPUS] = {0};
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Start simulation after this many iterations */
-#define START (4*200)  // vortex lines
+#define START (10)  // vortex lines
 
 /* Output every NTH iteration was 10000 */
 #define NTH 2000
@@ -205,7 +211,7 @@ int main(int argc, char **argv) {
   REAL complex tstep;
 
 #ifdef USE_CUDA
-  cuda_enable(1, NGPUS, gpus);  // enable CUDA ?
+  cuda_enable(1, 0, NULL);  // enable CUDA ?
 #endif
 
   /* Initialize threads & use wisdom */
@@ -214,14 +220,12 @@ int main(int argc, char **argv) {
   grid_fft_read_wisdom(NULL);
 
   /* Allocate wave functions */
-//  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
-  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_NEUMANN_BOUNDARY, WF_2ND_ORDER_CN, "gwf"))) {
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, BOUNDARY, PROPAGATOR, "gwf"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }
 #ifdef PC
-//  if(!(gwfp = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwfp"))) {
-  if(!(gwfp = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_CN, "gwfp"))) {
+  if(!(gwfp = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, BOUNDARY, PROPAGATOR, "gwfp"))) {
     fprintf(stderr, "Cannot allocate gwfp.\n");
     exit(1);
   }
@@ -274,7 +278,6 @@ int main(int argc, char **argv) {
   cgrid_product(gwf->grid, gwf->grid, potential_store);
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[1], linep[2]); fflush(stdout);
-
 #else
   srand48(RANDOM_SEED); // or time(0)
   printf("Random seed = %ld\n", RANDOM_SEED);
@@ -348,6 +351,7 @@ int main(int argc, char **argv) {
   }
   printf("done.\n");
 
+#if PROPAGATOR == WF_2ND_ORDER_CN
 #ifdef PC
   grid_wf_boundary(gwf, gwfp, 1.0, 0.0, 0, NX,
                    (INT) (ABS_WIDTH_Y / STEP), NY - (INT) (ABS_WIDTH_Y / STEP), (INT) (ABS_WIDTH_Z / STEP), 
@@ -356,6 +360,7 @@ int main(int argc, char **argv) {
   grid_wf_boundary(gwf, NULL, 1.0, 0.0, 0, NX,
                    (INT) (ABS_WIDTH_Y / STEP), NY - (INT) (ABS_WIDTH_Y / STEP), (INT) (ABS_WIDTH_Z / STEP), 
                    NZ - (INT) (ABS_WIDTH_Z / STEP));
+#endif
 #endif
 
   printf("Starting dynamics.\n");
