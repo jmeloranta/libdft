@@ -150,9 +150,7 @@ EXPORT void dft_ot_energy_density_kc(dft_ot_functional *otf, rgrid *energy_densi
   rgrid_multiply_and_add(workspace1, -1.0/otf->rho_0s, 1.0);
 
   /* 3. gradient \rho to wrk3 (x), wrk4 (y), wrk5 (z) */
-  RGRID_GRADIENT_X(density, workspace3);
-  RGRID_GRADIENT_Y(density, workspace4);
-  RGRID_GRADIENT_Z(density, workspace5);
+  rgrid_gradient(density, workspace3, workspace4, workspace5);
     
   /* 4. X component: wrk6 = wrk3 * wrk1 (wrk1 = (d/dx)\rho_x * (1 - \tilde{\rho}/\rho_{0s}) */
   /*    Y component: wrk7 = wrk4 * wrk1 (wrk1 = (d/dy)\rho_y * (1 - \tilde{\rho}/\rho_{0s}) */

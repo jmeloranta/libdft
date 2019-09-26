@@ -141,11 +141,6 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
 #define DFT_MIN_SUBSTEPS 4
 #define DFT_MAX_SUBSTEPS 32
 
-// TODO: Doing these separately with FFT costs extra transforms!!
-#define RGRID_GRADIENT_X(x,y) rgrid_gradient_x(x,y)
-#define RGRID_GRADIENT_Y(x,y) rgrid_gradient_y(x,y)
-#define RGRID_GRADIENT_Z(x,y) rgrid_gradient_z(x,y)
-
 /* Use special 1D OT-DFT code? */
 #define DFT_OT_1D
 
