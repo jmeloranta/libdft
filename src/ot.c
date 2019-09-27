@@ -376,7 +376,6 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf) {
 
   if(otf->model & DFT_OT_BACKFLOW) {
     /* wf, veloc_x(1), veloc_y(2), veloc_z(3), wrk(4) */
-    // grid_wf_momentum(wf, workspace1, workspace2, workspace3, ...);   But can't do since we don't have cmplx workspaces
     rgrid_claim(workspace1); rgrid_claim(workspace2); rgrid_claim(workspace3);
     rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6);
     rgrid_claim(workspace7); rgrid_claim(workspace8); rgrid_claim(workspace9);
@@ -409,7 +408,6 @@ EXPORT inline void dft_ot_add_lennard_jones_potential(dft_ot_functional *otf, cg
 
   rgrid_copy(workspace1, density);
   rgrid_fft(workspace1);
-
   rgrid_fft_convolute(workspace2, workspace1, otf->lennard_jones);  // Don't overwrite workspace1 - needed later
   rgrid_inverse_fft(workspace2);
   grid_add_real_to_complex_re(potential, workspace2);
@@ -786,7 +784,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   /* 2. Calculate the imaginary part of the potential */
 
   rgrid_zero(workspace6);
-  
+
   /* v_x -> v_xA - B_x, v_y -> v_yA - B_y, v_z -> v_zA - B_z (velocities are overwritten here) */
   if(density->nx != 1 || density->ny != 1) {
     rgrid_product(veloc_x, veloc_x, workspace1);

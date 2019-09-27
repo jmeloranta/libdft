@@ -21,11 +21,17 @@
 #define STEP 2.0
 #define MAXITER 8000000
 
+/* GPU allocation */
+#ifdef USE_CUDA
+#define NGPUS 2
+int gpus[] = {0, 1};
+#endif
+
 /* Predict-correct? */
-#define PC
+//#define PC
 
 /* Propagator: WF_2ND_ORDER_CN or WF_2ND_ORDER_FFT */
-#define PROPAGATOR WF_2ND_ORDER_CN
+#define PROPAGATOR WF_2ND_ORDER_FFT
 
 #if PROPAGATOR == WF_2ND_ORDER_CN
 #define BOUNDARY WF_NEUMANN_BOUNDARY
@@ -211,7 +217,7 @@ int main(int argc, char **argv) {
   REAL complex tstep;
 
 #ifdef USE_CUDA
-  cuda_enable(1, 0, NULL);  // enable CUDA ?
+  cuda_enable(1, NGPUS, gpus);
 #endif
 
   /* Initialize threads & use wisdom */
@@ -370,7 +376,8 @@ int main(int argc, char **argv) {
     if(iter == 0 || !(iter % NTH)) {
       printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer)); fflush(stdout);
 #ifdef LINE_LOCATIONS_ONLY
-      grid_wf_probability_flux(gwf, NULL, otf->workspace1, otf->workspace2);
+      grid_wf_probability_flux_y(gwf, otf->workspace1);
+      grid_wf_probability_flux_z(gwf, otf->workspace2);
       rgrid_rot(otf->density, NULL, NULL, NULL, otf->workspace1, otf->workspace2);
       locate_lines(otf->density);
       print_lines();

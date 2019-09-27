@@ -52,6 +52,7 @@ int gpus[] = {0};
   grid_set_fftw_flags(1);    // FFTW_MEASURE
   grid_threads_init(THREADS);
   grid_fft_read_wisdom(NULL);
+  grid_wf_analyze_method(1); // FFT:1 FD:0 
 
   /* Allocate wave functions */
   if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
@@ -60,7 +61,7 @@ int gpus[] = {0};
   }
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW | DFT_OT_KC, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_BACKFLOW, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
