@@ -3,7 +3,7 @@
  *
  * All input in a.u. except the time step, which is fs.
  *
- * (X, Y) ordering of data for multi-GPU.
+ * Original (Y, Z) ordering of data.
  *
  */
 
@@ -17,23 +17,23 @@
 
 /* Time integration and spatial grid parameters */
 #define TS 2.0 /* fs */
-#define NX 2048
+#define NX 16
 #define NY 2048
-#define NZ 16
+#define NZ 2048
 #define STEP 2.0
 #define MAXITER 8000000
 
 /* GPU allocation */
 #ifdef USE_CUDA
-#define NGPUS 1
-int gpus[] = {0};
+#define NGPUS 2
+int gpus[] = {0, 1};
 #endif
 
 /* Predict-correct? */
 #define PC
 
 /* Propagator: WF_2ND_ORDER_CN or WF_2ND_ORDER_FFT */
-#define PROPAGATOR WF_2ND_ORDER_CN
+#define PROPAGATOR WF_2ND_ORDER_FFT
 
 #if PROPAGATOR == WF_2ND_ORDER_CN
 #define BOUNDARY WF_NEUMANN_BOUNDARY
@@ -55,20 +55,20 @@ int gpus[] = {0};
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Start simulation after this many iterations */
-#define START (0)  // vortex lines
+#define START (10)  // vortex lines
 
 /* Output every NTH iteration was 10000 */
-#define NTH 5
+#define NTH 1
 
 /* Absorbing boundary region */
-#define ABS_WIDTH_X 60.0
 #define ABS_WIDTH_Y 60.0
+#define ABS_WIDTH_Z 60.0
 
 /* Use all threads available on the computer */
 #define THREADS 0
 
 /* Print vortex line locations only? (otherwise write full grids) */
-//#define LINE_LOCATIONS_ONLY
+#define LINE_LOCATIONS_ONLY
 
 /* Vortex line search parameters */
 #define MIN_DIST_CORE 4.0
@@ -76,44 +76,43 @@ int gpus[] = {0};
 
 REAL rho0, mu0;
 
-REAL xp[2*NPAIRS], yp[2*NPAIRS], xm[2*NPAIRS], ym[2*NPAIRS];
+REAL yp[2*NPAIRS], zp[2*NPAIRS], ym[2*NPAIRS], zm[2*NPAIRS];
 INT nptsp = 0, nptsm = 0;
 
-INT check_proximity(REAL xx, REAL yy, REAL dist) {
+INT check_proximity(REAL yy, REAL zz, REAL dist) {
 
   INT i;
-  REAL x2, y2;
+  REAL y2, z2;
 
   for (i = 0; i < nptsm; i++) {
-    x2 = xx - xm[i]; x2 *= x2;
     y2 = yy - ym[i]; y2 *= y2;
-    if(SQRT(x2 + y2) < dist) return 1;  // too close
+    z2 = zz - zm[i]; z2 *= z2;
+    if(SQRT(y2 + z2) < dist) return 1;  // too close
   }
 
   for (i = 0; i < nptsp; i++) {
-    x2 = xx - xp[i]; x2 *= x2;
     y2 = yy - yp[i]; y2 *= y2;
-    if(SQRT(x2 + y2) < dist) return 1;  // too close
+    z2 = zz - zp[i]; z2 *= z2;
+    if(SQRT(y2 + z2) < dist) return 1;  // too close
   }
 
   return 0; // all clear
 }
 
-int check_boundary(REAL x, REAL y) {
+int check_boundary(REAL y, REAL z) {
 
-  if(SQRT(x*x + y*y) > 0.6 * (STEP * NX / 2.0)) return 1;  // in the boundary region
-
+  if(SQRT(y*y + z*z) > 0.6 * (STEP * NY / 2.0)) return 1;  // in the boundary region
   return 0; // inside
 }
 
 void locate_lines(rgrid *rot) {
 
   INT i, k, j;
-  REAL xx, yy, tmp;
+  REAL yy, zz, tmp;
   static REAL m = -1.0;
 
   nptsm = nptsp = 0;
-  k = NZ / 2;
+  i = NX / 2;
   if(m < 0.0) {
     REAL tmp;
     m = rgrid_max(rot) * ADJUST;
@@ -121,19 +120,19 @@ void locate_lines(rgrid *rot) {
     if(tmp > m) m = tmp;
     printf("m = " FMT_R "\n", m);
   }
-  for (i = 0; i < NX; i++) {
-    xx = ((REAL) (i - NX/2)) * STEP;
-    for (j = 0; j < NY; j++) {
-      yy = ((REAL) (j - NY/2)) * STEP;
-      if(!check_boundary(xx, yy) && FABS(tmp = rgrid_value_at_index(rot, i, j, k)) > m && !check_proximity(xx, yy, MIN_DIST_CORE)) {
-        printf(FMT_R " " FMT_R, xx, yy);
+  for (j = 0; j < NY; j++) {
+    yy = ((REAL) (j - NY/2)) * STEP;
+    for (k = 0; k < NZ; k++) {
+      zz = ((REAL) (k - NZ/2)) * STEP;
+      if(!check_boundary(yy, zz) && FABS(tmp = rgrid_value_at_index(rot, i, j, k)) > m && !check_proximity(yy, zz, MIN_DIST_CORE)) {
+        printf(FMT_R " " FMT_R, yy, zz);
         if(tmp < 0.0) {
           if(nptsm >= 2*NPAIRS) {
             fprintf(stderr, "Error(-): More lines than generated initially!\n");
             exit(1);
           }
-          xm[nptsm] = xx;
           ym[nptsm] = yy;
+          zm[nptsm] = zz;
           nptsm++;
           printf(" -\n");
         } else {
@@ -141,8 +140,8 @@ void locate_lines(rgrid *rot) {
             fprintf(stderr, "Error(+): More lines than generated initially!\n");
             exit(1);
           }
-          xp[nptsp] = xx;
           yp[nptsp] = yy;
+          zp[nptsp] = zz;
           nptsp++;
           printf(" +\n");
         }
@@ -159,17 +158,17 @@ void print_lines() {
   printf("YYY2 " FMT_I "\n", nptsm);
   printf("XXX\n");
   for (i = 0; i < nptsm; i++)
-    printf("XXX " FMT_R " " FMT_R "\n", xm[i], ym[i]);
+    printf("XXX " FMT_R " " FMT_R "\n", ym[i], zm[i]);
   for (i = 0; i < nptsp; i++)
-    printf("XXX " FMT_R " " FMT_R "\n", xp[i], yp[i]);
+    printf("XXX " FMT_R " " FMT_R "\n", yp[i], zp[i]);
 }  
 
-#define BOXXL (NX * STEP)
 #define BOXYL (NY * STEP)
+#define BOXZL (NZ * STEP)
 void print_pair_dist(char *file) {
 
   INT i, j;
-  REAL dx, dy;
+  REAL dy, dz;
   FILE *fp;
 
   if(!(fp = fopen(file, "w"))) {
@@ -178,12 +177,12 @@ void print_pair_dist(char *file) {
   }
   for (i = 0; i < nptsp; i++)
     for (j = 0; j < nptsm; j++) {
-      dx = xp[i] - xm[j];
       dy = yp[i] - ym[j];
+      dz = zp[i] - zm[j];
       /* periodic boundary */
-      dx -= BOXXL * (REAL) ((INT) (0.5 + dx / BOXXL));
       dy -= BOXYL * (REAL) ((INT) (0.5 + dy / BOXYL));
-      fprintf(fp, FMT_R "\n", SQRT(dx * dx + dy * dy));
+      dz -= BOXZL * (REAL) ((INT) (0.5 + dz / BOXZL));
+      fprintf(fp, FMT_R "\n", SQRT(dy * dy + dz * dz));
   }
   fclose(fp);
 }
@@ -198,8 +197,8 @@ REAL complex vline(void *prm, REAL x, REAL y, REAL z) {
   z = ((REAL *) prm)[2] - z;
   dir = ((REAL *) prm)[3];  
   offset = ((REAL *) prm)[4];
-  r = SQRT(x * x + y * y);
-  angle = ATAN2(x, y);
+  r = SQRT(y * y + z * z);
+  angle = ATAN2(y, z);
 
   return (1.0 - EXP(-r)) * SQRT(rho0) * CEXP(I * dir * (angle + offset));
 }
@@ -258,15 +257,15 @@ int main(int argc, char **argv) {
   /* setup initial guess for vortex lines */
 #ifdef MANUAL_LINES
 
-  linep[0] = -50.0;
-  linep[1] = 0.0;
+  linep[0] = 0.0;
+  linep[1] = -50.0;
   linep[2] = 0.0;
   linep[3] = -1.0;
   linep[4] = 0.0;
   cgrid_map(potential_store, vline, linep);
   cgrid_product(gwf->grid, gwf->grid, potential_store);
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
-  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
+  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[1], linep[2]); fflush(stdout);
 
   linep[0] = 0.0;
   linep[1] = 0.0;
@@ -276,17 +275,17 @@ int main(int argc, char **argv) {
   cgrid_map(potential_store, vline, linep);
   cgrid_product(gwf->grid, gwf->grid, potential_store);
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
-  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
+  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[1], linep[2]); fflush(stdout);
 
-  linep[0] = 50.0;
-  linep[1] = 0.0;
+  linep[0] = 0.0;
+  linep[1] = 50.0;
   linep[2] = 0.0;
   linep[3] = 1.0;
   linep[4] = 0.0;
   cgrid_map(potential_store, vline, linep);
   cgrid_product(gwf->grid, gwf->grid, potential_store);
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
-  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
+  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[1], linep[2]); fflush(stdout);
 #else
   srand48(RANDOM_SEED); // or time(0)
   printf("Random seed = %ld\n", RANDOM_SEED);
@@ -296,20 +295,20 @@ int main(int argc, char **argv) {
     printf("Attempting pair #" FMT_I "\n", iter); fflush(stdout);
     // First line in pair
     do {
-      xp[nptsp] = linep[0] = -(STEP/2.0) * NX + drand48() * STEP * NX; // origin +- displacement
-      yp[nptsp] = linep[1] = -(STEP/2.0) * NY + drand48() * STEP * NY;
-      linep[2] = 0.0;
-    } while(check_proximity(linep[0], linep[1], PAIR_DIST) || check_boundary(linep[0], linep[1]));
+      linep[0] = 0.0;
+      yp[nptsp] = linep[1] = -(STEP/2.0) * NY + drand48() * STEP * NY; // origin +- displacement
+      zp[nptsp] = linep[2] = -(STEP/2.0) * NZ + drand48() * STEP * NZ;
+    } while(check_proximity(linep[1], linep[2], PAIR_DIST) || check_boundary(linep[1], linep[2]));
     nptsp++;
     linep[3] = 1.0; 
     linep[4] = 0.0;
     // Second in pair
 #ifdef UNRESTRICTED_PAIRS
     do {
-      xm[nptsm] = linem[0] = -(STEP/2.0) * NX + drand48() * STEP * NX; // origin +- displacement
-      ym[nptsm] = linem[1] = -(STEP/2.0) * NY + drand48() * STEP * NY;
       linem[0] = 0.0;
-    } while(check_proximity(linem[0], linem[1], PAIR_DIST) || check_boundary(linem[0], linem[1]));
+      ym[nptsm] = linem[1] = -(STEP/2.0) * NY + drand48() * STEP * NY; // origin +- displacement
+      zm[nptsm] = linem[2] = -(STEP/2.0) * NZ + drand48() * STEP * NZ;
+    } while(check_proximity(linem[1], linem[2], PAIR_DIST) || check_boundary(linem[1], linem[2]));
     nptsm++;
     linem[3] = -1.0; 
     linem[4] = 0.0;
@@ -318,10 +317,10 @@ int main(int argc, char **argv) {
     try = 0;
     do {
       rv = drand48();
-      linem[0] += SIN(2.0 * M_PI * rv) * PAIR_DIST;
-      linem[1] += COS(2.0 * M_PI * rv) * PAIR_DIST;
-      xm[nptsm] = linem[0];
+      linem[1] += SIN(2.0 * M_PI * rv) * PAIR_DIST;
+      linem[2] += COS(2.0 * M_PI * rv) * PAIR_DIST;
       ym[nptsm] = linem[1];
+      zm[nptsm] = linem[2];
       if(try > NRETRY) {
         nptsp--;
         iter--;
@@ -329,7 +328,7 @@ int main(int argc, char **argv) {
         break;
       }
       try++;
-    } while (check_proximity(linem[0], linem[1], PAIR_DIST) || check_boundary(linem[0], linem[1]));
+    } while (check_proximity(linem[1], linem[2], PAIR_DIST) || check_boundary(linem[1], linem[2]));
     if(try > NRETRY) continue;    
     nptsm++;
     linem[3] = -1.0; 
@@ -339,12 +338,12 @@ int main(int argc, char **argv) {
     cgrid_map(potential_store, vline, linep);
     cgrid_product(gwf->grid, gwf->grid, potential_store);
     cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
-    printf("Pair+ " FMT_I ": " FMT_R "," FMT_R "\n", iter, linep[0], linep[1]); fflush(stdout);
+    printf("Pair+ " FMT_I ": " FMT_R "," FMT_R "\n", iter, linep[1], linep[2]); fflush(stdout);
 
     cgrid_map(potential_store, vline, linem);
     cgrid_product(gwf->grid, gwf->grid, potential_store);
     cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
-    printf("Pair- " FMT_I ": " FMT_R "," FMT_R "\n", iter, linem[0], linem[1]); fflush(stdout);
+    printf("Pair- " FMT_I ": " FMT_R "," FMT_R "\n", iter, linem[1], linem[2]); fflush(stdout);
   }
 #endif
 
@@ -362,12 +361,13 @@ int main(int argc, char **argv) {
 
 #if PROPAGATOR == WF_2ND_ORDER_CN
 #ifdef PC
-  grid_wf_boundary(gwf, gwfp, 1.0, 0.0, (INT) (ABS_WIDTH_X / STEP), NX - (INT) (ABS_WIDTH_X / STEP), 
-                   (INT) (ABS_WIDTH_Y / STEP), NY - (INT) (ABS_WIDTH_Y / STEP), 0, NZ);
+  grid_wf_boundary(gwf, gwfp, 1.0, 0.0, 0, NX,
+                   (INT) (ABS_WIDTH_Y / STEP), NY - (INT) (ABS_WIDTH_Y / STEP), (INT) (ABS_WIDTH_Z / STEP), 
+                   NZ - (INT) (ABS_WIDTH_Z / STEP));
 #else
-  grid_wf_boundary(gwf, NULL, 1.0, 0.0, (INT) (ABS_WIDTH_X / STEP), NX - (INT) (ABS_WIDTH_X / STEP), 
-                   (INT) (ABS_WIDTH_Y / STEP), NY - (INT) (ABS_WIDTH_Y / STEP), 0, NZ);
-
+  grid_wf_boundary(gwf, NULL, 1.0, 0.0, 0, NX,
+                   (INT) (ABS_WIDTH_Y / STEP), NY - (INT) (ABS_WIDTH_Y / STEP), (INT) (ABS_WIDTH_Z / STEP), 
+                   NZ - (INT) (ABS_WIDTH_Z / STEP));
 #endif
 #endif
 
@@ -378,26 +378,26 @@ int main(int argc, char **argv) {
     if(iter == 0 || !(iter % NTH)) {
       printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer)); fflush(stdout);
 #ifdef LINE_LOCATIONS_ONLY
-      grid_wf_probability_flux_x(gwf, otf->workspace1);
-      grid_wf_probability_flux_y(gwf, otf->workspace2);
-      rgrid_rot(NULL, NULL, otf->density, otf->workspace1, otf->workspace2, NULL);
-      locate_lines(otf->density);
-      print_lines();
-      sprintf(buf, "film-" FMT_I ".pair", iter);
-      print_pair_dist(buf);
+//      grid_wf_probability_flux_y(gwf, otf->workspace1);
+//      grid_wf_probability_flux_z(gwf, otf->workspace2);
+//      rgrid_rot(otf->density, NULL, NULL, NULL, otf->workspace1, otf->workspace2);
+//      locate_lines(otf->density);
+//      print_lines();
+//      sprintf(buf, "film-" FMT_I ".pair", iter);
+//      print_pair_dist(buf);
 #else
       sprintf(buf, "film-" FMT_I, iter);
       cgrid_write_grid(buf, gwf->grid);
 #endif
-      kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
-      dft_ot_energy_density(otf, rworkspace, gwf);
-      n = grid_wf_norm(gwf);
-      pot = rgrid_integral(rworkspace) - mu0 * n;
-      printf("Iteration " FMT_I " helium natoms    = " FMT_R " particles.\n", iter, n);   /* Energy / particle in K */
-      printf("Iteration " FMT_I " helium kinetic   = " FMT_R " K\n", iter, kin * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration " FMT_I " helium potential = " FMT_R " K\n", iter, pot * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration " FMT_I " helium energy    = " FMT_R " K\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
-      fflush(stdout);
+//      kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
+//      dft_ot_energy_density(otf, rworkspace, gwf);
+//      n = grid_wf_norm(gwf);
+//      pot = rgrid_integral(rworkspace) - mu0 * n;
+//      printf("Iteration " FMT_I " helium natoms    = " FMT_R " particles.\n", iter, n);   /* Energy / particle in K */
+//      printf("Iteration " FMT_I " helium kinetic   = " FMT_R " K\n", iter, kin * GRID_AUTOK);  /* Print result in K */
+//      printf("Iteration " FMT_I " helium potential = " FMT_R " K\n", iter, pot * GRID_AUTOK);  /* Print result in K */
+//      printf("Iteration " FMT_I " helium energy    = " FMT_R " K\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
+//      fflush(stdout);
       grid_timer_start(&timer);
     }
 

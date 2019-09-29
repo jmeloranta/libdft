@@ -72,6 +72,12 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
   REAL step = gwf->grid->step;
   INT nx = gwf->grid->nx, ny = gwf->grid->ny, nz = gwf->grid->nz;
   
+  /* Make sure that libgrid and libdft are compiled with same REAL/INT sizes */
+  if(grid_sizeof_real_complex() != (char) sizeof(REAL complex) || grid_sizeof_real() != (char) sizeof(REAL) || grid_sizeof_int() != (char) sizeof(INT)) {
+    fprintf(stderr, "libdft: libgrid and libdft compiled with different variable sizes!\n");
+    exit(1);
+  }
+
   otf = (dft_ot_functional *) malloc(sizeof(dft_ot_functional));
   otf->model = model;
   if (!otf) {

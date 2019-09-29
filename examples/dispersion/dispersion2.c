@@ -43,8 +43,8 @@ int main(int argc, char **argv) {
   }
 
 #ifdef USE_CUDA
-#define NGPUS 1
-int gpus[] = {0};
+#define NGPUS 2
+int gpus[] = {0, 1};
   cuda_enable(1, NGPUS, gpus);
 #endif
 
@@ -52,7 +52,6 @@ int gpus[] = {0};
   grid_set_fftw_flags(1);    // FFTW_MEASURE
   grid_threads_init(THREADS);
   grid_fft_read_wisdom(NULL);
-  grid_wf_analyze_method(1); // FFT:1 FD:0 
 
   /* Allocate wave functions */
   if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
