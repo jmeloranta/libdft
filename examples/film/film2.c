@@ -29,6 +29,9 @@
 int gpus[] = {0, 1};
 #endif
 
+/* Functional to use (was DFT_OT_PLAIN; GP2 is test) */
+#define FUNCTIONAL DFT_GP2
+
 /* Predict-correct? */
 #define PC
 
@@ -240,7 +243,7 @@ int main(int argc, char **argv) {
 #endif  
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(FUNCTIONAL, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }

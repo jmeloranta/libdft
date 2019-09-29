@@ -29,6 +29,9 @@
 int gpus[] = {0};
 #endif
 
+/* Functional to use (was DFT_OT_PLAIN; GP2 is test) */
+#define FUNCTIONAL DFT_GP2
+
 /* Predict-correct? */
 #define PC
 
@@ -57,8 +60,8 @@ int gpus[] = {0};
 /* Start simulation after this many iterations */
 #define START (0)  // vortex lines
 
-/* Output every NTH iteration was 10000 */
-#define NTH 5
+/* Output every NTH iteration was 5000 */
+#define NTH 5000
 
 /* Absorbing boundary region */
 #define ABS_WIDTH_X 60.0
@@ -241,7 +244,7 @@ int main(int argc, char **argv) {
 #endif  
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(FUNCTIONAL, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
