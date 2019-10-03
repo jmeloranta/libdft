@@ -49,9 +49,6 @@
 /* Predict-Correct (accurate but uses more memory) (at ts = 15 fs, no PC needed) */
 #define PC
 
-/* Max velocity for evaluating backflow */
-#define MAXVELOC (200.0 / GRID_AUTOMPS)
-
 /* External pressure in bar (normal = 0) */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 

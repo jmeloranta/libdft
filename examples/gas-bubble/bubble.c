@@ -81,8 +81,6 @@ int main(int argc, char *argv[]) {
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
   printf("mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
-  // Velocity cutoff
-  otf->veloc_cutoff = MAXVELOC;
 
   ext_pot = rgrid_clone(otf->density, "ext_pot");                /* allocate real external potential grid */
 
