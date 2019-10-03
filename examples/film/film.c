@@ -5,6 +5,14 @@
  *
  * (X, Y) ordering of data for multi-GPU.
  *
+ * 10 fs OK with 0.5 Bohr step.
+ * 10 fs OK with 2.0 Bohr step.
+ * 20 fs NOT with 2.0 Bohr step. Blows up around iter 20,000.
+ *
+ * 10 fs with 2.0 Bohr diverges after 58,000 iterations.
+ *
+ * slab thickness 32 Bohr.
+ *
  */
 
 #include <stdlib.h>
@@ -16,27 +24,30 @@
 #include <dft/ot.h>
 
 /* Time integration and spatial grid parameters */
-#define TS 2.0 /* fs */
+#define TS 10.0 /* fs */
 #define NX 2048
 #define NY 2048
 #define NZ 16
 #define STEP 2.0
 #define MAXITER 8000000
 
+/* kmax setting (0.0 to disable) */
+#define KMAX (0.0 * GRID_AUTOANG)
+
 /* GPU allocation */
 #ifdef USE_CUDA
-#define NGPUS 1
-int gpus[] = {0};
+#define NGPUS 8
+int gpus[] = {0, 1, 2, 3, 4, 5, 6, 7};
 #endif
 
 /* Functional to use (was DFT_OT_PLAIN; GP2 is test) */
-#define FUNCTIONAL DFT_GP2
+#define FUNCTIONAL DFT_OT_PLAIN
 
-/* Predict-correct? */
-#define PC
+/* Predict-correct? (with abs BC only works with CN) */
+//#define PC
 
 /* Propagator: WF_2ND_ORDER_CN or WF_2ND_ORDER_FFT */
-#define PROPAGATOR WF_2ND_ORDER_CN
+#define PROPAGATOR WF_2ND_ORDER_CFFT
 
 #if PROPAGATOR == WF_2ND_ORDER_CN
 #define BOUNDARY WF_NEUMANN_BOUNDARY
@@ -50,7 +61,7 @@ int gpus[] = {0};
 #define PAIR_DIST 40.0       /* Min. distance between + and - vortex pairs */
 #define MANUAL_LINES         /* Enter vortex lines manually */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
-#define ITS (0.00 * TS)      /* Imag. time component (dissipation; 0 = none or 1 = full) */
+#define ITS (0.02 * TS)      /* Imag. time component (dissipation; 0 = none or 1 = full) */
                              /* Tsubota gamma = 0.02 */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
@@ -58,14 +69,14 @@ int gpus[] = {0};
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Start simulation after this many iterations */
-#define START (0)  // vortex lines
+#define START (400)  // vortex lines (was 4000)
 
-/* Output every NTH iteration was 5000 */
-#define NTH 5000
+/* Output every NTH iteration (was 5000) */
+#define NTH 500
 
 /* Absorbing boundary region */
-#define ABS_WIDTH_X 60.0
-#define ABS_WIDTH_Y 60.0
+#define ABS_WIDTH_X 100.0
+#define ABS_WIDTH_Y 100.0
 
 /* Use all threads available on the computer */
 #define THREADS 0
@@ -243,6 +254,8 @@ int main(int argc, char **argv) {
   }
 #endif  
 
+  grid_wf_set_kmax(gwf, KMAX);
+
   /* Allocate OT functional */
   if(!(otf = dft_ot_alloc(FUNCTIONAL, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
@@ -261,7 +274,8 @@ int main(int argc, char **argv) {
   /* setup initial guess for vortex lines */
 #ifdef MANUAL_LINES
 
-  linep[0] = -50.0;
+#if 0
+  linep[0] = -200.0;
   linep[1] = 0.0;
   linep[2] = 0.0;
   linep[3] = -1.0;
@@ -270,6 +284,7 @@ int main(int argc, char **argv) {
   cgrid_product(gwf->grid, gwf->grid, potential_store);
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
+#endif
 
   linep[0] = 0.0;
   linep[1] = 0.0;
@@ -281,7 +296,8 @@ int main(int argc, char **argv) {
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
 
-  linep[0] = 50.0;
+#if 0
+  linep[0] = 200.0;
   linep[1] = 0.0;
   linep[2] = 0.0;
   linep[3] = 1.0;
@@ -290,6 +306,8 @@ int main(int argc, char **argv) {
   cgrid_product(gwf->grid, gwf->grid, potential_store);
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
+#endif
+
 #else
   srand48(RANDOM_SEED); // or time(0)
   printf("Random seed = %ld\n", RANDOM_SEED);
@@ -363,15 +381,10 @@ int main(int argc, char **argv) {
   }
   printf("done.\n");
 
-#if PROPAGATOR == WF_2ND_ORDER_CN
 #ifdef PC
-  grid_wf_boundary(gwf, gwfp, 1.0, 0.0, (INT) (ABS_WIDTH_X / STEP), NX - (INT) (ABS_WIDTH_X / STEP), 
-                   (INT) (ABS_WIDTH_Y / STEP), NY - (INT) (ABS_WIDTH_Y / STEP), 0, NZ);
+  grid_wf_boundary(gwf, gwfp, (INT) (ABS_WIDTH_X / STEP), NX - (INT) (ABS_WIDTH_X / STEP), (INT) (ABS_WIDTH_Y / STEP), NY - (INT) (ABS_WIDTH_Y / STEP), 0, NZ);
 #else
-  grid_wf_boundary(gwf, NULL, 1.0, 0.0, (INT) (ABS_WIDTH_X / STEP), NX - (INT) (ABS_WIDTH_X / STEP), 
-                   (INT) (ABS_WIDTH_Y / STEP), NY - (INT) (ABS_WIDTH_Y / STEP), 0, NZ);
-
-#endif
+  grid_wf_boundary(gwf, NULL, (INT) (ABS_WIDTH_X / STEP), NX - (INT) (ABS_WIDTH_X / STEP), (INT) (ABS_WIDTH_Y / STEP), NY - (INT) (ABS_WIDTH_Y / STEP), 0, NZ);
 #endif
 
   printf("Starting dynamics.\n");
@@ -382,6 +395,7 @@ int main(int argc, char **argv) {
       printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer)); fflush(stdout);
 #ifdef LINE_LOCATIONS_ONLY
       grid_wf_probability_flux_x(gwf, otf->workspace1);
+      if(!otf->workspace2) otf->workspace2 = rgrid_clone(otf->density, "OT workspace 2");
       grid_wf_probability_flux_y(gwf, otf->workspace2);
       rgrid_rot(NULL, NULL, otf->density, otf->workspace1, otf->workspace2, NULL);
       locate_lines(otf->density);

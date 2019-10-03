@@ -20,4 +20,4 @@ film2.o: film2.c
 
 
 clean:
-	-rm *.o film film.o film-* *.pair *~
+	-rm *.o film film2 film-* *.pair *~
