@@ -36,8 +36,8 @@
 
 /* GPU allocation */
 #ifdef USE_CUDA
-#define NGPUS 8
-int gpus[] = {0, 1, 2, 3, 4, 5, 6, 7};
+#define NGPUS 4
+int gpus[] = {0, 1, 2, 3};
 #endif
 
 /* Functional to use (was DFT_OT_PLAIN; GP2 is test) */

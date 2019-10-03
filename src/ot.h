@@ -116,7 +116,6 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
   REAL mu0;                 /* Determines Gross-Pitaevskii contact strength: \mu_0 / \rho_0 */
   REAL xi;                  /* High density correction parameter for backflow \xi */
   REAL rhobf;               /* High density correction parameter for backflow \rho_{bf} */
-  REAL veloc_cutoff;        /* Velocity cutoff to be used for evaluating velocity field (affects, e.g., backflow) */
   REAL div_epsilon;         /* Epsilon to use when dividing by density (affects, e.g., backflow) */
   rgrid *workspace1;        /* Workspace 1 (these may be NULL if not allocated) */
   rgrid *workspace2;        /* Workspace 2 */

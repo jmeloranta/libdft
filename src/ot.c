@@ -1127,6 +1127,5 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
 	  3.0 * otf->c3_exp);
   
   otf->model = model;
-  otf->veloc_cutoff = 300.0 / GRID_AUTOMPS;  // Default 300 m/s
   otf->div_epsilon = 1E-5;
 }
