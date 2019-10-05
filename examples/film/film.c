@@ -31,13 +31,15 @@
 #define STEP 2.0
 #define MAXITER 8000000
 
-/* kmax setting (0.0 to disable) */
-#define KMAX (0.0 * GRID_AUTOANG)
+/* kmax setting (set KAMP to 0.0 to disable) */
+/* The grid kmax is M_PI / STEP and stepping is 2 * M_PI / (N * STEP) */
+#define KMAX (2.0 * GRID_AUTOANG)
+#define KAMP 0.2
 
 /* GPU allocation */
 #ifdef USE_CUDA
-#define NGPUS 4
-int gpus[] = {0, 1, 2, 3};
+int gpus[18];
+int ngpus;
 #endif
 
 /* Functional to use (was DFT_OT_PLAIN; GP2 is test) */
@@ -47,7 +49,7 @@ int gpus[] = {0, 1, 2, 3};
 //#define PC
 
 /* Propagator: WF_2ND_ORDER_CN or WF_2ND_ORDER_FFT */
-#define PROPAGATOR WF_2ND_ORDER_CFFT
+#define PROPAGATOR WF_2ND_ORDER_FFT
 
 #if PROPAGATOR == WF_2ND_ORDER_CN
 #define BOUNDARY WF_NEUMANN_BOUNDARY
@@ -61,7 +63,7 @@ int gpus[] = {0, 1, 2, 3};
 #define PAIR_DIST 40.0       /* Min. distance between + and - vortex pairs */
 #define MANUAL_LINES         /* Enter vortex lines manually */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
-#define ITS (0.02 * TS)      /* Imag. time component (dissipation; 0 = none or 1 = full) */
+#define ITS (0.0 * TS)      /* Imag. time component (dissipation; 0 = none or 1 = full) */
                              /* Tsubota gamma = 0.02 */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
@@ -69,14 +71,14 @@ int gpus[] = {0, 1, 2, 3};
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Start simulation after this many iterations */
-#define START (400)  // vortex lines (was 4000)
+#define START (40)  // vortex lines (was 4000)
 
 /* Output every NTH iteration (was 5000) */
 #define NTH 500
 
 /* Absorbing boundary region */
-#define ABS_WIDTH_X 100.0
-#define ABS_WIDTH_Y 100.0
+#define ABS_WIDTH_X 50.0
+#define ABS_WIDTH_Y 50.0
 
 /* Use all threads available on the computer */
 #define THREADS 0
@@ -233,8 +235,17 @@ int main(int argc, char **argv) {
   grid_timer timer;
   REAL complex tstep;
 
+  if(argc < 2) {
+    fprintf(stderr, "Usage: film <gpu1> <gpu2> ...\n");
+    exit(1);
+  }
+
 #ifdef USE_CUDA
-  cuda_enable(1, NGPUS, gpus);
+  ngpus = argc-1;
+  for(i = 0; i < ngpus; i++) 
+    gpus[i] = atoi(argv[i+1]);
+
+  cuda_enable(1, ngpus, gpus);
 #endif
 
   /* Initialize threads & use wisdom */
@@ -254,7 +265,7 @@ int main(int argc, char **argv) {
   }
 #endif  
 
-  grid_wf_set_kmax(gwf, KMAX);
+  grid_wf_set_kmax(gwf, KMAX, KAMP);
 
   /* Allocate OT functional */
   if(!(otf = dft_ot_alloc(FUNCTIONAL, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
@@ -274,8 +285,7 @@ int main(int argc, char **argv) {
   /* setup initial guess for vortex lines */
 #ifdef MANUAL_LINES
 
-#if 0
-  linep[0] = -200.0;
+  linep[0] = -50.0;
   linep[1] = 0.0;
   linep[2] = 0.0;
   linep[3] = -1.0;
@@ -284,7 +294,6 @@ int main(int argc, char **argv) {
   cgrid_product(gwf->grid, gwf->grid, potential_store);
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
-#endif
 
   linep[0] = 0.0;
   linep[1] = 0.0;
@@ -296,8 +305,7 @@ int main(int argc, char **argv) {
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
 
-#if 0
-  linep[0] = 200.0;
+  linep[0] = 50.0;
   linep[1] = 0.0;
   linep[2] = 0.0;
   linep[3] = 1.0;
@@ -306,7 +314,6 @@ int main(int argc, char **argv) {
   cgrid_product(gwf->grid, gwf->grid, potential_store);
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
-#endif
 
 #else
   srand48(RANDOM_SEED); // or time(0)
