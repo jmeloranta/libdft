@@ -31,11 +31,6 @@
 #define STEP 2.0
 #define MAXITER 8000000
 
-/* kmax setting (set KAMP to 0.0 to disable) */
-/* The grid kmax is M_PI / STEP and stepping is 2 * M_PI / (N * STEP) */
-#define KMAX (2.0 * GRID_AUTOANG)
-#define KAMP 0.2
-
 /* GPU allocation */
 #ifdef USE_CUDA
 int gpus[18];
@@ -63,7 +58,7 @@ int ngpus;
 #define PAIR_DIST 40.0       /* Min. distance between + and - vortex pairs */
 #define MANUAL_LINES         /* Enter vortex lines manually */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
-#define ITS (0.0 * TS)      /* Imag. time component (dissipation; 0 = none or 1 = full) */
+#define ITS (0.0 * TS)       /* Imag. time component (dissipation; 0 = none or 1 = full) */
                              /* Tsubota gamma = 0.02 */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
@@ -71,10 +66,13 @@ int ngpus;
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Start simulation after this many iterations */
-#define START (40)  // vortex lines (was 4000)
+#define START (400)  // vortex lines (was 4000)
 
 /* Output every NTH iteration (was 5000) */
 #define NTH 500
+
+/* How many imaginary stabilization iterations every NTH iteration */
+#define NTH_STAB 5
 
 /* Absorbing boundary region */
 #define ABS_WIDTH_X 50.0
@@ -84,7 +82,7 @@ int ngpus;
 #define THREADS 0
 
 /* Print vortex line locations only? (otherwise write full grids) */
-//#define LINE_LOCATIONS_ONLY
+#define LINE_LOCATIONS_ONLY
 
 /* Vortex line search parameters */
 #define MIN_DIST_CORE 4.0
@@ -265,8 +263,6 @@ int main(int argc, char **argv) {
   }
 #endif  
 
-  grid_wf_set_kmax(gwf, KMAX, KAMP);
-
   /* Allocate OT functional */
   if(!(otf = dft_ot_alloc(FUNCTIONAL, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
@@ -423,6 +419,12 @@ int main(int argc, char **argv) {
       printf("Iteration " FMT_I " helium energy    = " FMT_R " K\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       fflush(stdout);
       grid_timer_start(&timer);
+// Imag iterations to stabilize (vortex lines are orthogonal but sound is not)
+      for (i = 0; i < NTH_STAB; i++) {
+        cgrid_constant(potential_store, -mu0);
+        dft_ot_potential(otf, potential_store, gwf);
+        grid_wf_propagate(gwf, potential_store, -I * TS / GRID_AUTOFS);
+      }
     }
 
     if(iter == 5) grid_fft_write_wisdom(NULL);
