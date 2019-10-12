@@ -18,6 +18,5 @@ film2: film2.o
 film2.o: film2.c
 	$(CC) $(CFLAGS) -c film2.c
 
-
 clean:
 	-rm *.o film film2 film-* *.pair *~
