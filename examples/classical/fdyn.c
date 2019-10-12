@@ -1,5 +1,5 @@
 /*
- * Impurity atom in superfluid helium (no zero-point).
+ * Bubble in water.
  *
  * All input in a.u. except the time step, which is fs.
  *
@@ -16,24 +16,33 @@
 #define NX 128
 #define NY 128
 #define NZ 128
-#define STEP 1.0
-#define TS (1.0 / GRID_AUTOFS)
-
-/* Bulk density: particles / unit volume */
-#define RHO0 (0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
-
-/* Temperature (K) */
-#define TEMP 200.0
+#define STEP 1.0E10
+#define TS (10.0 / GRID_AUTOFS)
 
 /* Mass */
-#define MASS (4.002602 / GRID_AUTOAMU)
+#define MASS (18.02 / GRID_AUTOAMU)
+
+/* Bulk density: 1000 kg/m3 -> per particle and in au */
+#define RHO0 (((1000.0 / GRID_AUTOKG) / MASS) * GRID_AUTOM * GRID_AUTOM * GRID_AUTOM)
+
+/* Temperature (K) -- does not affect anything here, Tait is fixed to 300 K */
+#define TEMP 300.0
+
+/* Atmospheric pressure */
+#define P0 (101325 / GRID_AUTOPA)
+
+/* Tait K0 */
+#define TK0 2.15
+
+/* Tait n */
+#define Tn 7.15
 
 #define MAXITER 10000000
 #define NTH 50
 
 #define THREADS 0
 
-/* Bubble parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
+/* Spherical cavity parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
 #define A1 (1.6245 * GRID_AUTOANG)
 #define A2 0.0
@@ -43,12 +52,12 @@
 #define RMIN 6.0
 #define RADD 6.0  // was 6.0
 
-REAL eos(REAL rho, void *params) {
+REAL eos(REAL rho, void *params) {  // Tait works only at RT?
 
-//  REAL rho0 = ((REAL *) params)[0];
+  REAL rho0 = ((REAL *) params)[0];
   REAL temp = ((REAL *) params)[1];
 
-  return rho * GRID_AUKB * temp;
+  return (TK0 / Tn) * (POW(rho / rho0, Tn) - 1.0) / GRID_AUTOPA + P0;
 }
 
 REAL pot_func(void *NA, REAL x, REAL y, REAL z) {
@@ -79,7 +88,7 @@ int main(int argc, char **argv) {
   rgrid *ext_pot, *cla_pot, *density, *wrk1, *wrk2, *wrk3;
   wf *gwf;
   INT iter;
-  REAL natoms;
+  REAL nwater;
   grid_timer timer;
 
 #undef USE_CUDA
@@ -140,8 +149,8 @@ int gpus[] = {6};
       sprintf(buf, "output-" FMT_I, iter);
       grid_wf_density(gwf, density);
       rgrid_write_grid(buf, density);
-      natoms = grid_wf_norm(gwf);
-      printf("Number of He atoms is " FMT_R ".\n", natoms);
+      nwater = grid_wf_norm(gwf);
+      printf("Number of water molecules is " FMT_R ".\n", nwater);
       fflush(stdout);
     }
   }
