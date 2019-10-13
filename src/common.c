@@ -1366,16 +1366,15 @@ EXPORT REAL dft_common_vortex_z(void *param, REAL x, REAL y, REAL z) {
 }
 
 /*
- * Given the general equation of state: P = P(rho, T)
+ * Given the general equation of state (EOS): P = P(rho, T)
  * calculate the corresponding non-linear DFT potential.
  * 
  * This is obtained from: \Delta V = \nabla\cdot\frac{\nabla P}{\rho}.
  *
  * pot   = Potential output (rgrid *; output).
  * p     = Function for the equation of state (REAL (*)(REAL, void *); input).
+ * params= Pointer to EOS parameters (void *; input).
  * dens  = Density (rgrid *; input).
- * rho0  = Bulk density (REAL; input).
- * temp  = Temperature (REAL; input).
  * wrk1  = Workspace 1 (rgrid *; input).
  * wrk2  = Workspace 2 (rgrid *; input).
  * wrk3  = Workspace 3 (rgrid *; input).
@@ -1386,15 +1385,10 @@ EXPORT REAL dft_common_vortex_z(void *param, REAL x, REAL y, REAL z) {
 
 #define POISSON_EPS 1E-8
 
-EXPORT void dft_common_eos_pot(rgrid *pot, REAL (*p)(REAL rho, void *params), rgrid *density, REAL rho0, REAL temp, rgrid *wrk1, rgrid *wrk2, rgrid *wrk3) {
-
-  REAL prm[2];
-
-  prm[0] = rho0;
-  prm[1] = temp;
+EXPORT void dft_common_eos_pot(rgrid *pot, REAL (*p)(REAL rho, void *params), void *params, rgrid *density, rgrid *wrk1, rgrid *wrk2, rgrid *wrk3) {
 
   rgrid_zero(pot);
-  rgrid_operate_one(wrk1, density, p, (void *) prm);
+  rgrid_operate_one(wrk1, density, p, params);
 
   rgrid_gradient_x(wrk1, wrk2);
   rgrid_division_eps(wrk2, wrk2, density, POISSON_EPS);

@@ -16,14 +16,14 @@
 #define NX 128
 #define NY 128
 #define NZ 128
-#define STEP 1.0E10
+#define STEP 100.0
 #define TS (1000.0 / GRID_AUTOFS)
 
 /* Mass of water molecule */
 #define MASS (18.02 / GRID_AUTOAMU)
 
-/* Moving background */
-#define KX	(600.0E10 * 2.0 * M_PI / (NX * STEP))
+/* Moving background (600.0E10 is speed of snd) */
+#define KX	(0.0 * 2.0 * M_PI / (NX * STEP))
 #define KY	(0.0 * 2.0 * M_PI / (NY * STEP))
 #define KZ	(0.0 * 2.0 * M_PI / (NZ * STEP))
 #define VX	(KX * HBAR / MASS)
@@ -53,14 +53,14 @@
 #define A4 0.0
 #define A5 0.0
 #define RMIN 6.0
-//#define RADD 3E10
-REAL RADD = 3E10;
+#define RADD_INI 300.0
+REAL RADD = RADD_INI;
 
 /* Maximum number of iterations */
 #define MAXITER 10000000
 
 /* Output at every NTH iteration */
-#define NTH 5000
+#define NTH 500
 
 /* Number of CPU threads to use (0 = all) */
 #define THREADS 0
@@ -68,7 +68,7 @@ REAL RADD = 3E10;
 REAL eos(REAL rho, void *params) {  // Tait works only at RT?
 
   REAL rho0 = ((REAL *) params)[0];
-  REAL temp = ((REAL *) params)[1];
+//  REAL temp = ((REAL *) params)[1];
 
   return (TK0 / Tn) * (POW(rho / rho0, Tn) - 1.0) / GRID_AUTOPA + P0;
 }
@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
   rgrid *ext_pot, *cla_pot, *density, *wrk1, *wrk2, *wrk3;
   wf *gwf;
   INT iter;
-  REAL nwater;
+  REAL nwater, params[2] = {RHO0, TEMP};
   grid_timer timer;
 
 #undef USE_CUDA
@@ -152,13 +152,13 @@ int gpus[] = {6};
     /* Predict-Correct */
     grid_real_to_complex_re(potential_store, ext_pot);
     grid_wf_density(gwf, density);
-    dft_common_eos_pot(cla_pot, eos, density, RHO0, TEMP, wrk1, wrk2, wrk3);
+    dft_common_eos_pot(cla_pot, eos, (void *) params, density, wrk1, wrk2, wrk3);
     grid_add_real_to_complex_re(potential_store, cla_pot);
 
     if(iter < 100)
       grid_wf_propagate(gwf, potential_store, -I * TS);
     else {
-      RADD *= 1.5;
+      RADD = 1.5 * RADD_INI;
       grid_wf_propagate(gwf, potential_store, TS);
     }
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
