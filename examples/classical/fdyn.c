@@ -1,5 +1,5 @@
 /*
- * Bubble in water.
+ * Bubble in water (no viscosity). Tait's equation of state (from wikipedia).
  *
  * All input in a.u. except the time step, which is fs.
  *
@@ -17,10 +17,18 @@
 #define NY 128
 #define NZ 128
 #define STEP 1.0E10
-#define TS (10.0 / GRID_AUTOFS)
+#define TS (1000.0 / GRID_AUTOFS)
 
-/* Mass */
+/* Mass of water molecule */
 #define MASS (18.02 / GRID_AUTOAMU)
+
+/* Moving background */
+#define KX	(600.0E10 * 2.0 * M_PI / (NX * STEP))
+#define KY	(0.0 * 2.0 * M_PI / (NY * STEP))
+#define KZ	(0.0 * 2.0 * M_PI / (NZ * STEP))
+#define VX	(KX * HBAR / MASS)
+#define VY	(KY * HBAR / MASS)
+#define VZ	(KZ * HBAR / MASS)
 
 /* Bulk density: 1000 kg/m3 -> per particle and in au */
 #define RHO0 (((1000.0 / GRID_AUTOKG) / MASS) * GRID_AUTOM * GRID_AUTOM * GRID_AUTOM)
@@ -37,11 +45,6 @@
 /* Tait n */
 #define Tn 7.15
 
-#define MAXITER 10000000
-#define NTH 50
-
-#define THREADS 0
-
 /* Spherical cavity parameters using exponential repulsion (approx. electron bubble) - RADD = 19.0 */
 #define A0 (3.8003E5 / GRID_AUTOK)
 #define A1 (1.6245 * GRID_AUTOANG)
@@ -50,7 +53,17 @@
 #define A4 0.0
 #define A5 0.0
 #define RMIN 6.0
-#define RADD 6.0  // was 6.0
+//#define RADD 3E10
+REAL RADD = 3E10;
+
+/* Maximum number of iterations */
+#define MAXITER 10000000
+
+/* Output at every NTH iteration */
+#define NTH 5000
+
+/* Number of CPU threads to use (0 = all) */
+#define THREADS 0
 
 REAL eos(REAL rho, void *params) {  // Tait works only at RT?
 
@@ -108,6 +121,8 @@ int gpus[] = {6};
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }
+  cgrid_set_momentum(gwf->grid, KX, KY, KZ);
+
   if(!(density = rgrid_alloc(NX, NY, NZ, STEP, RGRID_PERIODIC_BOUNDARY, NULL, "density"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
@@ -126,9 +141,9 @@ int gpus[] = {6};
 
   grid_wf_constant(gwf, SQRT(RHO0));
 
-  /* Run 200 iterations using imaginary time (10 fs time step) */
+  printf("Background velocity = " FMT_R " m/s\n", VX * GRID_AUTOMPS);
 
-    for (iter = 0; iter < MAXITER; iter++) {
+  for (iter = 0; iter < MAXITER; iter++) {
 
     if(iter == 5) grid_fft_write_wisdom(NULL);
 
@@ -140,8 +155,12 @@ int gpus[] = {6};
     dft_common_eos_pot(cla_pot, eos, density, RHO0, TEMP, wrk1, wrk2, wrk3);
     grid_add_real_to_complex_re(potential_store, cla_pot);
 
-    grid_wf_propagate(gwf, potential_store, -I * TS);
-
+    if(iter < 100)
+      grid_wf_propagate(gwf, potential_store, -I * TS);
+    else {
+      RADD *= 1.5;
+      grid_wf_propagate(gwf, potential_store, TS);
+    }
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
 
     if(!(iter % NTH)) {
