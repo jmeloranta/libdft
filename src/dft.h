@@ -3,6 +3,8 @@
  *
  */
 
+#include "classical.h"
+
 #ifndef __DFT_COMMON__
 #define __DFT_COMMON__
 

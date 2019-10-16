@@ -4,7 +4,7 @@ all:
 	make prototypes
 	make libdft.a
 
-OBJS = ot.o ot-energy.o common.o bulk.o spectroscopy1a.o spectroscopy1b.o spectroscopy2.o spectroscopy3.o initial.o viscosity.o
+OBJS = ot.o ot-energy.o common.o bulk.o spectroscopy1a.o spectroscopy1b.o spectroscopy2.o spectroscopy3.o initial.o classical.o
 
 libdft.a: $(OBJS)
 	ar cr libdft.a $(OBJS)
@@ -18,7 +18,7 @@ install:
 	cp libdft.a $(ROOT)/lib
 	-ranlib $(ROOT)/lib/libdft.a
 	-mkdir -p $(ROOT)/include/dft
-	cp dft.h ot.h proto.h $(ROOT)/include/dft
+	cp dft.h ot.h classical.h proto.h $(ROOT)/include/dft
 	cp ../make.conf $(ROOT)/include/dft
 
 common.o: common.c ot.h dft.h
@@ -48,8 +48,8 @@ spectroscopy3.o: spectroscopy3.c dft.h ot.h
 intial.o: initial.c dft.h ot.h
 	$(CC) -I. $(CFLAGS) -c initial.c
 
-viscosity.o: viscosity.c dft.h ot.h
-	$(CC) -I. $(CFLAGS) -c viscosity.c
+classical.o: classical.c dft.h ot.h
+	$(CC) -I. $(CFLAGS) -c classical.c
 
 clean:
 	-rm *.o libdft.a proto.h git-version.h *~
