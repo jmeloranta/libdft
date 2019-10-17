@@ -16,22 +16,31 @@
 #define NX 256
 #define NY 256
 #define NZ 256
-#define STEP 20.0
+#define STEP 500.0
 #define TS (100.0 / GRID_AUTOFS)
 
 /* Propagator */
-#define PROPAGATOR WF_2ND_ORDER_FFT
+#define PROPAGATOR WF_2ND_ORDER_CFFT
+
+/* Imag time for FFT stab */
+#define FFT_STAB 0.0
+
+/* CFFT constant */
+#define CFFT_CONST 0.5
+
+/* Initial imaginary iterations */
+#define IITER 100
 
 /* Mass of water molecule */
 #define MASS (18.02 / GRID_AUTOAMU)
 
-/* Moving background (600.0E10 is about speed of sound) */
-#define KX	(0.0 * 2.0 * M_PI / (NX * STEP))
-#define KY	(0.0 * 2.0 * M_PI / (NY * STEP))
-#define KZ	(1200.0 * 2.0 * M_PI / (NZ * STEP))
-#define VX	(KX * HBAR / MASS)
-#define VY	(KY * HBAR / MASS)
-#define VZ	(KZ * HBAR / MASS)
+/* Moving background (no rounding) */
+#define VX	(0.0 / GRID_AUTOMPS)
+#define VY	(0.0 / GRID_AUTOMPS)
+#define VZ	(20.0 / GRID_AUTOMPS)
+#define KX	(MASS * VX / HBAR)
+#define KY	(MASS * VY / HBAR)
+#define KZ	(MASS * VZ / HBAR)
 
 /* Maximum local velocity that can be represented with the current grid (max phase change between adjacent grid points is 2pi) */
 /* But this is based on FD - would FFT suffer from the same thing ? */
@@ -41,7 +50,7 @@
 #define RHO0 (((1000.0 / GRID_AUTOKG) / MASS) * GRID_AUTOM * GRID_AUTOM * GRID_AUTOM)
 
 /* Shear viscosity */
-#define VISC (0.89E-3 / GRID_AUTOPAS)
+#define VISC (1.0E-3 / GRID_AUTOPAS)
 
 /* Temperature (K) -- does not affect anything here, Tait is fixed to 300 K */
 #define TEMP 300.0
@@ -63,19 +72,19 @@
 #define A4 0.0
 #define A5 0.0
 #define RMIN 6.0
-#define RADD_INI 300.0
+#define RADD_INI 9000.0
 REAL RADD = RADD_INI;
 
 /* Maximum number of iterations */
 #define MAXITER 10000000
 
 /* Output at every NTH iteration */
-#define NTH 50
+#define NTH 200
 
 /* Number of CPU threads to use (0 = all) */
 #define THREADS 0
 
-REAL eos(REAL rho, void *params) {  // Tait works only at RT?
+REAL eos(REAL rho, void *params) {  // room temperature water (Tait)
 
   REAL rho0 = ((REAL *) params)[0];
 //  REAL temp = ((REAL *) params)[1];
@@ -108,7 +117,7 @@ REAL pot_func(void *NA, REAL x, REAL y, REAL z) {
 int main(int argc, char **argv) {
 
   cgrid *potential_store;
-  rgrid *ext_pot, *density, *wrk1, *wrk2, *wrk3, *wrk4, *wrk5, *wrk6, *wrk7;
+  rgrid *ext_pot, *density, *rpot, *wrk1, *wrk2, *wrk3, *wrk4, *wrk5, *wrk6, *wrk7, *wrk8, *wrk9;
   wf *gwf;
   INT iter;
   REAL nwater, eos_params[2] = {RHO0, TEMP};
@@ -133,6 +142,8 @@ int gpus[] = {6};
     exit(1);
   }
 
+  gwf->cfft_width = CFFT_CONST;
+
   if(!(density = rgrid_alloc(NX, NY, NZ, STEP, RGRID_PERIODIC_BOUNDARY, NULL, "density"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
@@ -140,6 +151,7 @@ int gpus[] = {6};
 
   /* Allocate space for external potential */
   ext_pot = rgrid_clone(density, "ext_pot");
+  rpot = rgrid_clone(density, "rpot");
   wrk1 = rgrid_clone(density, "wrk1");
   wrk2 = rgrid_clone(density, "wrk2");
   wrk3 = rgrid_clone(density, "wrk3");
@@ -147,6 +159,9 @@ int gpus[] = {6};
   wrk5 = rgrid_clone(density, "wrk5");
   wrk6 = rgrid_clone(density, "wrk6");
   wrk7 = rgrid_clone(density, "wrk7");
+  wrk8 = rgrid_clone(density, "wrk8");
+  wrk9 = rgrid_clone(density, "wrk9");
+
   potential_store = cgrid_clone(gwf->grid, "potential_store");
 
   printf("Maximum velocity = " FMT_R " m/s.\n", MAXVELOC);
@@ -165,20 +180,22 @@ int gpus[] = {6};
     grid_timer_start(&timer);
 
     /* Construct non-linear potential */
-    cgrid_zero(potential_store);
-    dft_classical_add_eos_potential(gwf, potential_store, eos, (void *) eos_params, wrk1, wrk2, wrk3, wrk4);
-    dft_classical_add_viscous_potential(gwf, potential_store, dft_classical_visc_func, (void *) &visc_params, wrk1, wrk2, wrk3, wrk4, wrk5, wrk6, wrk7, density); // wrk8 = density
-    cgrid_fft(potential_store);
-    cgrid_poisson(potential_store);
-    cgrid_inverse_fft(potential_store);
-    grid_add_real_to_complex_re(potential_store, ext_pot);
+    rgrid_zero(rpot);
+    grid_wf_density(gwf, density);
+    dft_classical_add_eos_potential(gwf, rpot, eos, eos_params, density, wrk1, wrk2);
+    dft_classical_add_viscous_potential(gwf, rpot, dft_classical_visc_func, &visc_params, wrk1, wrk2, wrk3, wrk4, wrk5, wrk6, wrk7, wrk8, wrk9, density); // density = wrk8
+    rgrid_fft(rpot);
+    rgrid_poisson(rpot);
+    rgrid_inverse_fft(rpot);
+    rgrid_sum(rpot, rpot, ext_pot);
+    grid_real_to_complex_re(potential_store, rpot);
 
-    if(iter < 100)
+    if(iter < IITER)
       grid_wf_propagate(gwf, potential_store, -I * TS);
     else {
 //      RADD = 1.5 * RADD_INI;
       cgrid_set_momentum(gwf->grid, KX, KY, KZ);      
-      grid_wf_propagate(gwf, potential_store, TS);
+      grid_wf_propagate(gwf, potential_store, TS - I * TS * FFT_STAB);
     }
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
 

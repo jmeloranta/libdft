@@ -167,7 +167,7 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
       rgrid_fft(otf->lennard_jones);
       /* Scaling of LJ so that the integral is exactly b */
       if(nx != 1 || ny != 1)      
-        rgrid_multiply_fft(otf->lennard_jones, otf->b / (step * step * step * (REAL) rgrid_cvalue_at_index(otf->lennard_jones, 0, 0, 0)));
+        rgrid_fft_multiply(otf->lennard_jones, otf->b / (step * step * step * (REAL) rgrid_cvalue_at_index(otf->lennard_jones, 0, 0, 0)));
     }
     fprintf(stderr, "Done.\n");
 
@@ -188,7 +188,7 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
     rgrid_fft(otf->spherical_avg);
     /* Scaling of sph. avg. so that the integral is exactly 1 */
     if(nx != 1 || ny != 1)      
-      rgrid_multiply_fft(otf->spherical_avg, 1.0 / (step * step * step * (REAL) rgrid_cvalue_at_index(otf->spherical_avg, 0, 0, 0)));
+      rgrid_fft_multiply(otf->spherical_avg, 1.0 / (step * step * step * (REAL) rgrid_cvalue_at_index(otf->spherical_avg, 0, 0, 0)));
     fprintf(stderr, "Done.\n");
     
     if(model & DFT_OT_KC) {
