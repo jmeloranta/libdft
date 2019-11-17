@@ -16,6 +16,8 @@
  *
  */
 
+#if 0 /* NOT IN USE */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -202,3 +204,5 @@ EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, rfunction *
 
   rgrid_difference(pot, pot, vx);  // Include the final - sign here
 }
+
+#endif /* NOT IN USE */

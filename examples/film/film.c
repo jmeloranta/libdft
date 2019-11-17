@@ -24,7 +24,7 @@
 #include <dft/ot.h>
 
 /* Time integration and spatial grid parameters */
-#define TS 10.0 /* fs */
+#define TS 5.0 /* fs */
 #define NX 2048
 #define NY 2048
 #define NZ 16
@@ -33,7 +33,7 @@
 
 /* GPU allocation */
 #ifdef USE_CUDA
-int gpus[18];
+int gpus[MAX_GPU];
 int ngpus;
 #endif
 
@@ -55,24 +55,25 @@ int ngpus;
 /* Vortex line params */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
 #define NPAIRS 100           /* Number of + and - vortex pairs */
-#define PAIR_DIST 40.0       /* Min. distance between + and - vortex pairs */
-#define MANUAL_LINES         /* Enter vortex lines manually */
-#define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
+#define PAIR_DIST 10.0       /* Min. distance between + and - vortex pairs */
+//#define MANUAL_LINES         /* Enter vortex lines manually */
+//#define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
+/* was 0.0005 */
 #define ITS (0.0 * TS)       /* Imag. time component (dissipation; 0 = none or 1 = full) */
                              /* Tsubota gamma = 0.02 */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
+
+/* Percentage of area covered by vortices */
+#define VORTEX_AREA 0.1
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Start simulation after this many iterations */
-#define START (400)  // vortex lines (was 4000)
+#define START (700)  // vortex lines (was 4000)
 
 /* Output every NTH iteration (was 5000) */
-#define NTH 500
-
-/* How many imaginary stabilization iterations every NTH iteration */
-#define NTH_STAB 5
+#define NTH 200
 
 /* Absorbing boundary region */
 #define ABS_WIDTH_X 50.0
@@ -82,11 +83,11 @@ int ngpus;
 #define THREADS 0
 
 /* Print vortex line locations only? (otherwise write full grids) */
-#define LINE_LOCATIONS_ONLY
+//#define LINE_LOCATIONS_ONLY
 
 /* Vortex line search parameters */
-#define MIN_DIST_CORE 4.0
-#define ADJUST 0.8
+#define MIN_DIST_CORE 3.0
+#define ADJUST 0.7
 
 REAL rho0, mu0;
 
@@ -115,7 +116,7 @@ INT check_proximity(REAL xx, REAL yy, REAL dist) {
 
 int check_boundary(REAL x, REAL y) {
 
-  if(SQRT(x*x + y*y) > 0.6 * (STEP * NX / 2.0)) return 1;  // in the boundary region
+  if(SQRT(x*x + y*y) > VORTEX_AREA * (STEP * NX / 2.0)) return 1;  // in the boundary region
 
   return 0; // inside
 }
@@ -171,11 +172,12 @@ void print_lines() {
 
   printf("YYY1 " FMT_I "\n", nptsp);
   printf("YYY2 " FMT_I "\n", nptsm);
-  printf("XXX\n");
+  printf("XXX1\n");
+  printf("XXX2\n");
   for (i = 0; i < nptsm; i++)
-    printf("XXX " FMT_R " " FMT_R "\n", xm[i], ym[i]);
+    printf("XXX1 " FMT_R " " FMT_R "\n", xm[i], ym[i]);
   for (i = 0; i < nptsp; i++)
-    printf("XXX " FMT_R " " FMT_R "\n", xp[i], yp[i]);
+    printf("XXX2 " FMT_R " " FMT_R "\n", xp[i], yp[i]);
 }  
 
 #define BOXXL (NX * STEP)
@@ -284,7 +286,7 @@ int main(int argc, char **argv) {
   linep[0] = -50.0;
   linep[1] = 0.0;
   linep[2] = 0.0;
-  linep[3] = -1.0;
+  linep[3] = 1.0;
   linep[4] = 0.0;
   cgrid_map(potential_store, vline, linep);
   cgrid_product(gwf->grid, gwf->grid, potential_store);
@@ -301,8 +303,18 @@ int main(int argc, char **argv) {
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
 
-  linep[0] = 50.0;
-  linep[1] = 0.0;
+  linep[0] = 0.0;
+  linep[1] = 50.0;
+  linep[2] = 0.0;
+  linep[3] = 1.0;
+  linep[4] = 0.0;
+  cgrid_map(potential_store, vline, linep);
+  cgrid_product(gwf->grid, gwf->grid, potential_store);
+  cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
+  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
+
+  linep[0] = 0.0;
+  linep[1] = -50.0;
   linep[2] = 0.0;
   linep[3] = 1.0;
   linep[4] = 0.0;
@@ -342,8 +354,8 @@ int main(int argc, char **argv) {
     try = 0;
     do {
       rv = drand48();
-      linem[0] += SIN(2.0 * M_PI * rv) * PAIR_DIST;
-      linem[1] += COS(2.0 * M_PI * rv) * PAIR_DIST;
+      linem[0] = linep[0] + SIN(2.0 * M_PI * rv) * PAIR_DIST;
+      linem[1] = linep[1] + COS(2.0 * M_PI * rv) * PAIR_DIST;
       xm[nptsm] = linem[0];
       ym[nptsm] = linem[1];
       if(try > NRETRY) {
@@ -419,12 +431,6 @@ int main(int argc, char **argv) {
       printf("Iteration " FMT_I " helium energy    = " FMT_R " K\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
       fflush(stdout);
       grid_timer_start(&timer);
-// Imag iterations to stabilize (vortex lines are orthogonal but sound is not)
-      for (i = 0; i < NTH_STAB; i++) {
-        cgrid_constant(potential_store, -mu0);
-        dft_ot_potential(otf, potential_store, gwf);
-        grid_wf_propagate(gwf, potential_store, -I * TS / GRID_AUTOFS);
-      }
     }
 
     if(iter == 5) grid_fft_write_wisdom(NULL);
