@@ -26,72 +26,63 @@
 #include "git-version.h"
 
 /*
- * Function defining density dependent viscosity.
+ * Classical DFT potential for an ideal gas.
  *
- * rho = density (REAL; input).
- * prm = Parameters (struct dft_visc_param *): rho0 = bulk density, alpha = exponent, viscosity = bulk value.
- *
- */
-
-EXPORT REAL dft_classical_visc_func(REAL rho, void *prm) {
-
-  struct dft_classical_visc_func_param *params = (struct dft_classical_visc_func_param *) prm;
-
-  return POW(rho / params->rho0, params->viscosity_alpha) * params->viscosity;  // viscosity_alpha > 0
-}
-
-/*
- * Given the general equation of state (EOS): P = P(rho, T)
- * calculate the corresponding non-linear DFT potential.
- * 
- * This is obtained from: \Delta V = \nabla\cdot\frac{\nabla P}{\rho}.
- *
- * gwf    = Wave function (wf *; input).
- * pot    = Potential output (rgrid *; output).
- * P      = Pressure from the EOS (rgrid *; input). One dimensional grid relating density to pressure.
- * dens   = Density (rgrid *; input).
- * wrk1   = Workspace 1 (rgrid *; input).
- * wrk2   = Workspace 2 (rgrid *; input).
+ * pot     = Resulting potential (rgrid *; output). 
+ * density = Gas density (rgrid *; input).
+ * rho0    = Bulk density (REAL; input).
+ * temp    = Temperature in K (REAL; input).
+ * eps     = Low density epsilon (REAL; input).
  *
  * No return value.
  *
  */
 
-EXPORT void dft_classical_add_eos_potential(wf *gwf, rgrid *pot, rgrid *P, rgrid *density, rgrid *wrk1, rgrid *wrk2) {
+EXPORT void dft_classical_ideal_gas(rgrid *pot, rgrid *density, REAL rho0, REAL temp, REAL eps) {
 
-  if(P->nx != 1 || P->ny != 1) {
-    fprintf(stderr, "libdft: Pressure must be one-dimensional grid.\n");
-    abort();
-  }
+  rgrid_copy(pot, density);
+  rgrid_multiply(pot, 1.0 / rho0);
+  rgrid_log(pot, pot, eps);
+  rgrid_multiply(pot, GRID_AUKB * temp);
+}
 
-  rgrid_operate_one(wrk1, density, P, params);
-  rgrid_fft(wrk1);
+/*
+ * Classical DFT potential for Tait equation of state.
+ * 
+ * pot     = Resulting potential (rgrid *; output).
+ * density = Liquid density (rgrid *; input).
+ * rho0    = Bulk density (REAL; input).
+ * k0      = Tait EOS parameter K0 (REAL; input).
+ * n       = Tait EOS parameter n (REAL; input).
+ * wrk     = Workspace (rgrid *; input).
+ *
+ * No return value.
+ *
+ * TODO: Not working - or not applicable at low densities?
+ *
+ */
 
-  rgrid_fft_gradient_x(wrk1, wrk2);
-  rgrid_inverse_fft(wrk2);
-  rgrid_division_eps(wrk2, wrk2, density, POISSON_EPS);
-  rgrid_fft(wrk2);
-  rgrid_fft_gradient_x(wrk2, wrk2);
-  rgrid_inverse_fft(wrk2);
-  rgrid_sum(pot, pot, wrk2);
+EXPORT void dft_classical_tait(rgrid *pot, rgrid *density, REAL rho0, REAL k0, REAL n, rgrid *wrk) {
 
-  rgrid_fft_gradient_y(wrk1, wrk2);
-  rgrid_inverse_fft(wrk2);
-  rgrid_division_eps(wrk2, wrk2, density, POISSON_EPS);
-  rgrid_fft(wrk2);
-  rgrid_fft_gradient_y(wrk2, wrk2);
-  rgrid_inverse_fft(wrk2);
-  rgrid_sum(pot, pot, wrk2);
+  rgrid_power(wrk, density, 2.0);
+  rgrid_laplace(wrk, pot);
+  rgrid_multiply(pot, (n - 2.0) / 2.0);
 
-  rgrid_fft_gradient_z(wrk1, wrk2);
-  rgrid_inverse_fft(wrk2);
-  rgrid_division_eps(wrk2, wrk2, density, POISSON_EPS);
-  rgrid_fft(wrk2);
-  rgrid_fft_gradient_z(wrk2, wrk2);
-  rgrid_inverse_fft(wrk2);
-  rgrid_sum(pot, pot, wrk2);
+  rgrid_laplace(density, wrk);
+  rgrid_product(wrk, wrk, density);
+  rgrid_multiply(wrk, 3.0 - n);
+  rgrid_sum(pot, pot, wrk);
 
-  rgrid_fft_space(wrk1, 0);
+  rgrid_copy(wrk, density);
+  rgrid_multiply(wrk, 1.0 / rho0);
+  rgrid_power(wrk, wrk, n - 3.0);
+  rgrid_multiply(wrk, k0 * n / (rho0 * rho0 * rho0));
+
+  rgrid_product(pot, pot, wrk);
+
+  rgrid_fft(pot);
+  rgrid_poisson(pot);
+  rgrid_inverse_fft(pot);
 }
 
 /*
@@ -99,8 +90,7 @@ EXPORT void dft_classical_add_eos_potential(wf *gwf, rgrid *pot, rgrid *P, rgrid
  *
  * gwf             = Wave function (wf *; input).
  * pot             = Output for potential (rgrid *; output).
- * shear_visc      = Function for calculating shear (dynamic) viscosity in atomic units (input).
- * shear_params    = Shear viscosity function parameters (void *; input).
+ * shear_visc      = Function for calculating shear (dynamic) viscosity in atomic units (rfunction *; input).
  * wrk1            = Workspace 1 (rgrid *).
  * wrk2            = Workspace 2 (rgrid *).
  * wrk3            = Workspace 3 (rgrid *).
@@ -108,9 +98,9 @@ EXPORT void dft_classical_add_eos_potential(wf *gwf, rgrid *pot, rgrid *P, rgrid
  * wrk5            = Workspace 5 (rgrid *).
  * wrk6            = Workspace 6 (rgrid *).
  * wrk7            = Workspace 7 (rgrid *).
- * vx              = Workspace for vx (rgrid *). Overwritten.
- * vy              = Workspace for vy (rgrid *). Overwritten.
- * vz              = Workspace for vz (rgrid *). Overwritten.
+ * vx              = Workspace for vx (rgrid *). Overwritten (wrk8).
+ * vy              = Workspace for vy (rgrid *). Overwritten (wrk9).
+ * vz              = Workspace for vz (rgrid *). Overwritten (wrk10).
  *
  * No return value.
  *
@@ -120,7 +110,7 @@ EXPORT void dft_classical_add_eos_potential(wf *gwf, rgrid *pot, rgrid *P, rgrid
  *
  */
 
-EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, REAL (*shear_visc)(REAL, void *), void *shear_params, rgrid *wrk1, rgrid *wrk2, rgrid *wrk3, rgrid *wrk4, rgrid *wrk5, rgrid *wrk6, rgrid *wrk7, rgrid *vx, rgrid *vy, rgrid *vz) {
+EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, rfunction *shear_visc, rgrid *wrk1, rgrid *wrk2, rgrid *wrk3, rgrid *wrk4, rgrid *wrk5, rgrid *wrk6, rgrid *wrk7, rgrid *vx, rgrid *vy, rgrid *vz) {
 
   grid_wf_velocity(gwf, vx, vy, vz);
   rgrid_fft(vx);
@@ -183,7 +173,7 @@ EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, REAL (*shea
   rgrid_fft_space(vx, 0);
   rgrid_fft_space(vy, 0);
   grid_wf_density(gwf, vx);
-  rgrid_operate_one(vy, vx, shear_visc, &shear_params);
+  rgrid_function_operate_one(vy, vx, shear_visc);
   rgrid_product(wrk2, wrk2, vy);
   rgrid_product(wrk3, wrk3, vy);
   rgrid_product(wrk4, wrk4, vy);
@@ -205,6 +195,10 @@ EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, REAL (*shea
  
   /* the final divergence */
   rgrid_div(vx, wrk1, wrk2, wrk3);
+
+  rgrid_fft(vx);
+  rgrid_poisson(vx);
+  rgrid_inverse_fft(vx);
 
   rgrid_difference(pot, pot, vx);  // Include the final - sign here
 }

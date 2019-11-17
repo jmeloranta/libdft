@@ -5,8 +5,8 @@
  */
 
 /* Number of GPUs to use */
-#define NGPUS 6
-#define GPUS {0, 1, 2, 3, 4, 5}
+#define NGPUS 4
+#define GPUS {0, 1, 2, 3}
 
 /* Time step in imag/real iterations (fs) */
 #define TIME_STEP (5.0 / GRID_AUTOFS)
@@ -19,7 +19,7 @@
 //#define FUNCTIONAL (DFT_GP)
 
 /* Start real time simulation at this time (fs) - (100,000) */
-#define STARTING_TIME (100000.0 / GRID_AUTOFS)
+#define STARTING_TIME (1000.0 / GRID_AUTOFS)
 #define STARTING_ITER ((INT) (STARTING_TIME / TIME_STEP))
 
 /* Maximum number of real time iterations */
@@ -53,9 +53,9 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 #define THREADS 0	/* # of parallel threads to use (0 = all) */
-#define NX 384    	/* # of grid points along x */ /* Largest: 729x384x384 */
-#define NY 384         /* # of grid points along y */
-#define NZ 2048        	/* # of grid points along z */
+#define NX 256    	/* # of grid points along x */ /* Largest: 729x384x384 */
+#define NY 256         /* # of grid points along y */
+#define NZ 512        	/* # of grid points along z */
 #define STEP 2.0        /* spatial step length (Bohr) */
 
 /* Kinetic energy propagator */

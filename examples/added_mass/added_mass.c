@@ -23,7 +23,7 @@
 #define THREADS 0	/* # of parallel threads to use */
 #define NX 256       	/* # of grid points along x */
 #define NY 256         /* # of grid points along y */
-#define NZ 1024        	/* # of grid points along z */
+#define NZ 256        	/* # of grid points along z */
 #define STEP 1.5        /* spatial step length (Bohr) */
 #define PRESSURE 0.0    /* External pressure */
 #define IMP_MASS 1.0 /* electron mass */
@@ -53,8 +53,8 @@ int main(int argc, char *argv[]) {
   grid_timer timer;
 
 #ifdef USE_CUDA
-#define NGPUS 2
-  int gpus[NGPUS] = {4, 5};
+#define NGPUS 1
+  int gpus[NGPUS] = {0};
   cuda_enable(1, NGPUS, gpus);
 #endif
 
@@ -62,6 +62,8 @@ int main(int argc, char *argv[]) {
   grid_set_fftw_flags(1);    // FFTW_MEASURE
   grid_threads_init(THREADS);
   grid_fft_read_wisdom(NULL);
+
+  grid_wf_analyze_method(1); // DEBUG
 
   /* Allocate wave functions */
   if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
