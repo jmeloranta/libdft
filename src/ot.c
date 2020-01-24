@@ -415,7 +415,7 @@ EXPORT inline void dft_ot_add_lennard_jones_potential(dft_ot_functional *otf, cg
   rgrid_copy(workspace1, density);
   rgrid_fft(workspace1);
   rgrid_fft_convolute(workspace2, workspace1, otf->lennard_jones);  // Don't overwrite workspace1 - needed later
-  rgrid_inverse_fft(workspace2);
+  rgrid_inverse_fft_norm2(workspace2);
   grid_add_real_to_complex_re(potential, workspace2);
   /* leave FFT(rho) in workspace1 (used later in local correlation potential as rho_tf) */
 }
@@ -429,7 +429,7 @@ EXPORT inline void dft_ot_add_local_correlation_potential(dft_ot_functional *otf
 
   /* workspace1 = \bar{\rho} */
   rgrid_fft_convolute(workspace1, rho_tf, otf->spherical_avg);
-  rgrid_inverse_fft(workspace1); 
+  rgrid_inverse_fft_norm2(workspace1); 
 
   /* C2.1 */
   if(otf->model & DFT_DR)
@@ -462,7 +462,7 @@ EXPORT inline void dft_ot_add_local_correlation_potential(dft_ot_functional *otf
   rgrid_product(workspace2, workspace2, rho);
   rgrid_fft(workspace2);
   rgrid_fft_convolute(workspace2, workspace2, otf->spherical_avg);
-  rgrid_inverse_fft(workspace2);
+  rgrid_inverse_fft_norm2(workspace2);
   grid_add_real_to_complex_re(potential, workspace2);
 }
 
@@ -476,7 +476,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential(dft_ot_functional *
   /* rho^tilde(r) = int F(r-r') rho(r') dr' */
   /* NOTE: rho_tf from LJ (workspace1 there). */
   rgrid_fft_convolute(workspace1, otf->gaussian_tf, rho_tf);
-  rgrid_inverse_fft(workspace1);
+  rgrid_inverse_fft_norm2(workspace1);
   /* workspace1 = rho_st = 1 - 1/\tilde{\rho}/\rho_{0s} */
   rgrid_multiply(workspace1, -1.0 / otf->rho_0s);
   rgrid_add(workspace1, 1.0);
@@ -509,7 +509,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_x(dft_ot_functional
 
   /* 1st term: c convolute [((d/dx) F) . G] */
   rgrid_fft_convolute(workspace3, otf->gaussian_x_tf, workspace2);
-  rgrid_inverse_fft(workspace3);
+  rgrid_inverse_fft_norm2(workspace3);
   rgrid_product(workspace3, workspace3, rho_st);
   rgrid_multiply(workspace3, c);
   grid_add_real_to_complex_re(potential, workspace3);  
@@ -520,7 +520,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_x(dft_ot_functional
   
   /* Construct workspace3 = J = convolution(F G) */
   rgrid_fft_convolute(workspace3, otf->gaussian_tf, workspace2);
-  rgrid_inverse_fft(workspace3);
+  rgrid_inverse_fft_norm2(workspace3);
 
   /* Construct workspace4 = FFT(H) = FFT((d/dx) \rho * J) */
   rgrid_copy(workspace4, workspace3);
@@ -529,7 +529,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_x(dft_ot_functional
 
   /* 2nd term: c convolute(F H) */
   rgrid_fft_convolute(workspace4, otf->gaussian_tf, workspace4);
-  rgrid_inverse_fft(workspace4);
+  rgrid_inverse_fft_norm2(workspace4);
   rgrid_multiply(workspace4, c);
   grid_add_real_to_complex_re(potential, workspace4);
 
@@ -539,7 +539,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_x(dft_ot_functional
   
   /* -c J . convolute((d/dx)F \rho) */
   rgrid_fft_convolute(workspace2, otf->gaussian_x_tf, rho_tf);
-  rgrid_inverse_fft(workspace2);
+  rgrid_inverse_fft_norm2(workspace2);
   rgrid_product(workspace2, workspace2, workspace3);
   rgrid_multiply(workspace2, -c);
   grid_add_real_to_complex_re(potential, workspace2);
@@ -568,7 +568,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_y(dft_ot_functional
 
   /* 1st term: c convolute [((d/dy) F) . G] */
   rgrid_fft_convolute(workspace3, otf->gaussian_y_tf, workspace2);
-  rgrid_inverse_fft(workspace3);
+  rgrid_inverse_fft_norm2(workspace3);
   rgrid_product(workspace3, workspace3, rho_st);
   rgrid_multiply(workspace3, c);
   grid_add_real_to_complex_re(potential, workspace3);  
@@ -579,7 +579,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_y(dft_ot_functional
   
   /* Construct workspace3 = J = convolution(F G) */
   rgrid_fft_convolute(workspace3, otf->gaussian_tf, workspace2);
-  rgrid_inverse_fft(workspace3);
+  rgrid_inverse_fft_norm2(workspace3);
 
   /* Construct workspace4 = FFT(H) = FFT((d/dy) \rho * J) */
   rgrid_copy(workspace4, workspace3);
@@ -588,7 +588,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_y(dft_ot_functional
 
   /* 2nd term: c convolute(F H) */
   rgrid_fft_convolute(workspace4, otf->gaussian_tf, workspace4);
-  rgrid_inverse_fft(workspace4);
+  rgrid_inverse_fft_norm2(workspace4);
   rgrid_multiply(workspace4, c);
   grid_add_real_to_complex_re(potential, workspace4);
 
@@ -599,7 +599,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_y(dft_ot_functional
   /* -c J . convolute((d/dy)F \rho) */
 
   rgrid_fft_convolute(workspace2, otf->gaussian_y_tf, rho_tf);
-  rgrid_inverse_fft(workspace2);
+  rgrid_inverse_fft_norm2(workspace2);
   rgrid_product(workspace2, workspace2, workspace3);
   rgrid_multiply(workspace2, -c);
   grid_add_real_to_complex_re(potential, workspace2);
@@ -628,7 +628,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_z(dft_ot_functional
 
   /* 1st term: c convolute [((d/dz) F) . G] */
   rgrid_fft_convolute(workspace3, otf->gaussian_z_tf, workspace2);
-  rgrid_inverse_fft(workspace3);
+  rgrid_inverse_fft_norm2(workspace3);
   rgrid_product(workspace3, workspace3, rho_st);
   rgrid_multiply(workspace3, c);
 
@@ -640,7 +640,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_z(dft_ot_functional
   
   /* Construct workspace3 = J = convolution(F G) */
   rgrid_fft_convolute(workspace3, otf->gaussian_tf, workspace2);
-  rgrid_inverse_fft(workspace3);
+  rgrid_inverse_fft_norm2(workspace3);
 
   /* Construct workspace4 = FFT(H) = FFT((d/dz) \rho * J) */
   rgrid_copy(workspace4, workspace3);
@@ -649,7 +649,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_z(dft_ot_functional
 
   /* 2nd term: c convolute(F H) */
   rgrid_fft_convolute(workspace4, otf->gaussian_tf, workspace4);
-  rgrid_inverse_fft(workspace4);
+  rgrid_inverse_fft_norm2(workspace4);
   rgrid_multiply(workspace4, c);
   grid_add_real_to_complex_re(potential, workspace4);
 
@@ -660,7 +660,7 @@ static inline void dft_ot_add_nonlocal_correlation_potential_z(dft_ot_functional
   /* -c J . convolute((d/dz)F \rho) */
 
   rgrid_fft_convolute(workspace2, otf->gaussian_z_tf, rho_tf);
-  rgrid_inverse_fft(workspace2);
+  rgrid_inverse_fft_norm2(workspace2);
   rgrid_product(workspace2, workspace2, workspace3);
   rgrid_multiply(workspace2, -c);
   grid_add_real_to_complex_re(potential, workspace2);
@@ -717,7 +717,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
     rgrid_copy(workspace1, density);   /* Original BF code (without the MM density cutoff), just rho */
   rgrid_fft(workspace1);
   rgrid_fft_convolute(workspace1, workspace1, otf->backflow_pot);
-  rgrid_inverse_fft(workspace1);
+  rgrid_inverse_fft_norm2(workspace1);
 
   /* Calculate C (workspace2) [scalar] */
   rgrid_product(workspace2, veloc_z, veloc_z);
@@ -732,7 +732,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
     rgrid_product(workspace2, workspace2, density);  /* orignal: multiply by just rho */
   rgrid_fft(workspace2);
   rgrid_fft_convolute(workspace2, workspace2, otf->backflow_pot);
-  rgrid_inverse_fft(workspace2);
+  rgrid_inverse_fft_norm2(workspace2);
 
   /* Calculate B (workspace3 (B_x), workspace4 (B_y), workspace5 (B_z)) [vector] */
   if(density->nx != 1 || density->ny != 1) {
@@ -743,7 +743,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
       rgrid_product(workspace3, veloc_x, density); /* original: just rho */
     rgrid_fft(workspace3);
     rgrid_fft_convolute(workspace3, workspace3, otf->backflow_pot);
-    rgrid_inverse_fft(workspace3);
+    rgrid_inverse_fft_norm2(workspace3);
   
     /* B_Y */
     if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
@@ -752,7 +752,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
       rgrid_product(workspace4, veloc_y, density); /* original: just rho */
     rgrid_fft(workspace4);
     rgrid_fft_convolute(workspace4, workspace4, otf->backflow_pot);
-    rgrid_inverse_fft(workspace4);
+    rgrid_inverse_fft_norm2(workspace4);
   }
 
   /* B_Z */
@@ -762,7 +762,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
     rgrid_product(workspace5, veloc_z, density); /* original: just rho */
   rgrid_fft(workspace5);
   rgrid_fft_convolute(workspace5, workspace5, otf->backflow_pot);
-  rgrid_inverse_fft(workspace5);
+  rgrid_inverse_fft_norm2(workspace5);
 
   /* 1. Calculate the real part of the potential */
 

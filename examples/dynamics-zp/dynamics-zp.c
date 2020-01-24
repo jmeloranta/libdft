@@ -101,7 +101,7 @@ int gpus[] = {0};
     grid_wf_density(imwf, density);
     rgrid_fft(density);
     rgrid_fft_convolute(ext_pot2, ext_pot, density);
-    rgrid_inverse_fft(ext_pot2);
+    rgrid_inverse_fft_norm2(ext_pot2);
     /* Predict-Correct */
     cgrid_zero(potential_store);
     dft_ot_potential(otf, potential_store, gwf);
@@ -119,7 +119,7 @@ int gpus[] = {0};
     grid_wf_density(gwf, density);
     rgrid_fft(density);
     rgrid_fft_convolute(ext_pot2, ext_pot, density);
-    rgrid_inverse_fft(ext_pot2);
+    rgrid_inverse_fft_norm2(ext_pot2);
     grid_real_to_complex_re(potential_store, ext_pot2);
     grid_wf_propagate(imwf, potential_store, -I * TS / GRID_AUTOFS);
     grid_wf_normalize(imwf);
@@ -142,7 +142,7 @@ int gpus[] = {0};
     grid_wf_density(imwf, density);
     rgrid_fft(density);
     rgrid_fft_convolute(ext_pot2, ext_pot, density);
-    rgrid_inverse_fft(ext_pot2);
+    rgrid_inverse_fft_norm2(ext_pot2);
     /* Predict-Correct */
     cgrid_zero(potential_store);
     dft_ot_potential(otf, potential_store, gwf);
@@ -160,7 +160,7 @@ int gpus[] = {0};
     grid_wf_density(gwf, density);
     rgrid_fft(density);
     rgrid_fft_convolute(ext_pot2, ext_pot, density);
-    rgrid_inverse_fft(ext_pot2);
+    rgrid_inverse_fft_norm2(ext_pot2);
     grid_real_to_complex_re(potential_store, ext_pot2);
     grid_wf_propagate(imwf, potential_store, TS / GRID_AUTOFS);  // real time
 

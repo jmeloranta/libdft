@@ -26,14 +26,19 @@
 /* Time integration and spatial grid parameters */
 #define TS 2.0 /* fs (was 5) */
 #define ITS (0.0 * TS)       /* Imag. time component (dissipation; 0 = none or 1 = full). Tsubota gamma = 0.02 */
-#define NX 1024
-#define NY 1024
+#define NX 512
+#define NY 512
 #define NZ 16
 #define STEP 2.0
 #define MAXITER 8000000
 
+/* E(k) */
+#define KSPECTRUM /**/
+#define NBINS 50
+#define BINSTEP 0.05
+
 /* Predict-correct? */
-#define PC
+//#define PC
 
 /* Functional to use (was DFT_OT_PLAIN; GP2 is test) */
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
@@ -46,16 +51,15 @@
 //#define RANDOM_INITIAL       /* Random initial guess */
 #define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
-
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 100           /* Number of + and - vortex pairs */
+#define NPAIRS 10           /* Number of + and - vortex pairs */
 #define PAIR_DIST 10.0       /* Min. distance between + and - vortex pairs */
-#define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
-#define MAX_DIST 450.0       /* Maximum distance for vortex lines from the origin */
+//#define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
+#define MAX_DIST 300.0       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
-/* Normalization */
-#define HE_RADIUS 900.0
+/* Normalization (was 900.0) - now use 90% of the radius */
+#define HE_RADIUS (0.9 * (NX * STEP / 2.0))
 #define HE_NORM (rho0 * M_PI * HE_RADIUS * HE_RADIUS * STEP * (REAL) (NZ-1))
 
 /* Print vortex line locations only? (otherwise write full grids) */
@@ -186,9 +190,12 @@ void print_pair_dist(char *file) {
     for (j = 0; j < nptsm; j++) {
       dx = xp[i] - xm[j];
       dy = yp[i] - ym[j];
+// We don't have periodic boundary at the moment - cylinder!
+#if 0
       /* periodic boundary */
       dx -= BOXXL * (REAL) ((INT) (0.5 + dx / BOXXL));
       dy -= BOXYL * (REAL) ((INT) (0.5 + dy / BOXYL));
+#endif
       fprintf(fp, FMT_R "\n", SQRT(dx * dx + dy * dy));
   }
   fclose(fp);
@@ -238,11 +245,15 @@ int main(int argc, char **argv) {
 #ifdef PC
   wf *gwfp;
 #endif
+  FILE *fp;
   INT iter, try, i, j, k;
   REAL kin, pot, n, linep[5], linem[5];
-  char buf[512];
+  char buf[512], file[512];
   grid_timer timer;
   REAL complex tstep;
+#ifdef KSPECTRUM
+  REAL *bins = NULL;
+#endif
 
   if(argc < 2) {
     fprintf(stderr, "Usage: film <gpu1> <gpu2> ...\n");
@@ -261,6 +272,11 @@ int main(int argc, char **argv) {
   grid_set_fftw_flags(1);    // FFTW_MEASURE
   grid_threads_init(THREADS);
   grid_fft_read_wisdom(NULL);
+
+
+  grid_wf_analyze_method(1); // 0 = FD, 1 = FFT
+
+
 
   /* Allocate wave functions */
   if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
@@ -318,29 +334,6 @@ int main(int argc, char **argv) {
   printf("done.\n");
 
 #ifdef MANUAL_LINES
-#if 0
-  printf("Manual lines initial guess.\n");  
-  linep[0] = 10.0;
-  linep[1] = -10.0;
-  linep[2] = 0.0;
-  linep[3] = 1.0;
-  linep[4] = 0.0;
-  cgrid_map(potential_store, vline, linep);
-  cgrid_product(gwf->grid, gwf->grid, potential_store);
-  cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
-  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
-
-  linep[0] = 10.0;
-  linep[1] = 10.0;
-  linep[2] = 0.0;
-  linep[3] = -1.0;
-  linep[4] = 0.0;
-  cgrid_map(potential_store, vline, linep);
-  cgrid_product(gwf->grid, gwf->grid, potential_store);
-  cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
-  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
-#endif
-
   linep[0] = -50.0;
   linep[1] = 4.0;
   linep[2] = 0.0;
@@ -467,6 +460,40 @@ int main(int argc, char **argv) {
 #else
       sprintf(buf, "film-" FMT_I, iter);
       cgrid_write_grid(buf, gwf->grid);
+#endif
+#ifdef KSPECTRUM
+      if(!(otf->workspace1)) otf->workspace1 = rgrid_clone(otf->density, "OT Workspace 1");
+      if(!(otf->workspace2)) otf->workspace2 = rgrid_clone(otf->density, "OT Workspace 2");
+      if(!(otf->workspace3)) otf->workspace3 = rgrid_clone(otf->density, "OT Workspace 3");
+      if(!(otf->workspace4)) otf->workspace4 = rgrid_clone(otf->density, "OT Workspace 4");
+      if(!(otf->workspace5)) otf->workspace5 = rgrid_clone(otf->density, "OT Workspace 5");
+
+      if(!bins) {
+        if(!(bins = (REAL *) malloc(sizeof(REAL) * NBINS))) {
+          fprintf(stderr, "Can't allocate memory for bins.\n");
+          exit(1);
+        }
+      }
+      /* Incompressible part */
+      grid_wf_incomp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, otf->workspace5);
+      sprintf(file, "ke-incomp-" FMT_I ".dat", iter);
+      if(!(fp = fopen(file, "w"))) {
+        fprintf(stderr, "Can't open %s.\n", file);
+        exit(1);
+      }
+      for(i = 1; i < NBINS; i++)  /* Leave out the DC component (= zero) */
+        fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
+      fclose(fp);
+      /* Compressible part */
+      grid_wf_comp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4);
+      sprintf(file, "ke-comp-" FMT_I ".dat", iter);
+      if(!(fp = fopen(file, "w"))) {
+        fprintf(stderr, "Can't open %s.\n", file);
+        exit(1);
+      }
+      for(i = 1; i < NBINS; i++)  /* Leave out the DC component (= zero) */
+        fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
+      fclose(fp);
 #endif
       kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
       dft_ot_energy_density(otf, rworkspace, gwf);

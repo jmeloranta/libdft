@@ -185,7 +185,7 @@ REAL eval_force(wf *gwf, wf *impwf, rgrid *pair_pot, rgrid *dpair_pot, rgrid *wo
   grid_wf_density(impwf, workspace1);
   rgrid_fft(workspace1);
   rgrid_fft_convolute(workspace2, pair_pot, workspace1);
-  rgrid_inverse_fft(workspace2);
+  rgrid_inverse_fft_norm2(workspace2);
   rgrid_fd_gradient_x(workspace2, workspace1);
   grid_wf_density(gwf, workspace2);
   rgrid_product(workspace1, workspace1, workspace2);
@@ -194,7 +194,7 @@ REAL eval_force(wf *gwf, wf *impwf, rgrid *pair_pot, rgrid *dpair_pot, rgrid *wo
   grid_wf_density(gwf, workspace1);
   rgrid_fft(workspace1);
   rgrid_fft_convolute(workspace2, dpair_pot, workspace1)
-  rgrid_inverse_fft(workspace2);
+  rgrid_inverse_fft_norm2(workspace2);
   grid_wf_density(impwf, workspace1);
   rgrid_product(workspace1, workspace1, workspace2);
   tmp = -rgrid_integral(workspace1);
@@ -325,7 +325,7 @@ int gpus[] = {0};
     grid_wf_density(gwf, otf->density);
     rgrid_fft(otf->density);
     rgrid_fft_convolute(ext_pot, otf->density, pair_pot);
-    rgrid_inverse_fft(ext_pot);
+    rgrid_inverse_fft_norm2(ext_pot);
     grid_real_to_complex_re(cpot_el, ext_pot);
     grid_wf_propagate_predict(impwf, impwfp, cpot_el, -I * IMP_STEP / GRID_AUTOFS);
 
@@ -336,7 +336,7 @@ int gpus[] = {0};
     grid_wf_density(impwf, otf->density);
     rgrid_fft(otf->density);
     rgrid_fft_convolute(ext_pot, otf->density, pair_pot);
-    rgrid_inverse_fft(ext_pot);
+    rgrid_inverse_fft_norm2(ext_pot);
     rgrid_add(ext_pot, -mu0); // chemical potential (same for super & normal)
     grid_add_real_to_complex_re(cpot, ext_pot);
     dft_ot_potential(otf, cpot, gwf);
@@ -349,7 +349,7 @@ int gpus[] = {0};
     grid_wf_density(gwfp, otf->density);
     rgrid_fft(otf->density);
     rgrid_fft_convolute(ext_pot, otf->density, pair_pot);
-    rgrid_inverse_fft(ext_pot);
+    rgrid_inverse_fft_norm2(ext_pot);
     grid_add_real_to_complex_re(cpot_el, ext_pot);
     cgrid_multiply(cpot_el, 0.5);
     grid_wf_propagate_correct(impwf, cpot_el, -I * IMP_STEP / GRID_AUTOFS);
@@ -359,7 +359,7 @@ int gpus[] = {0};
     grid_wf_density(impwfp, otf->density);
     rgrid_fft(otf->density);
     rgrid_fft_convolute(ext_pot, otf->density, pair_pot);
-    rgrid_inverse_fft(ext_pot);
+    rgrid_inverse_fft_norm2(ext_pot);
     rgrid_add(ext_pot, -mu0); // chemical potential (same for super & normal)
     grid_add_real_to_complex_re(cpot, ext_pot);
     dft_ot_potential(otf, cpot, gwf);
@@ -400,7 +400,7 @@ int gpus[] = {0};
 	/* Helium energy */
         rgrid_fft(otf->density);
         rgrid_fft_convolute(ext_pot, otf->density, pair_pot);
-        rgrid_inverse_fft(ext_pot);
+        rgrid_inverse_fft_norm2(ext_pot);
 	kin = grid_wf_energy(gwf, NULL);                 /* Kinetic energy for gwf */
         dft_ot_energy_density(otf, rworkspace, gwf);
         rgrid_add_scaled_product(rworkspace, 1.0, otf->density, ext_pot);

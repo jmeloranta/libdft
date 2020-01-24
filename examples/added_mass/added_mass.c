@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
     grid_wf_density(gwf, otf->density);
     rgrid_fft(otf->density);
     rgrid_fft_convolute(ext_pot, otf->density, pair_pot);
-    rgrid_inverse_fft(ext_pot);
+    rgrid_inverse_fft_norm2(ext_pot);
     grid_real_to_complex_re(potential, ext_pot);
 
     /* 2. Propagate */
@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
     grid_wf_density(impwf, otf->density);
     rgrid_fft(otf->density);
     rgrid_fft_convolute(ext_pot, otf->density, pair_pot);
-    rgrid_inverse_fft(ext_pot);
+    rgrid_inverse_fft_norm2(ext_pot);
     rgrid_fft_space(otf->density, 0); // Reset back to real space    
 
     /* 2. Predict + correct */

@@ -26,7 +26,7 @@ static REAL complex dft_do_int(cgrid *fft_dens, rgrid *imdens, rgrid *dpot, REAL
 
   cgrid_fft(wrk);
   cgrid_fft_convolute(wrk, fft_dens, wrk);
-  cgrid_inverse_fft(wrk);
+  cgrid_inverse_fft_norm2(wrk);
   grid_product_complex_with_real(wrk, imdens);
   return cgrid_integral(wrk);
 }
@@ -82,7 +82,7 @@ EXPORT void dft_spectrum_anderson_zp(rgrid *density, rgrid *imdensity, rgrid *di
   rgrid_fft(diffpot);
   rgrid_fft(imdensity);
   rgrid_fft_convolute(diffpot, diffpot, imdensity);
-  rgrid_inverse_fft(diffpot);
+  rgrid_inverse_fft_norm2(diffpot);
   rgrid_product(density, density, diffpot);
   fprintf(stderr, "libdft: Average shift = " FMT_R " cm-1.\n", rgrid_integral(density) * GRID_AUTOCM1);
 

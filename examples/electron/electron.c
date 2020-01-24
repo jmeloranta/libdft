@@ -200,7 +200,7 @@ int gpus[] = {0};
       grid_wf_density(gwf, rworkspace);
       rgrid_fft(rworkspace);
       rgrid_fft_convolute(rworkspace, rworkspace, pseudo);
-      rgrid_inverse_fft(rworkspace);
+      rgrid_inverse_fft_norm2(rworkspace);
       
       grid_wf_density(egwf, otf->density);
       rgrid_product(otf->density, otf->density, rworkspace);
@@ -236,7 +236,7 @@ int gpus[] = {0};
     grid_wf_density(gwf, rworkspace);
     rgrid_fft(rworkspace);
     rgrid_fft_convolute(rworkspace, rworkspace, pseudo);
-    rgrid_inverse_fft(rworkspace);
+    rgrid_inverse_fft_norm2(rworkspace);
     /* It is OK to run just one step - in imaginary time but not in real time. */
     grid_real_to_complex_re(potential_store, rworkspace);
     grid_wf_propagate(egwf, potential_store, -I * time_step_el / GRID_AUTOFS);  // Imag time
@@ -250,7 +250,7 @@ int gpus[] = {0};
     grid_wf_density(egwf, rworkspace);
     rgrid_fft(rworkspace);
     rgrid_fft_convolute(rworkspace, rworkspace, pseudo);
-    rgrid_inverse_fft(rworkspace);
+    rgrid_inverse_fft_norm2(rworkspace);
 #else
     rgrid_zero(rworkspace);
 #endif

@@ -10,7 +10,7 @@
  * dft_classical_add_viscous_potential(pot, ...);  // both functions leave pot in Fourier space
  * rgrid_fft(pot);
  * rgrid_poisson(pot);
- * rgrid_inverse_fft(pot);
+ * rgrid_inverse_fft_norm(pot);
  * 
  * Now pot holds the potential corresponding to the EOS and viscous response.
  *
@@ -82,7 +82,7 @@ EXPORT void dft_classical_tait(rgrid *pot, rgrid *density, REAL rho0, REAL k0, R
 
   rgrid_fft(pot);
   rgrid_poisson(pot);
-  rgrid_inverse_fft(pot);
+  rgrid_inverse_fft_norm(pot);
 }
 
 /*
@@ -127,19 +127,19 @@ EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, rfunction *
   rgrid_fft_gradient_z(vz, wrk1);
   rgrid_fft_multiply(wrk1, -2.0/3.0);
   rgrid_fft_sum(wrk2, wrk2, wrk1);
-  rgrid_inverse_fft(wrk2);
+  rgrid_inverse_fft_norm(wrk2);
 
   /* 2 = 4 (symmetry; wrk3) */
   rgrid_fft_gradient_x(vy, wrk3);
   rgrid_fft_gradient_y(vx, wrk1);
   rgrid_fft_sum(wrk3, wrk3, wrk1);
-  rgrid_inverse_fft(wrk3);
+  rgrid_inverse_fft_norm(wrk3);
 
   /* 3 = 7 (symmetry; wrk4) */
   rgrid_fft_gradient_x(vz, wrk4);
   rgrid_fft_gradient_z(vx, wrk1);
   rgrid_fft_sum(wrk4, wrk4, wrk1);
-  rgrid_inverse_fft(wrk4);
+  rgrid_inverse_fft_norm(wrk4);
 
   /* 5 (diagonal; wrk5) */
   rgrid_fft_gradient_y(vy, wrk5);
@@ -150,13 +150,13 @@ EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, rfunction *
   rgrid_fft_gradient_z(vz, wrk1);
   rgrid_fft_multiply(wrk1, -2.0/3.0);
   rgrid_fft_sum(wrk5, wrk5, wrk1);
-  rgrid_inverse_fft(wrk5);
+  rgrid_inverse_fft_norm(wrk5);
 
   /* 6 = 8 (symmetryl wrk6) */
   rgrid_fft_gradient_y(vz, wrk6);
   rgrid_fft_gradient_z(vy, wrk1);
   rgrid_fft_sum(wrk6, wrk6, wrk1);
-  rgrid_inverse_fft(wrk6);
+  rgrid_inverse_fft_norm(wrk6);
 
   /* 9 = (diagonal; wrk7) */
   rgrid_fft_gradient_z(vz, wrk7);
@@ -167,7 +167,7 @@ EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, rfunction *
   rgrid_fft_gradient_y(vy, wrk1);
   rgrid_fft_multiply(wrk1, -2.0/3.0);
   rgrid_fft_sum(wrk7, wrk7, wrk1);
-  rgrid_inverse_fft(wrk7);
+  rgrid_inverse_fft_norm(wrk7);
 
   /* factor in viscosity (temp vx, vy = wrk8) */
   rgrid_fft_space(vx, 0);
@@ -198,7 +198,7 @@ EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, rfunction *
 
   rgrid_fft(vx);
   rgrid_poisson(vx);
-  rgrid_inverse_fft(vx);
+  rgrid_inverse_fft_norm(vx);
 
   rgrid_difference(pot, pot, vx);  // Include the final - sign here
 }

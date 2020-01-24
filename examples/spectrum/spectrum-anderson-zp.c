@@ -120,7 +120,7 @@ int gpus[] = {0};
     grid_wf_density(imwf, otf->density);
     rgrid_fft(otf->density);
     rgrid_fft_convolute(ext_pot2, ext_pot, otf->density);
-    rgrid_inverse_fft(ext_pot2);
+    rgrid_inverse_fft_norm2(ext_pot2);
 
     /* Predict-Correct (Helium) */
     grid_real_to_complex_re(potential_store, ext_pot2);
@@ -137,7 +137,7 @@ int gpus[] = {0};
     grid_wf_density(gwf, otf->density);
     rgrid_fft(otf->density);
     rgrid_fft_convolute(ext_pot2, ext_pot, otf->density);
-    rgrid_inverse_fft(ext_pot2);
+    rgrid_inverse_fft_norm2(ext_pot2);
 
     /* Propagate in single step (Impurity) */
     grid_real_to_complex_re(potential_store, ext_pot2);
