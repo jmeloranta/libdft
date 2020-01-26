@@ -143,4 +143,7 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
 /* Use special 1D OT-DFT code? */
 #define DFT_OT_1D
 
+/* Smallest density for evaluating velocity */
+#define DFT_EPS 1E-5
+
 #endif /* __DFT_OT__ */

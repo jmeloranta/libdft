@@ -112,7 +112,7 @@ EXPORT void dft_classical_tait(rgrid *pot, rgrid *density, REAL rho0, REAL k0, R
 
 EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, rfunction *shear_visc, rgrid *wrk1, rgrid *wrk2, rgrid *wrk3, rgrid *wrk4, rgrid *wrk5, rgrid *wrk6, rgrid *wrk7, rgrid *vx, rgrid *vy, rgrid *vz) {
 
-  grid_wf_velocity(gwf, vx, vy, vz);
+  grid_wf_velocity(gwf, vx, vy, vz, DFT_EPS);
   rgrid_fft(vx);
   rgrid_fft(vy);
   rgrid_fft(vz);
