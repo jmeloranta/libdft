@@ -26,16 +26,16 @@
 /* Time integration and spatial grid parameters */
 #define TS 2.0 /* fs (was 5) */
 #define ITS (0.00 * TS)       /* Imag. time component (dissipation; 0 = none or 1 = full). Tsubota gamma = 0.02 */
-#define NX 512
-#define NY 512
+#define NX 2048
+#define NY 2048
 #define NZ 16
-#define STEP 2.0
+#define STEP 0.5
 #define MAXITER 8000000
 
 /* E(k) */
 #define KSPECTRUM /**/
-#define NBINS 25
-#define BINSTEP 0.1
+#define NBINS 60
+#define BINSTEP 0.05
 #define DENS_EPS 1E-4
 
 /* Predict-correct? */
@@ -50,10 +50,10 @@
 
 /* Vortex line params (define only one!) */
 //#define RANDOM_INITIAL       /* Random initial guess */
-//#define RANDOM_LINES         /* Random line positions */
-#define MANUAL_LINES         /* Enter vortex lines manually */
+#define RANDOM_LINES         /* Random line positions */
+//#define MANUAL_LINES         /* Enter vortex lines manually */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 200           /* Number of + and - vortex pairs */
+#define NPAIRS 1000           /* Number of + and - vortex pairs */
 #define PAIR_DIST 10.0       /* Min. distance between + and - vortex pairs */
 //#define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
 #define MAX_DIST 300.0       /* Maximum distance for vortex lines from the origin */
@@ -274,7 +274,7 @@ int main(int argc, char **argv) {
   grid_threads_init(THREADS);
   grid_fft_read_wisdom(NULL);
 
-  grid_wf_analyze_method(0);  // FD = 0, FFT = 1
+  grid_wf_analyze_method(1);  // FD = 0, FFT = 1
 
   /* Allocate wave functions */
   if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
