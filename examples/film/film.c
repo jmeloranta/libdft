@@ -25,11 +25,14 @@
 
 /* Time integration and spatial grid parameters */
 #define TS 2.0 /* fs (was 5) */
-#define ITS (0.00 * TS)       /* Imag. time component (dissipation; 0 = none or 1 = full). Tsubota gamma = 0.02 */
-#define NX 2048
-#define NY 2048
-#define NZ 16
-#define STEP 0.5
+#define LAMBDA 0.1
+#define TEMP 0.5
+#define ITS (LAMBDA * TS)       /* Imag. time component (dissipation; 0 = none or 1 = full). Tsubota gamma = 0.02 */
+#define RANDOM_WIDTH (((TS / GRID_AUTOFS) * I * / (1.0 - LAMBDA * I)) * SQRT(2.0 * GRID_KB * TEMP * LAMBDA / HELIUM_MASS))
+#define NX 512
+#define NY 512
+#define NZ 32
+#define STEP 1.0
 #define MAXITER 8000000
 
 /* E(k) */
@@ -53,10 +56,10 @@
 #define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 1000           /* Number of + and - vortex pairs */
+#define NPAIRS 50           /* Number of + and - vortex pairs */
 #define PAIR_DIST 10.0       /* Min. distance between + and - vortex pairs */
-//#define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
-#define MAX_DIST 300.0       /* Maximum distance for vortex lines from the origin */
+#define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
+#define MAX_DIST (HE_RADIUS-10.0)       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
 /* Normalization (was 900.0) - now use 90% of the radius */
@@ -64,7 +67,7 @@
 #define HE_NORM (rho0 * M_PI * HE_RADIUS * HE_RADIUS * STEP * (REAL) (NZ-1))
 
 /* Print vortex line locations only? (otherwise write full grids) */
-#define LINE_LOCATIONS_ONLY
+//#define LINE_LOCATIONS_ONLY
 
 /* Vortex line search parameters */
 #define MIN_DIST_CORE 3.5
@@ -332,8 +335,8 @@ int main(int argc, char **argv) {
   printf("done.\n");
 
 #ifdef MANUAL_LINES
-  linep[0] = -50.0;
-  linep[1] = 4.0;
+  linep[0] = -30.0;
+  linep[1] = 5.0;
   linep[2] = 0.0;
   linep[3] = -1.0;
   linep[4] = 0.0;
@@ -342,8 +345,8 @@ int main(int argc, char **argv) {
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
 
-  linep[0] = -50.0;
-  linep[1] = -4.0;
+  linep[0] = -30.0;
+  linep[1] = -5.0;
   linep[2] = 0.0;
   linep[3] = 1.0;
   linep[4] = 0.0;
@@ -351,6 +354,16 @@ int main(int argc, char **argv) {
   cgrid_product(gwf->grid, gwf->grid, potential_store);
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
+
+//  linep[0] = 10.0;
+//  linep[1] = 0.0;
+//  linep[2] = 0.0;
+//  linep[3] = -1.0;
+//  linep[4] = 0.0;
+//  cgrid_map(potential_store, vline, linep);
+//  cgrid_product(gwf->grid, gwf->grid, potential_store);
+//  cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
+//  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
 #endif
 
 #ifdef RANDOM_LINES
@@ -535,6 +548,9 @@ int main(int argc, char **argv) {
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate(gwf, potential_store, tstep);
 #endif /* PC */
+#ifdef RANDOM_AMP
+    cgrid_random_uniform(gwf->grid, RANDOM_WIDTH);
+#endif  
   }
   return 0;
 }
