@@ -34,8 +34,8 @@
 #define LAMBDA 0.0
 #endif
 
-#define NX 1024
-#define NY 1024
+#define NX 2048
+#define NY 2048
 #define NZ 32
 #define STEP 1.0
 #define MAXITER 8000000
@@ -72,11 +72,11 @@
 #define HE_NORM (rho0 * M_PI * HE_RADIUS * HE_RADIUS * STEP * (REAL) (NZ-1))
 
 /* Print vortex line locations only? (otherwise write full grids) */
-//#define LINE_LOCATIONS_ONLY
+#define LINE_LOCATIONS_ONLY
 
 /* Vortex line search parameters */
-#define MIN_DIST_CORE 3.5
-#define ADJUST 0.65
+#define MIN_DIST_CORE 3.5  // min distance between cores
+#define ADJUST 0.65  // |rot| adjust
 
 /* Start simulation after this many iterations (1: columng, 2: column+vortices) */
 #define START1 (1000)  // vortex lines (was 1000)
@@ -124,12 +124,29 @@ int check_boundary(REAL x, REAL y) {
   return 0; // inside
 }
 
-void locate_lines(rgrid *rot) {
+int check_line_center(rgrid *density, rgrid *rot, REAL m, INT i, INT j, INT k) {
+
+#if 0
+  if(FABS(rgrid_value_at_index(rot, i, j, k)) > m) return 1;
+  else return 0;
+#else
+  REAL tmp;
+  tmp = rgrid_value_at_index(density, i, j, k);
+  if(tmp < rgrid_value_at_index(density, i-1, j, k) && tmp < rgrid_value_at_index(density, i+1, j, k) && tmp < rgrid_value_at_index(density, i, j-1, k) && tmp < rgrid_value_at_index(density, i, j+1, k) && tmp < rho0/10.0) return 1;
+  else return 0;
+#endif
+}
+
+void locate_lines(rgrid *density, rgrid *rot) {
 
   INT i, k, j;
-  REAL xx, yy, tmp;
+  REAL xx, yy;
   static REAL m = -1.0;
 
+#ifdef USE_CUDA
+  cuda_remove_block(density->value, 1);
+  cuda_remove_block(rot->value, 1);
+#endif
   nptsm = nptsp = 0;
   k = NZ / 2;
   if(m < 0.0) {
@@ -143,9 +160,8 @@ void locate_lines(rgrid *rot) {
     xx = ((REAL) (i - NX/2)) * STEP;
     for (j = 0; j < NY; j++) {
       yy = ((REAL) (j - NY/2)) * STEP;
-      if(!check_boundary(xx, yy) && FABS(tmp = rgrid_value_at_index(rot, i, j, k)) > m && !check_proximity(xx, yy, MIN_DIST_CORE)) {
-        printf(FMT_R " " FMT_R, xx, yy);
-        if(tmp > 0.0) { // switched < to > to get the +/- correctly
+      if(!check_boundary(xx, yy) && check_line_center(density, rot, m, i, j, k) && !check_proximity(xx, yy, MIN_DIST_CORE)) {
+        if(rgrid_value_at_index(rot, i, j, k) > 0.0) { // switched < to > to get the +/- correctly
           if(nptsm >= 2*NPAIRS) {
             fprintf(stderr, "Error(-): More lines than generated initially!\n");
             exit(1);
@@ -153,7 +169,6 @@ void locate_lines(rgrid *rot) {
           xm[nptsm] = xx;
           ym[nptsm] = yy;
           nptsm++;
-          printf(" -\n");
         } else {
           if(nptsp >= 2*NPAIRS) {
             fprintf(stderr, "Error(+): More lines than generated initially!\n");
@@ -162,25 +177,30 @@ void locate_lines(rgrid *rot) {
           xp[nptsp] = xx;
           yp[nptsp] = yy;
           nptsp++;
-          printf(" +\n");
         }
       }
     }
   }
 }
 
+FILE *fpm = NULL, *fpp = NULL;
+
 void print_lines() {
 
   INT i;
 
-  printf("YYY1 " FMT_I "\n", nptsp);
-  printf("YYY2 " FMT_I "\n", nptsm);
-  printf("XXX1\n");
-  printf("XXX2\n");
+  if(!fpm || !fpp) {
+    if(!(fpm = fopen("minus.dat", "w"))) exit(1);
+    if(!(fpp = fopen("plus.dat", "w"))) exit(1);
+  }
   for (i = 0; i < nptsm; i++)
-    printf("XXX1 " FMT_R " " FMT_R "\n", xm[i], ym[i]);
+    fprintf(fpm, FMT_R " " FMT_R "\n", xm[i], ym[i]);
   for (i = 0; i < nptsp; i++)
-    printf("XXX2 " FMT_R " " FMT_R "\n", xp[i], yp[i]);
+    fprintf(fpp, FMT_R " " FMT_R "\n", xp[i], yp[i]);
+  fprintf(fpm, "\n");
+  fprintf(fpp, "\n");
+  fflush(fpm);
+  fflush(fpp);
 }  
 
 #define BOXXL (NX * STEP)
@@ -340,18 +360,8 @@ int main(int argc, char **argv) {
   printf("done.\n");
 
 #ifdef MANUAL_LINES
-  linep[0] = -25.0;
-  linep[1] = 4.0;
-  linep[2] = 0.0;
-  linep[3] = -1.0;
-  linep[4] = 0.0;
-  cgrid_map(potential_store, vline, linep);
-  cgrid_product(gwf->grid, gwf->grid, potential_store);
-  cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
-  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
-
-  linep[0] = -25.0;
-  linep[1] = -4.0;
+  linep[0] = 0.0;
+  linep[1] = 8.0;
   linep[2] = 0.0;
   linep[3] = 1.0;
   linep[4] = 0.0;
@@ -361,7 +371,7 @@ int main(int argc, char **argv) {
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
 
   linep[0] = 0.0;
-  linep[1] = 4.0;
+  linep[1] = -8.0;
   linep[2] = 0.0;
   linep[3] = 1.0;
   linep[4] = 0.0;
@@ -369,17 +379,6 @@ int main(int argc, char **argv) {
   cgrid_product(gwf->grid, gwf->grid, potential_store);
   cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
-
-  linep[0] = 0.0;
-  linep[1] = -4.0;
-  linep[2] = 0.0;
-  linep[3] = 1.0;
-  linep[4] = 0.0;
-  cgrid_map(potential_store, vline, linep);
-  cgrid_product(gwf->grid, gwf->grid, potential_store);
-  cgrid_multiply(gwf->grid, 1.0 / SQRT(rho0));
-  printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
-
 #endif
 
 #ifdef RANDOM_LINES
@@ -478,9 +477,11 @@ int main(int argc, char **argv) {
 #ifdef LINE_LOCATIONS_ONLY
       grid_wf_probability_flux_x(gwf, otf->workspace1);
       if(!otf->workspace2) otf->workspace2 = rgrid_clone(otf->density, "OT workspace 2");
+      if(!otf->workspace3) otf->workspace3 = rgrid_clone(otf->density, "OT workspace 3");
       grid_wf_probability_flux_y(gwf, otf->workspace2);
-      rgrid_rot(NULL, NULL, otf->density, otf->workspace1, otf->workspace2, NULL);
-      locate_lines(otf->density);
+      rgrid_rot(NULL, NULL, otf->workspace3, otf->workspace1, otf->workspace2, NULL);
+      grid_wf_density(gwf, otf->density);
+      locate_lines(otf->density, otf->workspace3);
       print_lines();
       sprintf(buf, "film-" FMT_I ".pair", iter);
       print_pair_dist(buf);
