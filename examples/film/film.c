@@ -61,14 +61,14 @@
 #define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 120           /* Number of + and - vortex pairs */
+#define NPAIRS 600           /* Number of + and - vortex pairs */
 #define PAIR_DIST 10.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
 #define MAX_DIST (HE_RADIUS-10.0)       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
 /* Normalization (was 900.0) - now use 90% of the radius */
-#define HE_RADIUS (0.9 * (NX * STEP / 2.0))
+#define HE_RADIUS (0.8 * (NX * STEP / 2.0))
 #define HE_NORM (rho0 * M_PI * HE_RADIUS * HE_RADIUS * STEP * (REAL) (NZ-1))
 
 /* Print vortex line locations only? (otherwise write full grids) */
@@ -183,7 +183,7 @@ void locate_lines(rgrid *density, rgrid *rot) {
   }
 }
 
-FILE *fpm = NULL, *fpp = NULL;
+FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 
 void print_lines() {
 
@@ -192,7 +192,13 @@ void print_lines() {
   if(!fpm || !fpp) {
     if(!(fpm = fopen("minus.dat", "w"))) exit(1);
     if(!(fpp = fopen("plus.dat", "w"))) exit(1);
+    if(!(fp1 = fopen("nminus.dat", "w"))) exit(1);
+    if(!(fp2 = fopen("nplus.dat", "w"))) exit(1);
   }
+  fprintf(fp1, FMT_I "\n", nptsm);
+  fprintf(fp2, FMT_I "\n", nptsp);
+  fflush(fp1);
+  fflush(fp2);
   for (i = 0; i < nptsm; i++)
     fprintf(fpm, FMT_R " " FMT_R "\n", xm[i], ym[i]);
   for (i = 0; i < nptsp; i++)
@@ -205,6 +211,8 @@ void print_lines() {
 
 #define BOXXL (NX * STEP)
 #define BOXYL (NY * STEP)
+
+/* Consider all +/- pairs */
 void print_pair_dist(char *file) {
 
   INT i, j;
@@ -226,6 +234,35 @@ void print_pair_dist(char *file) {
       dy -= BOXYL * (REAL) ((INT) (0.5 + dy / BOXYL));
 #endif
       fprintf(fp, FMT_R "\n", SQRT(dx * dx + dy * dy));
+  }
+  fclose(fp);
+}
+
+/* Consider only nearest +/- pairs */
+void print_pair_dist2(char *file) {
+
+  INT i, j;
+  REAL dx, dy, m, tmp;
+  FILE *fp;
+
+  if(!(fp = fopen(file, "w"))) {
+    fprintf(stderr, "Can't open pair dist file.\n");
+    exit(1);
+  }
+  for (i = 0; i < nptsp; i++) {
+    m = 1E18;
+    for (j = 0; j < nptsm; j++) {
+      dx = xp[i] - xm[j];
+      dy = yp[i] - ym[j];
+// We don't have periodic boundary at the moment - cylinder!
+#if 0
+      /* periodic boundary */
+      dx -= BOXXL * (REAL) ((INT) (0.5 + dx / BOXXL));
+      dy -= BOXYL * (REAL) ((INT) (0.5 + dy / BOXYL));
+#endif
+      if((tmp = SQRT(dx * dx + dy * dy)) < m) m = tmp;
+    }
+    fprintf(fp, FMT_R "\n", m);
   }
   fclose(fp);
 }
@@ -485,6 +522,8 @@ int main(int argc, char **argv) {
       print_lines();
       sprintf(buf, "film-" FMT_I ".pair", iter);
       print_pair_dist(buf);
+      sprintf(buf, "film-" FMT_I ".npair", iter);
+      print_pair_dist2(buf);
 #else
       sprintf(buf, "film-" FMT_I, iter);
       cgrid_write_grid(buf, gwf->grid);
