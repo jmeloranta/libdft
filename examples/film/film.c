@@ -67,16 +67,18 @@
 #define MAX_DIST (HE_RADIUS-10.0)       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
-/* Normalization (was 900.0) - now use 90% of the radius */
-#define HE_RADIUS (0.8 * (NX * STEP / 2.0))
+/* Normalization - now use this many % of the radius */
+#define PERCENT 0.7
+#define HE_RADIUS (PERCENT * (NX * STEP / 2.0))
 #define HE_NORM (rho0 * M_PI * HE_RADIUS * HE_RADIUS * STEP * (REAL) (NZ-1))
 
 /* Print vortex line locations only? (otherwise write full grids) */
 #define LINE_LOCATIONS_ONLY
 
-/* Vortex line search parameters */
-#define MIN_DIST_CORE 3.5  // min distance between cores
-#define ADJUST 0.65  // |rot| adjust
+/* Vortex line search specific parameters */
+#define MIN_DIST_CORE 3.5  // min distance between cores (annihilate below this)
+#define ADJUST 0.65  // |rot| adjust (not used currently)
+#define DIST_CUTOFF ((0.90 / PERCENT) * HE_RADIUS) // allow lines to be inside this radius
 
 /* Start simulation after this many iterations (1: columng, 2: column+vortices) */
 #define START1 (1000)  // vortex lines (was 1000)
@@ -120,7 +122,7 @@ INT check_proximity(REAL xx, REAL yy, REAL dist) {
 
 int check_boundary(REAL x, REAL y) {
 
-  if(SQRT(x*x + y*y) > 0.9*HE_RADIUS) return 1;
+  if(SQRT(x*x + y*y) > 1.25 * HE_RADIUS) return 1;
   return 0; // inside
 }
 
