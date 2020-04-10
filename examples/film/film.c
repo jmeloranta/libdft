@@ -34,8 +34,8 @@
 #define LAMBDA 0.0
 #endif
 
-#define NX 1024
-#define NY 1024
+#define NX 2048
+#define NY 2048
 #define NZ 32
 #define STEP 1.0
 #define MAXITER 8000000
@@ -61,14 +61,15 @@
 #define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 4           /* Number of + and - vortex pairs */
+#define NPAIRS 100           /* Number of + and - vortex pairs */
 #define PAIR_DIST 10.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
-#define MAX_DIST (HE_RADIUS-100.0)       /* Maximum distance for vortex lines from the origin */
+#define MAX_DIST (HE_RADIUS-500.0)       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
 /* Normalization - now use this many % of the width for the radius (need some empty space due to periodic bc) */
-#define HE_RADIUS ((NX * STEP / 2.0) - 20.0)
+//#define ALL_BULK  // If defined, use bulk rather than a column
+#define HE_RADIUS ((NX * STEP / 2.0) - 300.0)
 #define HE_NORM (rho0 * M_PI * HE_RADIUS * HE_RADIUS * STEP * (REAL) (NZ-1))
 
 /* Print vortex line locations only? (otherwise write full grids) */
@@ -150,7 +151,7 @@ int check_line_center(rgrid *density, rgrid *rot, REAL m, INT i, INT j, INT k) {
 void locate_lines(rgrid *density, rgrid *rot) {
 
   INT i, k, j;
-  REAL xx, yy;
+  REAL xx, yy, tmp;
   static REAL m = -1.0;
 
 #ifdef USE_CUDA
@@ -160,7 +161,6 @@ void locate_lines(rgrid *density, rgrid *rot) {
   nptsm = nptsp = 0;
   k = NZ / 2;
   if(m < 0.0) {
-    REAL tmp;
     m = rgrid_max(rot) * ADJUST;
     tmp = FABS(rgrid_min(rot)) * ADJUST;
     if(tmp > m) m = tmp;
@@ -171,7 +171,8 @@ void locate_lines(rgrid *density, rgrid *rot) {
     for (j = 0; j < NY; j++) {
       yy = ((REAL) (j - NY/2)) * STEP;
       if(!check_boundary(xx, yy, DIST_CUTOFF) && check_line_center(density, rot, m, i, j, k) && !check_proximity(xx, yy, MIN_DIST_CORE)) {
-        if(rgrid_value_at_index(rot, i, j, k) > 0.0) { // switched < to > to get the +/- correctly
+        tmp = (rgrid_value_at_index(rot, i, j, k) + rgrid_value_at_index(rot, i-1, j, k) + rgrid_value_at_index(rot, i+1, j, k) + rgrid_value_at_index(rot, i, j-1, k) + rgrid_value_at_index(rot, i, j+1, k)) / 5.0;
+        if(tmp > 0.0) { // switched < to > to get the +/- correctly
           if(nptsm >= 2*NPAIRS) {
             fprintf(stderr, "Error(-): More lines than generated initially!\n");
             exit(1);
@@ -388,9 +389,10 @@ int main(int argc, char **argv) {
   cgrid_map(gwf->grid, random_start, gwf->grid);
 #endif
 
+#ifndef ALL_BULK
+  tstep = -I * TS * 20.0 / GRID_AUTOFS;
   /* Relax vortices for a bit (1: the column) */
   printf("Cylinder equilibriation...");
-  tstep = -I * TS * 20.0 / GRID_AUTOFS;
 #ifdef HE_NORM
   gwf->norm = HE_NORM;
 #endif
@@ -405,6 +407,9 @@ int main(int argc, char **argv) {
 #endif
   }
   printf("done.\n");
+#else
+  cgrid_constant(gwf->grid, SQRT(rho0));
+#endif /* ALL_BULK */
 
 #ifdef MANUAL_LINES
   linep[0] = 0.0;
@@ -509,8 +514,10 @@ int main(int argc, char **argv) {
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate(gwf, potential_store, tstep);
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer)); fflush(stdout);
+#ifndef ALL_BULK
 #ifdef HE_NORM
-    grid_wf_normalize(gwf);
+    grid_wf_normalize(gwf);    
+#endif
 #endif
   }
   printf("done.\n");
