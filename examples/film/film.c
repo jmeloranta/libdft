@@ -34,8 +34,8 @@
 #define LAMBDA 0.0
 #endif
 
-#define NX 2048
-#define NY 2048
+#define NX 1024
+#define NY 1024
 #define NZ 32
 #define STEP 1.0
 #define MAXITER 8000000
@@ -61,15 +61,14 @@
 #define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 600           /* Number of + and - vortex pairs */
+#define NPAIRS 4           /* Number of + and - vortex pairs */
 #define PAIR_DIST 10.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
-#define MAX_DIST (HE_RADIUS-10.0)       /* Maximum distance for vortex lines from the origin */
+#define MAX_DIST (HE_RADIUS-100.0)       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
-/* Normalization - now use this many % of the radius */
-#define PERCENT 0.7
-#define HE_RADIUS (PERCENT * (NX * STEP / 2.0))
+/* Normalization - now use this many % of the width for the radius (need some empty space due to periodic bc) */
+#define HE_RADIUS ((NX * STEP / 2.0) - 20.0)
 #define HE_NORM (rho0 * M_PI * HE_RADIUS * HE_RADIUS * STEP * (REAL) (NZ-1))
 
 /* Print vortex line locations only? (otherwise write full grids) */
@@ -78,7 +77,7 @@
 /* Vortex line search specific parameters */
 #define MIN_DIST_CORE 3.5  // min distance between cores (annihilate below this)
 #define ADJUST 0.65  // |rot| adjust (not used currently)
-#define DIST_CUTOFF ((0.90 / PERCENT) * HE_RADIUS) // allow lines to be inside this radius
+#define DIST_CUTOFF (HE_RADIUS - 10.0) // allow lines to be inside this radius
 
 /* Start simulation after this many iterations (1: columng, 2: column+vortices) */
 #define START1 (1000)  // vortex lines (was 1000)
@@ -120,9 +119,9 @@ INT check_proximity(REAL xx, REAL yy, REAL dist) {
   return 0; // all clear
 }
 
-int check_boundary(REAL x, REAL y) {
+int check_boundary(REAL x, REAL y, REAL cutoff) {
 
-  if(SQRT(x*x + y*y) > 1.25 * HE_RADIUS) return 1;
+  if(SQRT(x*x + y*y) > cutoff) return 1;
   return 0; // inside
 }
 
@@ -134,7 +133,16 @@ int check_line_center(rgrid *density, rgrid *rot, REAL m, INT i, INT j, INT k) {
 #else
   REAL tmp;
   tmp = rgrid_value_at_index(density, i, j, k);
-  if(tmp < rgrid_value_at_index(density, i-1, j, k) && tmp < rgrid_value_at_index(density, i+1, j, k) && tmp < rgrid_value_at_index(density, i, j-1, k) && tmp < rgrid_value_at_index(density, i, j+1, k) && tmp < rho0/10.0) return 1;
+  if(rgrid_value_at_index(density, i-2, j, k) > rgrid_value_at_index(density, i-1, j, k) &&
+     rgrid_value_at_index(density, i-1, j, k) > tmp &&
+     tmp < rgrid_value_at_index(density, i+1, j, k) &&
+     rgrid_value_at_index(density, i+1, j, k) < rgrid_value_at_index(density, i+2, j, k) &&
+     rgrid_value_at_index(density, i, j-2, k) > rgrid_value_at_index(density, i, j-1, k) &&
+     rgrid_value_at_index(density, i, j-1, k) > tmp &&
+     tmp < rgrid_value_at_index(density, i, j+1, k) &&
+     rgrid_value_at_index(density, i, j+1, k) < rgrid_value_at_index(density, i, j+2, k)
+     && tmp < rho0/10.0) return 1;
+//  if(tmp < rgrid_value_at_index(density, i-1, j, k) && tmp < rgrid_value_at_index(density, i+1, j, k) && tmp < rgrid_value_at_index(density, i, j-1, k) && tmp < rgrid_value_at_index(density, i, j+1, k) && tmp < rho0/10.0) return 1;
   else return 0;
 #endif
 }
@@ -162,7 +170,7 @@ void locate_lines(rgrid *density, rgrid *rot) {
     xx = ((REAL) (i - NX/2)) * STEP;
     for (j = 0; j < NY; j++) {
       yy = ((REAL) (j - NY/2)) * STEP;
-      if(!check_boundary(xx, yy) && check_line_center(density, rot, m, i, j, k) && !check_proximity(xx, yy, MIN_DIST_CORE)) {
+      if(!check_boundary(xx, yy, DIST_CUTOFF) && check_line_center(density, rot, m, i, j, k) && !check_proximity(xx, yy, MIN_DIST_CORE)) {
         if(rgrid_value_at_index(rot, i, j, k) > 0.0) { // switched < to > to get the +/- correctly
           if(nptsm >= 2*NPAIRS) {
             fprintf(stderr, "Error(-): More lines than generated initially!\n");
@@ -438,7 +446,7 @@ int main(int argc, char **argv) {
       yp[nptsp] = linep[1] = -(STEP/2.0) * NY + drand48() * STEP * NY;
 #endif
       linep[2] = 0.0;
-    } while(check_proximity(linep[0], linep[1], PAIR_DIST) || check_boundary(linep[0], linep[1]));
+    } while(check_proximity(linep[0], linep[1], PAIR_DIST) || check_boundary(linep[0], linep[1], MAX_DIST));
     nptsp++;
     linep[3] = 1.0; 
     linep[4] = 0.0;
@@ -452,7 +460,7 @@ int main(int argc, char **argv) {
       xm[nptsm] = linem[0] = -(STEP/2.0) * NX + drand48() * STEP * NX; // origin +- displacement
       ym[nptsm] = linem[1] = -(STEP/2.0) * NY + drand48() * STEP * NY;
 #endif
-    } while(check_proximity(linem[0], linem[1], PAIR_DIST) || check_boundary(linem[0], linem[1]));
+    } while(check_proximity(linem[0], linem[1], PAIR_DIST) || check_boundary(linem[0], linem[1], MAX_DIST));
     nptsm++;
     linem[2] = 0.0;
     linem[3] = -1.0; 
@@ -473,7 +481,7 @@ int main(int argc, char **argv) {
         break;
       }
       try++;
-    } while (check_proximity(linem[0], linem[1], PAIR_DIST) || check_boundary(linem[0], linem[1]));
+    } while (check_proximity(linem[0], linem[1], PAIR_DIST) || check_boundary(linem[0], linem[1], MAX_DIST));
     if(try > NRETRY) continue;    
     nptsm++;
     linem[3] = -1.0; 
