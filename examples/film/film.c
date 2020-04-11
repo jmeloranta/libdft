@@ -61,24 +61,24 @@
 #define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 100           /* Number of + and - vortex pairs */
-#define PAIR_DIST 10.0       /* Min. distance between + and - vortex pairs */
+#define NPAIRS 500           /* Number of + and - vortex pairs */
+#define PAIR_DIST 20.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
 #define MAX_DIST (HE_RADIUS-500.0)       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
 /* Normalization - now use this many % of the width for the radius (need some empty space due to periodic bc) */
 //#define ALL_BULK  // If defined, use bulk rather than a column
-#define HE_RADIUS ((NX * STEP / 2.0) - 300.0)
+#define HE_RADIUS ((NX * STEP / 2.0) - 50.0)
 #define HE_NORM (rho0 * M_PI * HE_RADIUS * HE_RADIUS * STEP * (REAL) (NZ-1))
 
 /* Print vortex line locations only? (otherwise write full grids) */
 #define LINE_LOCATIONS_ONLY
 
 /* Vortex line search specific parameters */
-#define MIN_DIST_CORE 3.5  // min distance between cores (annihilate below this)
+#define MIN_DIST_CORE 2.0  // min distance between cores (annihilate below this)
 #define ADJUST 0.65  // |rot| adjust (not used currently)
-#define DIST_CUTOFF (HE_RADIUS - 10.0) // allow lines to be inside this radius
+#define DIST_CUTOFF (HE_RADIUS - 300.0) // allow lines to be inside this radius
 
 /* Start simulation after this many iterations (1: columng, 2: column+vortices) */
 #define START1 (1000)  // vortex lines (was 1000)
