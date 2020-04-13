@@ -36,8 +36,8 @@
 
 #define NX 2048
 #define NY 2048
-#define NZ 32
-#define STEP 1.0
+#define NZ 16
+#define STEP 2.0
 #define MAXITER 8000000
 
 /* E(k) */
@@ -61,7 +61,7 @@
 #define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 500           /* Number of + and - vortex pairs */
+#define NPAIRS 1000           /* Number of + and - vortex pairs */
 #define PAIR_DIST 20.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
 #define MAX_DIST (HE_RADIUS-500.0)       /* Maximum distance for vortex lines from the origin */
@@ -78,11 +78,11 @@
 /* Vortex line search specific parameters */
 #define MIN_DIST_CORE 2.0  // min distance between cores (annihilate below this)
 #define ADJUST 0.65  // |rot| adjust (not used currently)
-#define DIST_CUTOFF (HE_RADIUS - 300.0) // allow lines to be inside this radius
+#define DIST_CUTOFF (HE_RADIUS - 200.0) // allow lines to be inside this radius
 
 /* Start simulation after this many iterations (1: columng, 2: column+vortices) */
 #define START1 (1000)  // vortex lines (was 1000)
-#define START2 (1600)  // vortex lines (was 1600)
+#define START2 (1000)  // vortex lines (was 1600)
 
 /* Output every NTH iteration (was 5000) */
 #define NTH 2000
@@ -131,7 +131,9 @@ int check_line_center(rgrid *density, rgrid *rot, REAL m, INT i, INT j, INT k) {
 #if 0
   if(FABS(rgrid_value_at_index(rot, i, j, k)) > m) return 1;
   else return 0;
-#else
+#endif
+
+#if 0
   REAL tmp;
   tmp = rgrid_value_at_index(density, i, j, k);
   if(rgrid_value_at_index(density, i-2, j, k) > rgrid_value_at_index(density, i-1, j, k) &&
@@ -144,6 +146,20 @@ int check_line_center(rgrid *density, rgrid *rot, REAL m, INT i, INT j, INT k) {
      rgrid_value_at_index(density, i, j+1, k) < rgrid_value_at_index(density, i, j+2, k)
      && tmp < rho0/10.0) return 1;
 //  if(tmp < rgrid_value_at_index(density, i-1, j, k) && tmp < rgrid_value_at_index(density, i+1, j, k) && tmp < rgrid_value_at_index(density, i, j-1, k) && tmp < rgrid_value_at_index(density, i, j+1, k) && tmp < rho0/10.0) return 1;
+  else return 0;
+#endif
+
+#if 1
+  REAL tmp;
+  tmp = rgrid_value_at_index(density, i, j, k);
+  if(tmp <= rgrid_value_at_index(density, i-1, j, k) &&
+     tmp <= rgrid_value_at_index(density, i+1, j, k) &&
+     tmp <= rgrid_value_at_index(density, i, j-1, k) &&  
+     tmp <= rgrid_value_at_index(density, i, j+1, k) &&  
+     tmp <= rgrid_value_at_index(density, i+1, j+1, k) &&  
+     tmp <= rgrid_value_at_index(density, i-1, j-1, k) &&  
+     tmp <= rgrid_value_at_index(density, i+1, j-1, k) &&  
+     tmp <= rgrid_value_at_index(density, i-1, j+1, k) && tmp < 0.0022) return 1;
   else return 0;
 #endif
 }
@@ -210,8 +226,16 @@ void print_lines() {
   fprintf(fp2, FMT_I "\n", nptsp);
   fflush(fp1);
   fflush(fp2);
+  fprintf(fpm, FMT_R " " FMT_R "\n", -DIST_CUTOFF, -DIST_CUTOFF);
+  fprintf(fpm, FMT_R " " FMT_R "\n", DIST_CUTOFF, -DIST_CUTOFF);
+  fprintf(fpm, FMT_R " " FMT_R "\n", -DIST_CUTOFF, DIST_CUTOFF);
+  fprintf(fpm, FMT_R " " FMT_R "\n", DIST_CUTOFF, DIST_CUTOFF);
   for (i = 0; i < nptsm; i++)
     fprintf(fpm, FMT_R " " FMT_R "\n", xm[i], ym[i]);
+  fprintf(fpp, FMT_R " " FMT_R "\n", -DIST_CUTOFF, -DIST_CUTOFF);
+  fprintf(fpp, FMT_R " " FMT_R "\n", DIST_CUTOFF, -DIST_CUTOFF);
+  fprintf(fpp, FMT_R " " FMT_R "\n", -DIST_CUTOFF, DIST_CUTOFF);
+  fprintf(fpp, FMT_R " " FMT_R "\n", DIST_CUTOFF, DIST_CUTOFF);
   for (i = 0; i < nptsp; i++)
     fprintf(fpp, FMT_R " " FMT_R "\n", xp[i], yp[i]);
   fprintf(fpm, "\n");
@@ -413,7 +437,7 @@ int main(int argc, char **argv) {
 
 #ifdef MANUAL_LINES
   linep[0] = 0.0;
-  linep[1] = 8.0;
+  linep[1] = 50.0;
   linep[2] = 0.0;
   linep[3] = 1.0;
   linep[4] = 0.0;
@@ -423,9 +447,9 @@ int main(int argc, char **argv) {
   printf("Line (%c): " FMT_R "," FMT_R "\n", linep[3]==1.0?'+':'-', linep[0], linep[1]); fflush(stdout);
 
   linep[0] = 0.0;
-  linep[1] = -8.0;
+  linep[1] = -50.0;
   linep[2] = 0.0;
-  linep[3] = 1.0;
+  linep[3] = -1.0;
   linep[4] = 0.0;
   cgrid_map(potential_store, vline, linep);
   cgrid_product(gwf->grid, gwf->grid, potential_store);
