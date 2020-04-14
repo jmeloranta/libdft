@@ -61,7 +61,7 @@
 #define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 1000           /* Number of + and - vortex pairs */
+#define NPAIRS 500           /* Number of + and - vortex pairs (was 500) */
 #define PAIR_DIST 20.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
 #define MAX_DIST (HE_RADIUS-500.0)       /* Maximum distance for vortex lines from the origin */
@@ -299,6 +299,52 @@ void print_pair_dist2(char *file) {
     }
     fprintf(fp, FMT_R "\n", m);
   }
+  fclose(fp);
+}
+
+/* Consider only nearest +/+ or -/- pairs */
+void print_pair_dist3(char *file) {
+
+  INT i, j;
+  REAL dx, dy, m, tmp;
+  FILE *fp;
+
+  if(!(fp = fopen(file, "w"))) {
+    fprintf(stderr, "Can't open pair dist file.\n");
+    exit(1);
+  }
+  for (i = 0; i < nptsp; i++) { // +/+
+    m = 1E18;
+    for (j = 0; j < nptsp; j++) {
+      dx = xp[i] - xp[j];
+      dy = yp[i] - yp[j];
+// We don't have periodic boundary at the moment - cylinder!
+#if 0
+      /* periodic boundary */
+      dx -= BOXXL * (REAL) ((INT) (0.5 + dx / BOXXL));
+      dy -= BOXYL * (REAL) ((INT) (0.5 + dy / BOXYL));
+#endif
+      if((tmp = SQRT(dx * dx + dy * dy)) < m && i != j) m = tmp;
+    }
+    fprintf(fp, FMT_R "\n", m);
+  }
+  for (i = 0; i < nptsm; i++) {  // -/-
+    m = 1E18;
+    for (j = 0; j < nptsm; j++) {
+      dx = xm[i] - xm[j];
+      dy = ym[i] - ym[j];
+// We don't have periodic boundary at the moment - cylinder!
+#if 0
+      /* periodic boundary */
+      dx -= BOXXL * (REAL) ((INT) (0.5 + dx / BOXXL));
+      dy -= BOXYL * (REAL) ((INT) (0.5 + dy / BOXYL));
+#endif
+      if((tmp = SQRT(dx * dx + dy * dy)) < m && i != j) m = tmp;
+    }
+    fprintf(fp, FMT_R "\n", m);
+  }
+
+
   fclose(fp);
 }
 
@@ -563,8 +609,10 @@ int main(int argc, char **argv) {
       print_lines();
       sprintf(buf, "film-" FMT_I ".pair", iter);
       print_pair_dist(buf);
-      sprintf(buf, "film-" FMT_I ".npair", iter);
+      sprintf(buf, "film-" FMT_I ".nopair", iter);  // Nearest +/-
       print_pair_dist2(buf);
+      sprintf(buf, "film-" FMT_I ".nspair", iter);  // Nearest +/+ or -/-
+      print_pair_dist3(buf);
 #else
       sprintf(buf, "film-" FMT_I, iter);
       cgrid_write_grid(buf, gwf->grid);
