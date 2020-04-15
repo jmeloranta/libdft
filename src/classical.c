@@ -9,7 +9,7 @@
  * dft_classical_add_eos_potential(pot, ...);
  * dft_classical_add_viscous_potential(pot, ...);  // both functions leave pot in Fourier space
  * rgrid_fft(pot);
- * rgrid_poisson(pot);
+ * rgrid_fft_poisson(pot);
  * rgrid_inverse_fft_norm(pot);
  * 
  * Now pot holds the potential corresponding to the EOS and viscous response.
@@ -81,7 +81,7 @@ EXPORT void dft_classical_tait(rgrid *pot, rgrid *density, REAL rho0, REAL k0, R
   rgrid_product(pot, pot, wrk);
 
   rgrid_fft(pot);
-  rgrid_poisson(pot);
+  rgrid_fft_poisson(pot);
   rgrid_inverse_fft_norm(pot);
 }
 
@@ -197,7 +197,7 @@ EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, rfunction *
   rgrid_div(vx, wrk1, wrk2, wrk3);
 
   rgrid_fft(vx);
-  rgrid_poisson(vx);
+  rgrid_fft_poisson(vx);
   rgrid_inverse_fft_norm(vx);
 
   rgrid_difference(pot, pot, vx);  // Include the final - sign here

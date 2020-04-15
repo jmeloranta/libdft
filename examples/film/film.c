@@ -34,10 +34,10 @@
 #define LAMBDA 0.0
 #endif
 
-#define NX 2048
-#define NY 2048
-#define NZ 16
-#define STEP 2.0
+#define NX 1024
+#define NY 1024
+#define NZ 32
+#define STEP 1.0
 #define MAXITER 8000000
 
 /* E(k) */
@@ -61,10 +61,10 @@
 #define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 500           /* Number of + and - vortex pairs (was 500) */
+#define NPAIRS 10           /* Number of + and - vortex pairs (was 1000) */
 #define PAIR_DIST 20.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
-#define MAX_DIST (HE_RADIUS-500.0)       /* Maximum distance for vortex lines from the origin */
+#define MAX_DIST (HE_RADIUS-100.0)       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
 /* Normalization - now use this many % of the width for the radius (need some empty space due to periodic bc) */
@@ -78,11 +78,11 @@
 /* Vortex line search specific parameters */
 #define MIN_DIST_CORE 2.0  // min distance between cores (annihilate below this)
 #define ADJUST 0.65  // |rot| adjust (not used currently)
-#define DIST_CUTOFF (HE_RADIUS - 200.0) // allow lines to be inside this radius
+#define DIST_CUTOFF (HE_RADIUS - 50.0) // allow lines to be inside this radius
 
 /* Start simulation after this many iterations (1: columng, 2: column+vortices) */
-#define START1 (1000)  // vortex lines (was 1000)
-#define START2 (1000)  // vortex lines (was 1600)
+#define START1 (100)  // vortex lines (was 1000)
+#define START2 (100)  // vortex lines (was 1600)
 
 /* Output every NTH iteration (was 5000) */
 #define NTH 2000
@@ -420,7 +420,7 @@ int main(int argc, char **argv) {
   grid_threads_init(THREADS);
   grid_fft_read_wisdom(NULL);
 
-  grid_wf_analyze_method(1);  // FD = 0, FFT = 1
+  grid_wf_analyze_method(0);  // FD = 0, FFT = 1
 
   /* Allocate wave functions */
   if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
