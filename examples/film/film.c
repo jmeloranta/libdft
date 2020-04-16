@@ -44,7 +44,7 @@
 #define KSPECTRUM /**/
 #define NBINS 60
 #define BINSTEP 0.05
-#define DENS_EPS 1E-4
+#define DENS_EPS 1E-3
 
 /* Predict-correct? */
 //#define PC
@@ -81,8 +81,8 @@
 #define DIST_CUTOFF (HE_RADIUS - 50.0) // allow lines to be inside this radius
 
 /* Start simulation after this many iterations (1: columng, 2: column+vortices) */
-#define START1 (100)  // vortex lines (was 1000)
-#define START2 (100)  // vortex lines (was 1600)
+#define START1 (1000)  // vortex lines (was 1000)
+#define START2 (1600)  // vortex lines (was 1600)
 
 /* Output every NTH iteration (was 5000) */
 #define NTH 2000
@@ -420,7 +420,7 @@ int main(int argc, char **argv) {
   grid_threads_init(THREADS);
   grid_fft_read_wisdom(NULL);
 
-  grid_wf_analyze_method(0);  // FD = 0, FFT = 1
+  grid_wf_analyze_method(1);  // FD = 0, FFT = 1
 
   /* Allocate wave functions */
   if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
@@ -630,7 +630,12 @@ int main(int argc, char **argv) {
           exit(1);
         }
       }
+
       /* The whole thing */
+//      grid_wf_velocity(gwf, otf->workspace1, otf->workspace2, otf->workspace3, DENS_EPS);
+//      rgrid_div(otf->workspace4, otf->workspace1, otf->workspace2, otf->workspace3);
+//      sprintf(file, "div-" FMT_I ".dat", iter);
+//      rgrid_write_grid(file, otf->workspace4);
       grid_wf_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, DENS_EPS);
       sprintf(file, "ke-" FMT_I ".dat", iter);
       if(!(fp = fopen(file, "w"))) {
