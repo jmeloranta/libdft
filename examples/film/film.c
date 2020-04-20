@@ -34,8 +34,8 @@
 #define LAMBDA 0.0
 #endif
 
-#define NX 1024
-#define NY 1024
+#define NX 2048
+#define NY 2048
 #define NZ 32
 #define STEP 1.0
 #define MAXITER 8000000
@@ -61,10 +61,10 @@
 #define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 10           /* Number of + and - vortex pairs (was 1000) */
-#define PAIR_DIST 20.0       /* Min. distance between + and - vortex pairs */
+#define NPAIRS 500           /* Number of + and - vortex pairs (was 1000) */
+#define PAIR_DIST 5.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
-#define MAX_DIST (HE_RADIUS-100.0)       /* Maximum distance for vortex lines from the origin */
+#define MAX_DIST (HE_RADIUS-400.0)       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
 /* Normalization - now use this many % of the width for the radius (need some empty space due to periodic bc) */
@@ -76,9 +76,9 @@
 #define LINE_LOCATIONS_ONLY
 
 /* Vortex line search specific parameters */
-#define MIN_DIST_CORE 2.0  // min distance between cores (annihilate below this)
-#define ADJUST 0.65  // |rot| adjust (not used currently)
-#define DIST_CUTOFF (HE_RADIUS - 50.0) // allow lines to be inside this radius
+#define MIN_DIST_CORE 3.0  // min distance between cores (annihilate below this)
+#define ADJUST 0.4  // |rot| adjust or CURRENTLY density threshold adjust
+#define DIST_CUTOFF (HE_RADIUS - 150.0) // allow lines to be inside this radius
 
 /* Start simulation after this many iterations (1: columng, 2: column+vortices) */
 #define START1 (1000)  // vortex lines (was 1000)
@@ -103,18 +103,18 @@ INT nptsp = 0, nptsm = 0;
 INT check_proximity(REAL xx, REAL yy, REAL dist) {
 
   INT i;
-  REAL x2, y2;
+  REAL x2, y2, dist2 = dist*dist;
 
   for (i = 0; i < nptsm; i++) {
     x2 = xx - xm[i]; x2 *= x2;
     y2 = yy - ym[i]; y2 *= y2;
-    if(SQRT(x2 + y2) < dist) return 1;  // too close
+    if(x2 + y2 < dist2) return 1;  // too close
   }
 
   for (i = 0; i < nptsp; i++) {
     x2 = xx - xp[i]; x2 *= x2;
     y2 = yy - yp[i]; y2 *= y2;
-    if(SQRT(x2 + y2) < dist) return 1;  // too close
+    if(x2 + y2 < dist2) return 1;  // too close
   }
 
   return 0; // all clear
@@ -159,7 +159,7 @@ int check_line_center(rgrid *density, rgrid *rot, REAL m, INT i, INT j, INT k) {
      tmp <= rgrid_value_at_index(density, i+1, j+1, k) &&  
      tmp <= rgrid_value_at_index(density, i-1, j-1, k) &&  
      tmp <= rgrid_value_at_index(density, i+1, j-1, k) &&  
-     tmp <= rgrid_value_at_index(density, i-1, j+1, k) && tmp < 0.0022) return 1;
+     tmp <= rgrid_value_at_index(density, i-1, j+1, k) && tmp < rho0*ADJUST) return 1;
   else return 0;
 #endif
 }
@@ -345,6 +345,23 @@ void print_pair_dist3(char *file) {
   }
 
 
+  fclose(fp);
+}
+
+/* Calculate the line distance distribution from the origin (for diffusive spread) */
+void print_distance_dist(char *file) {
+
+  INT i;
+  FILE *fp;
+
+  if(!(fp = fopen(file, "w"))) {
+    fprintf(stderr, "Can't open pair dist file.\n");
+    exit(1);
+  }
+  for (i = 0; i < nptsp; i++)
+    fprintf(fp, FMT_R "\n", SQRT(xp[i] * xp[i] + yp[i] * yp[i]));
+  for (i = 0; i < nptsm; i++)
+    fprintf(fp, FMT_R "\n", SQRT(xm[i] * xm[i] + ym[i] * ym[i]));
   fclose(fp);
 }
 
@@ -613,6 +630,8 @@ int main(int argc, char **argv) {
       print_pair_dist2(buf);
       sprintf(buf, "film-" FMT_I ".nspair", iter);  // Nearest +/+ or -/-
       print_pair_dist3(buf);
+      sprintf(buf, "film-" FMT_I ".dst", iter);  // distance distrib with respect to origin
+      print_distance_dist(buf);
 #else
       sprintf(buf, "film-" FMT_I, iter);
       cgrid_write_grid(buf, gwf->grid);
@@ -632,10 +651,6 @@ int main(int argc, char **argv) {
       }
 
       /* The whole thing */
-//      grid_wf_velocity(gwf, otf->workspace1, otf->workspace2, otf->workspace3, DENS_EPS);
-//      rgrid_div(otf->workspace4, otf->workspace1, otf->workspace2, otf->workspace3);
-//      sprintf(file, "div-" FMT_I ".dat", iter);
-//      rgrid_write_grid(file, otf->workspace4);
       grid_wf_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, DENS_EPS);
       sprintf(file, "ke-" FMT_I ".dat", iter);
       if(!(fp = fopen(file, "w"))) {
