@@ -36,8 +36,8 @@
 
 #define NX 2048
 #define NY 2048
-#define NZ 32
-#define STEP 1.0
+#define NZ 16
+#define STEP 2.0
 #define MAXITER 8000000
 
 /* E(k) */
@@ -60,11 +60,11 @@
 //#define RANDOM_INITIAL       /* Random initial guess */
 #define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
-#define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 500           /* Number of + and - vortex pairs (was 1000) */
-#define PAIR_DIST 5.0       /* Min. distance between + and - vortex pairs */
+#define RANDOM_SEED 12345678L /* Random seed for generating initial vortex line coordinates */
+#define NPAIRS 2500           /* Number of + and - vortex pairs (was 1000) */
+#define PAIR_DIST 3.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
-#define MAX_DIST (HE_RADIUS-400.0)       /* Maximum distance for vortex lines from the origin */
+#define MAX_DIST (HE_RADIUS-500.0)       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
 /* Normalization - now use this many % of the width for the radius (need some empty space due to periodic bc) */
@@ -76,9 +76,9 @@
 #define LINE_LOCATIONS_ONLY
 
 /* Vortex line search specific parameters */
-#define MIN_DIST_CORE 3.0  // min distance between cores (annihilate below this)
-#define ADJUST 0.4  // |rot| adjust or CURRENTLY density threshold adjust
-#define DIST_CUTOFF (HE_RADIUS - 150.0) // allow lines to be inside this radius
+#define MIN_DIST_CORE 4.0  // min distance between cores (annihilate below this)
+#define ADJUST 0.65  // |rot| adjust or CURRENTLY density threshold adjust
+#define DIST_CUTOFF (HE_RADIUS - 300.0) // allow lines to be inside this radius
 
 /* Start simulation after this many iterations (1: columng, 2: column+vortices) */
 #define START1 (1000)  // vortex lines (was 1000)
@@ -524,6 +524,10 @@ int main(int argc, char **argv) {
   printf("Random line positions initial guess.\n");
   srand48(RANDOM_SEED); // or time(0)
   printf("Random seed = %ld\n", RANDOM_SEED);
+  printf("Initial pair coverage = " FMT_R " pairs / Bohr^2\n", NPAIRS / (M_PI * MAX_DIST * MAX_DIST));
+  printf("Initial pair coverage = " FMT_R " pairs / Angs^2\n", NPAIRS / (GRID_AUTOANG * GRID_AUTOANG * M_PI * MAX_DIST * MAX_DIST));
+  printf("Initial line coverage = " FMT_R " pairs / Bohr^2\n", 2.0 * NPAIRS / (M_PI * MAX_DIST * MAX_DIST));
+  printf("Initial line coverage = " FMT_R " pairs / Angs^2\n", 2.0 * NPAIRS / (GRID_AUTOANG * GRID_AUTOANG * M_PI * MAX_DIST * MAX_DIST));
   nptsm = nptsp = 0;
   for (iter = 0; iter < NPAIRS; iter++) {
     REAL rv;
