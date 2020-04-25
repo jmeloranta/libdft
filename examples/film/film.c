@@ -60,10 +60,10 @@
 
 /* Vortex line params (define only one!) */
 //#define RANDOM_INITIAL       /* Random initial guess */
-#define RANDOM_LINES         /* Random line positions */
-//#define MANUAL_LINES         /* Enter vortex lines manually */
+//#define RANDOM_LINES         /* Random line positions */
+#define MANUAL_LINES         /* Enter vortex lines manually */
 #define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 500           /* Number of + and - vortex pairs (was 1000) */
+#define NPAIRS 300           /* Number of + and - vortex pairs (was 1000) */
 #define PAIR_DIST 3.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
 #define MAX_DIST (HE_RADIUS-200.0)       /* Maximum distance for vortex lines from the origin */
@@ -75,7 +75,7 @@
 #define HE_NORM (rho0 * M_PI * HE_RADIUS * HE_RADIUS * STEP * (REAL) (NZ-1))
 
 /* Print vortex line locations only? (otherwise write full grids) */
-#define LINE_LOCATIONS_ONLY
+//#define LINE_LOCATIONS_ONLY
 
 /* Vortex line search specific parameters */
 #define MIN_DIST_CORE 4.0  // min distance between cores (annihilate below this)
@@ -413,7 +413,7 @@ int main(int argc, char **argv) {
 #endif
   FILE *fp;
   INT iter, try, i, j, k;
-  REAL kin, pot, n, linep[5], linem[5];
+  REAL kin, pot, n, linep[5], linem[5], ebulk, ethr;
   char buf[512], file[512];
   grid_timer timer;
   REAL complex tstep;
@@ -616,7 +616,22 @@ int main(int argc, char **argv) {
   printf("done.\n");
 
 #ifdef INIT_RAND
+  kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
+  dft_ot_energy_density(otf, rworkspace, gwf);
+  n = grid_wf_norm(gwf);
+  pot = rgrid_integral(rworkspace) - mu0 * n;
+  dft_ot_energy_density(otf, rworkspace, gwf);
+  ebulk = kin + pot;
   cgrid_random_normal(gwf->grid, (1.0 + I) * SQRT(2.0 * GRID_AUKB * INIT_RAND));
+  kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
+  dft_ot_energy_density(otf, rworkspace, gwf);
+  n = grid_wf_norm(gwf);
+  pot = rgrid_integral(rworkspace) - mu0 * n;
+  dft_ot_energy_density(otf, rworkspace, gwf);
+  ethr = kin + pot;
+  printf("Thermal energy per atom = " FMT_R "\n", (ethr - ebulk) * GRID_AUTOK / n);
+#define Ch 1.6 // J / (mol K), 0.8: 0.22, 1.25: 0.4; need to integrate
+  printf("Temperature = " FMT_R "\n", (ethr - ebulk) / (Ch * n / GRID_AVOGADRO));
 #endif
   printf("Starting dynamics.\n");
   grid_timer_start(&timer);
