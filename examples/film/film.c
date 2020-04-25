@@ -34,8 +34,10 @@
 #define LAMBDA 0.0
 #endif
 
-#define NX 2048
-#define NY 2048
+#define INIT_RAND 1.0   /* Add random thermal noise to the inital */
+
+#define NX 1024
+#define NY 1024
 #define NZ 16
 #define STEP 2.0
 #define MAXITER 8000000
@@ -60,11 +62,11 @@
 //#define RANDOM_INITIAL       /* Random initial guess */
 #define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
-#define RANDOM_SEED 12345678L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 2500           /* Number of + and - vortex pairs (was 1000) */
+#define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
+#define NPAIRS 500           /* Number of + and - vortex pairs (was 1000) */
 #define PAIR_DIST 3.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
-#define MAX_DIST (HE_RADIUS-500.0)       /* Maximum distance for vortex lines from the origin */
+#define MAX_DIST (HE_RADIUS-200.0)       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
 /* Normalization - now use this many % of the width for the radius (need some empty space due to periodic bc) */
@@ -78,7 +80,7 @@
 /* Vortex line search specific parameters */
 #define MIN_DIST_CORE 4.0  // min distance between cores (annihilate below this)
 #define ADJUST 0.65  // |rot| adjust or CURRENTLY density threshold adjust
-#define DIST_CUTOFF (HE_RADIUS - 300.0) // allow lines to be inside this radius
+#define DIST_CUTOFF (MAX_DIST + 100.0) // allow lines to be inside this radius
 
 /* Start simulation after this many iterations (1: columng, 2: column+vortices) */
 #define START1 (1000)  // vortex lines (was 1000)
@@ -613,6 +615,9 @@ int main(int argc, char **argv) {
   }
   printf("done.\n");
 
+#ifdef INIT_RAND
+  cgrid_random_normal(gwf->grid, (1.0 + I) * SQRT(2.0 * GRID_AUKB * INIT_RAND));
+#endif
   printf("Starting dynamics.\n");
   grid_timer_start(&timer);
   for (iter = 0; iter < MAXITER; iter++) {
