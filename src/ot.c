@@ -391,6 +391,11 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf) {
     else
 #endif
       grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_EPS);
+#ifdef DFT_MAX_VELOC
+    rgrid_threshold_clear(workspace1, workspace1, DFT_MAX_VELOC, -DFT_MAX_VELOC, DFT_MAX_VELOC, -DFT_MAX_VELOC);
+    rgrid_threshold_clear(workspace2, workspace2, DFT_MAX_VELOC, -DFT_MAX_VELOC, DFT_MAX_VELOC, -DFT_MAX_VELOC);
+    rgrid_threshold_clear(workspace3, workspace3, DFT_MAX_VELOC, -DFT_MAX_VELOC, DFT_MAX_VELOC, -DFT_MAX_VELOC);
+#endif
     dft_ot_backflow_potential(otf, potential, density, workspace1 /* veloc_x */, workspace2 /* veloc_y */, workspace3 /* veloc_z */, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
     rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
     rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6);

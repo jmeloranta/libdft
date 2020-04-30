@@ -228,6 +228,11 @@ EXPORT void dft_ot_energy_density_bf(dft_ot_functional *otf, rgrid *energy_densi
   // workspace7 = density from this on
     
   grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_EPS);
+#ifdef DFT_MAX_VELOC
+    rgrid_threshold_clear(workspace1, workspace1, DFT_MAX_VELOC, -DFT_MAX_VELOC, DFT_MAX_VELOC, -DFT_MAX_VELOC);
+    rgrid_threshold_clear(workspace2, workspace2, DFT_MAX_VELOC, -DFT_MAX_VELOC, DFT_MAX_VELOC, -DFT_MAX_VELOC);
+    rgrid_threshold_clear(workspace3, workspace3, DFT_MAX_VELOC, -DFT_MAX_VELOC, DFT_MAX_VELOC, -DFT_MAX_VELOC);
+#endif
   rgrid_product(workspace4, workspace1, workspace1);   /* v_x^2 */
   rgrid_product(workspace5, workspace2, workspace2);   /* v_y^2 */
   rgrid_sum(workspace4, workspace4, workspace5);

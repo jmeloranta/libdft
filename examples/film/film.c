@@ -25,18 +25,19 @@
 
 /* Time integration and spatial grid parameters */
 #define TS 2.0 /* fs (was 5) */
+#define ITS 40.0 /* fs */
 //#define TEMP 0.5  /* Temperature (leave undefined if zero Kelvin) */
 
 #ifdef TEMP
 #define LAMBDA 0.0    /* Empirical dissipation parameter */
 #define RANDOM_WIDTH ((TS / GRID_AUTOFS) * M_SQRT1_2 * (1.0 + I) * SQRT(2.0 * GRID_AUKB * TEMP * LAMBDA / DFT_HELIUM_MASS))
 #else
-#define LAMBDA 0.0
+#define LAMBDA 0.00   /* Tsubota's gamma corresponds to LAMBDA = 0.02 */
 #endif
 
-#define NX 2048
-#define NY 2048
-#define NZ 32
+#define NX 256
+#define NY 256
+#define NZ 32     // This must be 32 Bohr
 #define STEP 1.0
 #define MAXITER 8000000
 
@@ -49,40 +50,44 @@
 /* Predict-correct? */
 //#define PC
 
-/* Functional to use (was DFT_OT_PLAIN; GP2 is test) */
+/* Functional to use (was DFT_OT_PLAIN; GP2 is test)  -- TODO: There is a problem with backflow, energy keeps increasing? HD does not help. Predict-correct or shoter time step? or shorter grid step? */
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-#define FUNCTIONAL DFT_OT_PLAIN
+#define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Vortex line params (define only one!) */
-//#define RANDOM_INITIAL       /* Random initial guess */
-#define RANDOM_LINES         /* Random line positions */
+#define RANDOM_INITIAL       /* Random initial guess */
+//#define RANDOM_LINES         /* Random line positions */
 //#define MANUAL_LINES         /* Enter vortex lines manually */
-#define RANDOM_SEED 1234567L /* Random seed for generating initial vortex line coordinates */
-#define NPAIRS 500           /* Number of + and - vortex pairs (was 1000) */
-#define PAIR_DIST 5.0       /* Min. distance between + and - vortex pairs */
+#define RANDOM_SEED 12345678L /* Random seed for generating initial vortex line coordinates */
+#define NPAIRS 100000           /* Number of + and - vortex pairs (was 1000) */
+#define PAIR_DIST 20.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
 #define MAX_DIST (HE_RADIUS-400.0)       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
 /* Normalization - now use this many % of the width for the radius (need some empty space due to periodic bc) */
-//#define ALL_BULK  // If defined, use bulk rather than a column
 #define HE_RADIUS ((NX * STEP / 2.0) - 50.0)
-#define HE_NORM (rho0 * M_PI * HE_RADIUS * HE_RADIUS * STEP * (REAL) (NZ-1))
+//#define HE_NORM (rho0 * M_PI * HE_RADIUS * HE_RADIUS * STEP * (REAL) (NZ-1))
+#define HE_NORM (rho0 * ((REAL) NX) * STEP * ((REAL) NY) * STEP * ((REAL) NZ) * STEP)
 
 /* Print vortex line locations only? (otherwise write full grids) */
-#define LINE_LOCATIONS_ONLY
+//#define LINE_LOCATIONS_ONLY
 
 /* Vortex line search specific parameters */
 #define MIN_DIST_CORE 3.0  // min distance between cores (annihilate below this)
 #define ADJUST 0.4  // |rot| adjust or CURRENTLY density threshold adjust
-#define DIST_CUTOFF (HE_RADIUS - 150.0) // allow lines to be inside this radius
+//#define DIST_CUTOFF (HE_RADIUS - 150.0) // allow lines to be inside this radius
+#define DIST_CUTOFF 1E20 // allow lines to be inside this radius
 
 /* Start simulation after this many iterations (1: columng, 2: column+vortices) */
-#define START1 (1000)  // vortex lines (was 1000)
-#define START2 (1600)  // vortex lines (was 1600)
+#define TT 0.7   // Temperature in Kelvin
+#define NN 2.2   // 2.2 for each dimension
+#define DIM 2.0  // 2.0 = film, 3.0 = bulk liquid
+#define START1 (0)  // before adding vortex lines (was 1000)
+#define START2 ((INT) (POW(1.10083823E8, DIM / 3.0) * (GRID_AUTOFS / ITS) * POW(TT, -NN*DIM)))
 
 /* Output every NTH iteration (was 5000) */
 #define NTH 2000
@@ -216,6 +221,7 @@ void print_lines() {
 
   INT i;
 
+  printf("Line density: " FMT_R " at " FMT_R ".\n", (((REAL) (nptsm + nptsp)) / 2.0) / (NX * STEP * GRID_AUTOANG * NY * STEP * GRID_AUTOANG), TT / 0.89);
   if(!fpm || !fpp) {
     if(!(fpm = fopen("minus.dat", "w"))) exit(1);
     if(!(fpp = fopen("plus.dat", "w"))) exit(1);
@@ -389,9 +395,14 @@ REAL complex random_start(void *prm, REAL x, REAL y, REAL z) {
       k = ((INT) ((z + grid->z0) / grid->step) + grid->nz / 2),
       ny = grid->ny, nz = grid->nz;
 
+// DEBUG: 3D!!!
+#if 1
   grid->value[i * ny * nz + j * nz + k] = SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
   if(k) return grid->value[i * ny * nz + j * nz]; // k = 0
   else return grid->value[i * ny * nz + j * nz + k];
+#else
+  return SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
+#endif
 }
 
 REAL complex init_guess(void *NA, REAL x, REAL y, REAL z) {
@@ -476,8 +487,7 @@ int main(int argc, char **argv) {
   cgrid_map(gwf->grid, random_start, gwf->grid);
 #endif
 
-#ifndef ALL_BULK
-  tstep = -I * TS * 20.0 / GRID_AUTOFS;
+  tstep = -I * ITS / GRID_AUTOFS;
   /* Relax vortices for a bit (1: the column) */
   printf("Cylinder equilibriation...");
 #ifdef HE_NORM
@@ -494,9 +504,6 @@ int main(int argc, char **argv) {
 #endif
   }
   printf("done.\n");
-#else
-  cgrid_constant(gwf->grid, SQRT(rho0));
-#endif /* ALL_BULK */
 
 #ifdef MANUAL_LINES
   linep[0] = 0.0;
@@ -594,17 +601,16 @@ int main(int argc, char **argv) {
 
   /* Relax vortices for a bit (2: after putting in vortices) */
   printf("Vortex equilibriation...");
-  tstep = -I * TS / GRID_AUTOFS;
+  tstep = -I * ITS / GRID_AUTOFS;
+  printf("START2 = " FMT_I "\n", START2);
   for (iter = 0; iter < START2; iter++) {
     grid_timer_start(&timer);
     cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate(gwf, potential_store, tstep);
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer)); fflush(stdout);
-#ifndef ALL_BULK
 #ifdef HE_NORM
     grid_wf_normalize(gwf);    
-#endif
 #endif
   }
   printf("done.\n");
@@ -687,10 +693,11 @@ int main(int argc, char **argv) {
       dft_ot_energy_density(otf, rworkspace, gwf);
       n = grid_wf_norm(gwf);
       pot = rgrid_integral(rworkspace) - mu0 * n;
-      printf("Iteration " FMT_I " helium natoms    = " FMT_R " particles.\n", iter, n);   /* Energy / particle in K */
-      printf("Iteration " FMT_I " helium kinetic   = " FMT_R " K\n", iter, kin * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration " FMT_I " helium potential = " FMT_R " K\n", iter, pot * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration " FMT_I " helium energy    = " FMT_R " K\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration " FMT_I " helium natoms       = " FMT_R " particles.\n", iter, n);   /* Energy / particle in K */
+      printf("Iteration " FMT_I " helium kinetic      = " FMT_R " K\n", iter, kin * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration " FMT_I " helium potential    = " FMT_R " K\n", iter, pot * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration " FMT_I " helium energy       = " FMT_R " K\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
+      printf("Iteration " FMT_I " heat                = " FMT_R " J / g\n", iter, (kin + pot) * GRID_AUTOJ * GRID_AVOGADRO / (4.0 * n));  /* 4.0 g/mol = 4He */
       fflush(stdout);
       grid_timer_start(&timer);
     }

@@ -146,4 +146,7 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
 /* Smallest density for evaluating velocity */
 #define DFT_EPS 1E-5
 
+/* Highest velocity allowed in evaluating the velocity field (affects the backflow) - comment out to unlimit */
+#define DFT_MAX_VELOC (100.0 / GRID_AUTOMPS)
+
 #endif /* __DFT_OT__ */
