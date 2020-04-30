@@ -65,7 +65,7 @@
 #define NPAIRS 100000           /* Number of + and - vortex pairs (was 1000) */
 #define PAIR_DIST 20.0       /* Min. distance between + and - vortex pairs */
 #define UNRESTRICTED_PAIRS   /* If defined, PAIR_DIST for the + and - pairs is not enforced */
-#define MAX_DIST (HE_RADIUS-400.0)       /* Maximum distance for vortex lines from the origin */
+#define MAX_DIST (HE_RADIUS-200.0)       /* Maximum distance for vortex lines from the origin */
 #define NRETRY   10000       /* # of retries for locating the pair. If not successful, start over */
 
 /* Normalization - now use this many % of the width for the radius (need some empty space due to periodic bc) */
@@ -422,7 +422,7 @@ int main(int argc, char **argv) {
 #endif
   FILE *fp;
   INT iter, try, i, j, k;
-  REAL kin, pot, n, linep[5], linem[5];
+  REAL kin, pot, n, linep[5], linem[5], ebulk, ethr;
   char buf[512], file[512];
   grid_timer timer;
   REAL complex tstep;
@@ -531,6 +531,10 @@ int main(int argc, char **argv) {
   printf("Random line positions initial guess.\n");
   srand48(RANDOM_SEED); // or time(0)
   printf("Random seed = %ld\n", RANDOM_SEED);
+  printf("Initial pair coverage = " FMT_R " pairs / Bohr^2\n", NPAIRS / (M_PI * MAX_DIST * MAX_DIST));
+  printf("Initial pair coverage = " FMT_R " pairs / Angs^2\n", NPAIRS / (GRID_AUTOANG * GRID_AUTOANG * M_PI * MAX_DIST * MAX_DIST));
+  printf("Initial line coverage = " FMT_R " pairs / Bohr^2\n", 2.0 * NPAIRS / (M_PI * MAX_DIST * MAX_DIST));
+  printf("Initial line coverage = " FMT_R " pairs / Angs^2\n", 2.0 * NPAIRS / (GRID_AUTOANG * GRID_AUTOANG * M_PI * MAX_DIST * MAX_DIST));
   nptsm = nptsp = 0;
   for (iter = 0; iter < NPAIRS; iter++) {
     REAL rv;
