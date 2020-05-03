@@ -37,7 +37,7 @@
 
 #define NX 256
 #define NY 256
-#define NZ 32     // This must be 32 Bohr
+#define NZ 256     // This must be 32 Bohr
 #define STEP 1.0
 #define MAXITER 8000000
 
@@ -48,11 +48,11 @@
 #define DENS_EPS 1E-3
 
 /* Predict-correct? */
-//#define PC
+#define PC
 
 /* Functional to use (was DFT_OT_PLAIN; GP2 is test)  -- TODO: There is a problem with backflow, energy keeps increasing? HD does not help. Predict-correct or shoter time step? or shorter grid step? */
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-#define FUNCTIONAL (DFT_OT_PLAIN)
+#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -83,11 +83,12 @@
 #define DIST_CUTOFF 1E20 // allow lines to be inside this radius
 
 /* Start simulation after this many iterations (1: columng, 2: column+vortices) */
-#define TT 0.7   // Temperature in Kelvin
+#define TT 2.4   // Temperature in Kelvin
 #define NN 2.2   // 2.2 for each dimension
-#define DIM 2.0  // 2.0 = film, 3.0 = bulk liquid
+#define DIM 3.0  // 2.0 = film, 3.0 = bulk liquid
 #define START1 (0)  // before adding vortex lines (was 1000)
-#define START2 ((INT) (POW(1.10083823E8, DIM / 3.0) * (GRID_AUTOFS / ITS) * POW(TT, -NN*DIM)))
+//#define START2 ((INT) (POW(1.10083823E8, DIM / 3.0) * (GRID_AUTOFS / ITS) * POW(TT, -NN*DIM)))
+#define START2 8192L
 
 /* Output every NTH iteration (was 5000) */
 #define NTH 2000
@@ -396,7 +397,7 @@ REAL complex random_start(void *prm, REAL x, REAL y, REAL z) {
       ny = grid->ny, nz = grid->nz;
 
 // DEBUG: 3D!!!
-#if 1
+#if 0
   grid->value[i * ny * nz + j * nz + k] = SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
   if(k) return grid->value[i * ny * nz + j * nz]; // k = 0
   else return grid->value[i * ny * nz + j * nz + k];
@@ -421,7 +422,7 @@ int main(int argc, char **argv) {
   wf *gwfp;
 #endif
   FILE *fp;
-  INT iter, try, i, j, k;
+  INT iter, try, i, j, k, piter;
   REAL kin, pot, n, linep[5], linem[5], ebulk, ethr;
   char buf[512], file[512];
   grid_timer timer;
@@ -607,6 +608,8 @@ int main(int argc, char **argv) {
   printf("Vortex equilibriation...");
   tstep = -I * ITS / GRID_AUTOFS;
   printf("START2 = " FMT_I "\n", START2);
+//  if(!(fp = fopen("heat.dat", "w"))) exit(1);
+//  piter = 1;
   for (iter = 0; iter < START2; iter++) {
     grid_timer_start(&timer);
     cgrid_constant(potential_store, -mu0);
@@ -616,7 +619,21 @@ int main(int argc, char **argv) {
 #ifdef HE_NORM
     grid_wf_normalize(gwf);    
 #endif
+#if 0
+    if(!(iter % piter)) {
+      kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
+      dft_ot_energy_density(otf, rworkspace, gwf);
+      n = grid_wf_norm(gwf);
+      pot = rgrid_integral(rworkspace) - dft_ot_bulk_energy(otf, rho0) * ((REAL) NX) * STEP * ((REAL) NY) * STEP * ((REAL) NZ) * STEP;
+      fprintf(fp, FMT_I " " FMT_R "\n", iter, (kin + pot) * GRID_AUTOJ * GRID_AVOGADRO / n);
+      fflush(fp);
+      piter *= 2;
+      sprintf(buf, "film-" FMT_I, iter);
+      cgrid_write_grid(buf, gwf->grid);
+    }
+#endif
   }
+//  fclose(fp);
   printf("done.\n");
 
   printf("Starting dynamics.\n");
@@ -701,7 +718,7 @@ int main(int argc, char **argv) {
       printf("Iteration " FMT_I " helium kinetic      = " FMT_R " K\n", iter, kin * GRID_AUTOK);  /* Print result in K */
       printf("Iteration " FMT_I " helium potential    = " FMT_R " K\n", iter, pot * GRID_AUTOK);  /* Print result in K */
       printf("Iteration " FMT_I " helium energy       = " FMT_R " K\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration " FMT_I " heat                = " FMT_R " J / g\n", iter, (kin + pot) * GRID_AUTOJ * GRID_AVOGADRO / (4.0 * n));  /* 4.0 g/mol = 4He */
+      printf("Iteration " FMT_I " heat                = " FMT_R " J / mol\n", iter, (kin + pot) * GRID_AUTOJ * GRID_AVOGADRO / n);
       fflush(stdout);
       grid_timer_start(&timer);
     }

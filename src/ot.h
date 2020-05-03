@@ -133,7 +133,6 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
 #include "proto.h"
 
 /* Constants */
-#define DFT_KB 3.1668773658e-06                   /* Boltzmann constant in atomic units */
 #define DFT_HELIUM_MASS (4.002602 / GRID_AUTOAMU) /* Helium mass in atomic units */
 
 /* Default number of substeps for Xgrid_smooth_map() */
@@ -147,6 +146,6 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
 #define DFT_EPS 1E-5
 
 /* Highest velocity allowed in evaluating the velocity field (affects the backflow) - comment out to unlimit */
-#define DFT_MAX_VELOC (100.0 / GRID_AUTOMPS)
+#define DFT_MAX_VELOC (40.0 / GRID_AUTOMPS)
 
 #endif /* __DFT_OT__ */
