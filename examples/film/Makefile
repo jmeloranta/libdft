@@ -13,4 +13,4 @@ film.o: film.c
 	$(CC) $(CFLAGS) -c film.c
 
 clean:
-	-rm *.o film film film-* *.pair *~ ke-*.dat
+	-rm *.o film film film-* *.pair *~ *.dat

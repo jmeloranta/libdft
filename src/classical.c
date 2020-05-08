@@ -202,3 +202,20 @@ EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, rfunction *
 
   rgrid_difference(pot, pot, vx);  // Include the final - sign here
 }
+
+/*
+ * Function defining density dependent viscosity.
+ *
+ * rho = density (REAL; input).
+ * prm = Parameters 0: rho0 = bulk density, 1: alpha = exponent, 2: bulk value for viscosity.
+ *
+ */
+
+EXPORT REAL dft_classical_viscosity(REAL rho, void *prm) {
+
+  REAL rho0 = ((REAL *) prm)[0];
+  REAL alpha = ((REAL *) prm)[1];
+  REAL visc = ((REAL *) prm)[2];
+
+  return POW(rho / rho0, alpha) * visc;
+}

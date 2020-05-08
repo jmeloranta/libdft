@@ -4,7 +4,7 @@ all:
 	make prototypes
 	make libdft.a
 
-OBJS = ot.o ot-energy.o common.o bulk.o spectroscopy1a.o spectroscopy1b.o spectroscopy2.o spectroscopy3.o initial.o classical.o classical-common.o
+OBJS = ot.o ot-energy.o common.o helium-ot-bulk.o spectroscopy1a.o spectroscopy1b.o spectroscopy2.o spectroscopy3.o initial.o classical.o helium-exp-bulk.o
 
 libdft.a: $(OBJS)
 	ar cr libdft.a $(OBJS)
@@ -30,8 +30,11 @@ ot.o: ot.c ot.h ot-private.h dft.h
 ot-energy.o: ot-energy.c ot.h dft.h
 	$(CC) -I. $(CFLAGS) -c ot-energy.c
 
-bulk.o: bulk.c dft.h ot.h
-	$(CC) -I. $(CFLAGS) -c bulk.c
+helium-ot-bulk.o: helium-ot-bulk.c dft.h ot.h
+	$(CC) -I. $(CFLAGS) -c helium-ot-bulk.c
+
+helium-exp-bulk.o: helium-exp-bulk.c dft.h ot.h helium-exp-bulk.h
+	$(CC) -I. $(CFLAGS) -c helium-exp-bulk.c
 
 spectroscopy1a.o: spectroscopy1a.c dft.h ot.h
 	$(CC) -I. $(CFLAGS) -c spectroscopy1a.c
@@ -50,9 +53,6 @@ intial.o: initial.c dft.h ot.h
 
 classical.o: classical.c dft.h ot.h classical.h
 	$(CC) -I. $(CFLAGS) -c classical.c
-
-classical-common.o: classical-common.c dft.h ot.h classical.h
-	$(CC) -I. $(CFLAGS) -c classical-common.c
 
 clean:
 	-rm *.o libdft.a proto.h git-version.h *~

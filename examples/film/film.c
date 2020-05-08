@@ -24,8 +24,8 @@
 #include <dft/ot.h>
 
 /* Time integration and spatial grid parameters */
-#define TS 2.0 /* fs (was 5) */
-#define ITS 40.0 /* fs */
+#define TS 1.0 /* fs (was 5) */
+#define ITS 4.0 /* fs */
 //#define TEMP 0.5  /* Temperature (leave undefined if zero Kelvin) */
 
 #ifdef TEMP
@@ -43,16 +43,16 @@
 
 /* E(k) */
 #define KSPECTRUM /**/
-#define NBINS 60
-#define BINSTEP 0.05
+#define NBINS 128
+#define BINSTEP 0.1
 #define DENS_EPS 1E-3
 
 /* Predict-correct? */
 #define PC
 
 /* Functional to use (was DFT_OT_PLAIN; GP2 is test)  -- TODO: There is a problem with backflow, energy keeps increasing? HD does not help. Predict-correct or shoter time step? or shorter grid step? */
-//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+//#define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -88,7 +88,7 @@
 #define DIM 3.0  // 2.0 = film, 3.0 = bulk liquid
 #define START1 (0)  // before adding vortex lines (was 1000)
 //#define START2 ((INT) (POW(1.10083823E8, DIM / 3.0) * (GRID_AUTOFS / ITS) * POW(TT, -NN*DIM)))
-#define START2 8192L
+#define START2 (100L*8192L)
 
 /* Output every NTH iteration (was 5000) */
 #define NTH 2000
@@ -402,7 +402,7 @@ REAL complex random_start(void *prm, REAL x, REAL y, REAL z) {
   if(k) return grid->value[i * ny * nz + j * nz]; // k = 0
   else return grid->value[i * ny * nz + j * nz + k];
 #else
-  return SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
+  return SQRT(rho0 * drand48()) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
 #endif
 }
 
@@ -410,6 +410,104 @@ REAL complex init_guess(void *NA, REAL x, REAL y, REAL z) {
 
   if(x * x + y * y < HE_RADIUS * HE_RADIUS) return SQRT(rho0);
   else return 0.0;
+}
+
+void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
+
+  char buf[512];
+  FILE *fp;
+#ifdef KSPECTRUM
+  static REAL *bins = NULL;
+#endif
+  REAL n, kin, pot;
+  INT i;
+
+  if(!bins) {
+    if(!(bins = (REAL *) malloc(sizeof(REAL) * NBINS))) {
+      fprintf(stderr, "Can't allocate memory for bins.\n");
+      exit(1);
+    }
+  }
+
+  printf("***** Statistics for iteration " FMT_I "\n", iter);
+  grid_wf_average_occupation(gwf, bins, BINSTEP, NBINS, potential_store, 2);
+  sprintf(buf, "occ-" FMT_I ".dat", iter);
+  if(!(fp = fopen(buf, "w"))) {
+    fprintf(stderr, "Can't open %s.\n", buf);
+    exit(1);
+  }
+  for(i = 0; i < NBINS; i++)
+    if(bins[i] != 0.0) fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i]);
+  fclose(fp);
+  n = grid_wf_norm(gwf);
+  kin = grid_wf_kinetic_energy_classical(gwf, otf->workspace1, otf->workspace2, DFT_EPS);
+  rgrid_zero(rworkspace);
+  grid_wf_density(gwf, otf->density);
+  dft_ot_energy_density_bf(otf, rworkspace, gwf, otf->density);
+  kin += rgrid_integral(rworkspace);
+  printf("Thermal energy = " FMT_R " J/g, T = " FMT_R " K\n", (kin / n) * GRID_AUTOJ * GRID_AVOGADRO, grid_wf_temperature(gwf, 2.17, potential_store));
+
+#ifdef LINE_LOCATIONS_ONLY
+  grid_wf_probability_flux_x(gwf, otf->workspace1);
+  grid_wf_probability_flux_y(gwf, otf->workspace2);
+  rgrid_rot(NULL, NULL, otf->workspace3, otf->workspace1, otf->workspace2, NULL);
+  grid_wf_density(gwf, otf->density);
+  locate_lines(otf->density, otf->workspace3);
+  print_lines();
+  sprintf(buf, "film-" FMT_I ".pair", iter);
+  print_pair_dist(buf);
+  sprintf(buf, "film-" FMT_I ".nopair", iter);  // Nearest +/-
+  print_pair_dist2(buf);
+  sprintf(buf, "film-" FMT_I ".nspair", iter);  // Nearest +/+ or -/-
+  print_pair_dist3(buf);
+  sprintf(buf, "film-" FMT_I ".dst", iter);  // distance distrib with respect to origin
+  print_distance_dist(buf);
+#else
+  sprintf(buf, "film-" FMT_I, iter);
+  cgrid_write_grid(buf, gwf->grid);
+#endif
+#ifdef KSPECTRUM
+  /* The whole thing */
+  grid_wf_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, DENS_EPS, 1);
+  sprintf(buf, "ke-" FMT_I ".dat", iter);
+  if(!(fp = fopen(buf, "w"))) {
+    fprintf(stderr, "Can't open %s.\n", buf);
+    exit(1);
+  }
+  for(i = 1; i < NBINS; i++)  /* Leave out the DC component (= zero) */
+    fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
+  fclose(fp);
+
+  /* Incompressible part */
+  grid_wf_incomp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, otf->workspace5, DENS_EPS, 1);
+  sprintf(buf, "ke-incomp-" FMT_I ".dat", iter);
+  if(!(fp = fopen(buf, "w"))) {
+    fprintf(stderr, "Can't open %s.\n", buf);
+    exit(1);
+  }
+  for(i = 1; i < NBINS; i++)  /* Leave out the DC component (= zero) */
+    fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
+  fclose(fp);
+
+  /* Compressible part */
+  grid_wf_comp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, DENS_EPS, 1);
+  sprintf(buf, "ke-comp-" FMT_I ".dat", iter);
+  if(!(fp = fopen(buf, "w"))) {
+    fprintf(stderr, "Can't open %s.\n", buf);
+    exit(1);
+  }
+  for(i = 1; i < NBINS; i++)  /* Leave out the DC component (= zero) */
+    fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
+  fclose(fp);
+#endif
+  kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
+  dft_ot_energy_density(otf, rworkspace, gwf);
+  pot = rgrid_integral(rworkspace) - mu0 * n;
+  printf("Helium natoms       = " FMT_R " particles.\n", n);   /* Energy / particle in K */
+  printf("Helium kinetic E    = " FMT_R " K\n", kin * GRID_AUTOK);  /* Print result in K */
+  printf("Helium potential E  = " FMT_R " K\n", pot * GRID_AUTOK);  /* Print result in K */
+  printf("Helium energy       = " FMT_R " K\n", (kin + pot) * GRID_AUTOK);  /* Print result in K */
+  fflush(stdout);
 }
 
 int main(int argc, char **argv) {
@@ -421,15 +519,10 @@ int main(int argc, char **argv) {
 #ifdef PC
   wf *gwfp;
 #endif
-  FILE *fp;
   INT iter, try, i, j, k, piter;
-  REAL kin, pot, n, linep[5], linem[5], ebulk, ethr;
-  char buf[512], file[512];
+  REAL linep[5], linem[5];
   grid_timer timer;
   REAL complex tstep;
-#ifdef KSPECTRUM
-  REAL *bins = NULL;
-#endif
 
   if(argc < 2) {
     fprintf(stderr, "Usage: film <gpu1> <gpu2> ...\n");
@@ -486,6 +579,13 @@ int main(int argc, char **argv) {
 #ifdef RANDOM_INITIAL
   printf("Random initial guess.\n");
   cgrid_map(gwf->grid, random_start, gwf->grid);
+#endif
+
+  if(!otf->workspace2) otf->workspace2 = rgrid_clone(otf->density, "OT workspace 2");
+  if(!otf->workspace3) otf->workspace3 = rgrid_clone(otf->density, "OT workspace 3");
+#ifdef KSPECTRUM
+  if(!(otf->workspace4)) otf->workspace4 = rgrid_clone(otf->density, "OT Workspace 4");
+  if(!(otf->workspace5)) otf->workspace5 = rgrid_clone(otf->density, "OT Workspace 5");
 #endif
 
   tstep = -I * ITS / GRID_AUTOFS;
@@ -606,122 +706,56 @@ int main(int argc, char **argv) {
 
   /* Relax vortices for a bit (2: after putting in vortices) */
   printf("Vortex equilibriation...");
-  tstep = -I * ITS / GRID_AUTOFS;
+  tstep = (TS - I * ITS) / GRID_AUTOFS;
   printf("START2 = " FMT_I "\n", START2);
-//  if(!(fp = fopen("heat.dat", "w"))) exit(1);
-//  piter = 1;
+  piter = NTH;
   for (iter = 0; iter < START2; iter++) {
+    if(iter < 10000) {
+      piter = 100;
+      tstep = (TS - I * ITS) / GRID_AUTOFS;
+      grid_wf_normalize(gwf);    
+    } else {
+      piter = NTH;
+      tstep = TS / GRID_AUTOFS;
+      cgrid_fft(gwf->grid);
+      cgrid_dealias(gwf->grid, 1);
+      cgrid_inverse_fft_norm(gwf->grid);
+    }
     grid_timer_start(&timer);
+
+#ifdef PC
+    /* Predict-Correct */
     cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
+    grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep);
+
+    cgrid_add(potential_store, -mu0);
+    dft_ot_potential(otf, potential_store, gwfp);
+    cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
+    grid_wf_propagate_correct(gwf, potential_store, tstep);
+#else /* PC */
+    /* Propagate */
+    cgrid_constant(potential_store, -mu0);
+    dft_ot_potential(otf, potential_store, gwf);
+    cgrid_fft(potential_store);
+    cgrid_dealias(potential_store, 1);
+    cgrid_inverse_fft_norm(potential_store);
     grid_wf_propagate(gwf, potential_store, tstep);
+#endif /* PC */
+
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer)); fflush(stdout);
 #ifdef HE_NORM
-    grid_wf_normalize(gwf);    
+//    grid_wf_normalize(gwf);    // DEBUG removed for now
 #endif
-#if 0
-    if(!(iter % piter)) {
-      kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
-      dft_ot_energy_density(otf, rworkspace, gwf);
-      n = grid_wf_norm(gwf);
-      pot = rgrid_integral(rworkspace) - dft_ot_bulk_energy(otf, rho0) * ((REAL) NX) * STEP * ((REAL) NY) * STEP * ((REAL) NZ) * STEP;
-      fprintf(fp, FMT_I " " FMT_R "\n", iter, (kin + pot) * GRID_AUTOJ * GRID_AVOGADRO / n);
-      fflush(fp);
-      piter *= 2;
-      sprintf(buf, "film-" FMT_I, iter);
-      cgrid_write_grid(buf, gwf->grid);
-    }
-#endif
+    if(iter && !(iter % piter)) print_stats(iter, gwf, otf, potential_store, rworkspace);
   }
-//  fclose(fp);
-  printf("done.\n");
 
   printf("Starting dynamics.\n");
   grid_timer_start(&timer);
   for (iter = 0; iter < MAXITER; iter++) {
     tstep = TS * (1.0 - I * LAMBDA) / GRID_AUTOFS;     
-    if(iter == 0 || !(iter % NTH)) {
-      printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer)); fflush(stdout);
-#ifdef LINE_LOCATIONS_ONLY
-      grid_wf_probability_flux_x(gwf, otf->workspace1);
-      if(!otf->workspace2) otf->workspace2 = rgrid_clone(otf->density, "OT workspace 2");
-      if(!otf->workspace3) otf->workspace3 = rgrid_clone(otf->density, "OT workspace 3");
-      grid_wf_probability_flux_y(gwf, otf->workspace2);
-      rgrid_rot(NULL, NULL, otf->workspace3, otf->workspace1, otf->workspace2, NULL);
-      grid_wf_density(gwf, otf->density);
-      locate_lines(otf->density, otf->workspace3);
-      print_lines();
-      sprintf(buf, "film-" FMT_I ".pair", iter);
-      print_pair_dist(buf);
-      sprintf(buf, "film-" FMT_I ".nopair", iter);  // Nearest +/-
-      print_pair_dist2(buf);
-      sprintf(buf, "film-" FMT_I ".nspair", iter);  // Nearest +/+ or -/-
-      print_pair_dist3(buf);
-      sprintf(buf, "film-" FMT_I ".dst", iter);  // distance distrib with respect to origin
-      print_distance_dist(buf);
-#else
-      sprintf(buf, "film-" FMT_I, iter);
-      cgrid_write_grid(buf, gwf->grid);
-#endif
-#ifdef KSPECTRUM
-      if(!(otf->workspace1)) otf->workspace1 = rgrid_clone(otf->density, "OT Workspace 1");
-      if(!(otf->workspace2)) otf->workspace2 = rgrid_clone(otf->density, "OT Workspace 2");
-      if(!(otf->workspace3)) otf->workspace3 = rgrid_clone(otf->density, "OT Workspace 3");
-      if(!(otf->workspace4)) otf->workspace4 = rgrid_clone(otf->density, "OT Workspace 4");
-      if(!(otf->workspace5)) otf->workspace5 = rgrid_clone(otf->density, "OT Workspace 5");
-
-      if(!bins) {
-        if(!(bins = (REAL *) malloc(sizeof(REAL) * NBINS))) {
-          fprintf(stderr, "Can't allocate memory for bins.\n");
-          exit(1);
-        }
-      }
-
-      /* The whole thing */
-      grid_wf_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, DENS_EPS);
-      sprintf(file, "ke-" FMT_I ".dat", iter);
-      if(!(fp = fopen(file, "w"))) {
-        fprintf(stderr, "Can't open %s.\n", file);
-        exit(1);
-      }
-      for(i = 1; i < NBINS; i++)  /* Leave out the DC component (= zero) */
-        fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
-      fclose(fp);
-
-      /* Incompressible part */
-      grid_wf_incomp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, otf->workspace5, DENS_EPS);
-      sprintf(file, "ke-incomp-" FMT_I ".dat", iter);
-      if(!(fp = fopen(file, "w"))) {
-        fprintf(stderr, "Can't open %s.\n", file);
-        exit(1);
-      }
-      for(i = 1; i < NBINS; i++)  /* Leave out the DC component (= zero) */
-        fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
-      fclose(fp);
-
-      /* Compressible part */
-      grid_wf_comp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, DENS_EPS);
-      sprintf(file, "ke-comp-" FMT_I ".dat", iter);
-      if(!(fp = fopen(file, "w"))) {
-        fprintf(stderr, "Can't open %s.\n", file);
-        exit(1);
-      }
-      for(i = 1; i < NBINS; i++)  /* Leave out the DC component (= zero) */
-        fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
-      fclose(fp);
-#endif
-      kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
-      dft_ot_energy_density(otf, rworkspace, gwf);
-      n = grid_wf_norm(gwf);
-      pot = rgrid_integral(rworkspace) - mu0 * n;
-      printf("Iteration " FMT_I " helium natoms       = " FMT_R " particles.\n", iter, n);   /* Energy / particle in K */
-      printf("Iteration " FMT_I " helium kinetic      = " FMT_R " K\n", iter, kin * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration " FMT_I " helium potential    = " FMT_R " K\n", iter, pot * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration " FMT_I " helium energy       = " FMT_R " K\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration " FMT_I " heat                = " FMT_R " J / mol\n", iter, (kin + pot) * GRID_AUTOJ * GRID_AVOGADRO / n);
-      fflush(stdout);
-      grid_timer_start(&timer);
-    }
+    if(iter == 0 || !(iter % NTH)) print_stats(iter, gwf, otf, potential_store, rworkspace);
+    grid_timer_start(&timer);
 
     if(iter == 5) grid_fft_write_wisdom(NULL);
 
