@@ -35,7 +35,7 @@
 /* Predict-correct? */
 #define PC
 
-/* Use dealiasing during real time propagation? (2/3-rule) */
+/* Use dealiasing during real time propagation? (2/3-rule) - does not seem to help? */
 //#define DEALIAS
 
 /* Functional to use (was DFT_OT_PLAIN; GP2 is test)  -- TODO: There is a problem with backflow, energy keeps increasing? HD does not help. Predict-correct or shoter time step? or shorter grid step? */
@@ -52,13 +52,17 @@
 #define TLAMBDA 2.17
 
 /* The number of cooling iterations (mixture of real and imaginary) */
-#define COOL 5000
+/* 2000 = 2.16 K (1fs real + 4fs imag) */
+/* 3000 = 2.07 K (based on enthalpy) */
+/* 5000 = 1.96 K */
+/* 20000 = 1.78 K */
+#define COOL 20000
 
 /* The number of thermalization iterations (real time) */
 #define THERMAL 20000
 
 /* Output every NTH iteration (was 5000) */
-#define NTH 20
+#define NTH 500
 
 /* Use all threads available on the computer */
 #define THREADS 0
@@ -127,7 +131,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   cgrid_write_grid(buf, gwf->grid);
 
   /* The whole thing */
-  grid_wf_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, DENS_EPS, 1);
+  grid_wf_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, DENS_EPS);
   sprintf(buf, "ke-" FMT_I ".dat", iter);
   if(!(fp = fopen(buf, "w"))) {
     fprintf(stderr, "Can't open %s.\n", buf);
@@ -138,7 +142,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   fclose(fp);
 
   /* Incompressible part */
-  grid_wf_incomp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, otf->workspace5, DENS_EPS, 1);
+  grid_wf_incomp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, otf->workspace5, DENS_EPS);
   sprintf(buf, "ke-incomp-" FMT_I ".dat", iter);
   if(!(fp = fopen(buf, "w"))) {
     fprintf(stderr, "Can't open %s.\n", buf);
@@ -149,7 +153,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   fclose(fp);
 
   /* Compressible part */
-  grid_wf_comp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, DENS_EPS, 1);
+  grid_wf_comp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, DENS_EPS);
   sprintf(buf, "ke-comp-" FMT_I ".dat", iter);
   if(!(fp = fopen(buf, "w"))) {
     fprintf(stderr, "Can't open %s.\n", buf);
@@ -266,7 +270,7 @@ int main(int argc, char **argv) {
 
   printf("Equilibriating...\n");
   tstep = TS / GRID_AUTOFS;
-  for (; iter < THERMAL; iter++) {
+  for (; iter < COOL + THERMAL; iter++) {
     grid_timer_start(&timer);
 #ifdef PC
     /* Predict-Correct */

@@ -468,7 +468,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 #endif
 #ifdef KSPECTRUM
   /* The whole thing */
-  grid_wf_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, DENS_EPS, 1);
+  grid_wf_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, DENS_EPS);
   sprintf(buf, "ke-" FMT_I ".dat", iter);
   if(!(fp = fopen(buf, "w"))) {
     fprintf(stderr, "Can't open %s.\n", buf);
@@ -479,7 +479,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   fclose(fp);
 
   /* Incompressible part */
-  grid_wf_incomp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, otf->workspace5, DENS_EPS, 1);
+  grid_wf_incomp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, otf->workspace5, DENS_EPS);
   sprintf(buf, "ke-incomp-" FMT_I ".dat", iter);
   if(!(fp = fopen(buf, "w"))) {
     fprintf(stderr, "Can't open %s.\n", buf);
@@ -490,7 +490,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   fclose(fp);
 
   /* Compressible part */
-  grid_wf_comp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, DENS_EPS, 1);
+  grid_wf_comp_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, DENS_EPS);
   sprintf(buf, "ke-comp-" FMT_I ".dat", iter);
   if(!(fp = fopen(buf, "w"))) {
     fprintf(stderr, "Can't open %s.\n", buf);
