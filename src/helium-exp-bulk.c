@@ -1,6 +1,8 @@
 /*
  * Reference experimental data for bulk superfluid helium (Donnelly and Barenghi).
  *
+ * Eveything in SI units - NOT ATOMIC UNITS.
+ *
  */
 
 #include <stdio.h>
@@ -20,9 +22,11 @@
  * second = address of variable to hold second derivative
  * This function returns the value of the spline at point X
  *
-*/
+ * NOTE: Returns 1E99 if error occurred.
+ *
+ */
 
-static double dft_bulk_spline_eval(INT ncap7, REAL *k, REAL *c, REAL x, REAL *first, REAL *second) {
+static REAL dft_bulk_spline_eval(INT ncap7, REAL *k, REAL *c, REAL x, REAL *first, REAL *second) {
 
   INT j, jlr, L;
   REAL s, klr, k2, k3, k4, k5, k6, e2, e3, e4, e5, c11, cd11, c21, cd21, cd31, c12, cd12;
@@ -64,8 +68,9 @@ static double dft_bulk_spline_eval(INT ncap7, REAL *k, REAL *c, REAL x, REAL *fi
     *first = (e3 * cd22 + c22 + e4 * cd12 - c12) / (k4 - k3);
     *second = (e3 * cdd22 + 2 * cd22 + e4 * cdd12 - 2 * cd12) / (k4 - k3);
   } else {
-    printf("libdft: Error detected in dft_bulk_spline_eval().\n");
-    exit(1);
+    printf("libdft: Requested value outside spline region in dft_bulk_spline_eval().\n");
+    *first = *second = 0.0;
+    return 1E99; // Error status return
   }
   return s;
 }
@@ -77,7 +82,7 @@ static double dft_bulk_spline_eval(INT ncap7, REAL *k, REAL *c, REAL x, REAL *fi
  * first       = First derivative of enthalpy at the temperature (REAL *; output). If NULL, not computed.
  * second      = Second derivative of enthalpy at the temperature (REAL *; output). If NULL, not computed.
  *
- * Returns enthalpy at the temperature.
+ * Returns enthalpy (J / mol) at the temperature.
  *
  */
 

@@ -48,6 +48,9 @@
 /* Normalization - Since we have the thermal excitations, the chemical potential method is not good... Hence explicit normalization */
 #define HE_NORM (rho0 * ((REAL) NX) * STEP * ((REAL) NY) * STEP * ((REAL) NZ) * STEP)
 
+/* Lambda temperature */
+#define TLAMBDA 2.17
+
 /* The number of cooling iterations (mixture of real and imaginary) */
 #define COOL 5000
 
@@ -55,7 +58,7 @@
 #define THERMAL 20000
 
 /* Output every NTH iteration (was 5000) */
-#define NTH 1000
+#define NTH 20
 
 /* Use all threads available on the computer */
 #define THREADS 0
@@ -109,7 +112,16 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
     dft_ot_energy_density_bf(otf, rworkspace, gwf, otf->density);
     kin += rgrid_integral(rworkspace);
   }
-  printf("Thermal energy = " FMT_R " J/g, T = " FMT_R " K\n", (kin / n) * GRID_AUTOJ * GRID_AVOGADRO, grid_wf_temperature(gwf, 2.17, potential_store));
+
+  pot = (kin / n) * GRID_AUTOJ * GRID_AVOGADRO; // thermal energy
+  printf("Thermal energy = " FMT_R " J/mol, T = " FMT_R " K\n", pot, grid_wf_temperature(gwf, TLAMBDA, potential_store));
+  // Search for the matching enthalpy
+  kin = 0.0; // actually temperature here
+  while(1) {
+    if(dft_bulk_exp_enthalpy(kin, NULL, NULL) >= pot) break;
+    kin += 0.01; // search with 0.01 K accuracy
+  }
+  printf("Temperature based on enthalpy = " FMT_R " K\n", kin);
 
   sprintf(buf, "thermal-" FMT_I, iter);
   cgrid_write_grid(buf, gwf->grid);
