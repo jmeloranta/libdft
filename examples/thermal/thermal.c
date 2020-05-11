@@ -18,8 +18,8 @@
 #include <dft/ot.h>
 
 /* Time integration and spatial grid parameters */
-#define TS 1.0 /* fs (was 5) */
-#define ITS 4.0 /* fs */
+#define TS 2.0 /* fs (was 5) */
+#define ITS 0.05 /* fs */
 
 #define NX 256
 #define NY 256
@@ -28,7 +28,7 @@
 
 /* E(k) */
 #define KSPECTRUM /**/
-#define NBINS 128
+#define NBINS 512
 #define BINSTEP 0.1
 #define DENS_EPS 1E-3
 
@@ -56,13 +56,13 @@
 /* 3000 = 2.07 K (based on enthalpy) */
 /* 5000 = 1.96 K */
 /* 20000 = 1.78 K */
-#define COOL 20000
+#define COOL 100000000
 
 /* The number of thermalization iterations (real time) */
 #define THERMAL 20000
 
 /* Output every NTH iteration (was 5000) */
-#define NTH 500
+#define NTH 2000
 
 /* Use all threads available on the computer */
 #define THREADS 0
@@ -109,6 +109,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
     if(bins[i] != 0.0) fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i]);
   fclose(fp);
   n = grid_wf_norm(gwf);
+#if 0
   kin = grid_wf_kinetic_energy_classical(gwf, otf->workspace1, otf->workspace2, DFT_EPS);
   if(otf->model & DFT_OT_BACKFLOW) {
     rgrid_zero(rworkspace);
@@ -116,16 +117,24 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
     dft_ot_energy_density_bf(otf, rworkspace, gwf, otf->density);
     kin += rgrid_integral(rworkspace);
   }
-
-  pot = (kin / n) * GRID_AUTOJ * GRID_AVOGADRO; // thermal energy
-  printf("Thermal energy = " FMT_R " J/mol, T = " FMT_R " K\n", pot, grid_wf_temperature(gwf, TLAMBDA, potential_store));
+#else
+  kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
+  dft_ot_energy_density(otf, rworkspace, gwf);
+  pot = rgrid_integral(rworkspace) - mu0 * n;
+  kin += pot;
+#endif
+  pot = (kin / n) * GRID_AUTOJ * GRID_AVOGADRO;
+  printf("Thermal energy = " FMT_R " J/mol, T_BEC = " FMT_R " K, ", pot, grid_wf_temperature(gwf, TLAMBDA));
   // Search for the matching enthalpy
   kin = 0.0; // actually temperature here
   while(1) {
     if(dft_bulk_exp_enthalpy(kin, NULL, NULL) >= pot) break;
     kin += 0.01; // search with 0.01 K accuracy
   }
-  printf("Temperature based on enthalpy = " FMT_R " K\n", kin);
+  printf("T_enth = " FMT_R " K\n", kin);
+
+  pot = grid_wf_superfluid(gwf);
+  printf("FRACTION: " FMT_R " " FMT_R " " FMT_R "\n", kin, pot, 1.0 - pot); // Temperature, superfluid fraction, normal fraction
 
   sprintf(buf, "thermal-" FMT_I, iter);
   cgrid_write_grid(buf, gwf->grid);
@@ -161,6 +170,22 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   }
   for(i = 1; i < NBINS; i++)  /* Leave out the DC component (= zero) */
     fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
+  fclose(fp);
+
+  /* Bin |curl rho v|: small values for large rings and no strain, large values for small rings or high strain */
+  grid_wf_probability_flux(gwf, otf->workspace1, otf->workspace2, otf->workspace3);
+  rgrid_abs_rot(otf->workspace4, otf->workspace1, otf->workspace2, otf->workspace3);
+  rgrid_abs_power(otf->workspace4, otf->workspace4, 1.0); // increase exponent for contrast
+  sprintf(buf, "momentum-" FMT_I ".dat", iter);
+  kin = rgrid_max(otf->workspace4); // max value for bin
+  pot = kin / (REAL) NBINS;         // bin step
+  rgrid_histogram(otf->workspace4, bins, NBINS, kin / (REAL) NBINS);
+  if(!(fp = fopen(buf, "w"))) {
+    fprintf(stderr, "Can't open %s.\n", buf);
+    exit(1);
+  }
+  for(i = 0; i < NBINS; i++)
+    fprintf(fp, FMT_R " " FMT_R "\n", pot * (REAL) i, bins[i]);   // write histogram
   fclose(fp);
 
   kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
