@@ -18,8 +18,8 @@
 #include <dft/ot.h>
 
 /* Time integration and spatial grid parameters */
-#define TS 2.0 /* fs (was 5) */
-#define ITS 0.05 /* fs */
+#define TS 0.25 /* fs (was 5) */
+#define ITS 4.0 /* fs */
 
 #define NX 256
 #define NY 256
@@ -56,13 +56,13 @@
 /* 3000 = 2.07 K (based on enthalpy) */
 /* 5000 = 1.96 K */
 /* 20000 = 1.78 K */
-#define COOL 100000000
+#define COOL 2000
 
 /* The number of thermalization iterations (real time) */
 #define THERMAL 20000
 
 /* Output every NTH iteration (was 5000) */
-#define NTH 2000
+#define NTH 500
 
 /* Use all threads available on the computer */
 #define THREADS 0
