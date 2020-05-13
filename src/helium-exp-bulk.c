@@ -12,7 +12,7 @@
 #define EXPORT
 
 /*
- * Spline routine to extract spline data.
+ * Spline routine to extract spline data (J. Phys. Chem. Ref. Data 27, 1217 (1998)).
  *
  * ncap7 = number of knots, internal and external
  * k = pointer to array of knots
@@ -26,7 +26,7 @@
  *
  */
 
-static REAL dft_bulk_spline_eval(INT ncap7, REAL *k, REAL *c, REAL x, REAL *first, REAL *second) {
+static REAL dft_exp_bulk_spline_eval(INT ncap7, REAL *k, REAL *c, REAL x, REAL *first, REAL *second) {
 
   INT j, jlr, L;
   REAL s, klr, k2, k3, k4, k5, k6, e2, e3, e4, e5, c11, cd11, c21, cd21, cd31, c12, cd12;
@@ -86,12 +86,32 @@ static REAL dft_bulk_spline_eval(INT ncap7, REAL *k, REAL *c, REAL x, REAL *firs
  *
  */
 
-EXPORT REAL dft_bulk_exp_enthalpy(REAL temperature, REAL *first, REAL *second) {
+EXPORT REAL dft_exp_bulk_enthalpy(REAL temperature, REAL *first, REAL *second) {
 
   REAL f, s, e;
 
-  e = dft_bulk_spline_eval(DFT_BULK_ENTHALPY_KNOTS, dft_bulk_enthalpy_k, dft_bulk_enthalpy_c, temperature, &f, &s);
+  e = dft_exp_bulk_spline_eval(DFT_BULK_ENTHALPY_KNOTS, dft_bulk_enthalpy_k, dft_bulk_enthalpy_c, temperature, &f, &s);
   if(first) *first = f;
   if(second) *second = s;  
+  return e;
+}
+
+/*
+ * Dispersion relation.
+ *
+ * wavenumber  = Wavenumber for which the energy is computed (REAL; input).
+ *
+ * Returns Energy (Kelvin) corresponding to the wavenumber.
+ *
+ */
+
+EXPORT REAL dft_exp_bulk_dispersion(REAL k) {
+
+  REAL f, s, e;
+
+  /* The spline data does not extend down to zero... use linear interpolation there */
+  if(k < dft_bulk_dispersion_k[3])
+    return (k / dft_bulk_dispersion_k[3]) * dft_exp_bulk_spline_eval(DFT_BULK_DISPERSION_KNOTS, dft_bulk_dispersion_k, dft_bulk_dispersion_c, dft_bulk_dispersion_k[3], &f, &s);
+  e = dft_exp_bulk_spline_eval(DFT_BULK_DISPERSION_KNOTS, dft_bulk_dispersion_k, dft_bulk_dispersion_c, k, &f, &s);
   return e;
 }

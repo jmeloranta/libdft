@@ -18,13 +18,13 @@
 #include <dft/ot.h>
 
 /* Time integration and spatial grid parameters */
-#define TS 0.25 /* fs (was 5) */
-#define ITS 4.0 /* fs */
+#define TS 0.05 /* fs (was 5) */
+#define ITS 40.0 /* fs */
 
-#define NX 256
-#define NY 256
-#define NZ 256
-#define STEP 1.0
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 0.5
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -56,13 +56,13 @@
 /* 3000 = 2.07 K (based on enthalpy) */
 /* 5000 = 1.96 K */
 /* 20000 = 1.78 K */
-#define COOL 2000
+#define COOL 1000
 
 /* The number of thermalization iterations (real time) */
-#define THERMAL 20000
+#define THERMAL 200000000
 
 /* Output every NTH iteration (was 5000) */
-#define NTH 500
+#define NTH 2000
 
 /* Use all threads available on the computer */
 #define THREADS 0
@@ -128,7 +128,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   // Search for the matching enthalpy
   kin = 0.0; // actually temperature here
   while(1) {
-    if(dft_bulk_exp_enthalpy(kin, NULL, NULL) >= pot) break;
+    if(dft_exp_bulk_enthalpy(kin, NULL, NULL) >= pot) break;
     kin += 0.01; // search with 0.01 K accuracy
   }
   printf("T_enth = " FMT_R " K\n", kin);
