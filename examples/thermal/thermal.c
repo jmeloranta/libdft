@@ -18,8 +18,8 @@
 #include <dft/ot.h>
 
 /* Time integration and spatial grid parameters */
-#define TS 0.05 /* fs (was 5) */
-#define ITS 40.0 /* fs */
+#define TS 0.01 /* fs (was 5) */
+#define ITS 20.0 /* fs */
 
 #define NX 128
 #define NY 128
@@ -56,7 +56,7 @@
 /* 3000 = 2.07 K (based on enthalpy) */
 /* 5000 = 1.96 K */
 /* 20000 = 1.78 K */
-#define COOL 1000
+#define COOL 1600
 
 /* The number of thermalization iterations (real time) */
 #define THERMAL 200000000
@@ -81,6 +81,52 @@ REAL complex random_start(void *NA, REAL x, REAL y, REAL z) {
   return SQRT(rho0 * drand48()) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
 }
 
+REAL get_temp(REAL energy) {
+
+  REAL temp = 0.0;
+
+  // Search for the matching enthalpy
+  while(1) {
+    if(dft_exp_bulk_enthalpy(temp, NULL, NULL) >= energy) break;
+    temp += 0.01; // search with 0.01 K accuracy
+  }
+  return temp;
+}
+
+REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
+
+  REAL kin, pot, n;
+
+#if 0
+  kin = grid_wf_kinetic_energy_classical(gwf, otf->workspace1, otf->workspace2, DFT_EPS);
+  if(otf->model & DFT_OT_BACKFLOW) {
+    rgrid_zero(rworkspace);
+    grid_wf_density(gwf, otf->density);
+    dft_ot_energy_density_bf(otf, rworkspace, gwf, otf->density);
+    kin += rgrid_integral(rworkspace);
+  }
+#else
+  kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
+  dft_ot_energy_density(otf, rworkspace, gwf);
+  pot = rgrid_integral(rworkspace) - mu0 * grid_wf_norm(gwf);
+  kin += pot;
+#endif
+  n = grid_wf_norm(gwf);
+  return (kin / n) * GRID_AUTOJ * GRID_AVOGADRO; // J / mol
+}
+
+#define T_TARGET 1.5
+#define AA 1.0
+REAL thermostat(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
+
+  REAL temp, energy;
+
+  energy = get_energy(gwf, otf, rworkspace);
+  temp = get_temp(energy);
+  if(temp > T_TARGET) return (TS * AA / GRID_AUTOFS) * FABS(temp - T_TARGET);
+  else return 0.0;
+}
+
 void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
 
   char buf[512];
@@ -88,7 +134,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 #ifdef KSPECTRUM
   static REAL *bins = NULL;
 #endif
-  REAL n, kin, pot;
+  REAL energy, tmp, tmp2;
   INT i;
 
   if(!bins) {
@@ -108,33 +154,14 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   for(i = 0; i < NBINS; i++)
     if(bins[i] != 0.0) fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i]);
   fclose(fp);
-  n = grid_wf_norm(gwf);
-#if 0
-  kin = grid_wf_kinetic_energy_classical(gwf, otf->workspace1, otf->workspace2, DFT_EPS);
-  if(otf->model & DFT_OT_BACKFLOW) {
-    rgrid_zero(rworkspace);
-    grid_wf_density(gwf, otf->density);
-    dft_ot_energy_density_bf(otf, rworkspace, gwf, otf->density);
-    kin += rgrid_integral(rworkspace);
-  }
-#else
-  kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
-  dft_ot_energy_density(otf, rworkspace, gwf);
-  pot = rgrid_integral(rworkspace) - mu0 * n;
-  kin += pot;
-#endif
-  pot = (kin / n) * GRID_AUTOJ * GRID_AVOGADRO;
-  printf("Thermal energy = " FMT_R " J/mol, T_BEC = " FMT_R " K, ", pot, grid_wf_temperature(gwf, TLAMBDA));
-  // Search for the matching enthalpy
-  kin = 0.0; // actually temperature here
-  while(1) {
-    if(dft_exp_bulk_enthalpy(kin, NULL, NULL) >= pot) break;
-    kin += 0.01; // search with 0.01 K accuracy
-  }
-  printf("T_enth = " FMT_R " K\n", kin);
 
-  pot = grid_wf_superfluid(gwf);
-  printf("FRACTION: " FMT_R " " FMT_R " " FMT_R "\n", kin, pot, 1.0 - pot); // Temperature, superfluid fraction, normal fraction
+  energy = get_energy(gwf, otf, rworkspace);
+  tmp2 = get_temp(energy);
+  printf("Thermal energy = " FMT_R " J/mol, T_BEC = " FMT_R " K, ", energy, grid_wf_temperature(gwf, TLAMBDA));
+  printf("T_enth = " FMT_R " K\n", tmp2);
+
+  tmp = grid_wf_superfluid(gwf);
+  printf("FRACTION: " FMT_R " " FMT_R " " FMT_R "\n", tmp2, tmp, 1.0 - tmp); // Temperature, superfluid fraction, normal fraction
 
   sprintf(buf, "thermal-" FMT_I, iter);
   cgrid_write_grid(buf, gwf->grid);
@@ -177,24 +204,24 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   rgrid_abs_rot(otf->workspace4, otf->workspace1, otf->workspace2, otf->workspace3);
   rgrid_abs_power(otf->workspace4, otf->workspace4, 1.0); // increase exponent for contrast
   sprintf(buf, "momentum-" FMT_I ".dat", iter);
-  kin = rgrid_max(otf->workspace4); // max value for bin
-  pot = kin / (REAL) NBINS;         // bin step
-  rgrid_histogram(otf->workspace4, bins, NBINS, kin / (REAL) NBINS);
+  tmp = rgrid_max(otf->workspace4); // max value for bin
+  tmp2 = tmp / (REAL) NBINS;         // bin step
+  rgrid_histogram(otf->workspace4, bins, NBINS, tmp / (REAL) NBINS);
   if(!(fp = fopen(buf, "w"))) {
     fprintf(stderr, "Can't open %s.\n", buf);
     exit(1);
   }
   for(i = 0; i < NBINS; i++)
-    fprintf(fp, FMT_R " " FMT_R "\n", pot * (REAL) i, bins[i]);   // write histogram
+    fprintf(fp, FMT_R " " FMT_R "\n", tmp2 * (REAL) i, bins[i]);   // write histogram
   fclose(fp);
 
-  kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
+  tmp = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
   dft_ot_energy_density(otf, rworkspace, gwf);
-  pot = rgrid_integral(rworkspace) - mu0 * n;
-  printf("Helium natoms       = " FMT_R " particles.\n", n);   /* Energy / particle in K */
-  printf("Helium kinetic E    = " FMT_R " K\n", kin * GRID_AUTOK);  /* Print result in K */
-  printf("Helium potential E  = " FMT_R " K\n", pot * GRID_AUTOK);  /* Print result in K */
-  printf("Helium energy       = " FMT_R " K\n", (kin + pot) * GRID_AUTOK);  /* Print result in K */
+  tmp2 = rgrid_integral(rworkspace) - mu0 * grid_wf_norm(gwf);
+  printf("Helium natoms       = " FMT_R " particles.\n", grid_wf_norm(gwf));   /* Energy / particle in K */
+  printf("Helium kinetic E    = " FMT_R " K\n", tmp * GRID_AUTOK);  /* Print result in K */
+  printf("Helium potential E  = " FMT_R " K\n", tmp2 * GRID_AUTOK);  /* Print result in K */
+  printf("Helium energy       = " FMT_R " K\n", (tmp + tmp2) * GRID_AUTOK);  /* Print result in K */
   fflush(stdout);
 }
 
@@ -330,7 +357,15 @@ int main(int argc, char **argv) {
     cgrid_inverse_fft_norm(gwf->grid);
 #endif
 
-    if(iter == 0 || !(iter % NTH)) print_stats(iter, gwf, otf, potential_store, rworkspace);
+    if(iter == 0 || !(iter % NTH))
+      print_stats(iter, gwf, otf, potential_store, rworkspace);
+
+//    if(!(iter % 500)) {
+//      /* Thermostat */
+//      tstep = CREAL(tstep) - I * thermostat(gwf, otf, rworkspace);
+//      printf("Thermostat: " FMT_R "," FMT_R "\n", CREAL(tstep) * GRID_AUTOFS, CIMAG(tstep) * GRID_AUTOFS);
+//      fflush(stdout);
+//    }
   }
   return 0;
 }

@@ -28,21 +28,21 @@
 
 static REAL dft_exp_bulk_spline_eval(INT ncap7, REAL *k, REAL *c, REAL x, REAL *first, REAL *second) {
 
-  INT j, jlr, L;
-  REAL s, klr, k2, k3, k4, k5, k6, e2, e3, e4, e5, c11, cd11, c21, cd21, cd31, c12, cd12;
+  INT j, j1r, L;
+  REAL s, k1r, k2, k3, k4, k5, k6, e2, e3, e4, e5, c11, cd11, c21, cd21, cd31, c12, cd12;
   REAL cdd12, c22, cd22, cdd22, c31;
 
   if(x >= k[3] && x <= k[ncap7-3]) {
-    jlr = -1;
+    j1r = -1;
     j = ncap7 - 7;
-    L = (jlr + j) / 2;
-    while(j - jlr > 1) {
-      if(x >= k[L+4]) jlr = L;
+    L = (j1r + j) / 2;
+    while(j - j1r > 1) {
+      if(x >= k[L+4]) j1r = L;
       else j = L;
-      L = (jlr + j) / 2;
+      L = (j1r + j) / 2;
     }
 
-    klr = k[j + 1];
+    k1r = k[j + 1];
     k2 = k[j + 2];
     k3 = k[j + 3];
     k4 = k[j + 4];
@@ -52,8 +52,8 @@ static REAL dft_exp_bulk_spline_eval(INT ncap7, REAL *k, REAL *c, REAL x, REAL *
     e3 = x - k3;
     e4 = k4 - x;
     e5 = k5 - x;
-    c11 = ((x - klr) * c[j+1] + e4 * c[j]) / (k4-klr);
-    cd11 = (c[j+1] - c[j]) / (k4 - klr);
+    c11 = ((x - k1r) * c[j+1] + e4 * c[j]) / (k4-k1r);
+    cd11 = (c[j+1] - c[j]) / (k4 - k1r);
     c21 = (e2 * c[j+2] + e5 * c[j+1]) / (k5 - k2);
     cd21 =(c[j+2] - c[j+1]) / (k5 - k2);
     c31 = (e3 * c[j + 3] + (k6 - x) * c[j + 2]) / (k6 - k3);
