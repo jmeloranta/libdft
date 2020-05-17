@@ -18,8 +18,8 @@
 #include <dft/ot.h>
 
 /* Time integration and spatial grid parameters */
-#define TS 0.01 /* fs (was 5) */
-#define ITS 20.0 /* fs */
+#define TS 1.0 /* fs (was 5) */
+#define ITS 10.0 /* fs */
 
 #define NX 128
 #define NY 128
@@ -33,14 +33,15 @@
 #define DENS_EPS 1E-3
 
 /* Predict-correct? */
-#define PC
+//#define PC
 
-/* Use dealiasing during real time propagation? (2/3-rule) - does not seem to help? */
+/* Use dealiasing during real time propagation? */
 //#define DEALIAS
+//#define DEALIAS_VAL (3.0 * GRID_AUTOANG)
 
 /* Functional to use (was DFT_OT_PLAIN; GP2 is test)  -- TODO: There is a problem with backflow, energy keeps increasing? HD does not help. Predict-correct or shoter time step? or shorter grid step? */
-#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-//#define FUNCTIONAL (DFT_OT_PLAIN)
+//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+#define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -52,20 +53,21 @@
 #define TLAMBDA 2.17
 
 /* The number of cooling iterations (mixture of real and imaginary) */
-/* 2000 = 2.16 K (1fs real + 4fs imag) */
-/* 3000 = 2.07 K (based on enthalpy) */
-/* 5000 = 1.96 K */
-/* 20000 = 1.78 K */
-#define COOL 1600
+/* 1600 = 1.47 K (20fs imag) */
+/* 1000 = 2.02 K (noisy) */
+#define COOL 2000
 
 /* The number of thermalization iterations (real time) */
 #define THERMAL 200000000
 
 /* Output every NTH iteration (was 5000) */
-#define NTH 2000
+#define NTH 200
 
 /* Use all threads available on the computer */
 #define THREADS 0
+
+/* Random seed (drand48) */
+#define RANDOM_SEED 123467L
 
 /* GPU allocation */
 #ifdef USE_CUDA
@@ -76,9 +78,10 @@ int ngpus;
 REAL rho0, mu0;
 FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 
+/* Random phases and equal amplitude for each k-point the reciprocal space */
 REAL complex random_start(void *NA, REAL x, REAL y, REAL z) {
 
-  return SQRT(rho0 * drand48()) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
+  return SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
 }
 
 REAL get_temp(REAL energy) {
@@ -97,34 +100,12 @@ REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
 
   REAL kin, pot, n;
 
-#if 0
-  kin = grid_wf_kinetic_energy_classical(gwf, otf->workspace1, otf->workspace2, DFT_EPS);
-  if(otf->model & DFT_OT_BACKFLOW) {
-    rgrid_zero(rworkspace);
-    grid_wf_density(gwf, otf->density);
-    dft_ot_energy_density_bf(otf, rworkspace, gwf, otf->density);
-    kin += rgrid_integral(rworkspace);
-  }
-#else
   kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
   dft_ot_energy_density(otf, rworkspace, gwf);
   pot = rgrid_integral(rworkspace) - mu0 * grid_wf_norm(gwf);
   kin += pot;
-#endif
   n = grid_wf_norm(gwf);
   return (kin / n) * GRID_AUTOJ * GRID_AVOGADRO; // J / mol
-}
-
-#define T_TARGET 1.5
-#define AA 1.0
-REAL thermostat(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
-
-  REAL temp, energy;
-
-  energy = get_energy(gwf, otf, rworkspace);
-  temp = get_temp(energy);
-  if(temp > T_TARGET) return (TS * AA / GRID_AUTOFS) * FABS(temp - T_TARGET);
-  else return 0.0;
 }
 
 void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
@@ -157,14 +138,15 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   energy = get_energy(gwf, otf, rworkspace);
   tmp2 = get_temp(energy);
-  printf("Thermal energy = " FMT_R " J/mol, T_BEC = " FMT_R " K, ", energy, grid_wf_temperature(gwf, TLAMBDA));
+  printf("Thermal energy = " FMT_R " J/mol, T_BEC = " FMT_R " K, ", energy, grid_wf_temperature(gwf, 2.19, 1.0 / 5.96608));
   printf("T_enth = " FMT_R " K\n", tmp2);
 
   tmp = grid_wf_superfluid(gwf);
   printf("FRACTION: " FMT_R " " FMT_R " " FMT_R "\n", tmp2, tmp, 1.0 - tmp); // Temperature, superfluid fraction, normal fraction
 
-  sprintf(buf, "thermal-" FMT_I, iter);
-  cgrid_write_grid(buf, gwf->grid);
+// DEBUG Skip writing grids for now
+//  sprintf(buf, "thermal-" FMT_I, iter);
+//  cgrid_write_grid(buf, gwf->grid);
 
   /* The whole thing */
   grid_wf_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, DENS_EPS);
@@ -235,7 +217,6 @@ int main(int argc, char **argv) {
   wf *gwfp;
 #endif
   INT iter, i;
-  grid_timer timer;
   REAL complex tstep;
 
   if(argc < 2) {
@@ -257,6 +238,8 @@ int main(int argc, char **argv) {
   grid_fft_read_wisdom(NULL);
 
   grid_wf_analyze_method(1);  // FD = 0, FFT = 1
+
+  srand48(RANDOM_SEED);
 
   /* Allocate wave functions */
   if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
@@ -283,8 +266,13 @@ int main(int argc, char **argv) {
   potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
   rworkspace = rgrid_clone(otf->density, "external potential");
 
-  /* 1. Random initial guess */
+  /* 1. Random initial guess -- here everything on CPU all the way to cgrid_multiply */
   cgrid_map(gwf->grid, random_start, gwf->grid);
+#ifdef DEALIAS_VAL
+  cgrid_dealias2(gwf->grid, DEALIAS_VAL); // Remove high wavenumber components from the initial guess
+  cgrid_fftw_inv(gwf->grid);
+  cgrid_multiply(gwf->grid, gwf->grid->fft_norm);
+#endif
 
   /* Make sure that we have enough workspaces reserved */
   if(!(otf->workspace2)) otf->workspace2 = rgrid_clone(otf->density, "OT workspace 2");
@@ -293,44 +281,40 @@ int main(int argc, char **argv) {
   if(!(otf->workspace5)) otf->workspace5 = rgrid_clone(otf->density, "OT Workspace 5");
 
   /* 2. Cooling period */
-  gwf->norm = gwfp->norm = HE_NORM;
+  gwf->norm 
+#ifdef PC
+    = gwfp->norm 
+#endif
+    = HE_NORM;
   printf("Cooling...\n");
   tstep = (TS - I * ITS) / GRID_AUTOFS;
   for (iter = 0; iter < COOL; iter++) {
-    grid_timer_start(&timer);
     if(iter == 10) grid_fft_write_wisdom(NULL);
-#ifdef PC
-    /* Predict-Correct */
-    cgrid_constant(potential_store, -mu0);
-    dft_ot_potential(otf, potential_store, gwf);
-    grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep);
-
-    cgrid_add(potential_store, -mu0);
-    dft_ot_potential(otf, potential_store, gwfp);
-    cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
-    grid_wf_propagate_correct(gwf, potential_store, tstep);
-#else /* PC */
     /* Propagate */
     cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate(gwf, potential_store, tstep);
-#endif /* PC */
     grid_wf_normalize(gwf);    
-    printf("Cooling Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer)); fflush(stdout);
     if(iter && !(iter % NTH)) print_stats(iter, gwf, otf, potential_store, rworkspace);
   }
 
   printf("Equilibriating...\n");
   tstep = TS / GRID_AUTOFS;
   for (; iter < COOL + THERMAL; iter++) {
-    grid_timer_start(&timer);
+
+#ifdef DEALIAS
+    cgrid_fft(gwf->grid);
+    cgrid_dealias2(gwf->grid, DEALIAS_VAL);
+    cgrid_inverse_fft_norm(gwf->grid);
+#endif
+
 #ifdef PC
     /* Predict-Correct */
     cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
 #ifdef DEALIAS
     cgrid_fft(potential_store);
-    cgrid_dealias(potential_store, 1);
+    cgrid_dealias2(potential_store, DEALIAS_VAL);
     cgrid_inverse_fft_norm(potential_store);
 #endif
     grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep);
@@ -340,7 +324,7 @@ int main(int argc, char **argv) {
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
 #ifdef DEALIAS
     cgrid_fft(potential_store);
-    cgrid_dealias(potential_store, 1);
+    cgrid_dealias2(potential_store, DEALIAS_VAL);
     cgrid_inverse_fft_norm(potential_store);
 #endif
     grid_wf_propagate_correct(gwf, potential_store, tstep);
@@ -348,24 +332,16 @@ int main(int argc, char **argv) {
     /* Propagate */
     cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
+#ifdef DEALIAS
+    cgrid_fft(potential_store);
+    cgrid_dealias2(potential_store, DEALIAS_VAL);
+    cgrid_inverse_fft_norm(potential_store);
+#endif
     grid_wf_propagate(gwf, potential_store, tstep);
 #endif /* PC */
 
-#ifdef DEALIAS
-    cgrid_fft(gwf->grid);
-    cgrid_dealias(gwf->grid, 1);
-    cgrid_inverse_fft_norm(gwf->grid);
-#endif
-
     if(iter == 0 || !(iter % NTH))
       print_stats(iter, gwf, otf, potential_store, rworkspace);
-
-//    if(!(iter % 500)) {
-//      /* Thermostat */
-//      tstep = CREAL(tstep) - I * thermostat(gwf, otf, rworkspace);
-//      printf("Thermostat: " FMT_R "," FMT_R "\n", CREAL(tstep) * GRID_AUTOFS, CIMAG(tstep) * GRID_AUTOFS);
-//      fflush(stdout);
-//    }
   }
   return 0;
 }
