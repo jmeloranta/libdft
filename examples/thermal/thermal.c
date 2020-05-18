@@ -21,8 +21,8 @@
 #define TIMEINT WF_2ND_ORDER_FFT
 
 /* Time step for real and imaginary time */
-#define TS 1.0 /* fs */
-#define ITS 0.1 /* fs */
+#define TS 0.5 /* fs */
+#define ITS (0.1 * TS) /* fs (10% of TS works but still a bit too fast) */
 
 /* Grid */
 #define NX 128
@@ -45,11 +45,13 @@
 
 /* Functional to use */
 /* DFT_OT_HD: broadens above 2.0 K, no effect below this */
+
 /* Coarse functional to get to 3.0 K - numerically stable */
 #define FUNCTIONAL (DFT_OT_PLAIN)
+
 /* Fine functional to use below 3.0 K - less stable */
 //#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
+#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -57,16 +59,12 @@
 /* Normalization - Since we have the thermal excitations, the chemical potential method is not good... Hence explicit normalization */
 #define HE_NORM (rho0 * ((REAL) NX) * STEP * ((REAL) NY) * STEP * ((REAL) NZ) * STEP)
 
-/* Lambda temperature */
-#define TLAMBDA 2.17
+/* Lambda temperature and exponent for temperature calculation */
+#define TLAMBDA 2.19
+#define TEXP (1.0 / 5.96608)
 
 /* The number of cooling iterations (mixture of real and imaginary) */
-/* 1600 = 1.47 K (20fs imag) */
-/* 1000 = 2.02 K (noisy) */
-#define COOL 100000
-
-/* The number of thermalization iterations (real time) */
-#define THERMAL 200000000
+#define COOL 200000
 
 /* Output every NTH iteration (was 5000) */
 #define NTH 200
@@ -77,7 +75,10 @@
 /* Random seed (drand48) */
 #define RANDOM_SEED 123467L
 
-/* Disable cuda ? */
+/* Write grid files? */
+// #define WRITE_GRD
+
+/* Disable cuda ? (TODO: Strange issue of not getting the correct kinetic energy with FFTW; CUFFT works OK) */
 // #undef USE_CUDA
 
 /* GPU allocation */
@@ -149,7 +150,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   energy = get_energy(gwf, otf, rworkspace);
   tmp2 = get_temp(energy);
-  printf("Thermal energy = " FMT_R " J/mol, T_BEC = " FMT_R " K, ", energy, grid_wf_temperature(gwf, 2.19, 1.0 / 5.96608));
+  printf("Thermal energy = " FMT_R " J/mol, T_BEC = " FMT_R " K, ", energy, grid_wf_temperature(gwf, TLAMBDA, TEXP));
   printf("T_enth = " FMT_R " K\n", tmp2);
 
   tmp = grid_wf_superfluid(gwf);
@@ -157,9 +158,10 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   if(tmp2 < 3.0) upd = 1;
 
-// DEBUG Skip writing grids for now
-//  sprintf(buf, "thermal-" FMT_I, iter);
-//  cgrid_write_grid(buf, gwf->grid);
+#ifdef WRITE_GRD
+  sprintf(buf, "thermal-" FMT_I, iter);
+  cgrid_write_grid(buf, gwf->grid);
+#endif
 
   /* The whole thing */
   grid_wf_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, DENS_EPS);
@@ -349,7 +351,6 @@ int main(int argc, char **argv) {
 
     if(iter == 0 || !(iter % NTH))
       print_stats(iter, gwf, otf, potential_store, rworkspace);
-
   }
 
   return 0;
