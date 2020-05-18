@@ -17,10 +17,14 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-/* Time integration and spatial grid parameters */
-#define TS 1.0 /* fs (was 5) */
-#define ITS 10.0 /* fs */
+/* Time integration method */
+#define TIMEINT WF_2ND_ORDER_FFT
 
+/* Time step for real and imaginary time */
+#define TS 1.0 /* fs */
+#define ITS 0.1 /* fs */
+
+/* Grid */
 #define NX 128
 #define NY 128
 #define NZ 128
@@ -32,16 +36,20 @@
 #define BINSTEP 0.1
 #define DENS_EPS 1E-3
 
-/* Predict-correct? */
-//#define PC
+/* Predict-correct? (not available for 4th order splitting) */
+#define PC
 
 /* Use dealiasing during real time propagation? */
 //#define DEALIAS
-//#define DEALIAS_VAL (3.0 * GRID_AUTOANG)
+//#define DEALIAS_VAL (2.5 * GRID_AUTOANG)
 
-/* Functional to use (was DFT_OT_PLAIN; GP2 is test)  -- TODO: There is a problem with backflow, energy keeps increasing? HD does not help. Predict-correct or shoter time step? or shorter grid step? */
-//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+/* Functional to use */
+/* DFT_OT_HD: broadens above 2.0 K, no effect below this */
+/* Coarse functional to get to 3.0 K - numerically stable */
 #define FUNCTIONAL (DFT_OT_PLAIN)
+/* Fine functional to use below 3.0 K - less stable */
+//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -55,7 +63,7 @@
 /* The number of cooling iterations (mixture of real and imaginary) */
 /* 1600 = 1.47 K (20fs imag) */
 /* 1000 = 2.02 K (noisy) */
-#define COOL 2000
+#define COOL 100000
 
 /* The number of thermalization iterations (real time) */
 #define THERMAL 200000000
@@ -68,6 +76,9 @@
 
 /* Random seed (drand48) */
 #define RANDOM_SEED 123467L
+
+/* Disable cuda ? */
+// #undef USE_CUDA
 
 /* GPU allocation */
 #ifdef USE_CUDA
@@ -116,7 +127,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   static REAL *bins = NULL;
 #endif
   REAL energy, tmp, tmp2;
-  INT i;
+  INT i, upd = 0;
 
   if(!bins) {
     if(!(bins = (REAL *) malloc(sizeof(REAL) * NBINS))) {
@@ -143,6 +154,8 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   tmp = grid_wf_superfluid(gwf);
   printf("FRACTION: " FMT_R " " FMT_R " " FMT_R "\n", tmp2, tmp, 1.0 - tmp); // Temperature, superfluid fraction, normal fraction
+
+  if(tmp2 < 3.0) upd = 1;
 
 // DEBUG Skip writing grids for now
 //  sprintf(buf, "thermal-" FMT_I, iter);
@@ -205,6 +218,8 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   printf("Helium potential E  = " FMT_R " K\n", tmp2 * GRID_AUTOK);  /* Print result in K */
   printf("Helium energy       = " FMT_R " K\n", (tmp + tmp2) * GRID_AUTOK);  /* Print result in K */
   fflush(stdout);
+
+  if(upd) otf->model = FUNCTIONAL_FINE;  // Time to switch to FINE functional
 }
 
 int main(int argc, char **argv) {
@@ -242,22 +257,24 @@ int main(int argc, char **argv) {
   srand48(RANDOM_SEED);
 
   /* Allocate wave functions */
-  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwf"))) {
+  if(!(gwf = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, TIMEINT, "gwf"))) {
     fprintf(stderr, "Cannot allocate gwf.\n");
     exit(1);
   }
 #ifdef PC
-  if(!(gwfp = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, WF_2ND_ORDER_FFT, "gwfp"))) {
+  if(!(gwfp = grid_wf_alloc(NX, NY, NZ, STEP, DFT_HELIUM_MASS, WF_PERIODIC_BOUNDARY, TIMEINT, "gwfp"))) {
     fprintf(stderr, "Cannot allocate gwfp.\n");
     exit(1);
   }
 #endif  
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(FUNCTIONAL, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(FUNCTIONAL_FINE, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
+  otf->model = FUNCTIONAL;
+
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
   printf("Bulk mu0 = " FMT_R " K/atom, Bulk rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
@@ -290,17 +307,6 @@ int main(int argc, char **argv) {
   tstep = (TS - I * ITS) / GRID_AUTOFS;
   for (iter = 0; iter < COOL; iter++) {
     if(iter == 10) grid_fft_write_wisdom(NULL);
-    /* Propagate */
-    cgrid_constant(potential_store, -mu0);
-    dft_ot_potential(otf, potential_store, gwf);
-    grid_wf_propagate(gwf, potential_store, tstep);
-    grid_wf_normalize(gwf);    
-    if(iter && !(iter % NTH)) print_stats(iter, gwf, otf, potential_store, rworkspace);
-  }
-
-  printf("Equilibriating...\n");
-  tstep = TS / GRID_AUTOFS;
-  for (; iter < COOL + THERMAL; iter++) {
 
 #ifdef DEALIAS
     cgrid_fft(gwf->grid);
@@ -339,9 +345,12 @@ int main(int argc, char **argv) {
 #endif
     grid_wf_propagate(gwf, potential_store, tstep);
 #endif /* PC */
+    grid_wf_normalize(gwf);    // We have the imaginary time component without proper chemical potential
 
     if(iter == 0 || !(iter % NTH))
       print_stats(iter, gwf, otf, potential_store, rworkspace);
+
   }
+
   return 0;
 }
