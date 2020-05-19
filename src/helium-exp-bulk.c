@@ -169,7 +169,7 @@ EXPORT REAL dft_exp_bulk_superfluid_fraction_inverse(REAL sfrac) {
 
   // Search for the matching enthalpy
   while(1) {
-    if(dft_exp_bulk_superfluid_fraction(temp) >= sfrac) break;
+    if(dft_exp_bulk_superfluid_fraction(temp) <= sfrac || temp >= 2.1768) break;
     temp += 0.01; // search with 0.01 accuracy
   }
   return temp;

@@ -25,10 +25,10 @@
 #define ITS (0.1 * TS) /* fs (10% of TS works but still a bit too fast) */
 
 /* Grid */
-#define NX 256
-#define NY 256
-#define NZ 256
-#define STEP 0.5
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 1.0
 
 /* E(k) */
 #define KSPECTRUM /**/
