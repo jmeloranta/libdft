@@ -53,6 +53,9 @@
 //#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
 #define FUNCTIONAL_FINE (DFT_OT_PLAIN)
 
+/* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
+#define TEMP_SWITCH 3.0
+
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
@@ -64,7 +67,7 @@
 #define TEXP (1.0 / 5.96608)
 
 /* The number of cooling iterations (mixture of real and imaginary) */
-#define COOL 200000
+#define COOL 2000000
 
 /* Output every NTH iteration (was 5000) */
 #define NTH 200
@@ -94,18 +97,6 @@ FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 REAL complex random_start(void *NA, REAL x, REAL y, REAL z) {
 
   return SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
-}
-
-REAL get_temp(REAL energy) {
-
-  REAL temp = 0.0;
-
-  // Search for the matching enthalpy
-  while(1) {
-    if(dft_exp_bulk_enthalpy(temp, NULL, NULL) >= energy) break;
-    temp += 0.01; // search with 0.01 K accuracy
-  }
-  return temp;
 }
 
 REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
@@ -149,14 +140,14 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   fclose(fp);
 
   energy = get_energy(gwf, otf, rworkspace);
-  tmp2 = get_temp(energy);
-  printf("Thermal energy = " FMT_R " J/mol, T_BEC = " FMT_R " K, ", energy, grid_wf_temperature(gwf, TLAMBDA, TEXP));
+  tmp = grid_wf_superfluid(gwf);
+  tmp2 = dft_exp_bulk_enthalpy_inverse(energy);
+  printf("Thermal energy = " FMT_R " J/mol, T_BEC = " FMT_R " K, ", energy, dft_exp_bulk_superfluid_fraction_inverse(tmp));
   printf("T_enth = " FMT_R " K\n", tmp2);
 
-  tmp = grid_wf_superfluid(gwf);
   printf("FRACTION: " FMT_R " " FMT_R " " FMT_R "\n", tmp2, tmp, 1.0 - tmp); // Temperature, superfluid fraction, normal fraction
 
-  if(tmp2 < 3.0) upd = 1;
+  if(tmp2 < TEMP_SWITCH) upd = 1;
 
 #ifdef WRITE_GRD
   sprintf(buf, "thermal-" FMT_I, iter);
