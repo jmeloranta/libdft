@@ -25,9 +25,9 @@
 #define ITS (0.1 * TS) /* fs (10% of TS works but still a bit too fast) */
 
 /* Grid */
-#define NX 128
-#define NY 128
-#define NZ 128
+#define NX 256
+#define NY 256
+#define NZ 256
 #define STEP 0.5
 
 /* E(k) */
@@ -51,7 +51,7 @@
 
 /* Fine functional to use below 3.0 K - less stable */
 //#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)

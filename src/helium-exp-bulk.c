@@ -76,13 +76,13 @@ static REAL dft_exp_bulk_spline_eval(INT ncap7, REAL *k, REAL *c, REAL x, REAL *
 }
 
 /*
- * Enthalpy at saturated vapor pressure at a given temperature.
+ * Enthalpy at saturated vapor pressure and a given temperature.
  *
  * temperature = Temperature at which the enthalpy is requested (REAL; input).
  * first       = First derivative of enthalpy at the temperature (REAL *; output). If NULL, not computed.
  * second      = Second derivative of enthalpy at the temperature (REAL *; output). If NULL, not computed.
  *
- * Returns enthalpy (J / mol) at the temperature.
+ * Returns enthalpy (J / mol) at the temperature (REAL).
  *
  */
 
@@ -97,11 +97,32 @@ EXPORT REAL dft_exp_bulk_enthalpy(REAL temperature, REAL *first, REAL *second) {
 }
 
 /*
- * Dispersion relation.
+ * Return temperature for given enthalpy (inverse of the above). The inversion is unique.
+ *
+ * enthalpy = Enthalpy at which the temperature is requested (REAL; input).
+ *
+ * Returns the temperature (REAL).
+ *
+ */
+
+EXPORT REAL dft_exp_bulk_enthalpy_inverse(REAL energy) {
+
+  REAL temp = 0.0;
+
+  // Search for the matching enthalpy
+  while(1) {
+    if(dft_exp_bulk_enthalpy(temp, NULL, NULL) >= energy) break;
+    temp += 0.01; // search with 0.01 K accuracy
+  }
+  return temp;
+}
+
+/*
+ * Dispersion relation at saturated vapor pressure.
  *
  * wavenumber  = Wavenumber for which the energy is computed (REAL; input).
  *
- * Returns Energy (Kelvin) corresponding to the wavenumber.
+ * Returns Energy (Kelvin) corresponding to the wavenumber (REAL).
  *
  */
 
@@ -114,4 +135,42 @@ EXPORT REAL dft_exp_bulk_dispersion(REAL k) {
     return (k / dft_bulk_dispersion_k[3]) * dft_exp_bulk_spline_eval(DFT_BULK_DISPERSION_KNOTS, dft_bulk_dispersion_k, dft_bulk_dispersion_c, dft_bulk_dispersion_k[3], &f, &s);
   e = dft_exp_bulk_spline_eval(DFT_BULK_DISPERSION_KNOTS, dft_bulk_dispersion_k, dft_bulk_dispersion_c, k, &f, &s);
   return e;
+}
+
+/*
+ * Supefluid fraction at saturated vapor pressure and a given temperature.
+ *
+ * temperature = Temperature at which the enthalpy is requested (REAL; input).
+ *
+ * Returns superfluid fraction between 0.0 and 1.0 (REAL).
+ *
+ */
+
+EXPORT REAL dft_exp_bulk_superfluid_fraction(REAL temperature) {
+
+  REAL f, s, e;
+
+  e = dft_exp_bulk_spline_eval(DFT_BULK_SUPERFRACTION_KNOTS, dft_bulk_superfraction_k, dft_bulk_superfraction_c, temperature, &f, &s);
+  return e;
+}
+
+/*
+ * Return temperature for given superfluid fraction (inverse of the above). The inversion is unique.
+ *
+ * sfrac = Superfluid fraction at which the temperature is requested (REAL; input).
+ *
+ * Returns the temperature (REAL).
+ *
+ */
+
+EXPORT REAL dft_exp_bulk_superfluid_fraction_inverse(REAL sfrac) {
+
+  REAL temp = 0.0;
+
+  // Search for the matching enthalpy
+  while(1) {
+    if(dft_exp_bulk_superfluid_fraction(temp) >= sfrac) break;
+    temp += 0.01; // search with 0.01 accuracy
+  }
+  return temp;
 }
