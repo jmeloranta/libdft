@@ -89,16 +89,7 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
   fprintf(stderr, "libdft: Grid " FMT_I " x " FMT_I " x " FMT_I " with step " FMT_R " Bohr.\n", nx, ny, nz, step);
   fprintf(stderr, "libdft: Functional = " FMT_I ".\n", model);
 
-  /* TODO: There is code for other BCs too */
-
-//  if(gwf->grid->value_outside != CGRID_PERIODIC_BOUNDARY) {
-//    fprintf(stderr, "libdft: Only periodic boundaries supported.\n");
-//    exit(1);
-//  }
-
-  dft_ot_temperature(otf, model);
-
-  // TODO: Periodic BC hardcoded at the moment.
+  dft_ot_init_params(otf, model);
 
   /* these grids are not needed for GP */
   if(!(model & DFT_GP) && !(model & DFT_ZERO) && !(model & DFT_GP2)) {
@@ -866,7 +857,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
  *
  */
 
-EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
+EXPORT inline void dft_ot_init_params(dft_ot_functional *otf, INT model) {
 
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) { /* high density penalty */
     otf->beta = (40.0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
@@ -1131,6 +1122,5 @@ EXPORT inline void dft_ot_temperature(dft_ot_functional *otf, INT model) {
 	  otf->c3 * GRID_AUTOK * POW(GRID_AUTOANG, 3.0 * otf->c3_exp),
 	  3.0 * otf->c3_exp);
   
-  otf->model = model;
   otf->div_epsilon = 1E-5;
 }

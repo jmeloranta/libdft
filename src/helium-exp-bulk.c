@@ -150,7 +150,9 @@ EXPORT REAL dft_exp_bulk_superfluid_fraction(REAL temperature) {
 
   REAL f, s, e;
 
-  e = dft_exp_bulk_spline_eval(DFT_BULK_SUPERFRACTION_KNOTS, dft_bulk_superfraction_k, dft_bulk_superfraction_c, temperature, &f, &s);
+  if(temperature >= 2.1768) return 0.0;
+  /* There was something wrong with the published spline data, it converged to 1.451275e-01 at 0 K (hence the division below) */
+  e = dft_exp_bulk_spline_eval(DFT_BULK_SUPERFRACTION_KNOTS, dft_bulk_superfraction_k, dft_bulk_superfraction_c, temperature, &f, &s) / 1.451275e-01;
   return e;
 }
 

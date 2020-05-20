@@ -21,14 +21,14 @@
 #define TIMEINT WF_2ND_ORDER_FFT
 
 /* Time step for real and imaginary time */
-#define TS 0.5 /* fs */
-#define ITS (0.1 * TS) /* fs (10% of TS works but still a bit too fast) */
+#define TS 1.0 /* fs */
+#define ITS (0.2 * TS) /* fs (10% of TS works but still a bit too fast) */
 
 /* Grid */
-#define NX 128
-#define NY 128
-#define NZ 128
-#define STEP 1.0
+#define NX 256
+#define NY 256
+#define NZ 256
+#define STEP 0.25
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -41,30 +41,25 @@
 
 /* Use dealiasing during real time propagation? */
 //#define DEALIAS
-//#define DEALIAS_VAL (2.5 * GRID_AUTOANG)
+#define DEALIAS_VAL (2.8 * GRID_AUTOANG)
 
 /* Functional to use */
-/* DFT_OT_HD: broadens above 2.0 K, no effect below this */
 
 /* Coarse functional to get to 3.0 K - numerically stable */
 #define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Fine functional to use below 3.0 K - less stable */
-//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
+#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+//#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 3.0
+#define TEMP_SWITCH 2.5
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Normalization - Since we have the thermal excitations, the chemical potential method is not good... Hence explicit normalization */
 #define HE_NORM (rho0 * ((REAL) NX) * STEP * ((REAL) NY) * STEP * ((REAL) NZ) * STEP)
-
-/* Lambda temperature and exponent for temperature calculation */
-#define TLAMBDA 2.19
-#define TEXP (1.0 / 5.96608)
 
 /* The number of cooling iterations (mixture of real and imaginary) */
 #define COOL 2000000
@@ -147,7 +142,10 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   printf("FRACTION: " FMT_R " " FMT_R " " FMT_R "\n", tmp2, tmp, 1.0 - tmp); // Temperature, superfluid fraction, normal fraction
 
-  if(tmp2 < TEMP_SWITCH) upd = 1;
+  if(tmp2 < TEMP_SWITCH) {
+    printf("Below swtiching temperature.\n");
+    upd = 1;
+  }
 
 #ifdef WRITE_GRD
   sprintf(buf, "thermal-" FMT_I, iter);
@@ -212,7 +210,10 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   printf("Helium energy       = " FMT_R " K\n", (tmp + tmp2) * GRID_AUTOK);  /* Print result in K */
   fflush(stdout);
 
-  if(upd) otf->model = FUNCTIONAL_FINE;  // Time to switch to FINE functional
+  if(upd) {
+    otf->model = FUNCTIONAL_FINE;  // Time to switch to FINE functional
+    printf("Switched to fine functional.\n");
+  }
 }
 
 int main(int argc, char **argv) {
@@ -299,7 +300,8 @@ int main(int argc, char **argv) {
   printf("Cooling...\n");
   tstep = (TS - I * ITS) / GRID_AUTOFS;
   for (iter = 0; iter < COOL; iter++) {
-    if(iter == 10) grid_fft_write_wisdom(NULL);
+
+    if(iter == 100) grid_fft_write_wisdom(NULL);
 
 #ifdef DEALIAS
     cgrid_fft(gwf->grid);
