@@ -28,7 +28,7 @@
 #define NX 256
 #define NY 256
 #define NZ 256
-#define STEP 0.25
+#define STEP 0.2
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -319,8 +319,9 @@ int main(int argc, char **argv) {
     cgrid_inverse_fft_norm(potential_store);
 #endif
     grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep);
+    grid_wf_normalize(gwfp);
 
-    cgrid_add(potential_store, -mu0);
+    cgrid_add(potential_store, -mu0); // not exact chem. pot. hence normalization above needed
     dft_ot_potential(otf, potential_store, gwfp);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
 #ifdef DEALIAS
@@ -340,7 +341,7 @@ int main(int argc, char **argv) {
 #endif
     grid_wf_propagate(gwf, potential_store, tstep);
 #endif /* PC */
-    grid_wf_normalize(gwf);    // We have the imaginary time component without proper chemical potential
+    grid_wf_normalize(gwf);
 
     if(iter == 0 || !(iter % NTH))
       print_stats(iter, gwf, otf, potential_store, rworkspace);
