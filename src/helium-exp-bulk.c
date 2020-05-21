@@ -105,13 +105,13 @@ EXPORT REAL dft_exp_bulk_enthalpy(REAL temperature, REAL *first, REAL *second) {
  *
  */
 
-EXPORT REAL dft_exp_bulk_enthalpy_inverse(REAL energy) {
+EXPORT REAL dft_exp_bulk_enthalpy_inverse(REAL enthalpy) {
 
   REAL temp = 0.0;
 
   // Search for the matching enthalpy
   while(1) {
-    if(dft_exp_bulk_enthalpy(temp, NULL, NULL) >= energy) break;
+    if(dft_exp_bulk_enthalpy(temp, NULL, NULL) >= enthalpy) break;
     temp += 0.01; // search with 0.01 K accuracy
   }
   return temp;
@@ -173,6 +173,48 @@ EXPORT REAL dft_exp_bulk_superfluid_fraction_inverse(REAL sfrac) {
   while(1) {
     if(dft_exp_bulk_superfluid_fraction(temp) <= sfrac || temp >= 2.1768) break;
     temp += 0.01; // search with 0.01 accuracy
+  }
+  return temp;
+}
+
+/*
+ * Entropy at saturated vapor pressure and a given temperature.
+ *
+ * temperature = Temperature at which the entropy is requested (REAL; input).
+ * first       = First derivative of entropy at the temperature (REAL *; output). If NULL, not computed.
+ * second      = Second derivative of entropy at the temperature (REAL *; output). If NULL, not computed.
+ *
+ * Returns entropy (J / mol) at the temperature (REAL).
+ *
+ */
+
+EXPORT REAL dft_exp_bulk_entropy(REAL temperature, REAL *first, REAL *second) {
+
+  REAL f, s, e;
+
+  e = dft_exp_bulk_spline_eval(DFT_BULK_ENTROPY_KNOTS, dft_bulk_entropy_k, dft_bulk_entropy_c, temperature, &f, &s);
+  if(first) *first = f;
+  if(second) *second = s;  
+  return e;
+}
+
+/*
+ * Return temperature for given entropy (inverse of the above). The inversion is unique.
+ *
+ * entropy = Entropy at which the temperature is requested (REAL; input).
+ *
+ * Returns the temperature (REAL).
+ *
+ */
+
+EXPORT REAL dft_exp_bulk_entropy_inverse(REAL entropy) {
+
+  REAL temp = 0.0;
+
+  // Search for the matching enthalpy
+  while(1) {
+    if(dft_exp_bulk_entropy(temp, NULL, NULL) >= entropy) break;
+    temp += 0.01; // search with 0.01 K accuracy
   }
   return temp;
 }

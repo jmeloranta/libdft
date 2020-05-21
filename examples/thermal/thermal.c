@@ -22,13 +22,16 @@
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
-#define ITS (0.2 * TS) /* fs (10% of TS works but still a bit too fast) */
+#define ITS (1.0 * TS) /* fs (10% of TS works but still a bit too fast) */
 
 /* Grid */
 #define NX 256
 #define NY 256
 #define NZ 256
-#define STEP 0.2
+#define STEP 0.5
+
+/* Boundary handling (continuous bulk or spherical droplet) */
+#define RADIUS (0.8 * STEP * ((REAL) NX) / 2.0)
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -49,17 +52,21 @@
 #define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Fine functional to use below 3.0 K - less stable */
-#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-//#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
+//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 2.5
+#define TEMP_SWITCH 1.5
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Normalization - Since we have the thermal excitations, the chemical potential method is not good... Hence explicit normalization */
+#ifdef RADIUS
+#define HE_NORM (rho0 * (4.0 / 3.0) * M_PI * RADIUS * RADIUS * RADIUS)
+#else
 #define HE_NORM (rho0 * ((REAL) NX) * STEP * ((REAL) NY) * STEP * ((REAL) NZ) * STEP)
+#endif
 
 /* The number of cooling iterations (mixture of real and imaginary) */
 #define COOL 2000000
@@ -86,11 +93,15 @@ int ngpus;
 #endif
 
 REAL rho0, mu0;
+REAL complex tstep;
 FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 
 /* Random phases and equal amplitude for each k-point the reciprocal space */
 REAL complex random_start(void *NA, REAL x, REAL y, REAL z) {
 
+#ifdef RADIUS
+  if(x*x + y*y + z*z > RADIUS*RADIUS) return 0.0;
+#endif
   return SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
 }
 
@@ -213,6 +224,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   if(upd) {
     otf->model = FUNCTIONAL_FINE;  // Time to switch to FINE functional
     printf("Switched to fine functional.\n");
+    tstep = CREAL(tstep);
   }
 }
 
@@ -226,7 +238,6 @@ int main(int argc, char **argv) {
   wf *gwfp;
 #endif
   INT iter, i;
-  REAL complex tstep;
 
   if(argc < 2) {
     fprintf(stderr, "Usage: thermal <gpu1> <gpu2> ...\n");
