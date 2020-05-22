@@ -184,7 +184,7 @@ EXPORT REAL dft_exp_bulk_superfluid_fraction_inverse(REAL sfrac) {
  * first       = First derivative of entropy at the temperature (REAL *; output). If NULL, not computed.
  * second      = Second derivative of entropy at the temperature (REAL *; output). If NULL, not computed.
  *
- * Returns entropy (J / mol) at the temperature (REAL).
+ * Returns entropy (J / K g) at the temperature (REAL).
  *
  */
 

@@ -22,7 +22,7 @@
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
-#define ITS (1.0 * TS) /* fs (10% of TS works but still a bit too fast) */
+#define ITS (0.001 * TS) /* fs (10% of TS works but still a bit too fast) */
 
 /* Grid */
 #define NX 256
@@ -31,7 +31,7 @@
 #define STEP 0.5
 
 /* Boundary handling (continuous bulk or spherical droplet) */
-#define RADIUS (0.8 * STEP * ((REAL) NX) / 2.0)
+//#define RADIUS (0.8 * STEP * ((REAL) NX) / 2.0)
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -52,11 +52,11 @@
 #define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Fine functional to use below 3.0 K - less stable */
-//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
+#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+//#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 1.5
+#define TEMP_SWITCH 0.0
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -71,8 +71,8 @@
 /* The number of cooling iterations (mixture of real and imaginary) */
 #define COOL 2000000
 
-/* Output every NTH iteration (was 5000) */
-#define NTH 200
+/* Output every NTH iteration (was 200) */
+#define NTH 10000
 
 /* Use all threads available on the computer */
 #define THREADS 0
@@ -111,7 +111,7 @@ REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
 
   kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
   dft_ot_energy_density(otf, rworkspace, gwf);
-  pot = rgrid_integral(rworkspace) - mu0 * grid_wf_norm(gwf);
+  pot = rgrid_integral(rworkspace) - mu0 * grid_wf_norm(gwf); 
   kin += pot;
   n = grid_wf_norm(gwf);
   return (kin / n) * GRID_AUTOJ * GRID_AVOGADRO; // J / mol
@@ -303,14 +303,13 @@ int main(int argc, char **argv) {
   if(!(otf->workspace5)) otf->workspace5 = rgrid_clone(otf->density, "OT Workspace 5");
 
   /* 2. Cooling period */
-  gwf->norm 
-#ifdef PC
-    = gwfp->norm 
-#endif
-    = HE_NORM;
+  gwf->norm = HE_NORM;
   printf("Cooling...\n");
   tstep = (TS - I * ITS) / GRID_AUTOFS;
   for (iter = 0; iter < COOL; iter++) {
+#ifdef PC
+    gwfp->norm = gwf->norm;
+#endif
 
     if(iter == 100) grid_fft_write_wisdom(NULL);
 
