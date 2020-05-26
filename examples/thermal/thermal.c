@@ -22,13 +22,13 @@
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
-#define ITS (0.001 * TS) /* fs (10% of TS works but still a bit too fast) */
+#define ITS (0.1 * TS) /* fs (10% of TS works but still a bit too fast) */
 
 /* Grid */
 #define NX 256
 #define NY 256
 #define NZ 256
-#define STEP 0.5
+#define STEP 0.2
 
 /* Boundary handling (continuous bulk or spherical droplet) */
 //#define RADIUS (0.8 * STEP * ((REAL) NX) / 2.0)
@@ -72,7 +72,7 @@
 #define COOL 2000000
 
 /* Output every NTH iteration (was 200) */
-#define NTH 10000
+#define NTH 2000
 
 /* Use all threads available on the computer */
 #define THREADS 0
@@ -238,6 +238,7 @@ int main(int argc, char **argv) {
   wf *gwfp;
 #endif
   INT iter, i;
+  grid_timer timer;
 
   if(argc < 2) {
     fprintf(stderr, "Usage: thermal <gpu1> <gpu2> ...\n");
@@ -306,6 +307,7 @@ int main(int argc, char **argv) {
   gwf->norm = HE_NORM;
   printf("Cooling...\n");
   tstep = (TS - I * ITS) / GRID_AUTOFS;
+  grid_timer_start(&timer);
   for (iter = 0; iter < COOL; iter++) {
 #ifdef PC
     gwfp->norm = gwf->norm;
@@ -323,12 +325,14 @@ int main(int argc, char **argv) {
     /* Predict-Correct */
     cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
+
 #ifdef DEALIAS
     cgrid_fft(potential_store);
     cgrid_dealias2(potential_store, DEALIAS_VAL);
     cgrid_inverse_fft_norm(potential_store);
 #endif
     grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep);
+
     grid_wf_normalize(gwfp);
 
     cgrid_add(potential_store, -mu0); // not exact chem. pot. hence normalization above needed
@@ -353,8 +357,12 @@ int main(int argc, char **argv) {
 #endif /* PC */
     grid_wf_normalize(gwf);
 
-    if(iter == 0 || !(iter % NTH))
+
+    if(iter == 0 || !(iter % NTH)) {
+      printf("Wall clock time = " FMT_R " seconds.\n", grid_timer_wall_clock_time(&timer)); fflush(stdout);
       print_stats(iter, gwf, otf, potential_store, rworkspace);
+      grid_timer_start(&timer);
+    }
   }
 
   return 0;
