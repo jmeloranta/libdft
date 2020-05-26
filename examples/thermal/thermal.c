@@ -78,7 +78,7 @@
 #define THREADS 0
 
 /* Random seed (drand48) */
-#define RANDOM_SEED 123467L
+#define RANDOM_SEED 1234678L
 
 /* Write grid files? */
 // #define WRITE_GRD
@@ -135,7 +135,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   }
 
   printf("***** Statistics for iteration " FMT_I "\n", iter);
-  grid_wf_average_occupation(gwf, bins, BINSTEP, NBINS, potential_store, 2);
+  grid_wf_average_occupation(gwf, bins, BINSTEP, NBINS, potential_store);
   sprintf(buf, "occ-" FMT_I ".dat", iter);
   if(!(fp = fopen(buf, "w"))) {
     fprintf(stderr, "Can't open %s.\n", buf);
@@ -217,6 +217,8 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   tmp2 = rgrid_integral(rworkspace) - mu0 * grid_wf_norm(gwf);
   printf("Helium natoms       = " FMT_R " particles.\n", grid_wf_norm(gwf));   /* Energy / particle in K */
   printf("Helium kinetic E    = " FMT_R " K\n", tmp * GRID_AUTOK);  /* Print result in K */
+  printf("Helium classical KE = " FMT_R " K\n", grid_wf_kinetic_energy_classical(gwf, otf->workspace1, otf->workspace2, DENS_EPS) * GRID_AUTOK);
+  printf("Helium quantum KE   = " FMT_R " K\n", grid_wf_kinetic_energy_qp(gwf, otf->workspace1, otf->workspace2, otf->workspace3) * GRID_AUTOK);
   printf("Helium potential E  = " FMT_R " K\n", tmp2 * GRID_AUTOK);  /* Print result in K */
   printf("Helium energy       = " FMT_R " K\n", (tmp + tmp2) * GRID_AUTOK);  /* Print result in K */
   fflush(stdout);
@@ -289,19 +291,19 @@ int main(int argc, char **argv) {
   potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
   rworkspace = rgrid_clone(otf->density, "external potential");
 
-  /* 1. Random initial guess -- here everything on CPU all the way to cgrid_multiply */
-  cgrid_map(gwf->grid, random_start, gwf->grid);
-#ifdef DEALIAS_VAL
-  cgrid_dealias2(gwf->grid, DEALIAS_VAL); // Remove high wavenumber components from the initial guess
-  cgrid_fftw_inv(gwf->grid);
-  cgrid_multiply(gwf->grid, gwf->grid->fft_norm);
-#endif
-
   /* Make sure that we have enough workspaces reserved */
   if(!(otf->workspace2)) otf->workspace2 = rgrid_clone(otf->density, "OT workspace 2");
   if(!(otf->workspace3)) otf->workspace3 = rgrid_clone(otf->density, "OT workspace 3");
   if(!(otf->workspace4)) otf->workspace4 = rgrid_clone(otf->density, "OT Workspace 4");
   if(!(otf->workspace5)) otf->workspace5 = rgrid_clone(otf->density, "OT Workspace 5");
+
+  /* 1. Random initial guess -- here everything on CPU all the way to cgrid_multiply */
+  cgrid_map(gwf->grid, random_start, gwf->grid);
+#ifdef DEALIAS_VAL
+  cgrid_dealias2(gwf->grid, DEALIAS_VAL); // Remove high wavenumber components from the initial guess
+  cgrid_inverse_fft(gwf->grid);
+  cgrid_multiply(gwf->grid, gwf->grid->fft_norm);
+#endif
 
   /* 2. Cooling period */
   gwf->norm = HE_NORM;
