@@ -28,7 +28,7 @@
 #define NX 256
 #define NY 256
 #define NZ 256
-#define STEP 0.2
+#define STEP 0.5
 
 /* Boundary handling (continuous bulk or spherical droplet) */
 //#define RADIUS (0.8 * STEP * ((REAL) NX) / 2.0)
@@ -78,10 +78,10 @@
 #define THREADS 0
 
 /* Random seed (drand48) */
-#define RANDOM_SEED 1234678L
+#define RANDOM_SEED 12346L
 
 /* Write grid files? */
-// #define WRITE_GRD
+#define WRITE_GRD
 
 /* Disable cuda ? (TODO: Strange issue of not getting the correct kinetic energy with FFTW; CUFFT works OK) */
 // #undef USE_CUDA
@@ -301,6 +301,7 @@ int main(int argc, char **argv) {
   cgrid_map(gwf->grid, random_start, gwf->grid);
 #ifdef DEALIAS_VAL
   cgrid_dealias2(gwf->grid, DEALIAS_VAL); // Remove high wavenumber components from the initial guess
+  cgrid_value_to_index(gwf->grid, 0, 0, 0, 0.0);
   cgrid_inverse_fft(gwf->grid);
   cgrid_multiply(gwf->grid, gwf->grid->fft_norm);
 #endif
