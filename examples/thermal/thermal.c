@@ -3,7 +3,6 @@
  *
  * 1. Start from random initial order parameter.
  * 2. Cooling phase with a mixture of real and imaginary time (the ratio defines the cooling rate).
- * 3. Real time iterations to achieve the proper thermal equilibrium.
  *
  * All input in a.u. except the time step, which is fs.
  *
@@ -19,6 +18,10 @@
 
 /* Time integration method */
 #define TIMEINT WF_2ND_ORDER_FFT
+//#define TIMEINT WF_2ND_ORDER_CN
+
+/* FD(0) or FFT(1) properties */
+#define PROPERTIES 0
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
@@ -28,7 +31,7 @@
 #define NX 256
 #define NY 256
 #define NZ 256
-#define STEP 0.5
+#define STEP 0.3
 
 /* Boundary handling (continuous bulk or spherical droplet) */
 //#define RADIUS (0.8 * STEP * ((REAL) NX) / 2.0)
@@ -52,11 +55,11 @@
 #define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Fine functional to use below 3.0 K - less stable */
-#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-//#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
+//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 0.0
+#define TEMP_SWITCH 3.0
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -71,8 +74,8 @@
 /* The number of cooling iterations (mixture of real and imaginary) */
 #define COOL 2000000
 
-/* Output every NTH iteration (was 200) */
-#define NTH 2000
+/* Output every NTH iteration (was 1000) */
+#define NTH 1000
 
 /* Use all threads available on the computer */
 #define THREADS 0
@@ -81,7 +84,7 @@
 #define RANDOM_SEED 12346L
 
 /* Write grid files? */
-#define WRITE_GRD
+//#define WRITE_GRD
 
 /* Disable cuda ? (TODO: Strange issue of not getting the correct kinetic energy with FFTW; CUFFT works OK) */
 // #undef USE_CUDA
@@ -226,7 +229,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   if(upd) {
     otf->model = FUNCTIONAL_FINE;  // Time to switch to FINE functional
     printf("Switched to fine functional.\n");
-    tstep = CREAL(tstep);
+//    tstep = CREAL(tstep);
   }
 }
 
@@ -260,7 +263,7 @@ int main(int argc, char **argv) {
   grid_threads_init(THREADS);
   grid_fft_read_wisdom(NULL);
 
-  grid_wf_analyze_method(1);  // FD = 0, FFT = 1
+  grid_wf_analyze_method(PROPERTIES);
 
   srand48(RANDOM_SEED);
 
@@ -286,6 +289,7 @@ int main(int argc, char **argv) {
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
   printf("Bulk mu0 = " FMT_R " K/atom, Bulk rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+  gwf->norm = HE_NORM;
 
   /* Allocate space for external potential */
   potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
@@ -303,18 +307,17 @@ int main(int argc, char **argv) {
   cgrid_dealias2(gwf->grid, DEALIAS_VAL); // Remove high wavenumber components from the initial guess
   cgrid_value_to_index(gwf->grid, 0, 0, 0, 0.0);
   cgrid_inverse_fft(gwf->grid);
-  cgrid_multiply(gwf->grid, gwf->grid->fft_norm);
 #endif
+  grid_wf_normalize(gwf);
 
   /* 2. Cooling period */
-  gwf->norm = HE_NORM;
   printf("Cooling...\n");
   tstep = (TS - I * ITS) / GRID_AUTOFS;
   grid_timer_start(&timer);
-  for (iter = 0; iter < COOL; iter++) {
 #ifdef PC
-    gwfp->norm = gwf->norm;
+  gwfp->norm = gwf->norm;
 #endif
+  for (iter = 0; iter < COOL; iter++) {
 
     if(iter == 100) grid_fft_write_wisdom(NULL);
 
