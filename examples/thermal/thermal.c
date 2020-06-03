@@ -21,17 +21,17 @@
 //#define TIMEINT WF_2ND_ORDER_CN
 
 /* FD(0) or FFT(1) properties */
-#define PROPERTIES 0
+#define PROPERTIES 1
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
-#define ITS (0.1 * TS) /* fs (10% of TS works but still a bit too fast) */
+#define ITS (0.02 * TS) /* fs (10% of TS works but still a bit too fast) */
 
 /* Grid */
-#define NX 256
-#define NY 256
-#define NZ 256
-#define STEP 0.3
+#define NX 64
+#define NY 64
+#define NZ 64
+#define STEP 0.5
 
 /* Boundary handling (continuous bulk or spherical droplet) */
 //#define RADIUS (0.8 * STEP * ((REAL) NX) / 2.0)
@@ -47,11 +47,12 @@
 
 /* Use dealiasing during real time propagation? */
 //#define DEALIAS
-#define DEALIAS_VAL (2.8 * GRID_AUTOANG)
+//#define DEALIAS_VAL (2.8 * GRID_AUTOANG)
 
 /* Functional to use */
 
 /* Coarse functional to get to 3.0 K - numerically stable */
+//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
 #define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Fine functional to use below 3.0 K - less stable */
@@ -59,7 +60,7 @@
 #define FUNCTIONAL_FINE (DFT_OT_PLAIN)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 3.0
+#define TEMP_SWITCH 4.0
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -72,22 +73,22 @@
 #endif
 
 /* The number of cooling iterations (mixture of real and imaginary) */
-#define COOL 2000000
+#define COOL 20000000L
 
 /* Output every NTH iteration (was 1000) */
-#define NTH 1000
+#define NTH 2000L
 
-/* Use all threads available on the computer */
+/* How many CPU cores to use (0 = all available) */
 #define THREADS 0
 
 /* Random seed (drand48) */
-#define RANDOM_SEED 12346L
+#define RANDOM_SEED 1234L
 
 /* Write grid files? */
 //#define WRITE_GRD
 
-/* Disable cuda ? (TODO: Strange issue of not getting the correct kinetic energy with FFTW; CUFFT works OK) */
-// #undef USE_CUDA
+/* Enable / disable GPU */
+#undef USE_CUDA
 
 /* GPU allocation */
 #ifdef USE_CUDA
@@ -112,11 +113,12 @@ REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
 
   REAL kin, pot, n;
 
+  n = grid_wf_norm(gwf);
   kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
   dft_ot_energy_density(otf, rworkspace, gwf);
-  pot = rgrid_integral(rworkspace) - mu0 * grid_wf_norm(gwf); 
+//  pot = rgrid_integral(rworkspace) - mu0 * n; 
+  pot = rgrid_integral(rworkspace) - dft_ot_bulk_energy(otf, rho0) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
   kin += pot;
-  n = grid_wf_norm(gwf);
   return (kin / n) * GRID_AUTOJ * GRID_AVOGADRO; // J / mol
 }
 
@@ -229,7 +231,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   if(upd) {
     otf->model = FUNCTIONAL_FINE;  // Time to switch to FINE functional
     printf("Switched to fine functional.\n");
-//    tstep = CREAL(tstep);
+    tstep = CREAL(tstep);
   }
 }
 
@@ -308,7 +310,6 @@ int main(int argc, char **argv) {
   cgrid_value_to_index(gwf->grid, 0, 0, 0, 0.0);
   cgrid_inverse_fft(gwf->grid);
 #endif
-  grid_wf_normalize(gwf);
 
   /* 2. Cooling period */
   printf("Cooling...\n");
@@ -326,6 +327,13 @@ int main(int argc, char **argv) {
     cgrid_dealias2(gwf->grid, DEALIAS_VAL);
     cgrid_inverse_fft_norm(gwf->grid);
 #endif
+    grid_wf_normalize(gwf);
+
+    if(iter == 0 || !(iter % NTH)) {
+      printf("Wall clock time = " FMT_R " seconds.\n", grid_timer_wall_clock_time(&timer)); fflush(stdout);
+      print_stats(iter, gwf, otf, potential_store, rworkspace);
+      grid_timer_start(&timer);
+    }
 
 #ifdef PC
     /* Predict-Correct */
@@ -361,14 +369,7 @@ int main(int argc, char **argv) {
 #endif
     grid_wf_propagate(gwf, potential_store, tstep);
 #endif /* PC */
-    grid_wf_normalize(gwf);
 
-
-    if(iter == 0 || !(iter % NTH)) {
-      printf("Wall clock time = " FMT_R " seconds.\n", grid_timer_wall_clock_time(&timer)); fflush(stdout);
-      print_stats(iter, gwf, otf, potential_store, rworkspace);
-      grid_timer_start(&timer);
-    }
   }
 
   return 0;
