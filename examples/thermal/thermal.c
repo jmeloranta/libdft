@@ -25,13 +25,13 @@
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
-#define ITS (0.02 * TS) /* fs (10% of TS works but still a bit too fast) */
+#define ITS (0.2 * TS) /* fs (10% of TS works but still a bit too fast) */
 
 /* Grid */
-#define NX 64
-#define NY 64
-#define NZ 64
-#define STEP 0.5
+#define NX 256
+#define NY 256
+#define NZ 256
+#define STEP 0.2
 
 /* Boundary handling (continuous bulk or spherical droplet) */
 //#define RADIUS (0.8 * STEP * ((REAL) NX) / 2.0)
@@ -46,12 +46,12 @@
 #define PC
 
 /* Use dealiasing during real time propagation? */
-//#define DEALIAS
-//#define DEALIAS_VAL (2.8 * GRID_AUTOANG)
+#define DEALIAS
+#define DEALIAS_VAL (2.8 * GRID_AUTOANG)
 
 /* Functional to use */
 
-/* Coarse functional to get to 3.0 K - numerically stable */
+/* Coarse functional to get to TEMP_SWITCH - numerically more stable */
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
 #define FUNCTIONAL (DFT_OT_PLAIN)
 
@@ -60,7 +60,7 @@
 #define FUNCTIONAL_FINE (DFT_OT_PLAIN)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 4.0
+#define TEMP_SWITCH 2.2
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -88,7 +88,7 @@
 //#define WRITE_GRD
 
 /* Enable / disable GPU */
-#undef USE_CUDA
+//#undef USE_CUDA
 
 /* GPU allocation */
 #ifdef USE_CUDA
@@ -307,7 +307,7 @@ int main(int argc, char **argv) {
   cgrid_map(gwf->grid, random_start, gwf->grid);
 #ifdef DEALIAS_VAL
   cgrid_dealias2(gwf->grid, DEALIAS_VAL); // Remove high wavenumber components from the initial guess
-  cgrid_value_to_index(gwf->grid, 0, 0, 0, 0.0);
+//  cgrid_value_to_index(gwf->grid, 0, 0, 0, 0.0);
   cgrid_inverse_fft(gwf->grid);
 #endif
 

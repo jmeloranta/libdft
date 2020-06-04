@@ -71,14 +71,13 @@ REAL switch_axis(void *xx, REAL x, REAL y, REAL z) {
 int main(int argc, char **argv) {
 
   dft_ot_functional *otf;
-  cgrid *potential_store;
+  cgrid *potential_store, *cworkspace;
   rgrid *ext_pot, *density, *px, *py, *pz;
   wf *gwf, *gwfp;
   INT iter, N, i;
   REAL energy, natoms, beff, i_add, lz, i_free, b_free, mass, cmx, cmy, cmz, mu0, rho0;
   grid_timer timer;
   REAL complex TC; // 1.0 for real or -I for imag time
-
 
   /* Normalization condition */
   if(argc != 2) {
@@ -123,6 +122,7 @@ int gpus[] = {0};
   /* Allocate space for external potential */
   ext_pot = rgrid_clone(otf->density, "ext_pot");
   potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
+  cworkspace = cgrid_clone(gwf->grid, "cworkspace");
   density = rgrid_clone(otf->density, "density");
   px = rgrid_clone(otf->density, "px");
   py = rgrid_clone(otf->density, "py");
@@ -187,9 +187,9 @@ int gpus[] = {0};
     /* Liquid contribution to the moment of inertia */
     cgrid_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in grid_wf_l() and -wL_z in the Hamiltonian
     cgrid_set_origin(gwfp->grid, cmx, cmy, cmz);// the point x=0 is shift by cmX 
-    lz = grid_wf_lz(gwf, otf->density);
+    lz = grid_wf_lz(gwf, potential_store, cworkspace);
     printf("lz = " FMT_R "\n", lz);
-    i_add = gwf->mass * lz / OMEGA;  // grid_wf_lz() does not multiply by mass as did the dft
+    i_add = lz / OMEGA;
     printf("I_eff = " FMT_R " AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
     beff =  HBAR * HBAR / (2.0 * (i_free + i_add));
     printf("B_eff = " FMT_R " cm-1.\n", beff * GRID_AUTOCM1);
