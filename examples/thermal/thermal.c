@@ -31,7 +31,7 @@
 #define NX 256
 #define NY 256
 #define NZ 256
-#define STEP 0.2
+#define STEP 2.0
 
 /* Boundary handling (continuous bulk or spherical droplet) */
 //#define RADIUS (0.8 * STEP * ((REAL) NX) / 2.0)
@@ -60,7 +60,7 @@
 #define FUNCTIONAL_FINE (DFT_OT_PLAIN)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 2.2
+#define TEMP_SWITCH 2.4
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -109,6 +109,41 @@ REAL complex random_start(void *NA, REAL x, REAL y, REAL z) {
   return SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
 }
 
+INT factorial(INT n) {
+
+  INT i, val = 1.0;
+
+  for (i = 1; i <= n; i++)
+    val *= i;
+  return val;
+}
+
+REAL entropy(wf *gwf, wf *gwfp, cgrid *potential_store) {
+
+  static REAL *bin_deg = NULL, *bin_pop = NULL;
+  REAL S = 1.0;
+  INT i;
+
+  if(!bin_deg) {
+    if(!(bin_deg = (REAL *) malloc(sizeof(REAL) * NBINS))) {
+      fprintf(stderr, "Can't allocate memory for bin_deg.\n");
+      exit(1);
+    }
+  }
+  if(!bin_pop) {
+    if(!(bin_pop = (REAL *) malloc(sizeof(REAL) * NBINS))) {
+      fprintf(stderr, "Can't allocate memory for bin_pop.\n");
+      exit(1);
+    }
+  }
+  grid_wf_average_occupation(gwf, bin_pop, BINSTEP, NBINS, potential_store);
+  cgrid_constant(gwfp->grid, 1.0);
+  grid_wf_average_occupation(gwfp, bin_deg, BINSTEP, NBINS, potential_store);  
+  for (i = 0; i < NBINS; i++)
+    S *= ((REAL) factorial((INT) (bin_deg[i] + bin_pop[i] - 1))) / ((REAL) factorial((INT) bin_pop[i] - 1) * (REAL) factorial((INT) bin_deg[i]));
+  return GRID_AUKB * LOG(S);
+}
+
 REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
 
   REAL kin, pot, n;
@@ -122,7 +157,7 @@ REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
   return (kin / n) * GRID_AUTOJ * GRID_AVOGADRO; // J / mol
 }
 
-void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
+void print_stats(INT iter, wf *gwf, wf *gwfp, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
 
   char buf[512];
   FILE *fp;
@@ -219,13 +254,15 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   tmp = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
   dft_ot_energy_density(otf, rworkspace, gwf);
-  tmp2 = rgrid_integral(rworkspace) - mu0 * grid_wf_norm(gwf);
+  tmp2 = rgrid_integral(rworkspace) - dft_ot_bulk_energy(otf, rho0) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
+//  tmp2 = rgrid_integral(rworkspace) - mu0 * grid_wf_norm(gwf);
   printf("Helium natoms       = " FMT_R " particles.\n", grid_wf_norm(gwf));   /* Energy / particle in K */
   printf("Helium kinetic E    = " FMT_R " K\n", tmp * GRID_AUTOK);  /* Print result in K */
   printf("Helium classical KE = " FMT_R " K\n", grid_wf_kinetic_energy_classical(gwf, otf->workspace1, otf->workspace2, DENS_EPS) * GRID_AUTOK);
   printf("Helium quantum KE   = " FMT_R " K\n", grid_wf_kinetic_energy_qp(gwf, otf->workspace1, otf->workspace2, otf->workspace3) * GRID_AUTOK);
   printf("Helium potential E  = " FMT_R " K\n", tmp2 * GRID_AUTOK);  /* Print result in K */
   printf("Helium energy       = " FMT_R " K\n", (tmp + tmp2) * GRID_AUTOK);  /* Print result in K */
+  printf("Helium entropy      = " FMT_R " J/(K mol)\n", entropy(gwf, gwfp, potential_store) * GRID_AUTOJ * GRID_AVOGADRO);
   fflush(stdout);
 
   if(upd) {
@@ -331,7 +368,7 @@ int main(int argc, char **argv) {
 
     if(iter == 0 || !(iter % NTH)) {
       printf("Wall clock time = " FMT_R " seconds.\n", grid_timer_wall_clock_time(&timer)); fflush(stdout);
-      print_stats(iter, gwf, otf, potential_store, rworkspace);
+      print_stats(iter, gwf, gwfp, otf, potential_store, rworkspace);
       grid_timer_start(&timer);
     }
 
