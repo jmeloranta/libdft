@@ -17,8 +17,9 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TIME_STEP 1.0  /* fs */
+#define TIME_STEP 10.0  /* fs */
 #define MAXITER 10000
+#define OUTPUT 20
 #define NX 128
 #define NY 128
 #define NZ 128
@@ -26,7 +27,7 @@
 #define THREADS 0
 
 #define PRESSURE 0.0
-#define OMEGA 1E-5
+#define OMEGA 1E-8
 
 /* Molecule */
 #define OCS 1
@@ -77,7 +78,7 @@ int main(int argc, char **argv) {
   INT iter, N, i;
   REAL energy, natoms, beff, i_add, lz, i_free, b_free, mass, cmx, cmy, cmz, mu0, rho0;
   grid_timer timer;
-  REAL complex TC; // 1.0 for real or -I for imag time
+  REAL complex TC = -I; // 1.0 for real or -I for imag time
 
   /* Normalization condition */
   if(argc != 2) {
@@ -148,13 +149,6 @@ int gpus[] = {0};
 
   for (iter = 0; iter < MAXITER; iter++) {
 
-#if 0
-    if(iter < 200) TC = -I;
-    else TC = 1.0;
-#else
-    TC = -I;
-#endif
-    
     // Center of mass of the rotating system
     // 1. The molecule
     mass = cmx = cmy = cmz = 0.0;
@@ -170,7 +164,6 @@ int gpus[] = {0};
     cmx += rgrid_integral(density) * gwf->mass / (2.0 * OMEGA * mass);
     grid_wf_probability_flux_x(gwf, density);
     cmy -= rgrid_integral(density) * gwf->mass / (2.0 * OMEGA * mass);
-    printf("Current center of inertia: " FMT_R " " FMT_R " " FMT_R "\n", cmx, cmy, cmz);
 
     /* Moment of inertia about the center of mass for the molecule */
     i_free = 0.0;
@@ -181,18 +174,22 @@ int gpus[] = {0};
       z2 = z[i] - cmz; z2 *= z2;
       i_free += masses[i] * (x2 + y2 + z2);
     }
-    b_free = HBAR * HBAR / (2.0 * i_free);
-    printf("I_molecule = " FMT_R " AMU Angs^2\n", i_free * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
-    printf("B_molecule = " FMT_R " cm-1.\n", b_free * GRID_AUTOCM1);
     /* Liquid contribution to the moment of inertia */
-    cgrid_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in grid_wf_l() and -wL_z in the Hamiltonian
-    cgrid_set_origin(gwfp->grid, cmx, cmy, cmz);// the point x=0 is shift by cmX 
-    lz = grid_wf_lz(gwf, potential_store, cworkspace);
-    printf("lz = " FMT_R "\n", lz);
-    i_add = lz / OMEGA;
-    printf("I_eff = " FMT_R " AMU Angs^2.\n", (i_free + i_add) * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
-    beff =  HBAR * HBAR / (2.0 * (i_free + i_add));
-    printf("B_eff = " FMT_R " cm-1.\n", beff * GRID_AUTOCM1);
+//    cgrid_set_origin(gwf->grid, cmx, cmy, cmz); // Evaluate L about center of mass in grid_wf_l() and -wL_z in the Hamiltonian
+//    cgrid_set_origin(gwfp->grid, cmx, cmy, cmz);// the point x=0 is shift by cmX 
+
+    if(!(iter % OUTPUT)) {
+      printf("Current center of inertia: " FMT_R " " FMT_R " " FMT_R "\n", cmx, cmy, cmz);
+      b_free = HBAR * HBAR / (2.0 * i_free);
+      printf("I_molecule = " FMT_R " AMU Angs^2\n", i_free * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
+      printf("B_molecule = " FMT_R " cm-1.\n", b_free * GRID_AUTOCM1);
+      lz = grid_wf_lz(gwf, potential_store, cworkspace);
+      printf("lz = " FMT_R "\n", lz);
+      i_add = lz / OMEGA;
+      printf("I_add = " FMT_R " AMU Angs^2.\n", i_add * GRID_AUTOAMU * GRID_AUTOANG * GRID_AUTOANG);
+      beff =  HBAR * HBAR / (2.0 * (i_free + i_add));
+      printf("B_eff = " FMT_R " cm-1.\n", beff * GRID_AUTOCM1);
+    }
 
     if(iter == 5) grid_fft_write_wisdom(NULL);
 
@@ -214,7 +211,7 @@ int gpus[] = {0};
 
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
 
-    if(!(iter % 100)) {
+    if(!(iter % OUTPUT)) {
       char buf[512];
       grid_wf_density(gwf, density);
       sprintf(buf, "output-" FMT_I, iter);
