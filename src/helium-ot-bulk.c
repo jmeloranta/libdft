@@ -25,7 +25,7 @@ EXPORT REAL dft_ot_bulk_energy(dft_ot_functional *otf, REAL rho) {
 
   if(otf->model & DFT_ZERO) return 0.0;
 
-  if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) return otf->mu0 * rho;
+  if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) return otf->mu0 * rho / 2.0;
 
   tmp = (1.0 / 2.0) * otf->b * rho * rho + (1.0 / 2.0) * otf->c2 * rho * rho * rho + (1.0 / 3.0) * otf->c3 * rho * rho * rho * rho;
   if(otf->c4 != 0.0)

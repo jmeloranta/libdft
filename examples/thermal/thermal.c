@@ -24,14 +24,14 @@
 #define PROPERTIES 1
 
 /* Time step for real and imaginary time */
-#define TS 1.0 /* fs */
-#define ITS (0.2 * TS) /* fs (10% of TS works but still a bit too fast) */
+#define TS 0.1 /* fs */
+#define ITS (0.001 * TS) /* fs (10% of TS works but still a bit too fast) */
 
 /* Grid */
-#define NX 256
-#define NY 256
-#define NZ 256
-#define STEP 2.0
+#define NX 64
+#define NY 64
+#define NZ 64
+#define STEP 1.0
 
 /* Boundary handling (continuous bulk or spherical droplet) */
 //#define RADIUS (0.8 * STEP * ((REAL) NX) / 2.0)
@@ -47,20 +47,22 @@
 
 /* Use dealiasing during real time propagation? */
 #define DEALIAS
-#define DEALIAS_VAL (2.8 * GRID_AUTOANG)
+#define DEALIAS_VAL (2.5 * GRID_AUTOANG)
 
 /* Functional to use */
 
 /* Coarse functional to get to TEMP_SWITCH - numerically more stable */
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-#define FUNCTIONAL (DFT_OT_PLAIN)
+//#define FUNCTIONAL (DFT_OT_PLAIN)
+#define FUNCTIONAL (DFT_GP2)
 
 /* Fine functional to use below 3.0 K - less stable */
 //#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
+//#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
+#define FUNCTIONAL_FINE (DFT_GP2)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 2.4
+#define TEMP_SWITCH 0.0
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -109,41 +111,6 @@ REAL complex random_start(void *NA, REAL x, REAL y, REAL z) {
   return SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
 }
 
-INT factorial(INT n) {
-
-  INT i, val = 1.0;
-
-  for (i = 1; i <= n; i++)
-    val *= i;
-  return val;
-}
-
-REAL entropy(wf *gwf, wf *gwfp, cgrid *potential_store) {
-
-  static REAL *bin_deg = NULL, *bin_pop = NULL;
-  REAL S = 1.0;
-  INT i;
-
-  if(!bin_deg) {
-    if(!(bin_deg = (REAL *) malloc(sizeof(REAL) * NBINS))) {
-      fprintf(stderr, "Can't allocate memory for bin_deg.\n");
-      exit(1);
-    }
-  }
-  if(!bin_pop) {
-    if(!(bin_pop = (REAL *) malloc(sizeof(REAL) * NBINS))) {
-      fprintf(stderr, "Can't allocate memory for bin_pop.\n");
-      exit(1);
-    }
-  }
-  grid_wf_average_occupation(gwf, bin_pop, BINSTEP, NBINS, potential_store);
-  cgrid_constant(gwfp->grid, 1.0);
-  grid_wf_average_occupation(gwfp, bin_deg, BINSTEP, NBINS, potential_store);  
-  for (i = 0; i < NBINS; i++)
-    S *= ((REAL) factorial((INT) (bin_deg[i] + bin_pop[i] - 1))) / ((REAL) factorial((INT) bin_pop[i] - 1) * (REAL) factorial((INT) bin_deg[i]));
-  return GRID_AUKB * LOG(S);
-}
-
 REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
 
   REAL kin, pot, n;
@@ -157,7 +124,7 @@ REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
   return (kin / n) * GRID_AUTOJ * GRID_AVOGADRO; // J / mol
 }
 
-void print_stats(INT iter, wf *gwf, wf *gwfp, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
+void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
 
   char buf[512];
   FILE *fp;
@@ -262,7 +229,6 @@ void print_stats(INT iter, wf *gwf, wf *gwfp, dft_ot_functional *otf, cgrid *pot
   printf("Helium quantum KE   = " FMT_R " K\n", grid_wf_kinetic_energy_qp(gwf, otf->workspace1, otf->workspace2, otf->workspace3) * GRID_AUTOK);
   printf("Helium potential E  = " FMT_R " K\n", tmp2 * GRID_AUTOK);  /* Print result in K */
   printf("Helium energy       = " FMT_R " K\n", (tmp + tmp2) * GRID_AUTOK);  /* Print result in K */
-  printf("Helium entropy      = " FMT_R " J/(K mol)\n", entropy(gwf, gwfp, potential_store) * GRID_AUTOJ * GRID_AVOGADRO);
   fflush(stdout);
 
   if(upd) {
@@ -344,7 +310,7 @@ int main(int argc, char **argv) {
   cgrid_map(gwf->grid, random_start, gwf->grid);
 #ifdef DEALIAS_VAL
   cgrid_dealias2(gwf->grid, DEALIAS_VAL); // Remove high wavenumber components from the initial guess
-//  cgrid_value_to_index(gwf->grid, 0, 0, 0, 0.0);
+//  cgrid_value_to_index(gwf->grid, 0, 0, 0, 2.0E0);
   cgrid_inverse_fft(gwf->grid);
 #endif
 
@@ -368,7 +334,7 @@ int main(int argc, char **argv) {
 
     if(iter == 0 || !(iter % NTH)) {
       printf("Wall clock time = " FMT_R " seconds.\n", grid_timer_wall_clock_time(&timer)); fflush(stdout);
-      print_stats(iter, gwf, gwfp, otf, potential_store, rworkspace);
+      print_stats(iter, gwf, otf, potential_store, rworkspace);
       grid_timer_start(&timer);
     }
 
