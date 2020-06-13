@@ -21,21 +21,21 @@
 //#define TIMEINT WF_2ND_ORDER_CN
 
 /* FD(0) or FFT(1) properties */
-#define PROPERTIES 1
+#define PROPERTIES 0
 
 /* Time step for real and imaginary time */
-#define TS 0.1 /* fs */
+#define TS 0.01 /* fs */
 #define ITS1 10.0 /* ifs */
-#define ITS2 (TS * 0.01) /* ifs (10% of TS works but still a bit too fast) */
+#define ITS2 (0.0 * TS * 0.1) /* ifs (10% of TS works but still a bit too fast) */
 
 /* Grid */
-#define NX 64
-#define NY 64
-#define NZ 64
-#define STEP 1.0
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 2.0
 
 /* Boundary handling (continuous bulk or spherical droplet) */
-#define RADIUS (0.9 * STEP * ((REAL) NX) / 2.0)
+//#define RADIUS (0.9 * STEP * ((REAL) NX) / 2.0)
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -47,8 +47,8 @@
 #define PC
 
 /* Use dealiasing during real time propagation? */
-//#define DEALIAS
-//#define DEALIAS_VAL (2.5 * GRID_AUTOANG)
+#define DEALIAS
+#define DEALIAS_VAL (2.8 * GRID_AUTOANG)
 
 /* Functional to use */
 
@@ -63,16 +63,16 @@
 //#define FUNCTIONAL_FINE (DFT_GP2)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 4.0
+#define TEMP_SWITCH 99.0
 
-/* Random amplitude to add to the ground state */
-#define RAND_AMP 2E-1
+/* B-E temperature */
+#define BE_TEMP 1.0
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Number of cooling iterations */
-#define IITER 20000L
+#define IITER 500L
 
 /* Number of real time iterations */
 #define RITER 200000000L
@@ -98,10 +98,33 @@ int gpus[MAX_GPU];
 int ngpus;
 #endif
 
+dft_ot_functional *otf;
 REAL rho0, mu0;
 REAL complex tstep;
 FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
-char norm = 1; // normalize?
+rgrid *epot = NULL;
+
+/* Given |k|,  T and total number of atoms, returns the B-E population */
+REAL population(REAL k, REAL T, REAL N) {
+
+  REAL mu, eps, tmp;
+
+#ifdef DEALIAS_VAL
+  if(k > DEALIAS_VAL) return 0.0;
+#endif
+  mu = -GRID_AUKB * T * LOG(1.0 + 1.0 / (N * dft_exp_bulk_superfluid_fraction(T)));
+  eps = dft_ot_bulk_dispersion(otf, &k, rho0);
+//  eps = dft_exp_bulk_dispersion(k / GRID_AUTOANG) / GRID_AUTOK;
+  tmp = 1.0 / (EXP((eps - mu) / (GRID_AUKB * T)) - 1.0);
+  return tmp;
+}
+
+REAL complex be_pop(void *xx, REAL kx, REAL ky, REAL kz) {
+
+  REAL *N = (REAL *) xx;
+
+  return SQRT(population(SQRT(kx * kx + ky * ky + kz * kz), BE_TEMP, *N)) * CEXP(2.0 * M_PI * (2.0 * (drand48() - 0.5)) * I);
+}
 
 /* Random phases and equal amplitude for each k-point the reciprocal space */
 REAL complex random_start(void *xx, REAL x, REAL y, REAL z) {
@@ -114,10 +137,14 @@ REAL complex random_start(void *xx, REAL x, REAL y, REAL z) {
 #define A2 (1.0)
 REAL ext_pot(void *NA, REAL x, REAL y, REAL z) {
 
+#ifdef RADIUS
   REAL r = SQRT(x*x + y*y + z*z);
 
   if(r > RADIUS) return A1;
   return A1 * EXP(-A2 * (RADIUS - r));
+#else
+  return 0.0;
+#endif
 }
 
 REAL get_energy(wf *gwf, wf *gnd, dft_ot_functional *otf, rgrid *rworkspace) {
@@ -126,11 +153,11 @@ REAL get_energy(wf *gwf, wf *gnd, dft_ot_functional *otf, rgrid *rworkspace) {
 
   n = grid_wf_norm(gwf);
   dft_ot_energy_density(otf, rworkspace, gwf);
-  tot = (grid_wf_energy(gwf, NULL) + rgrid_integral(rworkspace)) / n;
+  tot = (grid_wf_energy(gwf, epot) + rgrid_integral(rworkspace)) / n;
 
   n = grid_wf_norm(gnd);
   dft_ot_energy_density(otf, rworkspace, gnd);
-  tot_gnd = (grid_wf_energy(gnd, NULL) + rgrid_integral(rworkspace)) / n;
+  tot_gnd = (grid_wf_energy(gnd, epot) + rgrid_integral(rworkspace)) / n;
 
   return (tot - tot_gnd) * GRID_AUTOJ * GRID_AVOGADRO; // J / mol
 }
@@ -223,7 +250,6 @@ void print_stats(INT iter, wf *gwf, wf *gnd, dft_ot_functional *otf, cgrid *pote
   fclose(fp);
 
 // TODO: tmp2 = 0 -> division by zero
-#if 0
   /* Bin |curl rho v|: small values for large rings and no strain, large values for small rings or high strain */
   grid_wf_probability_flux(gwf, otf->workspace1, otf->workspace2, otf->workspace3);
   rgrid_abs_rot(otf->workspace4, otf->workspace1, otf->workspace2, otf->workspace3);
@@ -239,9 +265,8 @@ void print_stats(INT iter, wf *gwf, wf *gnd, dft_ot_functional *otf, cgrid *pote
   for(i = 0; i < NBINS; i++)
     fprintf(fp, FMT_R " " FMT_R "\n", tmp2 * (REAL) i, bins[i]);   // write histogram
   fclose(fp);
-#endif
 
-  tmp = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
+  tmp = grid_wf_energy(gwf, epot);            /* Kinetic energy for gwf */
   dft_ot_energy_density(otf, rworkspace, gwf);
   tmp2 = rgrid_integral(rworkspace) - dft_ot_bulk_energy(otf, rho0) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
 //  tmp2 = rgrid_integral(rworkspace) - mu0 * grid_wf_norm(gwf);
@@ -257,15 +282,13 @@ void print_stats(INT iter, wf *gwf, wf *gnd, dft_ot_functional *otf, cgrid *pote
     otf->model = FUNCTIONAL_FINE;  // Time to switch to FINE functional
     printf("Switched to fine functional.\n");
     tstep = CREAL(tstep);
-    norm = 0;
   }
 }
 
 int main(int argc, char **argv) {
 
-  dft_ot_functional *otf;
   cgrid *potential_store;
-  rgrid *rworkspace, *epot;
+  rgrid *rworkspace;
   wf *gwf, *gnd;
 #ifdef PC
   wf *gwfp;
@@ -333,6 +356,8 @@ int main(int argc, char **argv) {
   if(!(otf->workspace4)) otf->workspace4 = rgrid_clone(otf->density, "OT Workspace 4");
   if(!(otf->workspace5)) otf->workspace5 = rgrid_clone(otf->density, "OT Workspace 5");
 
+  printf("Fourier space range +-: " FMT_R " Angs^-1 with step " FMT_R " Angs^-1.\n", 2.0 * M_PI / (STEP * GRID_AUTANG), 2.0 * M_PI / (STEP * GRID_AUTOANG * (REAL) NX));
+
   /* 1. Ground state optimization */
   rgrid_map(epot, ext_pot, NULL);
   cgrid_constant(gnd->grid, SQRT(rho0));
@@ -349,11 +374,16 @@ int main(int argc, char **argv) {
 #ifdef WRITE_GRD
   cgrid_write_grid("gnd", gnd->grid);
 #endif
-  gnd->norm = gwf->norm = cgrid_integral_of_square(gnd->grid);;
+  gnd->norm = gwf->norm = cgrid_integral_of_square(gnd->grid);
 
   /* 2. Start with ground state + random perturbation */
-//  cgrid_copy(gwf->grid, gnd->grid);
-  cgrid_map(gwf->grid, random_start, gnd->grid);
+//  cgrid_fft_space(gwf->grid, 1);
+//  cgrid_map(gwf->grid, random_start, NULL);
+  cgrid_mapk(gwf->grid, be_pop, &(gwf->norm));
+  cgrid_inverse_fft(gwf->grid);
+  cgrid_multiply(gwf->grid, 1.0 / SQRT(STEP * STEP * STEP * NX * NY * NZ));
+  grid_wf_normalize(gwf);
+  dft_ot_energy_density(otf, rworkspace, gwf);
 
   /* 3. Real time simulation */
   printf("Dynamics...\n");
@@ -368,13 +398,13 @@ int main(int argc, char **argv) {
 
     dealias(gwf->grid);
 
-    if(norm) grid_wf_normalize(gwf);
-
-    if(iter >0 && !(iter % NTH)) {
+    if(!(iter % NTH)) {
       printf("Wall clock time = " FMT_R " seconds.\n", grid_timer_wall_clock_time(&timer)); fflush(stdout);
       print_stats(iter, gwf, gnd, otf, potential_store, rworkspace);
       grid_timer_start(&timer);
     }
+
+    if(CIMAG(tstep) != 0.0) grid_wf_normalize(gwf);
 
 #ifdef PC
     /* Predict-Correct */
@@ -388,7 +418,7 @@ int main(int argc, char **argv) {
 
     dealias(gwfp->grid);
 
-    if(norm) grid_wf_normalize(gwfp);
+    if(CIMAG(tstep) != 0.0) grid_wf_normalize(gwfp);
 
     cgrid_add(potential_store, -mu0); // not exact chem. pot. hence normalization above needed
     grid_add_real_to_complex_re(potential_store, epot);

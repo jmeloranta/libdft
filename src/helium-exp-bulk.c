@@ -120,7 +120,7 @@ EXPORT REAL dft_exp_bulk_enthalpy_inverse(REAL enthalpy) {
 /*
  * Dispersion relation at saturated vapor pressure.
  *
- * wavenumber  = Wavenumber for which the energy is computed (REAL; input).
+ * wavenumber  = Wavenumber (Angs^-1) for which the energy is computed (REAL; input).
  *
  * Returns Energy (Kelvin) corresponding to the wavenumber (REAL).
  *
