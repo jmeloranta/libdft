@@ -24,7 +24,7 @@
 #define PROPERTIES 0
 
 /* Time step for real and imaginary time */
-#define TS 0.01 /* fs */
+#define TS 0.1 /* fs */
 #define ITS1 10.0 /* ifs */
 #define ITS2 (0.0 * TS * 0.1) /* ifs (10% of TS works but still a bit too fast) */
 
@@ -107,7 +107,7 @@ rgrid *epot = NULL;
 /* Given |k|,  T and total number of atoms, returns the B-E population */
 REAL population(REAL k, REAL T, REAL N) {
 
-  REAL mu, eps, tmp;
+  REAL mu, eps;
 
 #ifdef DEALIAS_VAL
   if(k > DEALIAS_VAL) return 0.0;
@@ -115,21 +115,15 @@ REAL population(REAL k, REAL T, REAL N) {
   mu = -GRID_AUKB * T * LOG(1.0 + 1.0 / (N * dft_exp_bulk_superfluid_fraction(T)));
   eps = dft_ot_bulk_dispersion(otf, &k, rho0);
 //  eps = dft_exp_bulk_dispersion(k / GRID_AUTOANG) / GRID_AUTOK;
-  tmp = 1.0 / (EXP((eps - mu) / (GRID_AUKB * T)) - 1.0);
-  return tmp;
+  return 1.0 / (EXP((eps - mu) / (GRID_AUKB * T)) - 1.0);
 }
 
 REAL complex be_pop(void *xx, REAL kx, REAL ky, REAL kz) {
 
   REAL *N = (REAL *) xx;
 
+// population x random phase
   return SQRT(population(SQRT(kx * kx + ky * ky + kz * kz), BE_TEMP, *N)) * CEXP(2.0 * M_PI * (2.0 * (drand48() - 0.5)) * I);
-}
-
-/* Random phases and equal amplitude for each k-point the reciprocal space */
-REAL complex random_start(void *xx, REAL x, REAL y, REAL z) {
-
-  return (2.0 * (drand48() - 0.5));
 }
 
 /* External potential */
@@ -216,7 +210,7 @@ void print_stats(INT iter, wf *gwf, wf *gnd, dft_ot_functional *otf, cgrid *pote
     upd = 1;
   }
 
-  /* The whole thing */
+  /* Kinetic energy */
   grid_wf_KE(gwf, bins, BINSTEP, NBINS, otf->workspace1, otf->workspace2, otf->workspace3, otf->workspace4, DENS_EPS);
   sprintf(buf, "ke-" FMT_I ".dat", iter);
   if(!(fp = fopen(buf, "w"))) {
@@ -249,7 +243,6 @@ void print_stats(INT iter, wf *gwf, wf *gnd, dft_ot_functional *otf, cgrid *pote
     fprintf(fp, FMT_R " " FMT_R "\n", (BINSTEP * (REAL) i) / GRID_AUTOANG, bins[i] * GRID_AUTOK * GRID_AUTOANG); /* Angs^{-1} K*Angs */
   fclose(fp);
 
-// TODO: tmp2 = 0 -> division by zero
   /* Bin |curl rho v|: small values for large rings and no strain, large values for small rings or high strain */
   grid_wf_probability_flux(gwf, otf->workspace1, otf->workspace2, otf->workspace3);
   rgrid_abs_rot(otf->workspace4, otf->workspace1, otf->workspace2, otf->workspace3);
@@ -268,6 +261,7 @@ void print_stats(INT iter, wf *gwf, wf *gnd, dft_ot_functional *otf, cgrid *pote
 
   tmp = grid_wf_energy(gwf, epot);            /* Kinetic energy for gwf */
   dft_ot_energy_density(otf, rworkspace, gwf);
+// TODO: not quite right for droplets, use get_energy()
   tmp2 = rgrid_integral(rworkspace) - dft_ot_bulk_energy(otf, rho0) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
 //  tmp2 = rgrid_integral(rworkspace) - mu0 * grid_wf_norm(gwf);
   printf("Helium natoms       = " FMT_R " particles.\n", grid_wf_norm(gwf));   /* Energy / particle in K */
@@ -356,7 +350,7 @@ int main(int argc, char **argv) {
   if(!(otf->workspace4)) otf->workspace4 = rgrid_clone(otf->density, "OT Workspace 4");
   if(!(otf->workspace5)) otf->workspace5 = rgrid_clone(otf->density, "OT Workspace 5");
 
-  printf("Fourier space range +-: " FMT_R " Angs^-1 with step " FMT_R " Angs^-1.\n", 2.0 * M_PI / (STEP * GRID_AUTANG), 2.0 * M_PI / (STEP * GRID_AUTOANG * (REAL) NX));
+  printf("Fourier space range +-: " FMT_R " Angs^-1 with step " FMT_R " Angs^-1.\n", 2.0 * M_PI / (STEP * GRID_AUTOANG), 2.0 * M_PI / (STEP * GRID_AUTOANG * (REAL) NX));
 
   /* 1. Ground state optimization */
   rgrid_map(epot, ext_pot, NULL);
@@ -377,8 +371,6 @@ int main(int argc, char **argv) {
   gnd->norm = gwf->norm = cgrid_integral_of_square(gnd->grid);
 
   /* 2. Start with ground state + random perturbation */
-//  cgrid_fft_space(gwf->grid, 1);
-//  cgrid_map(gwf->grid, random_start, NULL);
   cgrid_mapk(gwf->grid, be_pop, &(gwf->norm));
   cgrid_inverse_fft(gwf->grid);
   cgrid_multiply(gwf->grid, 1.0 / SQRT(STEP * STEP * STEP * NX * NY * NZ));
