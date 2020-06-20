@@ -100,19 +100,20 @@ EXPORT REAL dft_exp_bulk_enthalpy(REAL temperature, REAL *first, REAL *second) {
  * Return temperature for given enthalpy (inverse of the above). The inversion is unique.
  *
  * enthalpy = Enthalpy at which the temperature is requested (REAL; input).
+ * acc      = Search accuracy (REAL; input).
  *
  * Returns the temperature (REAL).
  *
  */
 
-EXPORT REAL dft_exp_bulk_enthalpy_inverse(REAL enthalpy) {
+EXPORT REAL dft_exp_bulk_enthalpy_inverse(REAL enthalpy, REAL acc) {
 
   REAL temp = 0.0;
 
   // Search for the matching enthalpy
   while(1) {
     if(dft_exp_bulk_enthalpy(temp, NULL, NULL) >= enthalpy) break;
-    temp += 0.01; // search with 0.01 K accuracy
+    temp += acc;
   }
   return temp;
 }
@@ -160,19 +161,20 @@ EXPORT REAL dft_exp_bulk_superfluid_fraction(REAL temperature) {
  * Return temperature for given superfluid fraction (inverse of the above). The inversion is unique.
  *
  * sfrac = Superfluid fraction at which the temperature is requested (REAL; input).
+ * acc   = Search accuracy (REAL; input).
  *
  * Returns the temperature (REAL).
  *
  */
 
-EXPORT REAL dft_exp_bulk_superfluid_fraction_inverse(REAL sfrac) {
+EXPORT REAL dft_exp_bulk_superfluid_fraction_inverse(REAL sfrac, REAL acc) {
 
   REAL temp = 0.0;
 
   // Search for the matching enthalpy
   while(1) {
     if(dft_exp_bulk_superfluid_fraction(temp) <= sfrac || temp >= 2.1768) break;
-    temp += 0.01; // search with 0.01 accuracy
+    temp += acc;
   }
   return temp;
 }
@@ -202,19 +204,20 @@ EXPORT REAL dft_exp_bulk_entropy(REAL temperature, REAL *first, REAL *second) {
  * Return temperature for given entropy (inverse of the above). The inversion is unique.
  *
  * entropy = Entropy at which the temperature is requested (REAL; input).
+ * acc     = Search accuracy (REAL; input).
  *
  * Returns the temperature (REAL).
  *
  */
 
-EXPORT REAL dft_exp_bulk_entropy_inverse(REAL entropy) {
+EXPORT REAL dft_exp_bulk_entropy_inverse(REAL entropy, REAL acc) {
 
   REAL temp = 0.0;
 
   // Search for the matching enthalpy
   while(1) {
     if(dft_exp_bulk_entropy(temp, NULL, NULL) >= entropy) break;
-    temp += 0.01; // search with 0.01 K accuracy
+    temp += acc;
   }
   return temp;
 }

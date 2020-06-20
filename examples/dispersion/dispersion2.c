@@ -15,8 +15,8 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 64
-#define NY 64
+#define NX 128
+#define NY 128
 #define NZ 128
 #define STEP 0.5 /* Bohr */
 #define TS 20.0 /* fs */
@@ -43,8 +43,8 @@ int main(int argc, char **argv) {
   }
 
 #ifdef USE_CUDA
-#define NGPUS 2
-int gpus[] = {0, 1};
+#define NGPUS 1
+int gpus[] = {0};
   cuda_enable(1, NGPUS, gpus);
 #endif
 
