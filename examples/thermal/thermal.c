@@ -31,7 +31,7 @@
 #define NX 256
 #define NY 256
 #define NZ 256
-#define STEP 2.0
+#define STEP 4.0
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -95,48 +95,29 @@ REAL rho0, mu0;
 REAL complex tstep;
 FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 
-/* TODO: Include this and map() in libgrid + warn about thread unsafe functions */
-EXPORT void nonparallel_mapk(cgrid *grid, REAL complex (*func)(void *arg, REAL kx, REAL ky, REAL kz), void *farg) {
+/* Random initial guess with <P> = 0 */
+EXPORT void initial_guess(cgrid *grid) {
 
-  INT i, j, k, ij, ijnz, nx = grid->nx, ny = grid->ny, nxy = nx * ny, nz = grid->nz, nx2 = nx / 2, ny2 = ny / 2, nz2 = nz / 2;
-  REAL kx, ky, kz, step = grid->step, lx, ly, lz;
-  REAL kx0 = grid->kx0, ky0 = grid->ky0, kz0 = grid->kz0;
-  REAL complex *value = grid->value;
+  INT i, j, k, nx = grid->nx, ny = grid->ny, nz = grid->nz, nx2 = nx / 2, ny2 = ny / 2, nz2 = nz / 2;
+  REAL complex tval;
   
 #ifdef USE_CUDA
-  if(cuda_status()) cuda_remove_block(value, 0);
+  if(cuda_status()) cuda_remove_block(grid->value, 0);
 #endif
-  lx = 2.0 * M_PI / (step * (REAL) nx);
-  ly = 2.0 * M_PI / (step * (REAL) ny);
-  lz = 2.0 * M_PI / (step * (REAL) nz);
-  for(ij = 0; ij < nxy; ij++) {
-    ijnz = ij * nz;
-    i = ij / ny;
-    j = ij % ny;
-    if (i <= nx2)
-      kx = ((REAL) i) * lx - kx0;
-    else
-      kx = ((REAL) (i - nx)) * lx - kx0;
+  cgrid_zero(grid);
+  for(i = 0; i < nx2; i++)
+    for(j = 0; j < ny2; j++)
+      for(k = 0; k < nz2; k++) {
+        if(i == 0 && j == 0 && k == 0) cgrid_value_to_index(grid, i, j, k, SQRT(rho0));
+        else {
 
-    if (j <= ny2)
-      ky = ((REAL) j) * ly - ky0;
-    else
-      ky = ((REAL) (j - ny)) * ly - ky0;
-    for(k = 0; k < nz; k++) {
-      if (k <= nz2)
-        kz = ((REAL) k) * lz - kz0; 
-      else
-        kz = ((REAL) (k - nz)) * lz - kz0;
-      value[ijnz + k] = func(farg, kx, ky, kz);
-    }
-  }
-}
-
-/* Random phases and equal amplitude for each k-point the reciprocal space */
-REAL complex random_start(void *xx, REAL x, REAL y, REAL z) {
-
-  return SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
-//  return (2.0 * (drand48() - 0.5));
+          tval = SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
+          cgrid_value_to_index(grid, i, j, k, tval);
+// comment for same phases for +- k
+          tval = SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
+          cgrid_value_to_index(grid, nx - i - 1, ny - j - 1, nz - k - 1, tval);
+        }
+      }
 }
 
 REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
@@ -172,7 +153,7 @@ void print_stats(INT iter, wf *gwf, wf *gwfp, dft_ot_functional *otf, cgrid *pot
 #ifdef KSPECTRUM
   static REAL *bins = NULL;
 #endif
-  REAL energy, tmp, tmp2, tmp3;
+  REAL energy, ke_tot, pe_tot, ke_qp, ke_cl, natoms, tmp, tmp2;
   INT i, upd = 0;
 
   if(!bins) {
@@ -255,32 +236,39 @@ void print_stats(INT iter, wf *gwf, wf *gwfp, dft_ot_functional *otf, cgrid *pot
     fprintf(fp, FMT_R " " FMT_R "\n", tmp2 * (REAL) i, bins[i]);   // write histogram
   fclose(fp);
 
-  tmp = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
+  ke_tot = grid_wf_energy(gwf, NULL);
   dft_ot_energy_density(otf, rworkspace, gwf);
-  tmp2 = rgrid_integral(rworkspace) - dft_ot_bulk_energy(otf, rho0) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
-  tmp3 = tmp;
+  pe_tot = rgrid_integral(rworkspace) - dft_ot_bulk_energy(otf, rho0) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
+  ke_qp = grid_wf_kinetic_energy_qp(gwf, otf->workspace1, otf->workspace2, otf->workspace3);
+  ke_cl = ke_tot - ke_qp;
+  natoms = grid_wf_norm(gwf);
+
   if(otf->model & DFT_OT_BACKFLOW) {
+    REAL tmp;
     rgrid_zero(rworkspace);
     grid_wf_density(gwf, otf->density);    
     dft_ot_energy_density_bf(otf, rworkspace, gwf, otf->density);
-    tmp3 += rgrid_integral(rworkspace);
+    tmp = rgrid_integral(rworkspace);
+    ke_cl += tmp;
+    ke_tot += tmp;
   }
   if(otf->model & DFT_OT_KC) {
+    REAL tmp;
     rgrid_zero(rworkspace);
     grid_wf_density(gwf, otf->density);
     dft_ot_energy_density_kc(otf, rworkspace, gwf, otf->density); 
-    tmp3 += rgrid_integral(rworkspace);
+    tmp = rgrid_integral(rworkspace);
+    ke_qp += tmp;
+    ke_tot += tmp;
   }
   
-  printf("Helium natoms       = " FMT_R " particles.\n", grid_wf_norm(gwf));   /* Energy / particle in K */
-  printf("Helium kinetic E    = " FMT_R " K\n", tmp * GRID_AUTOK);  /* Print result in K */
-  tmp3 = grid_wf_kinetic_energy_classical(gwf, otf->workspace1, otf->workspace2, DENS_EPS);
-  printf("Helium classical KE = " FMT_R " K\n", (tmp - tmp3) * GRID_AUTOK);
-  printf("Helium quantum KE   = " FMT_R " K\n",  tmp3 * GRID_AUTOK);
-  printf("Helium potential E  = " FMT_R " K\n", tmp2 * GRID_AUTOK);  /* Print result in K */
-  printf("Helium energy       = " FMT_R " K\n", (tmp + tmp2) * GRID_AUTOK);  /* Print result in K */
-// DEBUG
-  printf("Temperature         = " FMT_R " K\n", (2.0 / 3.0) * (tmp + tmp3) / (GRID_AUKB * grid_wf_norm(gwf)));
+  printf("Helium natoms       = " FMT_R " particles.\n", natoms);
+  printf("Helium kinetic E    = " FMT_R " K\n", ke_tot * GRID_AUTOK);
+  printf("Helium classical KE = " FMT_R " K\n", ke_cl * GRID_AUTOK);
+  printf("Helium quantum KE   = " FMT_R " K\n", ke_qp * GRID_AUTOK);
+  printf("Helium potential E  = " FMT_R " K\n", pe_tot * GRID_AUTOK);
+  printf("Helium energy       = " FMT_R " K\n", (ke_tot + pe_tot) * GRID_AUTOK);
+  printf("Temperature         = " FMT_R " K\n", (2.0 / 3.0) * ke_tot / (GRID_AUKB * natoms));
   fflush(stdout);
 
   if(upd) {
@@ -364,7 +352,7 @@ int main(int argc, char **argv) {
 #endif
 
   /* 2. Start with ground state + random perturbation */
-  nonparallel_mapk(gwf->grid, random_start, NULL);  // drand48() is not thread safe!
+  initial_guess(gwf->grid);
   cgrid_inverse_fft(gwf->grid);
   grid_wf_normalize(gwf);
 
