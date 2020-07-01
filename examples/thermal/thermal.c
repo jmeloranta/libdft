@@ -26,14 +26,14 @@
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
 #define ITS (0.001 * TS) /* ifs (10% of TS works but still a bit too fast); 0.0001 * TS */
-#define TS_SWITCH 0.05 /* fs */
+#define TS_SWITCH 1.0 /* fs */
 #define ITS_SWITCH (0.001 * TS_SWITCH) /* fs */
 
 /* Grid */
-#define NX 128
-#define NY 128
-#define NZ 128
-#define STEP 0.5
+#define NX 256
+#define NY 256
+#define NZ 256
+#define STEP 1.0
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -50,17 +50,18 @@
 
 /* Functional to use */
 /* Coarse functional to get to TEMP_SWITCH - numerically more stable */
-//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-#define FUNCTIONAL (DFT_OT_PLAIN)
+#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+//#define FUNCTIONAL (DFT_OT_PLAIN)
 //#define FUNCTIONAL (DFT_GP2)
 
 /* Fine functional to use below 3.0 K - less stable */
-#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
 //#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
 //#define FUNCTIONAL_FINE (DFT_GP2)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 2.3
+#define TEMP_SWITCH 2.5
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -90,7 +91,7 @@
 //#define SCALE (5000.0 / GRID_AUTOK)
 
 /* Roton energy */
-#define ROTON_E (12.0 / GRID_AUTOK)
+#define ROTON_E (12.3 / GRID_AUTOK)
 #define ROTON_K (1.9 * GRID_AUTOANG)
 
 /* GPU allocation */
