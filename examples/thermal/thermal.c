@@ -269,25 +269,6 @@ void print_stats(INT iter, wf *gwf, wf *gwfp, dft_ot_functional *otf, cgrid *pot
   pe_tot = rgrid_integral(rworkspace) - dft_ot_bulk_energy(otf, rho0) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
   ke_qp = grid_wf_kinetic_energy_qp(gwf, otf->workspace1, otf->workspace2, otf->workspace3);
   ke_cl = ke_tot - ke_qp;
-
-  if(otf->model & DFT_OT_BACKFLOW) {
-    REAL tmp;
-    rgrid_zero(rworkspace);
-    grid_wf_density(gwf, otf->density);    
-    dft_ot_energy_density_bf(otf, rworkspace, gwf, otf->density);
-    tmp = rgrid_integral(rworkspace);
-    ke_cl += tmp;
-    ke_tot += tmp;
-  }
-  if(otf->model & DFT_OT_KC) {
-    REAL tmp;
-    rgrid_zero(rworkspace);
-    grid_wf_density(gwf, otf->density);
-    dft_ot_energy_density_kc(otf, rworkspace, gwf, otf->density); 
-    tmp = rgrid_integral(rworkspace);
-    ke_qp += tmp;
-    ke_tot += tmp;
-  }
   
   printf("Helium natoms       = " FMT_R " particles.\n", natoms);
   printf("Helium kinetic E    = " FMT_R " K\n", ke_tot * GRID_AUTOK);
