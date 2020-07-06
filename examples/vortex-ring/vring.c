@@ -13,15 +13,16 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 30.0 /* fs */
-#define NX 256
-#define NY 256
-#define NZ 256
+#define TS 1.0 /* fs */
+#define ITS (0.1 * TS)
+#define NX 128
+#define NY 128
+#define NZ 128
 #define STEP 1.0
-#define NTH 100
+#define NTH 1000
 #define THREADS 0
 
-#define RING_RADIUS 25.0
+#define RING_RADIUS 15.0
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
@@ -67,7 +68,7 @@ int gpus[] = {0};
   gwfp = grid_wf_clone(gwf, "gwfp");
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
@@ -105,14 +106,15 @@ int gpus[] = {0};
     cgrid_zero(potential_store);
     dft_ot_potential(otf, potential_store, gwf);
     cgrid_add(potential_store, -mu0);
-    grid_wf_propagate_predict(gwf, gwfp, potential_store, -I * TS / GRID_AUTOFS);
+    grid_wf_propagate_predict(gwf, gwfp, potential_store, (TS - I * ITS) / GRID_AUTOFS);
     dft_ot_potential(otf, potential_store, gwfp);
     cgrid_add(potential_store, -mu0);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
-    grid_wf_propagate_correct(gwf, potential_store, -I * TS / GRID_AUTOFS);
+    grid_wf_propagate_correct(gwf, potential_store, (TS  - I * ITS) / GRID_AUTOFS);
     // Chemical potential included - no need to normalize
 
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
+    fflush(stdout);
   }
   return 0;
 }
