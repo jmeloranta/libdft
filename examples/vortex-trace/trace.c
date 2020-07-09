@@ -1,5 +1,5 @@
 /*
- * Trace vortex lines: produce vortex ring count and their lengths.
+ * Trace vortex loops: produce vortex ring count and their lengths.
  *
  */
 
@@ -13,180 +13,135 @@
 
 #define THREADS 0
 
-/* Vortex line recognition tuning parameters */
-#define CUT 0.22         // start at 0.5 * max on grid
-#define AVEPTS 1        // Average around this many points inside a vortex 
-#define DIST_CUT 1.0    // drop points within DIST_CUT * STEP (0.0 = disabled)
-#define RINGCUT 4.0    // include points on ring with distance < RINGCUT * STEP
-#define RINGCLOSE 4.0  // max distance between first and last points in ring, RINGCLOSE * STEP (0.0 = disabled)
-#define PERIODIC 0      // 1 = use periodic BC for distance, 0 = use direct distance
-#define NN 1.0          // Exponent for |curl rho v|^NN
+#define NLOOPS 512
+#define NPOINTS 2048
 
-#define MAXPTS 65535
-#define MAXRINGS 25
-#define MAXRING_PTS 256
-REAL x[MAXPTS], y[MAXPTS], z[MAXPTS];
-INT npts = 0;
+/* Threshold for starting to follow a line */
+#define THRESH2 0.9
+/* Threshold for considering a point while folloing a line */
+#define THRESH 0.02
+/* Usually WIDTH = WIDTH2 = DROP */
+/* Point closer than this to the line may be dropped (in units of grid step). ~ vortex diameter */
+#define WIDTH 2
+/* Point closer than this is considered as part of one line (in units of grid step). */
+#define WIDTH2 2 
+/* Move back parameter */
+#define DROP 2
+/* Power for |curl(rho v)/rho|^n */
+#define POWER 1.0
+/* Epsilon for division */
+#define EPS 1.0E-4
 
-REAL ring_x[MAXRINGS][MAXRING_PTS], ring_y[MAXRINGS][MAXRING_PTS], ring_z[MAXRINGS][MAXRING_PTS];
-INT max_ring = 0, max_rings[MAXRINGS];
+INT nloops = 0, npoints[NLOOPS], nx, ny, nz;
+INT xp[NLOOPS][NPOINTS], yp[NLOOPS][NPOINTS], zp[NLOOPS][NPOINTS];
+REAL threshold;
+rgrid *circ, *cur_x, *cur_y, *cur_z, *density;
+cgrid *tmp;
 
-REAL STEP;
-REAL LX, LY, LZ;
-REAL dist(REAL x1, REAL y1, REAL z1, REAL x2, REAL y2, REAL z2) {
+INT dist(INT i, INT j, INT k, INT ii, INT jj, INT kk) {
 
-  REAL dx, dy, dz;
+  INT nx = circ->nx, ny = circ->ny, nz = circ->nz, nx2 = nx / 2, ny2 = ny / 2, nz2 = nz / 2;
+  INT iii, jjj, kkk;
 
-#if PERIODIC == 1
-  // likely wrong... check direct paths rather than rectangular
-  REAL tmp;
-  // Periodic boundary along X
-  dx = (x1 - x2) * (x1 - x2);
-  tmp = (x1 - (x2 + LX)) * (x1 - (x2 + LX));
-  if(tmp < dx) dx = tmp;
-  tmp = (x1 - (x2 - LX)) * (x1 - (x2 - LX));
-  if(tmp < dx) dx = tmp;
+  i %= nx;
+  if(i < 0) i += nx;
+  j %= ny;
+  if(j < 0) j += ny;
+  k %= nz;
+  if(k < 0) k += nz;
 
-  // Periodic boundary along Y
-  dy = (y1 - y2) * (y1 - y2);
-  tmp = (y1 - (y2 + LY)) * (y1 - (y2 + LY));
-  if(tmp < dy) dy = tmp;
-  tmp = (y1 - (y2 - LY)) * (y1 - (y2 - LY));
-  if(tmp < dy) dy = tmp;
+  ii %= nx;
+  if(ii < 0) ii += nx;
+  jj %= ny;
+  if(jj < 0) jj += ny;
+  kk %= nz;
+  if(kk < 0) kk += nz;
 
-  // Periodic boundary along Z
-  dz = (z1 - z2) * (z1 - z2);
-  tmp = (z1 - (z2 + LZ)) * (z1 - (z2 + LZ));
-  if(tmp < dz) dz = tmp;
-  tmp = (z1 - (z2 - LZ)) * (z1 - (z2 - LZ));
-  if(tmp < dz) dz = tmp;
-#else
-  dx = (x1 - x2) * (x1 - x2);
-  dy = (y1 - y2) * (y1 - y2);
-  dz = (z1 - z2) * (z1 - z2);
-#endif
+  iii = ABS(i - ii);
+  if(iii > nx2) iii = iii - nx2 + 1;
+  jjj = ABS(j - jj);
+  if(jjj > ny2) jjj = jjj - ny2 + 1;
+  kkk = ABS(k - kk);
+  if(kkk > nz2) kkk = kkk - nz2 + 1;
 
-  return SQRT(dx + dy + dz);
+  return iii * iii + jjj * jjj + kkk * kkk;
 }
 
-void ring_close_check() {
+INT is_part(INT loop, INT i, INT j, INT k) { // is given point part of existing loop?
 
-  INT r;
+  INT m;
 
-  if(RINGCLOSE == 0.0) return;
-  for (r = 0; r < max_ring; r++) // make sure ring closes (also one point cannot represent a ring)
-    if(max_rings[r] == 1 || dist(ring_x[r][0], ring_y[r][0], ring_z[r][0], ring_x[r][max_rings[r]-1], ring_y[r][max_rings[r]-1], ring_z[r][max_rings[r]-1]) > STEP * RINGCLOSE)
-      max_rings[r] = 0; // discard non-closed ring
+  for (m = 0; m < npoints[loop]; m++)
+    if(dist(xp[loop][m], yp[loop][m], zp[loop][m], i, j, k) <= WIDTH*WIDTH) return 1;
+  return 0;
 }
 
-void segment() {
+INT is_part2(INT loop, INT i, INT j, INT k) { // is given point part of existing loop, consider up to 0 npoints-DROP
 
-  INT i, j, r, bj, rp;
-  REAL d, tmp;
+  INT m;
 
-  for(r = 0; r < MAXRINGS; r++) { // for all rings
-    rp = 0;
-    for (i = 0; i < npts; i++)  // find starting point
-      if(x[i] != FP_NAN) break;
-    if(i == npts) break;    // no starting points available? -> stop
-    ring_x[r][rp] = x[i];   // add the point found as the first
-    ring_y[r][rp] = y[i];   // point in the current ring
-    ring_z[r][rp] = z[i];
-    rp++;
-    x[i] = y[i] = z[i] = FP_NAN;  // mark point as used
-    while(1) {  // search for closest point to add
-      d = 1E99;
-      bj = -1;
-      for (j = 0; j < npts; j++) {
-        if(x[j] == FP_NAN) continue;
-        tmp = dist(ring_x[r][rp-1], ring_y[r][rp-1], ring_z[r][rp-1], x[j], y[j], z[j]);
-        if(tmp < d) {
-          d = tmp;
-          bj = j;
+  if(npoints[loop] < DROP) return 0;
+  for (m = 0; m < npoints[loop]-DROP; m++)
+    if(dist(xp[loop][m], yp[loop][m], zp[loop][m], i, j, k) <= WIDTH*WIDTH) return 1;
+  return 0;
+}
+
+void trace_line(rgrid *circ, INT i, INT j, INT k) {
+
+  INT l, m, n, max_l = 0, max_m = 0, max_n = 0, nx = circ->nx, ny = circ->ny, nz = circ->nz;
+  REAL mval, tmp;
+
+  /* Check if point already part of a loop */
+  for (l = 0; l < nloops; l++)
+    if(is_part(l, i, j, k)) return;
+  
+  /* Trace loop and add the points. End if closes or no new point found */
+  while (1) {
+    /* Search for new i, j, k */
+    mval = 0.0;
+    for(l = i-WIDTH2; l <= i+WIDTH2; l++) 
+      for(m = j-WIDTH2; m <= j+WIDTH2; m++) 
+        for(n = k-WIDTH2; n <= k+WIDTH2; n++) {
+           if(l == i && m == j && n == k) continue;
+           if(!is_part2(nloops, l, m, n) && (tmp = rgrid_value_at_index(circ, l, m, n)) > threshold && tmp > mval) {
+             mval = tmp;
+             max_l = l;
+             max_m = m;
+             max_n = n;
+           }
         }
-      }
-      if(d > RINGCUT * STEP || bj == -1) break; // ring complete? (no neighbors found)
-      ring_x[r][rp] = x[bj];  // add new point to the ring
-      ring_y[r][rp] = y[bj];
-      ring_z[r][rp] = z[bj];
-      x[bj] = y[bj] = z[bj] = FP_NAN;  // mark point as used
-      rp++;
-    }
-    max_rings[r] = rp;
-    max_ring++;
-  }
-}
-
-void drop_points() {
-
-  INT i, j;
-
-  if(DIST_CUT == 0.0) return;
-  for (i = 0; i < npts; i++)
-    for (j = 0; j < npts; j++) {
-      if(i == j) continue;
-      if(x[i] == FP_NAN || x[j] == FP_NAN) continue;
-      if(dist(x[i], y[i], z[i], x[j], y[j], z[j]) < DIST_CUT * STEP)
-        x[j] = y[j] = z[j] = FP_NAN;
-    }
-}
-
-void local_max(rgrid *circ, INT i, INT j, INT k) {
-
-  INT ii, jj, kk;
-  INT iim = 0, jjm = 0, kkm = 0;
-  REAL max_val = -1.0, tmp;
-
-  if(AVEPTS == 0) {
-    iim = i;
-    jjm = j;
-    kkm = k;
-  } else {
-    for (ii = i - AVEPTS; ii <= i + AVEPTS; ii++) {
-      for(jj = j - AVEPTS; jj <= j + AVEPTS; jj++) {
-        for(kk = k - AVEPTS; kk <= k + AVEPTS; kk++) {
-          tmp = rgrid_value_at_index(circ, ii, jj, kk);
-          if(tmp > max_val) {
-            max_val = tmp;
-            iim = ii;
-            jjm = jj;
-            kkm = kk;
-          }
-        }
-      }
+    if(mval == 0.0) break; // Dead end
+    i = max_l;
+    j = max_m;
+    k = max_n;
+    max_l = i % nx;
+    if(max_l < 0) max_l += nx;
+    max_m = j % ny;
+    if(max_m < 0) max_m += ny;
+    max_n = k % nz;
+    if(max_n < 0) max_n += nz;
+    xp[nloops][npoints[nloops]] = max_l;
+    yp[nloops][npoints[nloops]] = max_m;
+    zp[nloops][npoints[nloops]] = max_n;
+    npoints[nloops]++;
+    if(npoints[nloops] == NPOINTS) {
+      fprintf(stderr, "Too many points.\n");
+      exit(1);
     }
   }
-  x[npts] = ((REAL) (iim - circ->nx/2)) * circ->step;
-  y[npts] = ((REAL) (jjm - circ->ny/2)) * circ->step;
-  z[npts] = ((REAL) (kkm - circ->nz/2)) * circ->step;
-  npts++;
-  if(npts == MAXPTS) {
-    printf("Too many points.\n");
+  nloops++;
+  if(nloops == NLOOPS) {
+    fprintf(stderr, "Too many loops.\n");
     exit(1);
-  }
-}
-
-void cutoff_points(rgrid *circ, REAL max_val) {
-
-  INT i, j, k;
-
-  for (i = 0; i < circ->nx; i++) {
-    for (j = 0; j < circ->ny; j++) {
-      for (k = 0; k < circ->nz; k++) {
-        if(rgrid_value_at_index(circ, i, j, k) > CUT * max_val) local_max(circ, i, j, k);
-      }
-    }
   }
 }
 
 int main(int argc, char **argv) {
 
-  rgrid *circ, *cur_x, *cur_y, *cur_z;
-  cgrid *tmp;
   wf *wf;
-  REAL max_val, min_val, length;
   INT i, j, k;
   FILE *fp;
+  char buf[512];
 
   /* Initialize threads & use wisdom */
   grid_set_fftw_flags(1);    // FFTW_MEASURE
@@ -209,11 +164,6 @@ int main(int argc, char **argv) {
   cgrid_free(wf->grid);
   wf->grid = tmp;
 
-  LX = ((REAL) tmp->nx) * tmp->step;
-  LY = ((REAL) tmp->ny) * tmp->step;
-  LZ = ((REAL) tmp->nz) * tmp->step;
-  STEP = tmp->step;
-
   /* Allocate grid functions */
   if(!(circ = rgrid_alloc(tmp->nx, tmp->ny, tmp->nz, tmp->step, RGRID_PERIODIC_BOUNDARY, NULL, "circ"))) {
     fprintf(stderr, "Cannot allocate grid.\n");
@@ -222,48 +172,42 @@ int main(int argc, char **argv) {
   cur_x = rgrid_clone(circ, "cur_x");
   cur_y = rgrid_clone(circ, "cur_y");
   cur_z = rgrid_clone(circ, "cur_z");
-
+  density = rgrid_clone(circ, "density");
+  
   cgrid_read_grid(wf->grid, argv[1]);
 
   grid_wf_probability_flux(wf, cur_x, cur_y, cur_z);
+  grid_wf_density(wf, density);
 
   rgrid_abs_rot(circ, cur_x, cur_y, cur_z);
-  rgrid_abs_power(circ, circ, NN);
+  rgrid_division_eps(circ, circ, density, EPS);
+  rgrid_abs_power(circ, circ, POWER);
+  threshold = rgrid_max(circ) * THRESH;
+  fprintf(stderr, "Threshold = " FMT_R "\n", threshold);
+//  rgrid_write_grid("test", circ); exit(0);
 
-  min_val = rgrid_min(circ);
-  max_val = rgrid_max(circ);
-  fprintf(stderr, "Maximum = " FMT_R "\n", max_val);
-  fprintf(stderr, "Minimum = " FMT_R "\n", min_val);
-  if(max_val < 1E-7) max_val = 1E-7;  // change if NN != 1
+  for(i = 0; i < NLOOPS; i++)
+    npoints[i] = 0;
 
-  cutoff_points(circ, max_val);  // also builds point arrays
+  for(i = 0; i < tmp->nx; i++)
+    for(j = 0; j < tmp->ny; j++)
+      for(k = 0; k < tmp->nz; k++)
+//        if(rgrid_value_at_index(circ, i, j, k) > threshold) printf(FMT_I " " FMT_I " " FMT_I "\n", i, j, k);
+        if(rgrid_value_at_index(circ, i, j, k) > (THRESH2/THRESH) * threshold) trace_line(circ, i, j, k);
 
-  drop_points();
-
-#if 0
-  for(i = 0; i < npts; i++)
-    printf(FMT_R " " FMT_R " " FMT_R "\n", x[i], y[i], z[i]);
-  exit(0);
-#endif
-
-  segment();
-  
-  ring_close_check();
-
-  k = 0;
-  for(i = 0; i < max_ring; i++) { // loop over rings
-    if(max_rings[i] == 0) continue;
-//    printf("Ring #" FMT_I "\n", i+1);
-    length = 0.0;
-    for(j = 0; j < max_rings[i]; j++)
-      if(j) length += dist(ring_x[i][j-1], ring_y[i][j-1], ring_z[i][j-1], ring_x[i][j], ring_y[i][j], ring_z[i][j]);
-    length += dist(ring_x[i][0], ring_y[i][0], ring_z[i][0], ring_x[i][max_rings[i]-1], ring_y[i][max_rings[i]-1], ring_z[i][max_rings[i]-1]);
-    if(length < 24.0) continue;
-    for(j = 0; j < max_rings[i]; j++)
-      printf(FMT_R " " FMT_R " " FMT_R "\n", ring_x[i][j], ring_y[i][j], ring_z[i][j]);
-    // close the loop: last point to first
-    printf("\n");
-    fprintf(stderr, "Ring #" FMT_I " length = " FMT_R "\n", ++k, length);
+  printf("nloops = " FMT_I " found.\n", nloops);
+  for(i = 0; i < nloops; i++) {
+    if(npoints[i] == 0) continue;
+    sprintf(buf, "lines-" FMT_I ".dat", i);
+    if(!(fp = fopen(buf, "w"))) {
+      fprintf(stderr, "Can't open lines.dat\n");
+      exit(1);
+    }
+    fprintf(fp, "# Loop " FMT_I "\n", i);
+    for(j = 0; j < npoints[i]; j++)
+      fprintf(fp, FMT_I " " FMT_I " " FMT_I "\n", xp[i][j], yp[i][j], zp[i][j]);
+    fprintf(fp, "\n");
+    fclose(fp);    
   }
 
   return 0;

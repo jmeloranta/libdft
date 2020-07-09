@@ -45,8 +45,8 @@
 #define PC
 
 /* Use dealiasing during real time propagation? */
-//#define DEALIAS
-//#define DEALIAS_VAL (2.6 * GRID_AUTOANG)
+#define DEALIAS
+#define DEALIAS_VAL (2.5 * GRID_AUTOANG)
 
 /* Functional to use */
 /* Coarse functional to get to TEMP_SWITCH - numerically more stable */
@@ -70,7 +70,7 @@
 #define RITER 200000000L
 
 /* Output every NTH iteration (was 1000) */
-#define NTH 2000L
+#define NTH 4000L
 
 /* How many CPU cores to use (0 = all available) */
 #define THREADS 0
@@ -79,7 +79,7 @@
 #define RANDOM_SEED 1234L
 
 /* Write grid files? */
-//#define WRITE_GRD 1000L
+#define WRITE_GRD 4000L
 
 /* Enable / disable GPU */
 // #undef USE_CUDA
@@ -91,7 +91,7 @@
 //#define SCALE (5000.0 / GRID_AUTOK)
 
 /* Roton energy */
-#define ROTON_E (12.3 / GRID_AUTOK)
+#define ROTON_E (11.9 / GRID_AUTOK)
 #define ROTON_K (1.9 * GRID_AUTOANG)
 
 /* GPU allocation */
