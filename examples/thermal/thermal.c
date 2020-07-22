@@ -25,15 +25,15 @@
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
-#define ITS (0.001 * TS) /* ifs (10% of TS works but still a bit too fast); 0.0001 * TS */
+#define ITS (0.00001 * TS) /* ifs */
 #define TS_SWITCH 1.0 /* fs */
-#define ITS_SWITCH (0.001 * TS_SWITCH) /* fs */
+#define ITS_SWITCH (0.00001 * TS_SWITCH) /* ifs */
 
 /* Grid */
-#define NX 256
-#define NY 256
-#define NZ 256
-#define STEP 1.0
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 2.0
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -45,23 +45,22 @@
 #define PC
 
 /* Use dealiasing during real time propagation? */
-#define DEALIAS
-#define DEALIAS_VAL (2.5 * GRID_AUTOANG)
+//#define DEALIAS
+//#define DEALIAS_VAL (2.5 * GRID_AUTOANG)
 
 /* Functional to use */
 /* Coarse functional to get to TEMP_SWITCH - numerically more stable */
-#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-//#define FUNCTIONAL (DFT_OT_PLAIN)
+//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+#define FUNCTIONAL (DFT_OT_PLAIN)
 //#define FUNCTIONAL (DFT_GP2)
 
 /* Fine functional to use below 3.0 K - less stable */
-//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-//#define FUNCTIONAL_FINE (DFT_OT_PLAIN)
+//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+#define FUNCTIONAL_FINE DFT_OT_PLAIN
 //#define FUNCTIONAL_FINE (DFT_GP2)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 2.5
+#define TEMP_SWITCH 3.0
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -79,7 +78,7 @@
 #define RANDOM_SEED 1234L
 
 /* Write grid files? */
-#define WRITE_GRD 4000L
+//#define WRITE_GRD 4000L
 
 /* Enable / disable GPU */
 // #undef USE_CUDA
@@ -250,6 +249,7 @@ void print_stats(INT iter, wf *gwf, wf *gwfp, dft_ot_functional *otf, cgrid *pot
   grid_wf_probability_flux(gwf, otf->workspace1, otf->workspace2, otf->workspace3);
   rgrid_abs_rot(otf->workspace4, otf->workspace1, otf->workspace2, otf->workspace3);
   rgrid_abs_power(otf->workspace4, otf->workspace4, 1.0); // increase exponent for contrast
+  printf("Total vorticity at " FMT_R " = " FMT_R "\n", energy, rgrid_integral(otf->workspace4));
   sprintf(buf, "momentum-" FMT_I ".dat", iter);
   tmp = rgrid_max(otf->workspace4); // max value for bin
   if (tmp > 1E-12) {
@@ -358,15 +358,14 @@ int main(int argc, char **argv) {
   gwfp->norm = gwf->norm;
 #endif
 
-  // DEBUG
-//#define TEMP 2.2
-//#define GAP 17.6
-//  printf("Occ = " FMT_R "\n", (gwf->norm / boltzmann(TEMP)) * EXP(-GAP / TEMP)); exit(0);
-
   /* 2. Start with ground state + random perturbation */
+#ifdef SCALE
+  cgrid_constant(gwf->grid, SQRT(rho0));
+#else
   initial_guess(gwf->grid);
   cgrid_inverse_fft(gwf->grid);
   grid_wf_normalize(gwf);
+#endif
 
   /* 3. Real time simulation */
   printf("Dynamics...\n");
@@ -389,11 +388,9 @@ int main(int argc, char **argv) {
     /* Predict-Correct */
     cgrid_constant(potential_store, -mu0);
 #ifdef SCALE
-    if(CIMAG(tstep) != 0.0) {
-      rgrid_zero(rworkspace);
-      rgrid_random_uniform(rworkspace, SCALE);
-      grid_add_real_to_complex_re(potential_store, rworkspace);
-    }
+    rgrid_zero(rworkspace);
+    rgrid_random_uniform(rworkspace, SCALE);
+    grid_add_real_to_complex_re(potential_store, rworkspace);
 #endif
     dft_ot_potential(otf, potential_store, gwf);
 
@@ -406,11 +403,9 @@ int main(int argc, char **argv) {
 
     cgrid_add(potential_store, -mu0); // not exact chem. pot. hence normalization above needed
 #ifdef SCALE
-    if(CIMAG(tstep) != 0.0) {
-      rgrid_zero(rworkspace);
-      rgrid_random_uniform(rworkspace, SCALE);
-      grid_add_real_to_complex_re(potential_store, rworkspace);
-    }
+    rgrid_zero(rworkspace);
+    rgrid_random_uniform(rworkspace, SCALE);
+    grid_add_real_to_complex_re(potential_store, rworkspace);
 #endif
     dft_ot_potential(otf, potential_store, gwfp);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
@@ -425,11 +420,9 @@ int main(int argc, char **argv) {
     /* Propagate */
     cgrid_constant(potential_store, -mu0);
 #ifdef SCALE
-    if(CIMAG(tstep) != 0.0) {
-      rgrid_zero(rworkspace);
-      rgrid_random_uniform(rworkspace, SCALE);
-      grid_add_real_to_complex_re(potential_store, rworkspace);
-    }
+    rgrid_zero(rworkspace);
+    rgrid_random_uniform(rworkspace, SCALE);
+    grid_add_real_to_complex_re(potential_store, rworkspace);
 #endif
     dft_ot_potential(otf, potential_store, gwf);
 
