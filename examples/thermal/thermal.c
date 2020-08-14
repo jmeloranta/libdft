@@ -69,7 +69,7 @@
 #define RITER 200000000L
 
 /* Output every NTH iteration (was 1000) */
-#define NTH 4000L
+#define NTH 20000L
 
 /* How many CPU cores to use (0 = all available) */
 #define THREADS 0
@@ -78,7 +78,7 @@
 #define RANDOM_SEED 1234L
 
 /* Write grid files? */
-//#define WRITE_GRD 4000L
+//#define WRITE_GRD 10000L
 
 /* Enable / disable GPU */
 // #undef USE_CUDA
@@ -440,6 +440,7 @@ int main(int argc, char **argv) {
       cgrid_write_grid(buf, gwf->grid);
     }
 #endif
+
 
   }
 
