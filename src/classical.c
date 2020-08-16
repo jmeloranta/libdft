@@ -26,15 +26,14 @@
 #include "git-version.h"
 
 /*
- * Classical DFT potential for an ideal gas.
- *
- * pot     = Resulting potential (rgrid *; output). 
- * density = Gas density (rgrid *; input).
- * rho0    = Bulk density (REAL; input).
- * temp    = Temperature in K (REAL; input).
- * eps     = Low density epsilon (REAL; input).
- *
- * No return value.
+ * @FUNC{dft_classical_ideal_gas, "Classical DFT potential for ideal gas"}
+ * @DESC{"Calculate classical DFT potential for an ideal gas"}
+ * @ARG1{rgrid *pot, "Potential (output)"}
+ * @ARG2{rgrid *density, "Gas density (input)"}
+ * @ARG3{REAL rho0, "Gas density"}
+ * @ARG4{REAL temp, "Temperature (K)"}
+ * @ARG5{REAL eps, "Low density epsilon"}
+ * @RVAL{void, "No return value"}
  *
  */
 
@@ -47,16 +46,15 @@ EXPORT void dft_classical_ideal_gas(rgrid *pot, rgrid *density, REAL rho0, REAL 
 }
 
 /*
- * Classical DFT potential for Tait equation of state.
- * 
- * pot     = Resulting potential (rgrid *; output).
- * density = Liquid density (rgrid *; input).
- * rho0    = Bulk density (REAL; input).
- * k0      = Tait EOS parameter K0 (REAL; input).
- * n       = Tait EOS parameter n (REAL; input).
- * wrk     = Workspace (rgrid *; input).
- *
- * No return value.
+ * @FUNC{dft_classical_tait, "Classical DFT potential for Tait equation of state"}
+ * @DESC{"Calculate classical DFT potential for Tait equation of state"}
+ * @ARG1{rgrid *pot, "Potential (output)"}
+ * @ARG2{rgrid *density, "Liquid density"}
+ * @ARG3{REAL rho0, "Bulk density"}
+ * @ARG4{REAL k0, "Tait EOS parameter K0"}
+ * @ARG5{REAL n, "Tait EOS parameter n"}
+ * @ARG6{rgrid *wrk, "Workspace"}
+ * @RVAL{void, "No return value"}
  *
  * TODO: Not working - or not applicable at low densities?
  *
@@ -86,23 +84,22 @@ EXPORT void dft_classical_tait(rgrid *pot, rgrid *density, REAL rho0, REAL k0, R
 }
 
 /*
- * Viscous potential (from Navier-Stokes assuming irrotational liquid).
- *
- * gwf             = Wave function (wf *; input).
- * pot             = Output for potential (rgrid *; output).
- * shear_visc      = Function for calculating shear (dynamic) viscosity in atomic units (rfunction *; input).
- * wrk1            = Workspace 1 (rgrid *).
- * wrk2            = Workspace 2 (rgrid *).
- * wrk3            = Workspace 3 (rgrid *).
- * wrk4            = Workspace 4 (rgrid *).
- * wrk5            = Workspace 5 (rgrid *).
- * wrk6            = Workspace 6 (rgrid *).
- * wrk7            = Workspace 7 (rgrid *).
- * vx              = Workspace for vx (rgrid *). Overwritten (wrk8).
- * vy              = Workspace for vy (rgrid *). Overwritten (wrk9).
- * vz              = Workspace for vz (rgrid *). Overwritten (wrk10).
- *
- * No return value.
+ * @FUNC{dft_classical_add_viscous_potential, "Add viscous potential"}
+ * @DESC{"Viscous potential (from Navier-Stokes assuming irrotational liquid)"}
+ * @ARG1{wf *gwf, "Wavefunction"}
+ * @ARG2{rgrid *pot, "Potential (output)"}
+ * @ARG3{rfunction *shear_visc, "Function for calculating shear (dynamic) viscosity in atomic units"}
+ * @ARG4{rgrid *wrk1, "Workspace 1"}
+ * @ARG5{rgrid *wrk2, "Workspace 2"}
+ * @ARG6{rgrid *wrk3, "Workspace 3"}
+ * @ARG7{rgrid *wrk4, "Workspace 4"}
+ * @ARG8{rgrid *wrk5, "Workspace 5"}
+ * @ARG9{rgrid *wrk6, "Workspace 6"}
+ * @ARG10{rgrid *wrk7, "Workspace 7"}
+ * @ARG11{rgrid *vx, "Workspace for vx. Overwritten (wrk8)"}
+ * @ARG12{rgrid *vy, "Workspace for vy. Overwritten (wrk9)"}
+ * @ARG13{rgrid *vz, "Workspace for vz. Overwritten (wrk10)"}
+ * @RVAL{void, "No return value"}x
  *
  * Due to the position dependency in the stress tensor, we evaluate the whole thing and do explicit div on that.
  *
@@ -204,10 +201,11 @@ EXPORT void dft_classical_add_viscous_potential(wf *gwf, rgrid *pot, rfunction *
 }
 
 /*
- * Function defining density dependent viscosity.
- *
- * rho = density (REAL; input).
- * prm = Parameters 0: rho0 = bulk density, 1: alpha = exponent, 2: bulk value for viscosity.
+ * @FUNC{dft_classical_viscosity, "Evaluate density dependent viscosity"}
+ * @DESC{"Function defining the density dependent viscosity"}
+ * @ARG1{REAL rho, "Density (input)"}
+ * @ARG2{void *prm, "Parameters [0]: rho0 = bulk density, [1]: alpha = exponent, [2]: bulk value for viscosity"}
+ * @RVAL{REAL, "Viscosity for given rho"}
  *
  */
 

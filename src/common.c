@@ -19,13 +19,12 @@
 #define CUTOFF (50.0 / GRID_AUTOK)
 
 /*
- * Lennard-Jones function (r2 = r^2).
- *
- * r2  = r^2 (REAL).
- * sig = sigma in LJ potential (REAL).
- * eps = epsilon in LJ potential (REAL).
- *
- * Returns Lennard-Jones potential at r^2.
+ * @FUNC{dft_common_lj_func, "Function for Lennard-Jones potential"}
+ * @DESC{"Lennard-Jones function"}
+ * @ARG1{REAL r2, "Distance (r2 = r^2)"}
+ * @ARG2{REAL sig, "Sigma in LJ potential"}
+ * @ARG3{REAL eps, "Epsilon in LJ potential"}
+ * @RVAL{REAL, "Returns Lennard-Jones potential at r^2"}
  *
  */
 
@@ -40,17 +39,14 @@ EXPORT inline REAL dft_common_lj_func(REAL r2, REAL sig, REAL eps) {
 }
 
 /*
- * Lennard-Jones potential to be used with grid map() routines
- * Note that the LJ potential has zero core when r < h.
- *
- * The potential parameters are passed in arg (ot_common_lj data type).
- *
- * arg = pointer to dft_common_lj structure (void *).
- * x   = x-coordinate (REAL).
- * y   = y-coordinate (REAL).
- * z   = z-coordinate (REAL).
- *
- * Returns Lennard-Jones potential at (x,y,z).
+ * @FUNC{dft_common_lennard_jones, "Lennard-Jones potential for rgrid_map()"}
+ * @DESC{"Lennard-Jones potential to be used with grid map() routines
+          Note that the LJ potential has zero core when $r < h$"}
+ * @ARG1{void *arg, "Pointer to dft_common_lj structure for specifying the potential parameters"}
+ * @ARG2{REAL x, "X-coordinate"}
+ * @ARG3{REAL y, "Y-coordinate"}
+ * @ARG4{REAL z, "Z-coordinate"}
+ * @RVAL{REAL, "Returns Lennard-Jones potential at (x,y,z)"}
  *
  */
 
@@ -70,17 +66,14 @@ EXPORT inline REAL dft_common_lennard_jones(void *arg, REAL x, REAL y, REAL z) {
 }
 
 /*
- * Effective 1D Lennard-Jones potential to be used with grid map() routines
- * Note that the LJ potential has zero core when r < h.
- *
- * The potential paramegers are passed in arg (ot_common_lh data type).
- *
- * arg = pointer to dft_common_lj structure (void *).
- * x   = x-coordinate (REAL). (= 0)
- * y   = y-coordinate (REAL). (= 0)
- * z   = z-coordinate (REAL).
- *
- * Returns Lennard-Jones potential at (0,0,z).
+ * @FUNC{dft_common_lennard_jones_1d, "Effective 1-D Lennard-Jones potential for rgrid_map()"}
+ * @DESC{"Effective 1D Lennard-Jones potential to be used with grid map() routines
+          Note that the LJ potential has zero core when $r < h$"}
+ * @ARG1{void *arg, "Pointer to dft_common_lj structure specifying the LJ parameters"}
+ * @ARG2{REAL x, "X-coordinate (here = 0.0)"}
+ * @ARG3{REAL y, "Y-coordinate (here = 0.0)"}
+ * @ARG4{REAL z, "Z-coordinate"}
+ * @RVAL{REAL, "Returns Lennard-Jones potential at (0,0,z)"}
  *
  */
 
@@ -97,17 +90,14 @@ EXPORT inline REAL dft_common_lennard_jones_1d(void *arg, REAL x, REAL y, REAL z
 }
 
 /*
- * Lennard-Jones potential with smoothed core to be used with grid map()
- * routines. Parameters passed in arg (see the regular LJ above).
- *
- * The potential paramegers are passed in arg (ot_common_lh data type).
- *
- * arg = pointer to dft_common_lj structure (void *).
- * x   = x-coordinate (REAL).
- * y   = y-coordinate (REAL).
- * z   = z-coordinate (REAL).
- *
- * Returns Lennard-Jones potential at (x,y,z).
+ * @FUNC{dft_common_lennard_jones_smooth, "Lennard-Jones potential with smoothed core for rgrid_map()"}
+ * @DESC{"Lennard-Jones potential with smoothed core to be used with grid map()
+          routines. Parameters passed in arg (see the regular LJ above)"}
+ * @ARG1{void *arg, "Pointer to dft_common_lj structure (LJ parameters)"}
+ * @ARG2{REAL x, "X-coordinate"}
+ * @ARG3{REAL y, "Y-coordinate"}
+ * @ARG4{REAL z, "Z-coordinate"}
+ * @RVAL{REAL, "Returns Lennard-Jones potential at (x,y,z)"}
  *
  */
 
@@ -127,15 +117,14 @@ EXPORT inline REAL dft_common_lennard_jones_smooth(void *arg, REAL x, REAL y, RE
 }
 
 /*
- * Spherical average function to be used with grid map() routines.
- * The sphere radius is passed in arg.
- *
- * arg = pointer to the radius of the sphere (REAL *).
- * x   = x-coordinate (REAL).
- * y   = y-coordinate (REAL).
- * z   = z-coordinate (REAL).
- *
- * Returns the value of the spherical average function at (x, y, z).
+ * @FUNC{dft_common_spherical_avg, "Spherical averaging function to be used with rgrid_map()"}
+ * @DESC{"Spherical average function to be used with grid map() routines.
+          The sphere radius is passed in arg"}
+ * @ARG1{void *arg, "Pointer to the radius of the sphere (REAL *)"}
+ * @ARG2{REAL x, "X-coordinate"}
+ * @ARG3{REAL y, "Y-coordinate"}
+ * @ARG4{REAL z, "Z-coordinate"}
+ * @RVAL{REAL, "Returns the value of the spherical average function at (x, y, z)"}
  *
  */
 
@@ -149,15 +138,14 @@ EXPORT inline REAL dft_common_spherical_avg(void *arg, REAL x, REAL y, REAL z) {
 }
 
 /*
- * 1-D Spherical average function to be used with grid map() routines.
- * The sphere radius is passed in arg.
- *
- * arg = pointer to the radius of the sphere (REAL *).
- * x   = x-coordinate (REAL). (= 0)
- * y   = y-coordinate (REAL). (= 0)
- * z   = z-coordinate (REAL).
- *
- * Returns the value of the spherical average function at (0, 0, z).
+ * @FUNC{dft_common_spherical_avg_1d, "Spherical averaging 1-D function to be used with rgrid_map()"}
+ * @DESC{"1-D Spherical average function to be used with grid map() routines.
+          The sphere radius is passed in arg"}
+ * @ARG1{void *arg, "Pointer to the radius of the sphere (REAL *)"}
+ * @ARG2{REAL x, "X-coordinate (here = 0.0)"}
+ * @ARG3{REAL y, "Y-coordinate (here = 0.0)"}
+ * @ARG4{REAL z, "Z-coordinate"}
+ * @RVAL{REAL, "Returns the value of the 1-D spherical average function at (0, 0, z)"}
  *
  */
 
@@ -171,15 +159,14 @@ EXPORT inline REAL dft_common_spherical_avg_1d(void *arg, REAL x, REAL y, REAL z
 }
 
 /*
- * Spherical average function IN MOMENTUM SPACE to be used with grid map() routines.
- * The sphere radius is passed in arg.
- *
- * arg = pointer to the radius of the sphere, hk (REAL *).
- * kx   = kx-coordinate (REAL).
- * ky   = ky-coordinate (REAL).
- * kz   = kz-coordinate (REAL).
- *
- * Returns the value of the spherical average function at (kx, ky, kz).
+ * @FUNC{dft_common_spherical_avg_k, "Spherical averaging function in reciprocal space"}
+ * @DESC{"Spherical average function in reciprocal space to be used with grid map() routines.
+          The sphere radius is passed in arg"}
+ * @ARG1{void *arg, "Pointer to the radius of the sphere, hk (REAL *)"}
+ * @ARG2{REAL kx, "kx-coordinate"}
+ * @ARG3{REAL ky, "ky-coordinate"}
+ * @ARG4{REAL kz, "kz-coordinate"}
+ * @RVAL{REAL, "Returns the value of the spherical average function at (kx, ky, kz)"}
  *
  */
 
@@ -192,15 +179,14 @@ EXPORT inline REAL dft_common_spherical_avg_k(void *arg, REAL kx, REAL ky, REAL 
 }
 
 /*
- * Gaussian function to be used with grid map() functions.
- * The gaussian is centered at (0,0,0) and width is given in arg.
- *
- * arg = Inverse width of the gaussian function (REAL *).
- * x   = x-coordinate (REAL).
- * y   = y-coordinate (REAL).
- * z   = z-coordinate (REAL).
- *
- * Returns the value of the value of the gaussian function at (x, y, z).
+ * @FUNC{dft_common_gaussian, "Gaussian function for rgrid_map()"}
+ * @DESC{"Gaussian function to be used with grid map() functions.
+          The gaussian is centered at (0,0,0) and width is given in arg"}
+ * @ARG1{void *arg, "Inverse width of the gaussian function (REAL *)"}
+ * @ARG2{REAL x, "X-coordinate"}
+ * @ARG3{REAL y, "Y-coordinate"}
+ * @ARG4{REAL z, "Z-coordinate"}
+ * @RVAL{REAL, "Returns the value of the value of the gaussian function at (x, y, z)"}
  * 
  */ 
 
@@ -214,15 +200,14 @@ EXPORT inline REAL dft_common_gaussian(void *arg, REAL x, REAL y, REAL z) {
 }
 
 /*
- * Effective 1D Gaussian function to be used with grid map() functions.
- * The gaussian is centered at (0,0,0) and width is given in arg.
- *
- * arg = Inverse width of the gaussian function (REAL *).
- * x   = x-coordinate (REAL). (= 0)
- * y   = y-coordinate (REAL). (= 0)
- * z   = z-coordinate (REAL).
- *
- * Returns the value of the value of the gaussian function at (0, 0, z).
+ * @FUNC{dft_common_gaussian_1d, "Gaussian 1-D function for rgrid_map()"}
+ * @DESC{"Effective 1D Gaussian function to be used with grid map() functions.
+          The gaussian is centered at (0,0,0) and width is given in arg"}
+ * @ARG1{void *arg, "Inverse width of the gaussian function (REAL *)"}
+ * @ARG2{REAL x, "X-coordinate (here = 0.0)"}
+ * @ARG3{REAL y, "Y-coordinate (here = 0.0)"}
+ * @ARG4{REAL z, "Z-coordinate"}
+ * @RVAL{REAL, "Returns the value of the value of the gaussian function at (0, 0, z)"}
  * 
  */ 
 
@@ -235,15 +220,15 @@ EXPORT inline REAL dft_common_gaussian_1d(void *arg, REAL x, REAL y, REAL z) {
 }
 
 /*
- * Complex Gaussian function to be used with cgrid map() functions.
- * The gaussian is centered at (0,0,0) and width is given in arg.
- *
- * arg = Inverse width of the gaussian function (REAL *).
- * x   = x-coordinate (REAL).
- * y   = y-coordinate (REAL).
- * z   = z-coordinate (REAL).
- *
- * Returns the value of the value of the gaussian function at (x, y, z).
+ * 
+ * @FUNC{dft_common_cgaussian, "Gaussian function for cgrid_map()"}
+ * @DESC{"Complex Gaussian function to be used with cgrid map() functions.
+          The gaussian is centered at (0,0,0) and width is given in arg"}
+ * @ARG1{void *arg, "Inverse width of the gaussian function (REAL *)"}
+ * @ARG2{REAL x, "X-coordinate"}
+ * @ARG3{REAL y, "Y-coordinate"}
+ * @ARG4{REAL z, "Z-coordinate"}
+ * @RVAL{REAL complex, "Returns the value of the value of the gaussian function at (x, y, z)"}
  * 
  */ 
 
@@ -257,13 +242,11 @@ EXPORT inline REAL complex dft_common_cgaussian(void *arg, REAL x, REAL y, REAL 
 }
 
 /*
- * Return thermal wavelength for a particle with mass "mass" at temperature
- * "temp".
- *
- * mass = Mass of the particle (REAL).
- * temp = Temperature (REAL).
- *
- * Returns thermal wavelength.
+ * @FUNC{dft_common_lwl3, "Thermal de Broglie wavelength"}
+ * @DESC{"Return thermal wavelength for a particle with mass 'mass' at temperature 'temp'"}
+ * @ARG1{REAL mass, "Mass of the particle"}
+ * @ARG2{REAL temp, "Temperature"}
+ * @RVAL{REAL, "Returns the thermal wavelength"}
  *
  */
 
@@ -303,12 +286,11 @@ static REAL D[LEND] = {5.913E-5, 0.99913, -0.35069, 0.053981, -0.0038613};
 #endif
 
 /* 
- * Evaluate g_s(z) (polylog).
- *
- * z = argument of polylog (REAL).
- * s = argument of polylog (REAL).
- *
- * Returns the polylog.
+ * @FUNC{dft_common_g, "Evaluate polylog ($g_s(z)$)"}
+ * @DESC{"Evaluate $g_s(z)$ (polylog)"}
+ * @ARG1{REAL z, "z argument of polylog"}
+ * @ARG2{REAL s, "s argument of polylog"}
+ * @RVAL{REAL, "Returns the polylog value"}
  *
  */
 
