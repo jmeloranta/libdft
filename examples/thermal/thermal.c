@@ -25,15 +25,15 @@
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
-#define ITS (0.00001 * TS) /* ifs */
+#define ITS ((2.0 / 100.0) * TS) /* ifs */
 #define TS_SWITCH 1.0 /* fs */
-#define ITS_SWITCH (0.00001 * TS_SWITCH) /* ifs */
+#define ITS_SWITCH ((0.01 / 100.0) * TS_SWITCH) /* ifs */
 
 /* Grid */
-#define NX 128
-#define NY 128
-#define NZ 128
-#define STEP 2.0
+#define NX 256
+#define NY 256
+#define NZ 256
+#define STEP 0.5
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -42,7 +42,7 @@
 #define DENS_EPS 1E-3
 
 /* Predict-correct? (not available for 4th order splitting) */
-#define PC
+//#define PC
 
 /* Use dealiasing during real time propagation? */
 //#define DEALIAS
@@ -55,12 +55,12 @@
 //#define FUNCTIONAL (DFT_GP2)
 
 /* Fine functional to use below 3.0 K - less stable */
-//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-#define FUNCTIONAL_FINE DFT_OT_PLAIN
+#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+//#define FUNCTIONAL_FINE DFT_OT_PLAIN
 //#define FUNCTIONAL_FINE (DFT_GP2)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 3.0
+#define TEMP_SWITCH 2.5
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -69,7 +69,7 @@
 #define RITER 200000000L
 
 /* Output every NTH iteration (was 1000) */
-#define NTH 20000L
+#define NTH 2000L
 
 /* How many CPU cores to use (0 = all available) */
 #define THREADS 0
@@ -78,7 +78,7 @@
 #define RANDOM_SEED 1234L
 
 /* Write grid files? */
-//#define WRITE_GRD 10000L
+#define WRITE_GRD 4000L
 
 /* Enable / disable GPU */
 // #undef USE_CUDA
@@ -162,7 +162,7 @@ void dealias(cgrid *grid) {
 
 INT upd = 0;
 
-void print_stats(INT iter, wf *gwf, wf *gwfp, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
+void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
 
   char buf[512];
   FILE *fp;
@@ -380,7 +380,7 @@ int main(int argc, char **argv) {
 
     if(!(iter % NTH)) {
       printf("Wall clock time = " FMT_R " seconds.\n", grid_timer_wall_clock_time(&timer)); fflush(stdout);
-      print_stats(iter, gwf, gwfp, otf, potential_store, rworkspace);
+      print_stats(iter, gwf, otf, potential_store, rworkspace);
       grid_timer_start(&timer);
     }
 

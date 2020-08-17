@@ -76,13 +76,12 @@ static REAL dft_exp_bulk_spline_eval(INT ncap7, REAL *k, REAL *c, REAL x, REAL *
 }
 
 /*
- * Enthalpy at saturated vapor pressure and a given temperature.
- *
- * temperature = Temperature at which the enthalpy is requested (REAL; input).
- * first       = First derivative of enthalpy at the temperature (REAL *; output). If NULL, not computed.
- * second      = Second derivative of enthalpy at the temperature (REAL *; output). If NULL, not computed.
- *
- * Returns enthalpy (J / mol) at the temperature (REAL).
+ * @FUNC{dft_exp_bulk_enthalpy, "Experimental enthalpy of liquid helium"}
+ * @DESC{"Return enthalpy at saturated vapor pressure and a given temperature"}
+ * @ARG1{REAL temperature, "Temperature at which the enthalpy is requested"}
+ * @ARG2{REAL *first, "First derivative of enthalpy at the temperature. If NULL, not computed"}
+ * @ARG3{REAL *second, "Second derivative of enthalpy at the temperature. If NULL, not computed."}
+ * @RVAL{REAL, "Returns enthalpy (J / mol) at the temperature"}
  *
  */
 
@@ -97,6 +96,12 @@ EXPORT REAL dft_exp_bulk_enthalpy(REAL temperature, REAL *first, REAL *second) {
 }
 
 /*
+ * @FUNC{dft_exp_bulk_enthalpy_inverse, "Experimental temperature based on enthalpy of liquid helium"}
+ * @DESC{"Return temperature at saturated vapor pressure based on enthalpy"}
+ * @ARG1{REAL enthalpy, "Enthalpy for which the temperature is calculated"}
+ * @ARG2{REAL acc, "Accuracy for serch"}
+ * @RVAL{REAL, "Returns temperature (K) corresponding to the given enthalpy (J/mol)"}
+
  * Return temperature for given enthalpy (inverse of the above). The inversion is unique.
  *
  * enthalpy = Enthalpy at which the temperature is requested (REAL; input).
@@ -119,11 +124,10 @@ EXPORT REAL dft_exp_bulk_enthalpy_inverse(REAL enthalpy, REAL acc) {
 }
 
 /*
- * Dispersion relation at saturated vapor pressure.
- *
- * wavenumber  = Wavenumber (Angs^-1) for which the energy is computed (REAL; input).
- *
- * Returns Energy (Kelvin) corresponding to the wavenumber (REAL).
+ * @FUNC{dft_exp_bulk_dispersion, "Experimental dispersion relation of superfluid helium"}
+ * @DESC{"Return dispersion relation for superfluid helium at saturated vapor pressure"}
+ * @ARG1{REAL k, "Wave vector k (\AA{})"}
+ * @RVAL{REAL, "Returns dispersion relation value at k (Kelvin)"}
  *
  */
 
@@ -139,11 +143,10 @@ EXPORT REAL dft_exp_bulk_dispersion(REAL k) {
 }
 
 /*
- * Supefluid fraction at saturated vapor pressure and a given temperature.
- *
- * temperature = Temperature at which the enthalpy is requested (REAL; input).
- *
- * Returns superfluid fraction between 0.0 and 1.0 (REAL).
+ * @FUNC{dft_exp_bulk_superfluid_fraction, "Superfluid fraction of liquid helium"}
+ * @DESC{"Return superfluid fraction of liquid helium at given temperature (saturated vapor pressure)"}
+ * @ARG1{REAL temperature, "Temperature (K)"}
+ * @RVAL{REAL, "Returns the superfluid fraction (between 0.0 and 1.0)"}
  *
  */
 
@@ -158,12 +161,11 @@ EXPORT REAL dft_exp_bulk_superfluid_fraction(REAL temperature) {
 }
 
 /*
- * Return temperature for given superfluid fraction (inverse of the above). The inversion is unique.
- *
- * sfrac = Superfluid fraction at which the temperature is requested (REAL; input).
- * acc   = Search accuracy (REAL; input).
- *
- * Returns the temperature (REAL).
+ * @FUNC{dft_exp_bulk_superfluid_fraction_inverse, "Temperature based on superfluid fraction of liquid helium"}
+ * @DESC{"Return temperature based on superfluid fraction of liquid helium (saturated vapor pressure)"}
+ * @ARG1{REAL sfrac, "Superfluid fraction"}
+ * @ARG2{REAL acc, "Accuracy for inverse search"}
+ * @RVAL{REAL, "Returns the temperature (K)"}
  *
  */
 
@@ -180,13 +182,12 @@ EXPORT REAL dft_exp_bulk_superfluid_fraction_inverse(REAL sfrac, REAL acc) {
 }
 
 /*
- * Entropy at saturated vapor pressure and a given temperature.
- *
- * temperature = Temperature at which the entropy is requested (REAL; input).
- * first       = First derivative of entropy at the temperature (REAL *; output). If NULL, not computed.
- * second      = Second derivative of entropy at the temperature (REAL *; output). If NULL, not computed.
- *
- * Returns entropy (J / K g) at the temperature (REAL).
+ * @FUNC{dft_exp_bulk_entropy, "Entropy of liquid helium at given temperature"}
+ * @DESC{"Entropy at saturated vapor pressure and a given temperature"}
+ * @ARG1{REAL temperature, "Temperature at which the entropy is return"}
+ * @ARG2{REAL *first, "First derivative of entropy at the temperature. If NULL, not computed"}
+ * @ARG3{REAL *second, "Second derivative of entropy at the temperature. If NULL, not computed"}
+ * @RVAL{REAL, "Returns entropy (J / K g) at the temperature"}
  *
  */
 
@@ -201,12 +202,10 @@ EXPORT REAL dft_exp_bulk_entropy(REAL temperature, REAL *first, REAL *second) {
 }
 
 /*
- * Return temperature for given entropy (inverse of the above). The inversion is unique.
- *
- * entropy = Entropy at which the temperature is requested (REAL; input).
- * acc     = Search accuracy (REAL; input).
- *
- * Returns the temperature (REAL).
+ * @FUNC{dft_exp_bulk_entropy_inverse, "Return temperature based on liquid helium entropy"}
+ * @DESC{"Calculate liquid helium temperature based on entropy"}
+ * @ARG1{REAL entropy, "Entropy for temperature evaluation"}
+ * @RVAL{REAL, "Returns the temperature (K)"}
  *
  */
 

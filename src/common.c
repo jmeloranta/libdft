@@ -310,11 +310,10 @@ static inline REAL dft_common_g(REAL z, REAL s) { /* Brute force approach - the 
 #endif
 
 /*
- * Evaluate g_{1/2}(z) using polynomial fit.
- *
- * z = argument of polylog (REAL).
- *
- * Returns the polylog value.
+ * @FUNC{dft_common_fit_g12, "Evaluate polylog $g_{12}$}
+ * @DESC{"Evaluate polylog $g_{1/2}(z$)"}
+ * @ARG1{REAL z, "Argument of polylog"}
+ * @RVAL{REAL, "Returns the polylog value"}
  *
  */
 
@@ -340,11 +339,10 @@ EXPORT inline REAL dft_common_fit_g12(REAL z) {
 }
 
 /*
- * Evaluate g_{3/2}(z) (polylog)
- *
- * z = argument to polylog (REAL).
- *
- * Returns the polylog. 
+ * @FUNC{dft_common_fit_g32, "Evaluate polylog $g_{3/2}$"}
+ * @DESC{"Evaluate polylog $g_{3/2}(z)$"}
+ * @ARG1{REAL z, "Argument to polylog"}
+ * @RVAL{REAL, "Returns the polylog"}
  *
  */
 
@@ -366,11 +364,10 @@ EXPORT inline REAL dft_common_fit_g32(REAL z) {
 }
 
 /*
- * Evaluate g_{5/2}(z) (polylog)
- *
- * z = Argument of polylog (REAL).
- *
- * Returns the polylog.
+ * @FUNC{dft_common_fit_g52, "Evaluate polylog $g_{5/2}$"}
+ * @DESC{"Evaluate polylog $g_{5/2}(z)"}
+ * @ARG1{REAL z, "Argument of polylog"}
+ * @RVAL{REAL, "Returns the polylog"}
  *
  */
 
@@ -393,11 +390,10 @@ EXPORT inline REAL dft_common_fit_g52(REAL z) {
 }
 
 /*
- * Evaluate z(rho, T) (polylog). Invert g_{3/2}.
- *
- * val = Value where g_{3/2} is to be inverted.
- *
- * Returns the inverted value.
+ * @FUNC{dft_common_fit_z, "Invert polylog $g_{3/2}$"}
+ * @DESC{"Evaluate $z(\rho, T)$ (polylog) by inverting $g_{3/2}$"}
+ * @ARG1{REAL val, "Value where $g_{3/2}$ is to be inverted"}
+ * @RVAL{REAL, "Returns the inverted value"}
  *
  */
 
@@ -446,11 +442,10 @@ EXPORT inline REAL dft_common_fit_z(REAL val) {
 }
 
 /*
- * Classical ideal gas. Free energy / volume derivative with respect to rho: d(A/V) / drho
- *
- * rhop = Gas density (REAL).
- *
- * Returns the free energy / volume derivative.
+ * @FUNC{dft_common_classical_idealgas_dEdRho, "Classical ideal gas: $dE/\rho$}
+ * @DESC{"Classical ideal gas. Free energy / volume derivative with respect to rho: $d(A/V) / d\rho$"}x
+ * @ARG1{REAL rhop, "Gas density"}
+ * @RVAL{REAL, "Returns the free energy / volume derivative"}
  *
  */
 
@@ -466,12 +461,11 @@ EXPORT REAL dft_common_classical_idealgas_dEdRho(REAL rhop, void *params) {
 }
 
 /*
- * Classical ideal gas. NVT free energy / volume (i.e., A/V, A = U - TS).
- *
- * rhop   = Gas density (REAL).
- * params = Pointer to dft_ot_functional structure to get temperature and mass (dft_ot_functional *).
- *
- * Returns free energy / volume.
+ * @FUNC{dft_common_classical_idealgas_energy, "Classical ideal gas: energy per volume"}
+ * @DESC{"Classical ideal gas. NVT free energy / volume (i.e., $A/V$, $A = U - TS$)"}
+ * @ARG1{REAL rhop, "Gas density"}
+ * @ARG2{dft_ot_functional *params, "Pointer to dft_ot_functional structure to get temperature and mass"}
+ * @RVAL{REAL, "Returns free energy / volume"}
  *
  */
 
@@ -485,11 +479,11 @@ EXPORT REAL dft_common_classical_idealgas_energy(REAL rhop, void *params) {
 }
 
 /*
- * Ideal bose gas. NVT free energy / volume (i.e., A/V, A = U - TS).
+ * @FUNC{dft_common_bose_idealgas_energy, "Ideal bose gas: energy per volume"}
+ * @DESC{"Ideal bose gas. $NVT$ free energy / volume (i.e., $A/V$, $A = U - TS$)"}
+ * @ARG1{REAL rhop, "Gas density"}
+ * @RVAL{REAL, "Returns free energy / volume"}
  *
- * rhop = Gas density (REAL).
- *
- * Returns free energy / volume.
  */
 
 EXPORT REAL dft_common_bose_idealgas_energy(REAL rhop, void *params) {
@@ -503,9 +497,9 @@ EXPORT REAL dft_common_bose_idealgas_energy(REAL rhop, void *params) {
 }
 
 /*
- * Ideal bose gas. Derivative of energy / volume with respect to rho.
- *
- * rhop = Gas density (REAL).
+ * @FUNC{dft_common_bose_idealgas_dEdRho, "Ideal bose gas: $dE/d\rho$"}
+ * @DESC{"Ideal bose gas. Derivative of energy / volume with respect to $\rho$"}
+ * @ARG1{REAL rhop, "Gas density"}
  *
  * Returns free energy / volume derivative.
  */
@@ -536,12 +530,11 @@ EXPORT REAL dft_common_bose_idealgas_dEdRho(REAL rhop, void *params) {
 }
 
 /*
- * Numerical potential routines. Equidistant steps for potential required!
- *
- * file = Filename (char *).
- * pot  = Place the potential in this structure (dft_extpot *).
- *
- * No return value.
+ * @FUNC{dft_common_read_pot, "Read potential data from ASCII file"}
+ * @DESC{Read 1-D potential from file (ASCII). Equidistant steps for potential required."}
+ * @ARG1{char *file, "Filename"}
+ * @ARG2{dft_extpot *pot, "Place the potential in this structure"}
+ * @RVAL{void, "No return value"}
  *
  */
 
@@ -583,13 +576,13 @@ EXPORT void dft_common_read_pot(char *file, dft_extpot *pot) {
 }
 
 /*
- * External potential suitable for grid map() routines.
- *
- * arg = Potential (dft_extpot_set *).
- * x   = x-coordinate (REAL).
- * y   = y-coordinate (REAL).
- * z   = z-coordinate (REAL).
- *
+ * @FUNC{dft_common_extpot, "Map 1-D potential to 3-D grid"}
+ * @DESC{"External potential suitable for grid map() routines"}
+ * @ARG1{dft_extpot_set *arg, "Potential"}
+ * @ARG2{REAL x, "X-coordinate"}
+ * @ARG3{REAL y, "Y-coordinate"}
+ * @ARG4{REAL z, "Z-coordinate"}
+ * @RVAL{REAL, "Returns the potential value"}
  */
 
 REAL dft_common_extpot(void *arg, REAL x, REAL y, REAL z) {
@@ -677,25 +670,23 @@ REAL dft_common_extpot(void *arg, REAL x, REAL y, REAL z) {
 }
 
 /*
- * Map a potential given by an ascii file into a grid.
- *
- * average = 0 = no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ,
- *           4 = average XYZ.
- * file_x  = Potential along x axis (char *).
- * file_y  = Potential along y axis (char *).
- * file_z  = Potential along z axis (char *).
- * potential = Output potential grid (rgrid *).
- * theta0  = Rotation angle theta.
- * phi0    = Rotation angle phi.
- * x0      = New origin x.
- * y0      = New origin y.
- * z0      = New origin z.
- * 
- * No return value.
+ * @FUNC{dft_common_potential_map, "Map potential files onto real grid"}
+ * @DESC{"Map a potential given by an ascii file onto a grid"}
+ * @ARG1{char average, "0 = no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ, 4 = average XYZ"}
+ * @ARG2{char *file_x, "File name for potential along x axis"}
+ * @ARG3{char *file_y, "File name for potential along y axis"}
+ * @ARG4{char *file_z, "File name for potential along z axis"}
+ * @ARG5{rgrid *potential, "Output potential grid"}
+ * @ARG6{REAL theta0, "Rotation angle theta for the potential"}
+ * @ARG7{REAL phi0, "Rotation angle phi for the potential"}
+ * @ARG8{REAL x0, "New origin x"}
+ * @ARG9{REAL y0, "New origin y"}
+ * @ARG10{REAL z0, "New origin z"}
+ * @RVAL{void, "No return value"}
  *
  */
 	
-EXPORT void dft_common_potential_map_rotate_shift(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta0, REAL phi0, REAL x0, REAL y0, REAL z0) {
+EXPORT void dft_common_potential_map(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta0, REAL phi0, REAL x0, REAL y0, REAL z0) {
 
   dft_extpot x, y, z;
   dft_extpot_set set;
@@ -719,58 +710,23 @@ EXPORT void dft_common_potential_map_rotate_shift(char average, char *filex, cha
 }
 
 /*
- * Special case of the above with x0 = y0 = z0 = theta0 = phi0 = 0 for backwards compatibility.
- * 
- */
-
-EXPORT void dft_common_potential_map(char average, char *filex, char *filey, char *filez, rgrid *potential) {
-  
-  dft_common_potential_map_rotate_shift(average, filex, filey, filez, potential, 0.0, 0.0, 0.0, 0.0, 0.0);
-}
-
-/*
- * Special case of the above with x0 = y0 = z0 = 0 for backwards compatibility.
- *
- */
-
-EXPORT void dft_common_potential_map_rotate(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta, REAL phi) {
-  
-  dft_common_potential_map_rotate_shift(average, filex, filey, filez, potential, theta, phi, 0.0, 0.0, 0.0);
-}
-
-/*
- * Nonperiodic version of dft_common_potential_map.
- *
- * No need for this, just set x0, y0, z0. Left here only for compatibility.
- *
- */
-
-EXPORT void dft_common_potential_map_nonperiodic(char average, char *filex, char *filey, char *filez, rgrid *potential) {
-
-  rgrid_set_origin(potential, -((REAL) (potential->nx / 2)) * potential->step, -((REAL) (potential->ny / 2)) * potential->step, -((REAL) (potential->nz / 2)) * potential->step);
-  dft_common_potential_map(average, filex, filey, filez, potential);
-}
-
-/*
- * Map a potential given by an ascii file into a grid (with smoothing).
- *
- * average = 0: no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ,
- *           4 = average XYZ.
- * file_x  = Potential along x axis (char *).
- * file_y  = Potential along y axis (char *).
- * file_z  = Potential along z axis (char *).
- * grid    = Output potential grid (cgrid *).
- * theta0  = Rotation angle theta.
- * phi0    = Rotation angle phi.
- * x0      = New origin x.
- * y0      = New origin y.
- * z0      = New origin z.
- * 
- * No return value.
+ * @FUNC{dft_common_potential_smooth_map_rotate_shift, "Map potential files onto real grid (with smoothing)"}
+ * @DESC{"Map a potential given by an ascii file onto a grid (with smoothing)"}
+ * @ARG1{char average, "0 = no averaging, 1 = average XY, 2 = average YZ, 3 = average XZ, 4 = average XYZ"}
+ * @ARG2{char *file_x, "File name for potential along x axis"}
+ * @ARG3{char *file_y, "File name for potential along y axis"}
+ * @ARG4{char *file_z, "File name for potential along z axis"}
+ * @ARG5{rgrid *potential, "Output potential grid"}
+ * @ARG6{REAL theta0, "Rotation angle theta for the potential"}
+ * @ARG7{REAL phi0, "Rotation angle phi for the potential"}
+ * @ARG8{REAL x0, "New origin x"}
+ * @ARG9{REAL y0, "New origin y"}
+ * @ARG10{REAL z0, "New origin z"}
+ * @RVAL{void, "No return value"}
  *
  */
 	
-EXPORT void dft_common_potential_smap_rotate_shift(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta0, REAL phi0, REAL x0, REAL y0, REAL z0) {
+EXPORT void dft_common_potential_smooth_map(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta0, REAL phi0, REAL x0, REAL y0, REAL z0) {
 
   dft_extpot x, y, z;
   dft_extpot_set set;
@@ -791,38 +747,6 @@ EXPORT void dft_common_potential_smap_rotate_shift(char average, char *filex, ch
   dft_common_read_pot(filez, &z);
   rgrid_smooth_map(potential, dft_common_extpot, (void *) &set, 10); /* TODO allow changing this */
   fprintf(stderr, "done.\n");
-}
-
-/*
- * Special case of the above with x0 = y0 = z0 = theta0 = phi0 = 0 for backwards compatibility.
- *
- */
-
-EXPORT void dft_common_potential_smap(char average, char *filex, char *filey, char *filez, rgrid *potential) {
-  
-  dft_common_potential_smap_rotate_shift(average, filex, filey, filez, potential, 0.0, 0.0, 0.0, 0.0, 0.0);
-}
-
-/* 
- * Special of the above case with x0 = y0 = z0 = 0 for backwards compatibility.
- *
- */
-
-EXPORT void dft_common_potential_smap_rotate(char average, char *filex, char *filey, char *filez, rgrid *potential, REAL theta, REAL phi) {
-  
-  dft_common_potential_smap_rotate_shift(average, filex, filey, filez, potential, theta, phi, 0.0, 0.0, 0.0);
-}
-
-/*
- * Nonperiodic version of dft_common_potential_map. No need for this, just set x0,y0,z0.
- * Left here only for compatibility.
- *
- */
-
-EXPORT void dft_common_potential_smap_nonperiodic(char average, char *filex, char *filey, char *filez, rgrid *potential) {
-
-  rgrid_set_origin(potential, -((REAL) (potential->nx / 2)) * potential->step, -((REAL) (potential->ny / 2)) * potential->step, -((REAL) (potential->nz / 2)) * potential->step);
-  dft_common_potential_smap(average, filex, filey, filez, potential);
 }
 
 /*
@@ -1048,16 +972,15 @@ static inline REAL dft_common_spline_value(rgrid *grid, REAL r, REAL phi, REAL *
 }
 
 /*
- * Produce interpolated 3-D potential energy surface
- * from n 1-D cuts along phi = 0, pi/n, ..., pi directions.
- * (symmetric for ]Pi,2Pi[)
- * Requires cylindrical symmetry for the overall potential (i.e., linear molecule).
- * All potentials must have the same range, steps, number of points.
- *
- * n     = Number of potentials along n different angles (INT).
- * files = Array of strings for file names containing the potentials (char **).
- * out   = 3-D cartesian grid containing the angular interpolated potential data. 
- *         (must be allocated before calling)
+ * @FUNC{dft_common_pot_interpolate, "Interpolate 3-D potential from 1-D cuts"}
+ * @DESC{"Produce interpolated 3-D potential energy surface from n 1-D cuts along 
+          phi = 0, pi/n, ..., pi directions (symmetric for ]Pi,2Pi[).
+          Requires cylindrical symmetry for the overall potential (i.e., linear molecule).
+          All potentials must have the same range, steps, number of points"}
+ * @ARG1{INT n, "Number of potentials along n different angles"}
+ * @ARG2{char **file, "Array of strings for file names containing the potentials"}
+ * @ARG3{rgrid *out, "3-D cartesian grid containing the angular interpolated potential data."}
+ * @RVAL{void, "No return value"}
  *
  */
 
@@ -1097,16 +1020,15 @@ EXPORT void dft_common_pot_interpolate(INT n, char **files, rgrid *out) {
 }
 
 /*
- * Produce interpolated spline 3-D potential energy surface
- * from n 1-D cuts along phi = 0, pi/n, ..., pi directions.
- * (symmetric for ]Pi,2Pi[)
- * Requires cylindrical symmetry for the overall potential (i.e., linear molecule).
- * All potentials must have the same range, steps, number of points.
- *
- * n     = Number of potentials along n different angles (INT).
- * files = Array of strings for file names containing the potentials (char **).
- * out   = 3-D cartesian grid containing the angular interpolated potential data. 
- *         (must be allocated before calling)
+ * @FUNC{dft_common_pot_spline, "Interpolate 3-D potential from 1-D cuts (spline)"}
+ * @DESC{"Produce interpolated spline 3-D potential energy surface from n 1-D cuts along 
+          phi = 0, pi/n, ..., pi directions (symmetric for ]Pi,2Pi[).
+          Requires cylindrical symmetry for the overall potential (i.e., linear molecule).
+          All potentials must have the same range, steps, number of points"}
+ * @ARG1{INT n, "Number of potentials along n different angles"}
+ * @ARG2{char **files, "Array of strings for file names containing the potentials"}
+ * @ARG3{rgird *out, "3-D cartesian grid containing the angular interpolated potential data"}
+ * @RVAL{void, "No return value"}
  *
  */
 
@@ -1146,17 +1068,16 @@ EXPORT void dft_common_pot_spline(INT n, char **files, rgrid *out) {
 }
 
 /*
- * Compute the numerical second derivative with respect to the angle of the potential.
- * Computed via second-order finite difference formula,
- *  
- *  f''(i) = h**2 * ( f(i-1) - 2*f(i) + f(i+1) )
+ * @FUNC{dft_common_pot_angularderiv, "Second derivative with respect to angle"}
+ * @DESC{"Compute the numerical second derivative with respect to the angle of the potential.
+          Computed via second-order finite difference formula:\\
+          f''(i) = h**2 * (f(i-1) - 2*f(i) + f(i+1))\\
+          n this case h = 2*pi / nx"}
+ * @ARG1{INT n, "Number of potential files"}
+ * @ARG2{char **files, "Array of file names"}
+ * @ARG3{rgrid *out, "Output grid"}
+ * @RVAL{void, "No return value"}
  *
- *  in this case h = 2*pi / nx .
- *
- * n     = Number of potential files (INT).
- * files = Array of file names (char **).
- * out   = Output grid (rgrid *).
- * 
  * TODO: There's a better way to do this now that spline is implemented.
  * spline generates the second derivative as by-product.
  *
@@ -1210,20 +1131,15 @@ EXPORT void dft_common_pot_angularderiv(INT n, char **files, rgrid *out) {
 }
 
 /*
- * Spherically averaged 1-D potential energy surface
- * from n 1-D cuts along phi = 0, pi/n, ..., pi directions.
- * 
- * NOTE this is different than in dft_common_pot_interpolate where you must
- * give potentials for the whole 2pi.
- *
- * Requires cylindrical symmetry for the overall potential (i.e., linear molecule).
- * All potentials must have the same range, steps, number of points.
- *
- * n     = Number of potentials along n different angles (INT).
- * files = Array of strings for file names containing the potentials (char **).
- * out   = 3-D grid containing the angular interpolated potential grid. 
- * 
- * No return value.
+ * @FUNC{dft_common_pot_average, "Spherically averaged 1-D potential from multiple 1-D cuts"}
+ * @DESC{"Spherically averaged 1-D potential energy surface from n 1-D cuts along phi = 0, pi/n, ..., pi directions.
+         Note that this is different than in dft_common_pot_interpolate where you must give potentials for the whole 2pi.
+         Requires cylindrical symmetry for the overall potential (i.e., linear molecule).
+         All potentials must have the same range, steps, number of points"}
+ * @ARG1{INT n, "Number of potentials along n different angles"}
+ * @ARG2{char **files, "Array of strings for file names containing the potentials"}
+ * @ARG3{rgrid *out, "3-D grid containing the angular interpolated potential grid"}
+ * @RVAL{void, "No return value"}
  *
  */
 
@@ -1284,16 +1200,13 @@ EXPORT void dft_common_pot_average(INT n, char **files, rgrid *out) {
 }
 
 /*
- * Plane wave suitable for grid_map() functions.
- *
- * arg specifies the plane wave params according to dft_plane_wave structure.
- *
- * arg    = Plane wave parameters (void * / dft_plane_wave *).
- * x      = x coordinate (REAL).
- * y      = y coordinate (REAL).
- * z      = z coordinate (REAL).
- *
- * Returns the plane wave function value at (x, y, z).
+ * @FUNC{dft_common_planewave, "Plane wave function suitable for cgrid_map()"}
+ * @DESC{"Plane wave suitable for cgrid_map() function. arg specifies the plane wave params according to dft_plane_wave structure"}
+ * @ARG1{void *arg, "Plane wave parameters (dft_plane_wave *)"}
+ * @ARG2{REAL x, "X coordinate"}
+ * @ARG3{REAL y, "Y coordinate"}
+ * @ARG4{REAL z, "Z coordinate"}
+ * @RVAL{REAL, "Returns the plane wave function value at (x, y, z)"}
  *
  */
 
@@ -1310,10 +1223,13 @@ EXPORT REAL complex dft_common_planewave(void *arg, REAL x, REAL y, REAL z) {
 }
 
 /*
- * Vortices using Feynman-Onsager ansatz along x, y, z.
- *
- * These are not initial guesses but effective potentials
- * to produce vortex line (without phase circulation).
+ * @FUNC{dft_common_vortex_x, "Feynman-Onsager vortex line potential along x-axis"}
+ * @DESC{"Vortex line potential using Feynman-Onsager ansatz along x-axis. Note that this does not produce phase circulation!"}
+ * @ARG1{void *param, "Mass (REAL *)"}
+ * @ARG2{REAL x, "X-coordinate"}
+ * @ARG3{REAL y, "y-coordinate"}
+ * @ARG4{REAL z, "z-coordinate"}
+ * @RVAL{REAL, "Potential value at (x,y,z)"}
  *
  */
 
@@ -1329,6 +1245,17 @@ EXPORT REAL dft_common_vortex_x(void *param, REAL x, REAL y, REAL z) {
   return 1.0 / (2.0 * *mass * rp2);
 }
 
+/*
+ * @FUNC{dft_common_vortex_y, "Feynman-Onsager vortex line potential along y-axis"}
+ * @DESC{"Vortex line potential using Feynman-Onsager ansatz along y-axis. Note that this does not produce phase circulation!"}
+ * @ARG1{void *param, "Mass (REAL *)"}
+ * @ARG2{REAL x, "X-coordinate"}
+ * @ARG3{REAL y, "y-coordinate"}
+ * @ARG4{REAL z, "z-coordinate"}
+ * @RVAL{REAL, "Potential value at (x,y,z)"}
+ *
+ */
+
 EXPORT REAL dft_common_vortex_y(void *param, REAL x, REAL y, REAL z) {
 
   REAL rp2 = x * x + z * z;
@@ -1337,6 +1264,17 @@ EXPORT REAL dft_common_vortex_y(void *param, REAL x, REAL y, REAL z) {
   if(rp2 < R_M * R_M) rp2 = R_M * R_M;
   return 1.0 / (2.0 * *mass * rp2);
 }
+
+/*
+ * @FUNC{dft_common_vortex_z, "Feynman-Onsager vortex line potential along z-axis"}
+ * @DESC{"Vortex line potential using Feynman-Onsager ansatz along z-axis. Note that this does not produce phase circulation!"}
+ * @ARG1{void *param, "Mass (REAL *)"}
+ * @ARG2{REAL x, "X-coordinate"}
+ * @ARG3{REAL y, "y-coordinate"}
+ * @ARG4{REAL z, "z-coordinate"}
+ * @RVAL{REAL, "Potential value at (x,y,z)"}
+ *
+ */
 
 EXPORT REAL dft_common_vortex_z(void *param, REAL x, REAL y, REAL z) {
 
