@@ -378,15 +378,15 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf) {
     rgrid_claim(workspace7); rgrid_claim(workspace8); rgrid_claim(workspace9);
 #ifdef DFT_OT_1D
     if(density->nx == 1 && density->ny == 1) 
-      grid_wf_velocity_z(wf, workspace3, DFT_EPS);
+      grid_wf_velocity_z(wf, workspace3, otf->div_epsilon);
     else
 #endif
-      grid_wf_velocity(wf, workspace1, workspace2, workspace3, DFT_EPS);
-#ifdef DFT_MAX_VELOC
-    rgrid_threshold_clear(workspace1, workspace1, DFT_MAX_VELOC, -DFT_MAX_VELOC, DFT_MAX_VELOC, -DFT_MAX_VELOC);
-    rgrid_threshold_clear(workspace2, workspace2, DFT_MAX_VELOC, -DFT_MAX_VELOC, DFT_MAX_VELOC, -DFT_MAX_VELOC);
-    rgrid_threshold_clear(workspace3, workspace3, DFT_MAX_VELOC, -DFT_MAX_VELOC, DFT_MAX_VELOC, -DFT_MAX_VELOC);
-#endif
+      grid_wf_velocity(wf, workspace1, workspace2, workspace3, otf->div_epsilon);
+    if(otf->max_veloc < (999.0 / GRID_AUTOMPS)) {
+      rgrid_threshold_clear(workspace1, workspace1, otf->max_veloc, -otf->max_veloc, otf->max_veloc, -otf->max_veloc);
+      rgrid_threshold_clear(workspace2, workspace2, otf->max_veloc, -otf->max_veloc, otf->max_veloc, -otf->max_veloc);
+      rgrid_threshold_clear(workspace3, workspace3, otf->max_veloc, -otf->max_veloc, otf->max_veloc, -otf->max_veloc);
+    }
     dft_ot_backflow_potential(otf, potential, density, workspace1 /* veloc_x */, workspace2 /* veloc_y */, workspace3 /* veloc_z */, workspace4, workspace5, workspace6, workspace7, workspace8, workspace9);
     rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
     rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6);
@@ -706,7 +706,7 @@ static inline void dft_ot_add_barranco(dft_ot_functional *otf, cgrid *potential,
 
 EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, rgrid *density, rgrid *veloc_x, rgrid *veloc_y, rgrid *veloc_z, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4, rgrid *workspace5, rgrid *workspace6) {
 
-  /* Calculate A (workspace1) [scalar] */
+  /* Calculate A (workspace1) [scalar]: convolute U_j and rho */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
     grid_func2_operate_one(workspace1, density, otf->xi, otf->rhobf); /* rho -> g rho */
   else
@@ -715,13 +715,12 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   rgrid_fft_convolute(workspace1, workspace1, otf->backflow_pot);
   rgrid_inverse_fft_norm2(workspace1);
 
-  /* Calculate C (workspace2) [scalar] */
+  /* Calculate C (workspace2) [scalar]: convolute U_j and (rho |v|^2) */
   rgrid_product(workspace2, veloc_z, veloc_z);
   if(density->nx != 1 || density->ny != 1) { // 1-D x & y velocity components zero
     rgrid_add_scaled_product(workspace2, 1.0, veloc_y, veloc_y);
     rgrid_add_scaled_product(workspace2, 1.0, veloc_x, veloc_x);
   }
-
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
     grid_func2_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);  /* multiply by g rho */
   else
@@ -730,7 +729,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   rgrid_fft_convolute(workspace2, workspace2, otf->backflow_pot);
   rgrid_inverse_fft_norm2(workspace2);
 
-  /* Calculate B (workspace3 (B_x), workspace4 (B_y), workspace5 (B_z)) [vector] */
+  /* Calculate B (workspace3 (B_x), workspace4 (B_y), workspace5 (B_z)) [vector]: convolute U_j (rho v_i) */
   if(density->nx != 1 || density->ny != 1) {
     /* B_X */
     if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
@@ -740,7 +739,6 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
     rgrid_fft(workspace3);
     rgrid_fft_convolute(workspace3, workspace3, otf->backflow_pot);
     rgrid_inverse_fft_norm2(workspace3);
-  
     /* B_Y */
     if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
       grid_func2_operate_one_product(workspace4, veloc_y, density, otf->xi, otf->rhobf); /* MM: g rho */
@@ -750,7 +748,6 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
     rgrid_fft_convolute(workspace4, workspace4, otf->backflow_pot);
     rgrid_inverse_fft_norm2(workspace4);
   }
-
   /* B_Z */
   if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2))
     grid_func2_operate_one_product(workspace5, veloc_z, density, otf->xi, otf->rhobf); /* MM: g rho */
@@ -761,7 +758,6 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
   rgrid_inverse_fft_norm2(workspace5);
 
   /* 1. Calculate the real part of the potential */
-
   /* -(m/2) (v(r) . (v(r)A(r) - 2B(r)) + C(r))  = -(m/2) [ A(v_x^2 + v_y^2 + v_z^2) - 2v_x B_x - 2v_y B_y - 2v_z B_z + C] */
   rgrid_product(workspace6, veloc_z, veloc_z);
   if(density->nx != 1 || density->ny != 1) {
@@ -779,6 +775,8 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
     grid_func3_operate_one_product(workspace6, workspace6, density, otf->xi, otf->rhobf);
   rgrid_multiply(workspace6, -0.5 * otf->mass);
 
+  if(otf->max_bfpot < 10000.0 / GRID_AUTOK)
+    rgrid_threshold_clear(workspace6, workspace6, otf->max_bfpot, -otf->max_bfpot, otf->max_bfpot, -otf->max_bfpot);
   grid_add_real_to_complex_re(potential, workspace6);
 
   /* workspace2 (C), workspace6 not used after this point */
@@ -849,6 +847,8 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
     grid_func1_operate_one_product(workspace2, workspace2, density, otf->xi, otf->rhobf);   /* multiply by g */
   rgrid_add_scaled(workspace6, 0.5, workspace2);
 
+  if(otf->max_bfpot < 10000.0 / GRID_AUTOK)
+    rgrid_threshold_clear(workspace6, workspace6, otf->max_bfpot, -otf->max_bfpot, otf->max_bfpot, -otf->max_bfpot);
   grid_add_real_to_complex_im(potential, workspace6);
 }
 
@@ -1122,5 +1122,7 @@ EXPORT inline void dft_ot_init_params(dft_ot_functional *otf, INT model) {
 	  otf->c3 * GRID_AUTOK * POW(GRID_AUTOANG, 3.0 * otf->c3_exp),
 	  3.0 * otf->c3_exp);
   
-  otf->div_epsilon = 1E-5;
+  otf->div_epsilon = DFT_EPS;
+  otf->max_veloc = (999.0 / GRID_AUTOMPS); // Default to no limit
+  otf->max_bfpot = 10000.0 / GRID_AUTOK;  // Default to no limit
 }

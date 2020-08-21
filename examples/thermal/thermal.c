@@ -21,19 +21,19 @@
 //#define TIMEINT WF_2ND_ORDER_CN
 
 /* FD(0) or FFT(1) properties */
-#define PROPERTIES 0
+#define PROPERTIES 1
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
-#define ITS ((2.0 / 100.0) * TS) /* ifs */
+#define ITS ((0.05 / 100.0) * TS) /* ifs */
 #define TS_SWITCH 1.0 /* fs */
-#define ITS_SWITCH ((0.01 / 100.0) * TS_SWITCH) /* ifs */
+#define ITS_SWITCH ((0.05 / 100.0) * TS_SWITCH) /* ifs */
 
 /* Grid */
-#define NX 256
-#define NY 256
-#define NZ 256
-#define STEP 0.5
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 2.0
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -51,16 +51,17 @@
 /* Functional to use */
 /* Coarse functional to get to TEMP_SWITCH - numerically more stable */
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-#define FUNCTIONAL (DFT_OT_PLAIN)
+#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_BACKFLOW)
 //#define FUNCTIONAL (DFT_GP2)
 
 /* Fine functional to use below 3.0 K - less stable */
-#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_BACKFLOW)
 //#define FUNCTIONAL_FINE DFT_OT_PLAIN
 //#define FUNCTIONAL_FINE (DFT_GP2)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 2.5
+#define TEMP_SWITCH 2.8
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -69,7 +70,7 @@
 #define RITER 200000000L
 
 /* Output every NTH iteration (was 1000) */
-#define NTH 2000L
+#define NTH 4000L
 
 /* How many CPU cores to use (0 = all available) */
 #define THREADS 0
@@ -78,7 +79,7 @@
 #define RANDOM_SEED 1234L
 
 /* Write grid files? */
-#define WRITE_GRD 4000L
+//#define WRITE_GRD 4000L
 
 /* Enable / disable GPU */
 // #undef USE_CUDA
@@ -336,6 +337,9 @@ int main(int argc, char **argv) {
     exit(1);
   }
   otf->model = FUNCTIONAL;
+
+  // Backflow limits
+  otf->max_bfpot = 1.0 / GRID_AUTOK;
 
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
