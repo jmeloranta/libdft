@@ -150,7 +150,7 @@ EXPORT REAL dft_ot_bulk_pressure(dft_ot_functional *otf, REAL rho) {
  * @DESC{"Calculate derivative of pressure with respect to density in uniform bulk superfluid helium"}
  * @ARG1{dft_ot_functional *otf, "OT functional"}
  * @ARG2{REAL rho, "bulk density where derivative is evaluated"}
- * @RVAL{REAL, "Returns ($dP/d\Rho$) evaluated at $\rho$"}
+ * @RVAL{REAL, "Returns ($dP/d\rho$) evaluated at $\rho$"}
  *
  */ 
 
@@ -175,7 +175,7 @@ EXPORT REAL dft_ot_bulk_dPdRho(dft_ot_functional *otf, REAL rho) {
  * @FUNC{dft_ot_bulk_density_pressurized, "Equilibrium density of pressurized uniform bulk superfluid helium"}
  * @DESC{"Calculate equilibri;5Cum density for pressurized uniform bulk superfluid helium.
           The density is obtained by solving:
-          $$P = dE/d\Rho(\rho_0)*\rho_0 - bulk_energy(\rho_0)$$"}
+          $$P = dE/d\rho(\rho_0)*\rho_0 - bulk_energy(\rho_0)$$"}
  * @ARG1{dft_ot_functional *otf, "OT functional structure"}
  * @ARG2{REAL pressure, "External pressure"}
  * @RVAL{REAL, "Returns equilibrium bulk density at given pressure"}

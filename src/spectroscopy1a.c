@@ -30,20 +30,15 @@ static REAL complex dft_do_int(rgrid *dens, rgrid *dpot, REAL t, cgrid *wrk) {
 /* End aux */
 
 /*
- * Evaluate absorption/emission spectrum using the Anderson
- * expression (no dynamics). No zero-point correction for the impurity.
- *
- * density    = Current liquid density (rgrid *; input/output). Overwritten on exit!
- * diffpot    = Difference potential: Final state - Initial state (rgrid *; input).
- * spectrum   = Complex spectrum grid (cgrid *; input/output). This must be 1-D grid.
- *              On input: nz and step are the number of points used and time step.
- *              On output: step is the spectrum step length in cm-1.
- * wrk        = Workspace (cgrid *).
- *
- * The spectrum will start from smaller to larger frequencies.
- * The spacing between the points is included in cm-1.
- *
- * No return value.
+ * @FUNC{dft_spectrum_anderson, "Evaluate absorption/emission spectrum using the Anderson formula"}
+ * @DESC{"Evaluate absorption/emission spectrum using the Anderson expression (no dynamics). 
+          No zero-point correction for the impurity. The spectrum will start from smaller to larger frequencies.
+          The spacing between the points is included in cm$^{-1}$"}
+ * @ARG1{rgrid *density, "Current liquid density (input). Overwritten on exit"}
+ * @ARG2{rgrid *diffpot, "Difference potential: Final state - Initial state (input)"}
+ * @ARG3{cgrid *spectrum, "1-D complex spectrum grid (input/output). On input: nz and step in spectrum are the number of points used and step is thetime step. On output: step is the spectrum step length in cm$^{-1}$"}
+ * @ARG4{cgrid *wrk, "Complex workspace"}
+ * @RVAL{void, "No return value"}
  *
  */
 

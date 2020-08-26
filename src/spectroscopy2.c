@@ -12,30 +12,22 @@
 #include "ot.h"
 
 /*
- * Routines for evaluating the dynamic lineshape (similar to CPL 396, 155 (2004) but
- * see intro of JCP 141, 014107 (2014) + references there in). The dynamics should be run on average
- * potential of gnd and excited states (returned by the init routine).
- *
- * 1) During the trajectory, call function:
- *     dft_spectrum_pol_collect() to record the time dependent difference
- *     energy (difference potential convoluted with the time dependent
- *     liquid density).
- *
- * 2) At the end, call the following function to evaluate the spectrum:
- *     dft_spectrum_pol_evaluate() to evaluate the lineshape.
- *
- */
-
-/*
- * Collect the difference energy data. 
- *
- * gwf      = Current wavefunction (used for calculating the liquid density) (wf *, input).
- * diffpot  = Difference potential: Final - Initial state (rgrid *; input).
- * spectrum = Spectrum where the energy values are initially stored (cgrid *; input/output).
- * iter     = Current time step iteration (INT; input).
- * wrk      = Workspace (rgrid *; input).
- * 
- * No return value.
+ * @FUNC{dft_spectrum_pol_collect, "Dynamic lineshape: Collect the data"}
+ * @DESC{"Collect the difference energy data. Routines for evaluating the dynamic lineshape (similar to CPL 396, 155 (2004) but
+          see intro of JCP 141, 014107 (2014) + references there in). The dynamics should be run on average
+          potential of gnd and excited states (returned by the init routine).\\
+          1) During the trajectory, call function:\\
+          dft_spectrum_pol_collect() to record the time dependent difference
+          energy (difference potential convoluted with the time dependent
+          liquid density).\\
+          2) At the end, call the following function to evaluate the spectrum:\\
+          dft_spectrum_pol_evaluate() to evaluate the lineshape"}
+ * @ARG1{wf *gwf, "Current wavefunction (used for calculating the liquid density) (input)"}
+ * @ARG2{rgrid *diffpot, "Difference potential: Final - Initial state (input)"}
+ * @ARG3{cgrid *spectrum, "Spectrum where the energy values are initially stored"}
+ * @ARG4{INT iter, "Current time step iteration (input)"}
+ * @ARG5{rgrid *wrk, "Workspace"}
+ * @RVAL{void, "No return value"}
  *
  */
 
@@ -61,15 +53,13 @@ EXPORT void dft_spectrum_pol_collect(wf *gwf, rgrid *diffpot, cgrid *spectrum, I
 }
 
 /*
- * Evaluate the spectrum.
- *
- * spectrum = On entry: 1-D grid of potential difference values. On exit: spectrum (cgrid *; input/output).
- * tstep    = Time step length at which the energy difference data was collected
- *          (time stepin atomic units) (REAL, input).
- * tc       = Exponential decay time constant (atomic units; REAL, input).
- * wrk      = Workspace (cgrid *; input).
- *
- * Returns a pointer to the calculated spectrum (grid *). X-axis in cm$^{-1}$.
+ * @FUNC{dft_spectrum_pol_evaluate, "Dynamic lineshape: Evaluate spectrum"}
+ * @DESC{Evaluate the spectrum. See dft_spectrum_pol_collect()"}
+ * @ARG1{cgrid *spectrum, "On entry: 1-D grid of potential difference values. On exit: evaluated spectrum"}
+ * @ARG2{REAL tstep, "Time step length at which the energy difference data was collected (time stepin atomic units)"}
+ * @ARG3{REAL tc, "Exponential decay time constant (atomic units; input)"}
+ * @ARG4{cgrid *wrk, "Workspace"}
+ * @RVAL{cgrid *, "Returns a pointer to the calculated spectrum. X-axis in cm$^{-1}$"}
  *
  */
 

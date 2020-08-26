@@ -21,10 +21,10 @@
 /*
  * @FUNC{dft_common_lj_func, "Function for Lennard-Jones potential"}
  * @DESC{"Lennard-Jones function"}
- * @ARG1{REAL r2, "Distance (r2 = r^2)"}
+ * @ARG1{REAL r2, "Distance (r2 = r$^2$)"}
  * @ARG2{REAL sig, "Sigma in LJ potential"}
  * @ARG3{REAL eps, "Epsilon in LJ potential"}
- * @RVAL{REAL, "Returns Lennard-Jones potential at r^2"}
+ * @RVAL{REAL, "Returns Lennard-Jones potential at r$^2$"}
  *
  */
 
@@ -310,7 +310,7 @@ static inline REAL dft_common_g(REAL z, REAL s) { /* Brute force approach - the 
 #endif
 
 /*
- * @FUNC{dft_common_fit_g12, "Evaluate polylog $g_{12}$}
+ * @FUNC{dft_common_fit_g12, "Evaluate polylog $g_{12}$"}
  * @DESC{"Evaluate polylog $g_{1/2}(z$)"}
  * @ARG1{REAL z, "Argument of polylog"}
  * @RVAL{REAL, "Returns the polylog value"}
@@ -365,7 +365,7 @@ EXPORT inline REAL dft_common_fit_g32(REAL z) {
 
 /*
  * @FUNC{dft_common_fit_g52, "Evaluate polylog $g_{5/2}$"}
- * @DESC{"Evaluate polylog $g_{5/2}(z)"}
+ * @DESC{"Evaluate polylog $g_{5/2}(z)$"}
  * @ARG1{REAL z, "Argument of polylog"}
  * @RVAL{REAL, "Returns the polylog"}
  *
@@ -442,8 +442,8 @@ EXPORT inline REAL dft_common_fit_z(REAL val) {
 }
 
 /*
- * @FUNC{dft_common_classical_idealgas_dEdRho, "Classical ideal gas: $dE/\rho$}
- * @DESC{"Classical ideal gas. Free energy / volume derivative with respect to rho: $d(A/V) / d\rho$"}x
+ * @FUNC{dft_common_classical_idealgas_dEdRho, "Classical ideal gas: $dE/\rho$"}
+ * @DESC{"Classical ideal gas. Free energy / volume derivative with respect to rho: $d(A/V) / d\rho$"}
  * @ARG1{REAL rhop, "Gas density"}
  * @RVAL{REAL, "Returns the free energy / volume derivative"}
  *

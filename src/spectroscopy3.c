@@ -13,25 +13,18 @@
 #include "ot.h"
 
 /*
- * Collect data during real time dynamics using
- * dft_spectrum_bin_collect(). Finally print the spectrum
- * using the grid pointer returned by dft_spectrum_bin_collect().
- * Note that the energy axis is in wavenumbers!
- *
- */
-
-/*
- * Add point at a given time to the bin. The potential difference grid is taken from xxdiff above.
- *
- * gwf     = Current wave function (wf *; input).
- * diffpot = Difference potential (rgrid *; input).
- * bin     = Bin grid (spectrum) (cgrid *; input). This must be 1-D grid.
- * iter    = Current time iteration (INT; input).
- * tstep   = Time step length (REAL; input).
- * tc      = Exponential decay constant for energy bin contributions (REAL; input).
- * wrk     = Workspace (rgrid *; input).
- *
- * No return value.
+ * @FUNC{dft_spectrum_bin_collect, "Spectrum binning: Collect point"}
+ * @DESC{"Add point at a given time to the bin.
+          Collect data during real time dynamics using dft_spectrum_bin_collect(). Finally print the spectrum
+          using the grid pointer returned by dft_spectrum_bin_collect(). Note that the energy axis is in wavenumbers"}
+ * @ARG1{wf *gwf, "Current wave function"}
+ * @ARG2{rgrid *diffpot, "Difference potential (input)"}
+ * @ARG3{rgrid *bin, "Bin grid (spectrum). This must be 1-D grid"}
+ * @ARG4{INT iter, "Current time iteration"}
+ * @ARG4{REAL tstep,"Time step length"}
+ * @ARG5{REAL tc, "Exponential decay constant for energy bin contributions"}
+ * @ARG6{rgrid *wrk, "Workspace"}
+ * @RVAL{void, "No return value"}
  *
  */
 

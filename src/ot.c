@@ -50,7 +50,7 @@ static void dft_ot_add_ancilotto(dft_ot_functional *otf, cgrid *potential, rgrid
           DFT_GP = Gross-Pitaevskii equation (''works'' for ions).\\
           DFT_GP2 = Gross-Pitaevskii equation (gives the correct speed of sound).\\
           DFT_ZERO = No potential.\\
-          If multiple options are needed, use bitwise and operator (\&)"}
+          If multiple options are needed, use bitwise and operator (&)"}
  * @ARG1{INT model, "Which OT functional variant to use (see above)"}
  * @ARG1{wf *wf, "Wavefunction to be used with this OT"}
  * @ARG2{INT min_substeps, "Minimum substeps for function smoothing over the grid"}
