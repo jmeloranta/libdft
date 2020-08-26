@@ -26,37 +26,36 @@ static void dft_ot_add_barranco(dft_ot_functional *otf, cgrid *potential, rgrid 
 static void dft_ot_add_ancilotto(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *workspace1);
 
 /*
- * Allocate OT functional. This must be called first.
- * 
- * model = which OT functional variant to use:
- *         DFT_OT_KC       Include the non-local kinetic energy correlation.
- *         DFT_OT_HD       Include Barranco's high density correction (original h for sp. ave).
- *         DFT_OT_HD2      Include Barranco's high density correction (new h for sp. ave).
- *         DFT_OT_BACKFLOW Include the backflow potential (dynamics).
- *         DFT_OT_T0MK     Thermal model 0.0 K (i.e. just new parametrization)
- *         DFT_OT_T400MK   Thermal model 0.4 K
- *         DFT_OT_T600MK   Thermal model 0.6 K
- *         DFT_OT_T800MK   Thermal model 0.8 K
- *         DFT_OT_T1200MK  Thermal model 1.2 K
- *         DFT_OT_T1400MK  Thermal model 1.4 K
- *         DFT_OT_T1600MK  Thermal model 1.6 K
- *         DFT_OT_T1800MK  Thermal model 1.8 K
- *         DFT_OT_T2000MK  Thermal model 2.0 K
- *         DFT_OT_T2100MK  Thermal model 2.1 K
- *         DFT_OT_T2200MK  Thermal model 2.2 K
- *         DFT_OT_T2400MK  Thermal model 2.4 K
- *         DFT_OT_T2600MK  Thermal model 2.6 K
- *         DFT_OT_T2800MK  Thermal model 2.8 K
- *         DFT_OT_T3000MK  Thermal model 3.0 K
- *         DFT_GP          Gross-Pitaevskii equation  ("works" for ions)
- *         DFT_GP2         Gross-Pitaevskii equation  (gives the correct speed of sound)
- *         DFT_ZERO        No potential
- *                If multiple options are needed, use bitwise and operator (&).
- * wf           = Wavefunction to be used with this OT (wf *; input).
- * min_substeps = minimum substeps for function smoothing over the grid.
- * max_substeps = maximum substeps for function smoothing over the grid.
- *
- * Return value: pointer to the allocated OT DFT structure.
+ * @FUNC{dft_ot_alloc, "Allocate Orsay-Trento functional (helium)"}
+ * @DESC{"Allocate OT functional. This routine must be called first. The model parameter is as follows:\\
+          DFT_OT_KC = Include the non-local kinetic energy correlation.\\ 
+          DFT_OT_HD = Include Barranco's high density correction (original h for spherical average).\\
+          DFT_OT_HD2 = Include Barranco's high density correction (new h for sp. ave).\\
+          DFT_OT_BACKFLOW = Include the backflow potential (dynamics).\\
+          DFT_OT_T0MK = Thermal model 0.0 K (i.e. just new parametrization).\\
+          DFT_OT_T400MK = Thermal model 0.4 K.\\
+          DFT_OT_T600MK = Thermal model 0.6 K.\\
+          DFT_OT_T800MK = Thermal model 0.8 K.\\
+          DFT_OT_T1200MK = Thermal model 1.2 K.\\
+          DFT_OT_T1400MK = Thermal model 1.4 K.\\
+          DFT_OT_T1600MK = Thermal model 1.6 K.\\
+          DFT_OT_T1800MK = Thermal model 1.8 K.\\
+          DFT_OT_T2000MK = Thermal model 2.0 K.\\
+          DFT_OT_T2100MK = Thermal model 2.1 K.\\
+          DFT_OT_T2200MK = Thermal model 2.2 K.\\
+          DFT_OT_T2400MK = Thermal model 2.4 K.\\
+          DFT_OT_T2600MK = Thermal model 2.6 K.\\
+          DFT_OT_T2800MK = Thermal model 2.8 K.\\
+          DFT_OT_T3000MK = Thermal model 3.0 K.\\
+          DFT_GP = Gross-Pitaevskii equation (''works'' for ions).\\
+          DFT_GP2 = Gross-Pitaevskii equation (gives the correct speed of sound).\\
+          DFT_ZERO = No potential.\\
+          If multiple options are needed, use bitwise and operator (\&)"}
+ * @ARG1{INT model, "Which OT functional variant to use (see above)"}
+ * @ARG1{wf *wf, "Wavefunction to be used with this OT"}
+ * @ARG2{INT min_substeps, "Minimum substeps for function smoothing over the grid"}
+ * @ARG3{INT max_substeps, "Maximum substeps for function smoothing over the grid"}
+ * @RVAL{dft_ot_functional *, "Returns pointer to the allocated OT DFT structure"}
  *
  * Basic OT allocates 2 real grids
  *       KC adds 4 real grids
@@ -248,12 +247,10 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
 }
 
 /*
- * Free OT functional structure.
- *
- * otf = functional structure to be freed (allocated previously
- *       by dft_ot_alloc()).
- *
- * No return value.
+ * @FUNC{dft_ot_free, "Free OT functional structure"}
+ * @DESC{"Free memory allocated for OT functional structure"}
+ * @ARG1{dft_ot_functional *otf, "Functional structure to be freed (allocated previously by dft_ot_alloc())"}
+ * @RVAL{void, "No return value"}
  *
  */
 
@@ -282,14 +279,12 @@ EXPORT void dft_ot_free(dft_ot_functional *otf) {
 }
 
 /*
- * Calculate the non-linear potential grid.
- *
- * otf        = OT functional structure (input; dft_ot_functional *).
- * potential  = Potential grid where the result will be stored (output; cgrid *).
- *              NOTE: the potential will be added to this (may want to zero it first)
- * wf         = Wavefunction (input; wf *).
- *
- * No return value.
+ * @FUNC{dft_ot_potential, "Calculate non-linear Orsay-Trento potential (helium)"}
+ * @DESC{"Calculate the non-linear OT potential grid for superfluid helium"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{cgrid *potential, "Potential grid where the result will be stored. Note that the potential will be added to this (may want to zero it first)"}
+ * @ARG3{wf *wf, "Wavefunction"}
+ * @RVAL{void, "No return value"}
  *
  * Grid usage in otf structure:
  * density    = Liquid helium density grid (all functionals).
@@ -402,7 +397,14 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf) {
 }
 
 /*
- * Lennard-Jones potential.
+ * @FUNC{dft_ot_add_lennard_jones_potential, "Orsay-Trento (helium): Add Lennard-Jones potential"}
+ * @DESC{"OT Lennard-Jones potential function. Usually not called directly"}
+ * @ARG1{dft_ot_functional *otf, "OT functional"}
+ * @ARG2{cgrid *potential, "Potential grid (output)"}
+ * @ARG3{rgrid *density, "Liquid density grid (input)"}
+ * @ARG4{rgrid *workspace1, "Workspace 1"}
+ * @ARG5{rgrid *workspace2, "Workspace 2"}
+ * @RVAL{void, "No return value"}
  *
  */
 
@@ -417,7 +419,15 @@ EXPORT inline void dft_ot_add_lennard_jones_potential(dft_ot_functional *otf, cg
 }
 
 /*
- * Local correlation potential.
+ * @FUNC{dft_ot_add_local_correlation_potential, "Orsay-Trento (helium): Local correlation potential"}
+ * @DESC{"Add local correlation potential (spherical average terms). This is usually not called directly"}
+ * @ARG1{dft_ot_functional *otf, "OT functional"}
+ * @ARG2{cgrid *potential, "Potential grid (output)"}
+ * @ARG3{rgrid *rho, "Density grid (input)"}
+ * @ARG4{rgrid *rho_tf, "Fourier transformed density grid (input)"}
+ * @ARG5{rgrid *workspace1, "Workspace 1"}
+ * @ARG6{rgrid *workspace2, "Workspace 2"}
+ * @RVAL{void, "No return value"}
  *
  */
 
@@ -463,14 +473,25 @@ EXPORT inline void dft_ot_add_local_correlation_potential(dft_ot_functional *otf
 }
 
 /* 
- * Nonlocal correlation potential.
+ * @FUNCdft_ot_add_nonlocal_correlation_potential, "Orsay-Trento (helium): Add non-local correlation potential"}
+ * @DESC{"Add non-local correlation potential (KC). This is not usually called directly"}
+ * @ARG1{dft_ot_functional *otf, "OT functional"}
+ * @ARG2{cgrid *potential, "Non-local potential (output)"}
+ * @ARG3{rgrid *rho, "Density (input)"}
+ * @ARG4{rgrid *rho_tf, "Fourier transformed density (input)"}
+ * @ARG5{rgrid *workspace1, "Workspace 1"}
+ * @ARG6{rgrid *workspace2, "Workspace 2"}
+ * @ARG7{rgrid *workspace3, "Workspace 3"}
+ * @ARG8{rgrid *workspace4, "Workspace 4"}
+ * @ARG9{rgrid *workspace5, "Workspace 5"}
+ * @RVAL{void, "No return value"}
  *
  */
 
 static inline void dft_ot_add_nonlocal_correlation_potential(dft_ot_functional *otf, cgrid *potential, rgrid *rho, rgrid *rho_tf, rgrid *workspace1, rgrid *workspace2, rgrid *workspace3, rgrid *workspace4, rgrid *workspace5) {
 
   /* rho^tilde(r) = int F(r-r') rho(r') dr' */
-  /* NOTE: rho_tf from LJ (workspace1 there). */
+  /* NOTE: rho_tf from LJ (workspace1 there) */
   rgrid_fft_convolute(workspace1, otf->gaussian_tf, rho_tf);
   rgrid_inverse_fft_norm2(workspace1);
   /* workspace1 = rho_st = 1 - 1/\tilde{\rho}/\rho_{0s} */
@@ -685,22 +706,21 @@ static inline void dft_ot_add_barranco(dft_ot_functional *otf, cgrid *potential,
 }
 
 /*
- * Add the backflow non-linear potential.
- *
- * otf            = OT functional structure (dft_ot_functional *).
- * potential      = potential grid (output). Not cleared (cgrid *).
- * density        = liquid density grid (input; rgrid *).
- * veloc_x        = velocity grid (with respect to X; input - overwritten on exit; rgrid *).
- * veloc_y        = velocity grid (with respect to Y; input - overwritten on exit; rgrid *).
- * veloc_z        = velocity grid (with respect to Z; input - overwritten on exit; rgrid *).
- * workspace1     = Workspace grid (must be allocated by the user; rgrid *).
- * workspace2     = Workspace grid (must be allocated by the user; rgrid *).
- * workspace3     = Workspace grid (must be allocated by the user; rgrid *).
- * workspace4     = Workspace grid (must be allocated by the user; rgrid *).
- * workspace5     = Workspace grid (must be allocated by the user; rgrid *).
- * workspace6     = Workspace grid (must be allocated by the user; rgrid *).
- *
- * No return value.
+ * @FUNC{dft_ot_backflow_potential, "Orsay-Trento (helium): Add backflow potential"}
+ * @DESC{"Add the backflow non-linear potential"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{cgrid *potential, "Potential grid (output). Not cleared"}
+ * @ARG3{rgrid *density, "Liquid density grid (input)"}
+ * @ARG4{rgrid *veloc_x, "Velocity grid (X; input - overwritten on exit)"}
+ * @ARG5{rgrid *veloc_y, "Velocity grid (Y; input - overwritten on exit)"}
+ * @ARG6{rgrid *veloc_z, "Velocity grid (Z; input - overwritten on exit)"}
+ * @ARG7{rgrid *workspace1, "Workspace 1"}
+ * @ARG8{rgrid *workspace2, "Workspace 2"}
+ * @ARG9{rgrid *workspace3, "Workspace 3"}
+ * @ARG10{rgrid *workspace4, "Workspace 4"}
+ * @ARG11{rgrid *workspace5, "Workspace 5"}
+ * @ARG12{rgrid *workspace6, "Workspace 6"}
+ * @RVAL{void, "No return value"}
  *
  */
 
@@ -853,7 +873,11 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
 }
 
 /*
- * Initialize the OTF structure.
+ * @FUNC{dft_ot_init_params, "Initialize Orsay-Trento structure parameters"}
+ * @DESC{"Initialize the OTF structure parameters. Usually not called directly"}
+ * @ARG1{dft_ot_functional *otf, "OT functional"}
+ * @ARG2{INT model, "Which OT model to use (see dft_ot_alloc())"}
+ * @RVAL{void, "No return value"}
  *
  */
 

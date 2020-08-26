@@ -17,21 +17,20 @@
 #include "ot.h"
 
 /*
- * Evaluate the potential part to the energy density. Integrate to get the total energy.
- * Note: the single particle kinetic portion is NOT included.
- *       (use grid_wf_kinetic_energy() to calculate this separately)
- *
- * otf            = OT functional structure (dft_ot_functional *; input).
- * energy_density = Energy density grid (rgrid *; output).
- * wf             = Wafe function (wf *; input).
+ * @FUNC{dft_ot_energy_density, "Evaluate Orsay-Trento (helium) energy density"}
+ * @DESC{"Evaluate the potential part to the energy density. Integrate to get the total energy.
+          Note: the single particle kinetic portion is NOT included.
+          (use grid_wf_kinetic_energy() to calculate this separately)"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{rgrid *energy_density, "Energy density grid (output)"}
+ * @ARG3{wf *wf, "Wave function (input)"}
+ * @RVAL{void, "No return value"}
  *
  * Workspace usage (uses density as well):
  * GP: none
  * Plain OT: workspace1 - workspace2
  * KC: workspace1 - workspace8
  * BF: workspace1 - workspace7
- *
- * No return value.
  *
  */
 
@@ -110,12 +109,13 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
 }
 
 /*
- * Evaluate KC energy density.
- * 
- * otf            = OT functional structure (dft_ot_functional *; input).
- * energy_density = Energy density grid (rgrid *; output).
- * wf             = Wave function (wf *; input).
- * density        = Density (rgrid *; input). This can be otf->density.
+ * @FUNC{dft_ot_energy_density_kc, "Orsay-Trento (helium): Evaluate non-local (KC) energy density"}
+ * @DESC{"Evaluate non-local (KC) energy density. This is usually not called directly"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{rgrid *energy_density, "Energy density grid"}
+ * @ARG3{wf *wf, "Wave function"}
+ * @ARG4{rgrid *density, "Density (input). This can be otf$->$density"}
+ * @RVAL{void, "No return value"}
  *
  */
 
@@ -190,12 +190,11 @@ EXPORT void dft_ot_energy_density_kc(dft_ot_functional *otf, rgrid *energy_densi
 }
 
 /*
- * Evaluate BF energy density.
- * 
- * otf            = OT functional structure (dft_ot_functional *; input).
- * energy_density = Energy density grid (rgrid *; output).
- * wf             = Wave function (wf *; input).
- * density        = Density (rgrid *; input). This can be otf->density.
+ * @FUNC{dft_ot_energy_density_bf, "Orsay-Trento (helium): Backflow energy density (BF)"}
+ * @DESC{"Evaluate backflow (BF) energy density. This is usually not called directly"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{rgrid *energy_density, "Energy density grid (output). This can be otf->density"}
+ * @RVAL{void, "No return value"}
  *
  */
 
