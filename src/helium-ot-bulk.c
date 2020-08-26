@@ -10,12 +10,11 @@
 #define LOCAL_EPS 1E-7
 
 /*
- * Energy density of uniform bulk.
- *
- * otf = OT functional (dft_ot_functional *; input).
- * rho = Bulk density (REAL; input).
- *
- * Returns bulk liquid energy density (i.e., energy / volume).
+ * @FUNC{dft_ot_bulk_energy, "Energy density of uniform superfluid helium"}
+ * @DESC{"Calculate the energy density of uniform superfluid helium"}
+ * @ARG1{dft_ot_function *otf, "OT functional structure"}
+ * @ARG2{REAL rho, "Bulk density"}
+ * @RVAL{REAL, "Returns bulk liquid energy density (i.e., energy / volume)"}
  *
  */
 
@@ -34,13 +33,12 @@ EXPORT REAL dft_ot_bulk_energy(dft_ot_functional *otf, REAL rho) {
 }
 
 /* 
- * Derivative of energy with respect to density in uniform bulk. 
- * At equilibrium, this is equal to the chemical potential.
- *
- * otf = OT functional (df_ot_functional *; input).
- * rho = Bulk density (REAL; *).
- *
- * Returns (dE/drho)(rho).
+ * @FUNC{dft_ot_bulk_dEdRho, "Derivative of energy with respect to density of superfluid helium"}
+ * @DESC{"Calculate derivative of energy with respect to superfluid density in uniform bulk.
+          At equilibrium, this is equal to the chemical potential"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{REAL rho, "Bulk density"}
+ * @RVAL{REAL, "Returns ($dE/d\rho)(\rho)$"}
  *
  */
 
@@ -59,16 +57,13 @@ EXPORT REAL dft_ot_bulk_dEdRho(dft_ot_functional *otf, REAL rho) {
 }
 
 /*
- * Equilibrium density for uniform bulk with no pressure applied.
- *
- * In general, the eq. density is obtained by solving:
- * 	Pressure = dEdRho(rho0)*rho0 - bulk_energy(rho0) 
- * For the OT functional with Pressure = 0, the solution is analytical
- * but we use the general routine here.
- *
- * otf = OT functional (dft_ot_functional *; input).
- *
- * Returns the bulk density when P = 0.
+ * @FUNC{dft_ot_bulk_density, "Equilibrium density for uniform superfluid helium with no pressure applied"}
+ * @DESC{"Calculate equilibrium density for uniform bulk superfluid helium with no external pressure($P$) applied.
+          In general, the eq. density is obtained by solving:\\
+          $$P = dE/d\rho(\rho_0)*\rho_0 - bulk_energy(\rho_0)$$
+          For the OT functional with $P = 0$, the solution is analytical but we use the general routine here"}
+ * @ARG1{dft_ot_funtional *otf, "OT functional"}
+ * @RVAL{REAL, "Returns the bulk density when $P = 0$"}
  * 
  */
 
@@ -81,14 +76,13 @@ EXPORT REAL dft_ot_bulk_density(dft_ot_functional *otf) {
 }
 
 /*
- * Chemical potential of the uniform bulk. If this quantity
- * is subtracted from the external potential then the imaginary time
- * converges to a solution with the equilibrium density in the borders
- * of the box - no need for rescaling during imaginary time propagation.
- *
- * otf = OT functional (dft_ot_functional *; input).
- *
- * Returns the chemical potential at bulk density (P = 0).
+ * @FUNC{dft_ot_bulk_chempot, "Chemical potential of uniform superfluid helium"}
+ * @DESC{"Calculate chemical potential of superfluid helium. If this quantity
+          is subtracted from the external potential then the imaginary time
+          converges to a solution with the equilibrium density in the borders
+          of the box - no need for rescaling during imaginary time propagation"}
+ * @ARG1{dft_ot_functional *otf, "OT functional"}
+ * @RVAL{REAL, "Returns the chemical potential at bulk density ($P = 0$)"}
  *
  */
 
@@ -99,16 +93,15 @@ EXPORT REAL dft_ot_bulk_chempot(dft_ot_functional *otf) {
 }
 
 /*
- * Chemical potential of the uniform bulk. If this quantity
- * is substracted from the external potential, then the imaginary time
- * converges to a solution with the equilibrium density in the borders
- * of the box - no need for rescaling in ITP. The only difference compared
- * to the above is that the chemical potential is computed for the bulk density
- * provided in otf rather than the saturated vapor pressure.
- *
- * otf = OT functional (dft_ot_functional *; input).
- *
- * Returns chemical potential at otf->rho0.
+ * @FUNC{dft_ot_bulk_chempot2, "Chemical potential of uniform superfluid helium"}
+ * @DESC{"Chemical potential of uniform bulk superfluid helium. If this quantity
+          is substracted from the external potential, then the imaginary time
+          converges to a solution with the equilibrium density in the borders
+          of the box - no need for rescaling in ITP. The only difference compared
+          to the above is that the chemical potential is computed for the bulk density
+          provided in otf rather than the saturated vapor pressure"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @RVAL{REAL, "Returns chemical potential at density given by otf$->$rho0"}
  *
  */
 
@@ -119,17 +112,16 @@ EXPORT REAL dft_ot_bulk_chempot2(dft_ot_functional *otf) {
 }
 
 /*
- * Chemical potential of the uniform bulk. If this quantity
- * is substracted from the external potential, then the imaginary time
- * converges to a solution with the equilibrium density in the borders
- * of the box - no need for rescaling in ITP. The only difference compare
- * to the above is that the chemical potential is computed for the bulk density
- * provided in otf rather than the saturated vapor pressure.
- *
- * otf  = OT functional (dft_ot_functional *; input).
- * rho0 = liquid density (REAL; input).
- *
- * Returns chemical potential at otf->rho0.
+ * @FUNC{dft_ot_bulk_chempot3, "Chemical potential of uniform bulk superfluid helium"}
+ * @DESC{"Chemical potential of uniform bulk superfluid helium. If this quantity
+          is substracted from the external potential, then the imaginary time
+          converges to a solution with the equilibrium density in the borders
+          of the box - no need for rescaling in ITP. The only difference compare
+          to the above is that the chemical potential is computed for the bulk density
+          provided in otf rather than the saturated vapor pressure"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{REAL rho0, "Liquid density"}
+ * @RVAL{REAL, "Returns chemical potential at otf$->$rho0"}
  *
  */
 
@@ -140,12 +132,11 @@ EXPORT REAL dft_ot_bulk_chempot3(dft_ot_functional *otf, REAL rho0) {
 }
 
 /*
- * Pressure of uniform bulk at given density.
- *
- * otf = OT functional (dft_ot_functional *; input).
- * rho = Bulk density (REAL; input).
- *
- * Returns the external pressure corresponding to density rho.
+ * @FUNC{dft_ot_bulk_pressure, "Pressure of uniform bulk superfluid helium at given density"}
+ * @DESC{"Calculate pressure of uniform bulk superfluid helium at given density"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{REAL rho, "Bulk density"}
+ * @RVAL{REAL, "Returns the external pressure corresponding to density rho"}
  *
  */
 
@@ -155,12 +146,11 @@ EXPORT REAL dft_ot_bulk_pressure(dft_ot_functional *otf, REAL rho) {
 }
 
 /* 
- * Derivative of pressure with respect to density in uniform bulk.
- *
- * otf = OT functional (dft_ot_functional *; input).
- * rho = bulk density where derivative is evaluated (REAL; input).
- *
- * Returns (dP/dRho) evaluated at rho.
+ * @FUNC{dft_ot_bulk_dPdRho, "Derivative of pressure with respect to density for uniform bulk superfluid helium"}
+ * @DESC{"Calculate derivative of pressure with respect to density in uniform bulk superfluid helium"}
+ * @ARG1{dft_ot_functional *otf, "OT functional"}
+ * @ARG2{REAL rho, "bulk density where derivative is evaluated"}
+ * @RVAL{REAL, "Returns ($dP/d\Rho$) evaluated at $\rho$"}
  *
  */ 
 
@@ -182,14 +172,13 @@ EXPORT REAL dft_ot_bulk_dPdRho(dft_ot_functional *otf, REAL rho) {
 }
 
 /*
- * Equilibrium density for pressurized uniform bulk.
- * The density is obtained by solving:
- * 	Pressure = dEdRho(rho0)*rho0 - bulk_energy(rho0) 
- *
- * otf      = OT functional (dft_ot_functional *; input).
- * pressure = External pressure (REAL; input).
- *
- * Returns equilibrium bulk density at given pressure.
+ * @FUNC{dft_ot_bulk_density_pressurized, "Equilibrium density of pressurized uniform bulk superfluid helium"}
+ * @DESC{"Calculate equilibri;5Cum density for pressurized uniform bulk superfluid helium.
+          The density is obtained by solving:
+          $$P = dE/d\Rho(\rho_0)*\rho_0 - bulk_energy(\rho_0)$$"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{REAL pressure, "External pressure"}
+ * @RVAL{REAL, "Returns equilibrium bulk density at given pressure"}
  *
  */
 
@@ -222,12 +211,11 @@ EXPORT REAL dft_ot_bulk_density_pressurized(dft_ot_functional *otf, REAL pressur
 }
 
 /*
- * Chemical potential for pressurized uniform bulk.
- *
- * otf      = OT functional (dft_ot_functional *; input).
- * pressure = External pressure where to evaluate chem.pot. (REAL; input).
- *
- * Returns chemical potential at the given pressure.
+ * @FUNC{dft_ot_bulk_chempot_pressurized, "Chemical potential for pressurized uniform bulk superfluid helium"}
+ * @DESC{"Calculate chemical potential for pressurized uniform bulk superfluid helium"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{REAL pressure, "External pressure where to evaluate the chemical potential"}
+ * @RVAL{REAL, "Returns chemical potential at the given pressure"}
  *
  */
 
@@ -237,7 +225,14 @@ EXPORT REAL dft_ot_bulk_chempot_pressurized(dft_ot_functional *otf, REAL pressur
 }
 
 /*
- * Isothermal compressibility: (1/rho) (drho / dP) = 1 / (rho dP/drho) evaluated at given rho.
+ * @FUNC{dft_ot_bulk_compressibility, "Isothermal compressibility of uniform superfluid helium"}
+ * @DESC{"Calculate the isothermal compressibility of uniform superfluid helium.
+          Isothermal compressibility: 
+          $$(1/\rho) (d\rho / dP) = 1 / (\rho dP/d\rho)$$
+          evaluated at given $\rho$"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{REAL rho, "Density"}
+ * @RVAL{REAL, "Returns the isothermal compressibility"}
  *
  */
 
@@ -247,7 +242,13 @@ EXPORT REAL dft_ot_bulk_compressibility(dft_ot_functional *otf, REAL rho) {
 }
 
 /*
- * Speed of sound: c = 1 / sqrt(M * kappa * rho) at given rho.
+ * @FUNC{dft_ot_bulk_sound_speed, "Speed of sound for uniform superfluid helium"}
+ * @DESC{"Calculate speed of sound given by:
+          $$c = 1 / \sqrt(M * \kappa * \rho)$$
+          evaluated at given $\rho$"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{REAL rho, "Density"}
+ * @RVAL{REAL, "Returns the speed of sound"}
  *
  */
 
@@ -257,17 +258,16 @@ EXPORT REAL dft_ot_bulk_sound_speed(dft_ot_functional *otf, REAL rho) {
 }
 
 /*
- * Calculate bulk dispersion relation (omega vs. k). Numerical solution for current otf.
- *
- * wf   = Wave function (wf *; input/output).
- * otf  = Orsay-Trento functional pointer (dft_ot_functional *; input).
- * ts   = Time step in au (REAL; input).
- * k    = Requested wavenumber in a.u. (REAL; input/output). 
- * amp  = Amplitude relative to rho0 (REAL; input).
- * pred = 1 = Use predict-correct, 0 = no predict-correct (char; input).
- * dir  = Direction for plane wave excitation (0 = X, 1 = Y, 2 = Z; char).
- *
- * Returns energy (omega; a.u.).
+ * @FUNC{dft_ot_dispersion, "Superfluid helium dispersion relation (numerical)"}
+ * @DESC{"Calculate bulk superfluid helium dispersion relation ($\omega$ vs. $k$). Numerical solution for current otf"}
+ * @ARG1{wf *wf, "Wave function"}
+ * @ARG2{dft_ot_functional *otf, "Orsay-Trento functional pointer"}
+ * @ARG3{REAL ts, "Time step in au"}
+ * @ARG4{REAL k, "Requested wavenumber in a.u."}
+ * @ARG5{REAL amp, "Amplitude relative to $\rho_0$"}
+ * @ARG6{char pred, "1 = Use predict-correct, 0 = no predict-correct"}
+ * @ARG7{char dir, "Direction for plane wave excitation (0 = X, 1 = Y, 2 = Z)"}
+ * @ARG8{REAL, "Returns energy ($\omega$; a.u.)"}
  *
  */
 
@@ -361,18 +361,15 @@ EXPORT REAL dft_ot_dispersion(wf *gwf, dft_ot_functional *otf, REAL ts, REAL *k,
 }
 
 /*
- * Calculate bulk dispersion relation (omega vs. k). Semi-analytic solution.
- *
- * otf  = functional (dft_ot_functional *; input).
- * k    = momentum (REAL *; input/output). On output, contains the actual value of k used for computing omega.
- * rho0 = bulk density (REAL; input).
- *
- * Returns energy (omega; a.u.).
- *
- * NOTES:
- *
- *        k to Angs^-1: k / GRID_AUTOANG
- *        omega to K: (omega / GRID_AUTOS) * GRID_HZTOCM1 * 1.439    (<- cm-1 to K)
+ * @FUNC{dft_ot_bulk_dispersion, "Bulk superfluid helium dispersion relation (semi-analytic)"}
+ * @DESC{"Calculate bulk dispersion relation ($\omega$ vs. $k$). Semi-analytic solution. Notes:\\
+          $k$ to Angs$^{-1}$: k / GRID_AUTOANG\\
+          $\omega$ to Kelvin: (omega / GRID_AUTOS) * GRID_HZTOCM1 * 1.439\\
+          where the last factor is for cm$^{-1}$ to K"}
+ * @ARG1{dft_ot_functional *otf, "OT Functional pointer"}
+ * @ARG2{REAL k, "Momentum. On output, contains the actual value of $k$ used for computing $\omega$"}
+ * @ARG3{REAL rho0, "Bulk density"}
+ * @ARG4{REAL, "Returns energy (omega; a.u.)"}
  *
  */
 
@@ -437,12 +434,11 @@ EXPORT REAL dft_ot_bulk_dispersion(dft_ot_functional *otf, REAL *k, REAL rho0) {
 }
 
 /*
- * Calculation of the static structure factor X(q).
- *
- * otf  = functional (dft_ot_functional *; input).
- * k    = momentum (REAL *; input).
- *
- * Returns -1/X(q)
+ * @FUNC{dft_ot_bulk_istatic, "Static structure factor for uniform bulk superfluid helium"}
+ * @DESC{"Calculate the static structure factor $X(q)$ for bulk superfluid helium"}
+ * @ARG1{dft_ot_functinal *otf, "Functional"}
+ * @ARG2{REAL k, "Momentum"}
+ * @RVAL{REAL, "Returns $-1/X(q)$"}
  * 
  */
 
@@ -467,14 +463,13 @@ EXPORT REAL dft_ot_bulk_istatic(dft_ot_functional *otf, REAL *k, REAL rho0) {
 }
 
 /*
- * Calculate free (flat) surface tension.
- *
- * gwf = Wave function (wf *).
- * otf = Functional structure (dft_ot_functional *).
- * ts  = Propagation time step (REAL).
- * width = Width of slab (REAL).
- *
- * Returns sufrace tension.
+ * @FUNC{dft_ot_bulk_surface_tension, "Surface tension of flat surface"}
+ * @DESC{"Calculate free (flat) surface tension"}
+ * @ARG1{wf *gwf, "Wave function"}
+ * @ARG2{dft_ot_functinal *otf, "Functional structure"}
+ * @ARG3{REAL ts, "Propagation time step"}
+ * @ARG4{REAL width, "Width of slab"}
+ * @RVAL{REAL, "Returns sufrace tension"}
  *
  * TODO: Is this correct? propagate without potential??
  * 

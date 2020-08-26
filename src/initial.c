@@ -17,9 +17,14 @@
 #define R_M 0.05
 
 /*
- * Initial guesses leading to creation of vortex line (along x, y, z).
- *
- * Multiply by sqrt(rho0) to get bulk asymptotic behavior.
+ * @FUNC{dft_initial_vortex_x_n1, "Initial guess for vortex line around x (single quantum)"}
+ * @DESC{"Initial guesses leading to creation of vortex line along x. Use with cgrid_map().
+         Multiply by the grid by $\sqrt(\rho_0)$ to get bulk asymptotic behavior"}
+ * @ARG1{void *na, "User data (not used; can be NULL)"}
+ * @ARG2{REAL x, "X coordinate"}
+ * @ARG3{REAL y, "Y coordinate"}
+ * @ARG4{REAL z, "Z coordinate"}
+ * @RVAL{REAL complex, "Vortex function value at (x,y,z)"}
  *
  */
 
@@ -31,6 +36,18 @@ EXPORT REAL complex dft_initial_vortex_x_n1(void *na, REAL x, REAL y, REAL z) {
   return (y + I * z) / d;
 }
 
+/*
+ * @FUNC{dft_initial_vortex_y_n1, "Initial guess for vortex line around y (single quantum)"}
+ * @DESC{"Initial guesses leading to creation of vortex line along y. Use with cgrid_map().
+         Multiply by the grid by $\sqrt(\rho_0)$ to get bulk asymptotic behavior"}
+ * @ARG1{void *na, "User data (not used; can be NULL)"}
+ * @ARG2{REAL x, "X coordinate"}
+ * @ARG3{REAL y, "Y coordinate"}
+ * @ARG4{REAL z, "Z coordinate"}
+ * @RVAL{REAL complex, "Vortex function value at (x,y,z)"}
+ *
+ */
+
 EXPORT REAL complex dft_initial_vortex_y_n1(void *na, REAL x, REAL y, REAL z) {
 
   REAL d = SQRT(x * x + z * z);
@@ -39,6 +56,18 @@ EXPORT REAL complex dft_initial_vortex_y_n1(void *na, REAL x, REAL y, REAL z) {
   return (x + I * z) / d;
 }
 
+/*
+ * @FUNC{dft_initial_vortex_z_n1, "Initial guess for vortex line around z (single quantum)"}
+ * @DESC{"Initial guesses leading to creation of vortex line along z. Use with cgrid_map().
+         Multiply by the grid by $\sqrt(\rho_0)$ to get bulk asymptotic behavior"}
+ * @ARG1{void *na, "User data (not used; can be NULL)"}
+ * @ARG2{REAL x, "X coordinate"}
+ * @ARG3{REAL y, "Y coordinate"}
+ * @ARG4{REAL z, "Z coordinate"}
+ * @RVAL{REAL complex, "Vortex function value at (x,y,z)"}
+ *
+ */
+
 EXPORT REAL complex dft_initial_vortex_z_n1(void *na, REAL x, REAL y, REAL z) {
 
   REAL d = SQRT(x * x + y * y);
@@ -46,6 +75,18 @@ EXPORT REAL complex dft_initial_vortex_z_n1(void *na, REAL x, REAL y, REAL z) {
   if(d < R_M) return 0.0;
   return (x + I * y) / d;
 }
+
+/*
+ * @FUNC{dft_initial_vortex_x_n2, "Initial guess for vortex line around x (two quanta)"}
+ * @DESC{"Initial guesses leading to creation of vortex line along x. Use with cgrid_map().
+         Multiply by the grid by $\sqrt(\rho_0)$ to get bulk asymptotic behavior"}
+ * @ARG1{void *na, "User data (not used; can be NULL)"}
+ * @ARG2{REAL x, "X coordinate"}
+ * @ARG3{REAL y, "Y coordinate"}
+ * @ARG4{REAL z, "Z coordinate"}
+ * @RVAL{REAL complex, "Vortex function value at (x,y,z)"}
+ *
+ */
 
 EXPORT REAL complex dft_initial_vortex_x_n2(void *na, REAL x, REAL y, REAL z) {
 
@@ -56,6 +97,18 @@ EXPORT REAL complex dft_initial_vortex_x_n2(void *na, REAL x, REAL y, REAL z) {
   return ((y2 - z2) + I * 2 * y * z) / (y2 + z2);
 }
 
+/*
+ * @FUNC{dft_initial_vortex_y_n2, "Initial guess for vortex line around y (two quanta)"}
+ * @DESC{"Initial guesses leading to creation of vortex line along y. Use with cgrid_map().
+         Multiply by the grid by $\sqrt(\rho_0)$ to get bulk asymptotic behavior"}
+ * @ARG1{void *na, "User data (not used; can be NULL)"}
+ * @ARG2{REAL x, "X coordinate"}
+ * @ARG3{REAL y, "Y coordinate"}
+ * @ARG4{REAL z, "Z coordinate"}
+ * @RVAL{REAL complex, "Vortex function value at (x,y,z)"}
+ *
+ */
+
 EXPORT REAL complex dft_initial_vortex_y_n2(void *na, REAL x, REAL y, REAL z) {
 
   REAL x2 = x * x, z2 = z * z;
@@ -64,6 +117,18 @@ EXPORT REAL complex dft_initial_vortex_y_n2(void *na, REAL x, REAL y, REAL z) {
   if(d < R_M) return 0.0;  
   return ((x2 - z2) + I * 2 * x * z) / (x2 + z2);
 }
+
+/*
+ * @FUNC{dft_initial_vortex_z_n2, "Initial guess for vortex line around z (two quanta)"}
+ * @DESC{"Initial guesses leading to creation of vortex line along z. Use with cgrid_map().
+         Multiply by the grid by $\sqrt(\rho_0)$ to get bulk asymptotic behavior"}
+ * @ARG1{void *na, "User data (not used; can be NULL)"}
+ * @ARG2{REAL x, "X coordinate"}
+ * @ARG3{REAL y, "Y coordinate"}
+ * @ARG4{REAL z, "Z coordinate"}
+ * @RVAL{REAL complex, "Vortex function value at (x,y,z)"}
+ *
+ */
 
 EXPORT REAL complex dft_initial_vortex_z_n2(void *na, REAL x, REAL y, REAL z) {
 
@@ -75,17 +140,14 @@ EXPORT REAL complex dft_initial_vortex_z_n2(void *na, REAL x, REAL y, REAL z) {
 }
 
 /*
- * Initial guess for a bubble (can be used with cgrid_map() etc.).
- * Sharp bubble edge.
- *
- * prm    = Bubble radius (REAL *).
- * x      = x coordinate (REAL).
- * y      = y coordinate (REAL).
- * z      = z coordinate (REAL).
- *
- * Returns wave function (order parameter) value at (x, y, z).
- *
- * Note: This should be multiplied by sqrt(rho0) for bulk.
+ * @FUNC{dft_initial_bubble, "Initial guess for a bubble"}
+ * @DESC{"Initial guess for a bubble (can be used with cgrid_map() etc.). Produces a sharp bubble edge. 
+          Note that this must be multiplied by $\sqrt{\rho_0}$ to get the bulk density"}
+ * @ARG1{void *prm, "Pointer to bubble radius (REAL *)"}
+ * @ARG2{REAL x, "X coordinate"}
+ * @ARG2{REAL y, "Y coordinate"}
+ * @ARG2{REAL z, "Z coordinate"}
+ * @RVAL{REAL complex, "Returns wave function (order parameter) value at (x, y, z)"}
  *
  */
 

@@ -15,9 +15,9 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 64
-#define NY 64
-#define NZ 64
+#define NX 128
+#define NY 128
+#define NZ 128
 #define STEP 0.5 /* Bohr */
 #define TS 20.0 /* fs */
 #define AMP 1e-1 /* wave amplitude (of total rho0) */
