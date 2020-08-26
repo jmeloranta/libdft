@@ -25,7 +25,7 @@
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
-#define ITS ((0.05 / 100.0) * TS) /* ifs */
+#define ITS ((0.2 / 100.0) * TS) /* ifs */
 #define TS_SWITCH 1.0 /* fs */
 #define ITS_SWITCH ((0.05 / 100.0) * TS_SWITCH) /* ifs */
 
@@ -33,7 +33,7 @@
 #define NX 128
 #define NY 128
 #define NZ 128
-#define STEP 2.0
+#define STEP 0.5
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -45,18 +45,18 @@
 //#define PC
 
 /* Use dealiasing during real time propagation? */
-//#define DEALIAS
-//#define DEALIAS_VAL (2.5 * GRID_AUTOANG)
+#define DEALIAS
+#define DEALIAS_VAL (2.5 * GRID_AUTOANG)
 
 /* Functional to use */
 /* Coarse functional to get to TEMP_SWITCH - numerically more stable */
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_BACKFLOW)
+#define FUNCTIONAL (DFT_OT_PLAIN)
 //#define FUNCTIONAL (DFT_GP2)
 
 /* Fine functional to use below 3.0 K - less stable */
-//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_BACKFLOW)
+#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_BACKFLOW)
 //#define FUNCTIONAL_FINE DFT_OT_PLAIN
 //#define FUNCTIONAL_FINE (DFT_GP2)
 
@@ -339,7 +339,7 @@ int main(int argc, char **argv) {
   otf->model = FUNCTIONAL;
 
   // Backflow limits
-  otf->max_bfpot = 1.0 / GRID_AUTOK;
+//  otf->max_bfpot = 10.0 / GRID_AUTOK; // was 0.5
 
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
@@ -347,7 +347,7 @@ int main(int argc, char **argv) {
 
   /* Allocate space for external potential */
   potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
-  rworkspace = rgrid_clone(otf->density, "rworkspae");
+  rworkspace = rgrid_clone(otf->density, "rworkspace");
 
   /* Make sure that we have enough workspaces reserved */
   if(!(otf->workspace2)) otf->workspace2 = rgrid_clone(otf->density, "OT workspace 2");

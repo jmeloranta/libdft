@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
   dft_ot_functional otf;
   REAL k, w, rho0;
   
-  dft_ot_temperature(&otf, DFT_OT_PLAIN | DFT_OT_KC);
+  dft_ot_init_params(&otf, DFT_OT_PLAIN | DFT_OT_KC);
 //  dft_ot_temperature(&otf, DFT_OT_PLAIN);
   rho0 = dft_ot_bulk_density_pressurized(&otf, PRESSURE);
 

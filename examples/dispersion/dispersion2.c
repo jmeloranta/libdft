@@ -20,7 +20,7 @@
 #define NZ 64
 #define STEP 0.5 /* Bohr */
 #define TS 20.0 /* fs */
-#define AMP 1e-2 /* wave amplitude (of total rho0) */
+#define AMP 1e-1 /* wave amplitude (of total rho0) */
 #define PRED 0
 #define DIRECTION 2     /* Plane wave direction: X = 0, Y = 1, Z = 2 */
 
@@ -64,6 +64,10 @@ int gpus[] = {0};
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
+
+  // Backflow limits
+//  otf->max_bfpot = 0.3 / GRID_AUTOK;
+
   rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
   fprintf(stderr, "mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
