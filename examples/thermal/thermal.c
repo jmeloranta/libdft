@@ -33,7 +33,7 @@
 #define NX 128
 #define NY 128
 #define NZ 128
-#define STEP 0.5
+#define STEP 1.0
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -61,7 +61,7 @@
 //#define FUNCTIONAL_FINE (DFT_GP2)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
-#define TEMP_SWITCH 2.8
+#define TEMP_SWITCH 3.0
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -79,7 +79,7 @@
 #define RANDOM_SEED 1234L
 
 /* Write grid files? */
-//#define WRITE_GRD 4000L
+#define WRITE_GRD 8000L
 
 /* Enable / disable GPU */
 // #undef USE_CUDA
@@ -91,7 +91,7 @@
 //#define SCALE (5000.0 / GRID_AUTOK)
 
 /* Roton energy */
-#define ROTON_E (11.9 / GRID_AUTOK)
+#define ROTON_E (12.0 / GRID_AUTOK)
 #define ROTON_K (1.9 * GRID_AUTOANG)
 
 /* GPU allocation */
