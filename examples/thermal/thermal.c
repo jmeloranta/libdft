@@ -187,7 +187,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   fclose(fp);
   printf("Occ = " FMT_R "\n", bins[(INT) (0.5 + ROTON_K / BINSTEP)]);
 
-  printf("Temperature = " FMT_R " K\n", temperature(bins[(INT) (0.5 + ROTON_K / BINSTEP)]));
+  printf("Temperature = " FMT_R " K, Energy = " FMT_R " J/mol\n", temperature(bins[(INT) (0.5 + ROTON_K / BINSTEP)]), energy);
 
   grid_wf_total_occupation(gwf, bins, BINSTEP, NBINS, potential_store);
   sprintf(buf, "tocc-" FMT_I ".dat", iter);
