@@ -17,7 +17,7 @@
 #include <dft/ot.h>
 
 /* Time integration method */
-#define TIMEINT WF_2ND_ORDER_FFT
+#define TIMEINT WF_2ND_ORDER_CFFT
 //#define TIMEINT WF_2ND_ORDER_CN
 
 /* FD(0) or FFT(1) properties */
@@ -44,8 +44,7 @@
 /* Predict-correct? (not available for 4th order splitting) */
 //#define PC
 
-/* Use dealiasing during real time propagation? */
-#define DEALIAS
+/* Use dealiasing during real time propagation? (must use WF_XND_ORDER_CFFT propagator) */
 #define DEALIAS_VAL (2.5 * GRID_AUTOANG)
 
 /* Functional to use */
@@ -146,19 +145,6 @@ REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
   tot_gnd = (dft_ot_bulk_energy(otf, rho0) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ))) / n;
 
   return (tot - tot_gnd) * GRID_AUTOJ * GRID_AVOGADRO; // J / mol
-}
-
-void dealias(cgrid *grid) {
-
-#ifdef DEALIAS
-    cgrid_fft(grid);
-#ifdef DEALIAS_VAL
-    cgrid_dealias2(grid, DEALIAS_VAL);
-#else
-    cgrid_dealias(grid, 2);
-#endif /* DEALIAS_VAL */
-    cgrid_inverse_fft_norm(grid);
-#endif /* DEALIAS */
 }
 
 INT upd = 0;
@@ -375,11 +361,17 @@ int main(int argc, char **argv) {
   printf("Dynamics...\n");
   tstep = (TS - ITS * I) / GRID_AUTOFS;
   grid_timer_start(&timer);
+#ifdef DEALIAS_VAL
+  gwf->kmax = DEALIAS_VAL;
+#ifdef PC
+  gwfp->kmax = DEALIAS_VAL;
+#endif
+#endif
+
   for (iter = 0; iter < RITER; iter++) {
 
     if(iter == 100) grid_fft_write_wisdom(NULL);
 
-    dealias(gwf->grid);
     if(CIMAG(tstep) != 0.0) grid_wf_normalize(gwf);
 
     if(!(iter % NTH)) {
@@ -398,11 +390,8 @@ int main(int argc, char **argv) {
 #endif
     dft_ot_potential(otf, potential_store, gwf);
 
-    dealias(potential_store);
-
     grid_wf_propagate_predict(gwf, gwfp, potential_store, tstep);
 
-    dealias(gwfp->grid);
     if(CIMAG(tstep) != 0.0) grid_wf_normalize(gwfp);
 
     cgrid_add(potential_store, -mu0); // not exact chem. pot. hence normalization above needed
@@ -414,7 +403,6 @@ int main(int argc, char **argv) {
     dft_ot_potential(otf, potential_store, gwfp);
     cgrid_multiply(potential_store, 0.5);  // Use (current + future) / 2
 
-    dealias(potential_store);
     if(CIMAG(tstep) != 0.0) grid_wf_normalize(gwfp);
 
     grid_wf_propagate_correct(gwf, potential_store, tstep);
@@ -430,7 +418,6 @@ int main(int argc, char **argv) {
 #endif
     dft_ot_potential(otf, potential_store, gwf);
 
-    dealias(potential_store);
     if(CIMAG(tstep) != 0.0) grid_wf_normalize(gwf);
 
     grid_wf_propagate(gwf, potential_store, tstep);
@@ -444,7 +431,6 @@ int main(int argc, char **argv) {
       cgrid_write_grid(buf, gwf->grid);
     }
 #endif
-
 
   }
 
