@@ -18,9 +18,9 @@
 #define NX 128
 #define NY 128
 #define NZ 128
-#define STEP 0.5 /* Bohr */
-#define TS 20.0 /* fs */
-#define AMP 1e-1 /* wave amplitude (of total rho0) */
+#define STEP 1.0 /* Bohr */
+#define TS 10.0 /* fs */
+#define AMP 1e-3 /* wave amplitude (of total rho0) */
 #define PRED 0
 #define DIRECTION 2     /* Plane wave direction: X = 0, Y = 1, Z = 2 */
 
@@ -29,6 +29,8 @@
 #define THREADS 0
 
 #define HELIUM_MASS (4.002602 / GRID_AUTOAMU)
+
+//#undef USE_CUDA
 
 int main(int argc, char **argv) {
 

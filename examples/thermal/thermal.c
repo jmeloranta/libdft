@@ -21,7 +21,7 @@
 //#define TIMEINT WF_2ND_ORDER_CN
 
 /* FD(0) or FFT(1) properties */
-#define PROPERTIES 1
+#define PROPERTIES 0
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
@@ -30,9 +30,9 @@
 #define ITS_SWITCH ((0.1 / 100.0) * TS_SWITCH) /* ifs */
 
 /* Grid */
-#define NX 256
-#define NY 256
-#define NZ 256
+#define NX 128
+#define NY 128
+#define NZ 128
 #define STEP 1.0
 
 /* E(k) */
@@ -49,8 +49,8 @@
 
 /* Functional to use */
 /* Coarse functional to get to TEMP_SWITCH - numerically more stable */
-#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-//#define FUNCTIONAL (DFT_OT_PLAIN)
+//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+#define FUNCTIONAL (DFT_OT_PLAIN)
 //#define FUNCTIONAL (DFT_GP2)
 
 /* Fine functional to use below 3.0 K - less stable */
@@ -69,7 +69,7 @@
 #define RITER 200000000L
 
 /* Output every NTH iteration (was 1000) */
-#define NTH 8000L
+#define NTH 4000L
 
 /* How many CPU cores to use (0 = all available) */
 #define THREADS 0
@@ -368,6 +368,7 @@ int main(int argc, char **argv) {
 #endif
 #endif
 
+//  cudaProfilerStart();
   for (iter = 0; iter < RITER; iter++) {
 
     if(iter == 100) grid_fft_write_wisdom(NULL);
@@ -433,6 +434,7 @@ int main(int argc, char **argv) {
 #endif
 
   }
+//  cudaProfilerStop();
 
   return 0;
 }

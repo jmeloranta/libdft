@@ -243,6 +243,17 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
   otf->workspace8 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 8");
   otf->workspace9 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 9");
 
+  fprintf(stderr, "Workspace allocation:\n");
+  fprintf(stderr, "Workspace1: %s\n", (otf->workspace1)?"Allocated":"Not allocated");
+  fprintf(stderr, "Workspace2: %s\n", (otf->workspace2)?"Allocated":"Not allocated");
+  fprintf(stderr, "Workspace3: %s\n", (otf->workspace3)?"Allocated":"Not allocated");
+  fprintf(stderr, "Workspace4: %s\n", (otf->workspace4)?"Allocated":"Not allocated");
+  fprintf(stderr, "Workspace5: %s\n", (otf->workspace5)?"Allocated":"Not allocated");
+  fprintf(stderr, "Workspace6: %s\n", (otf->workspace6)?"Allocated":"Not allocated");
+  fprintf(stderr, "Workspace7: %s\n", (otf->workspace7)?"Allocated":"Not allocated");
+  fprintf(stderr, "Workspace8: %s\n", (otf->workspace8)?"Allocated":"Not allocated");
+  fprintf(stderr, "Workspace9: %s\n", (otf->workspace9)?"Allocated":"Not allocated");
+
   return otf;
 }
 
@@ -356,7 +367,7 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf) {
     rgrid_release(workspace2); rgrid_release(workspace3); rgrid_release(workspace4);
     rgrid_release(workspace5); rgrid_release(workspace6);
   }
-  /* workspace1 no longer needed */
+  /* workspace1(rho_tf) no longer needed */
   rgrid_release(workspace1);
 
   /* Barranco's penalty term */
@@ -799,7 +810,7 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
     rgrid_threshold_clear(workspace6, workspace6, otf->max_bfpot, -otf->max_bfpot, otf->max_bfpot, -otf->max_bfpot);
   grid_add_real_to_complex_re(potential, workspace6);
 
-  /* workspace2 (C), workspace6 not used after this point */
+  /* workspace2 (C) */
 
   /* 2. Calculate the imaginary part of the potential */
 
