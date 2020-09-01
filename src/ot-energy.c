@@ -255,7 +255,7 @@ EXPORT void dft_ot_energy_density_bf(dft_ot_functional *otf, rgrid *energy_densi
   rgrid_fft(workspace5);
   rgrid_fft_convolute(workspace6, otf->backflow_pot, workspace5);
   rgrid_inverse_fft_norm2(workspace6);
-  rgrid_product(workspace6, workspace6, workspace7); /* x density(wrk7) */
+  rgrid_product(workspace6, workspace6, workspace7); /* x rho(wrk7) */
   rgrid_product(workspace6, workspace6, workspace1); /* x v_x(wrk1) */
   rgrid_add_scaled(energy_density, otf->mass / 2.0, workspace6);
 
@@ -264,7 +264,7 @@ EXPORT void dft_ot_energy_density_bf(dft_ot_functional *otf, rgrid *energy_densi
   rgrid_fft(workspace5);
   rgrid_fft_convolute(workspace6, otf->backflow_pot, workspace5);
   rgrid_inverse_fft_norm2(workspace6);
-  rgrid_product(workspace6, workspace6, workspace7); /* x density(wrk7) */
+  rgrid_product(workspace6, workspace6, workspace7); /* x rho(wrk7) */
   rgrid_product(workspace6, workspace6, workspace2); /* x v_y(wrk2) */
   rgrid_add_scaled(energy_density, otf->mass / 2.0, workspace6);
 
@@ -273,12 +273,12 @@ EXPORT void dft_ot_energy_density_bf(dft_ot_functional *otf, rgrid *energy_densi
   rgrid_fft(workspace5);
   rgrid_fft_convolute(workspace6, otf->backflow_pot, workspace5);
   rgrid_inverse_fft_norm2(workspace6);
-  rgrid_product(workspace6, workspace6, workspace7); /* x density(wrk7) */
+  rgrid_product(workspace6, workspace6, workspace7); /* x rho(wrk7) */
   rgrid_product(workspace6, workspace6, workspace3); /* x v_z(wrk3) */
   rgrid_add_scaled(energy_density, otf->mass / 2.0, workspace6);
 
   /* Term 3: -(M/4) rho(r) \int U_j(|r - r'|) rho(r') v^2(r') d3r' */
-  rgrid_product(workspace5, workspace7, workspace4); /* wrk5 = density x |v|^2 */
+  rgrid_product(workspace5, workspace7, workspace4); /* wrk5 = rho x |v|^2 */
   rgrid_fft(workspace5);
   rgrid_fft_convolute(workspace6, otf->backflow_pot, workspace5);
   rgrid_inverse_fft_norm2(workspace6);

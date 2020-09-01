@@ -17,7 +17,7 @@
 #include <dft/ot.h>
 
 /* Time integration method */
-#define TIMEINT WF_2ND_ORDER_CFFT
+#define TIMEINT WF_2ND_ORDER_FFT
 //#define TIMEINT WF_2ND_ORDER_CN
 
 /* FD(0) or FFT(1) properties */
@@ -25,9 +25,9 @@
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
-#define ITS ((0.1 / 100.0) * TS) /* ifs */
+#define ITS ((0.05 / 100.0) * TS) /* ifs */
 #define TS_SWITCH 1.0 /* fs */
-#define ITS_SWITCH ((0.1 / 100.0) * TS_SWITCH) /* ifs */
+#define ITS_SWITCH ((0.05 / 100.0) * TS_SWITCH) /* ifs */
 
 /* Grid */
 #define NX 128
@@ -54,9 +54,8 @@
 //#define FUNCTIONAL (DFT_GP2)
 
 /* Fine functional to use below 3.0 K - less stable */
-#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_BACKFLOW)
-//#define FUNCTIONAL_FINE DFT_OT_PLAIN
+//#define FUNCTIONAL_FINE (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+#define FUNCTIONAL_FINE DFT_OT_PLAIN
 //#define FUNCTIONAL_FINE (DFT_GP2)
 
 /* Switch over temperature from FUNCTIONAL to FUNCTIONAL_FINE */
