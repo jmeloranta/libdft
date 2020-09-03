@@ -25,14 +25,14 @@
 
 /* Time step for real and imaginary time */
 #define TS 1.0 /* fs */
-#define ITS ((0.05 / 100.0) * TS) /* ifs */
+#define ITS ((0.01 / 100.0) * TS) /* ifs */
 #define TS_SWITCH 1.0 /* fs */
-#define ITS_SWITCH ((0.05 / 100.0) * TS_SWITCH) /* ifs */
+#define ITS_SWITCH ((0.01 / 100.0) * TS_SWITCH) /* ifs */
 
 /* Grid */
-#define NX 128
-#define NY 128
-#define NZ 128
+#define NX 256
+#define NY 256
+#define NZ 256
 #define STEP 1.0
 
 /* E(k) */
@@ -77,7 +77,7 @@
 #define RANDOM_SEED 1234L
 
 /* Write grid files? */
-//#define WRITE_GRD 8000L
+#define WRITE_GRD 8000L
 
 /* Enable / disable GPU */
 // #undef USE_CUDA
