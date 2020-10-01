@@ -15,10 +15,10 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 128
-#define NY 128
-#define NZ 128
-#define STEP 1.0 /* Bohr */
+#define NX 256
+#define NY 256
+#define NZ 256
+#define STEP 0.5 /* Bohr */
 #define TS 10.0 /* fs */
 #define AMP 1e-3 /* wave amplitude (of total rho0) */
 #define PRED 0

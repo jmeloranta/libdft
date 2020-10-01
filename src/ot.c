@@ -243,16 +243,16 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
   otf->workspace8 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 8");
   otf->workspace9 = rgrid_alloc(nx, ny, nz, step, RGRID_PERIODIC_BOUNDARY, 0, "OT Workspace 9");
 
-  fprintf(stderr, "Workspace allocation:\n");
-  fprintf(stderr, "Workspace1: %s\n", (otf->workspace1)?"Allocated":"Not allocated");
-  fprintf(stderr, "Workspace2: %s\n", (otf->workspace2)?"Allocated":"Not allocated");
-  fprintf(stderr, "Workspace3: %s\n", (otf->workspace3)?"Allocated":"Not allocated");
-  fprintf(stderr, "Workspace4: %s\n", (otf->workspace4)?"Allocated":"Not allocated");
-  fprintf(stderr, "Workspace5: %s\n", (otf->workspace5)?"Allocated":"Not allocated");
-  fprintf(stderr, "Workspace6: %s\n", (otf->workspace6)?"Allocated":"Not allocated");
-  fprintf(stderr, "Workspace7: %s\n", (otf->workspace7)?"Allocated":"Not allocated");
-  fprintf(stderr, "Workspace8: %s\n", (otf->workspace8)?"Allocated":"Not allocated");
-  fprintf(stderr, "Workspace9: %s\n", (otf->workspace9)?"Allocated":"Not allocated");
+  fprintf(stderr, "libdft: Workspace allocation:\n");
+  fprintf(stderr, "libdft: Workspace1: %s\n", (otf->workspace1)?"Allocated":"Not allocated");
+  fprintf(stderr, "libdft: Workspace2: %s\n", (otf->workspace2)?"Allocated":"Not allocated");
+  fprintf(stderr, "libdft: Workspace3: %s\n", (otf->workspace3)?"Allocated":"Not allocated");
+  fprintf(stderr, "libdft: Workspace4: %s\n", (otf->workspace4)?"Allocated":"Not allocated");
+  fprintf(stderr, "libdft: Workspace5: %s\n", (otf->workspace5)?"Allocated":"Not allocated");
+  fprintf(stderr, "libdft: Workspace6: %s\n", (otf->workspace6)?"Allocated":"Not allocated");
+  fprintf(stderr, "libdft: Workspace7: %s\n", (otf->workspace7)?"Allocated":"Not allocated");
+  fprintf(stderr, "libdft: Workspace8: %s\n", (otf->workspace8)?"Allocated":"Not allocated");
+  fprintf(stderr, "libdft: Workspace9: %s\n", (otf->workspace9)?"Allocated":"Not allocated");
 
   return otf;
 }

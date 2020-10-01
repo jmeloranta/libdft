@@ -13,4 +13,4 @@ thermal.o: thermal.c
 	$(CC) $(CFLAGS) -c thermal.c
 
 clean:
-	-rm -f *.o thermal thermal.o output* *~ *.grd *.x *.y *.z *.dat
+	-rm -f *.o thermal thermal.o output* *~ thermal-*.grd *.x *.y *.z *.dat
