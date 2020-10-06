@@ -27,9 +27,9 @@
 #define TS (0.001 / GRID_AUTOFS)
 
 /* Grid */
-#define NX 128
-#define NY 128
-#define NZ 128
+#define NX 64
+#define NY 64
+#define NZ 64
 #define STEP 0.5
 
 /* Random noise scale */
@@ -89,7 +89,7 @@ int ngpus;
 
 dft_ot_functional *otf;
 REAL rho0, mu0;
-REAL complex tstep;
+REAL complex tstep, half_tstep;
 FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 
 double rolling_e = 0.0, rolling_tent = 0.0, rolling_trot = 0.0;
@@ -246,6 +246,7 @@ int main(int argc, char **argv) {
   wf *gwf;
   INT iter, i;
   grid_timer timer;
+  REAL cons;
 
   if(argc < 2) {
     fprintf(stderr, "Usage: thermal <gpu1> <gpu2> ...\n");
@@ -308,6 +309,8 @@ int main(int argc, char **argv) {
   /* 3. Real time simulation */
   printf("Dynamics...\n");
   tstep = -I * TS;
+  half_tstep = 0.5 * tstep;
+  cons = -(HBAR * HBAR / (2.0 * gwf->mass));
   grid_timer_start(&timer);
 
 //  cudaProfilerStart();
@@ -321,21 +324,28 @@ int main(int argc, char **argv) {
       grid_timer_start(&timer);
     }
 
-    /* Random term */
+    /* Kinetic delta t/2 */
+    cgrid_fft(gwf->grid);
+    grid_wf_propagate_kinetic_fft(gwf, half_tstep);
+    cgrid_inverse_fft_norm(gwf->grid);
+
+    /* Potential delta t */
+    cgrid_constant(potential_store, -mu0);
+    dft_ot_potential(otf, potential_store, gwf);
+    grid_wf_propagate_potential(gwf, tstep, potential_store, cons);
+
+    /* Random term x delta t (add here to improve the accuracy) */
     cgrid_zero(potential_store);
     cgrid_random_normal(potential_store, SCALE * (1.0 + I));
     cgrid_fft(potential_store); // Filter high wavenumber components out
     cgrid_dealias2(potential_store, DEALIAS_VAL);
     cgrid_inverse_fft_norm(potential_store);
     cgrid_sum(gwf->grid, gwf->grid, potential_store);
-    grid_wf_normalize(gwf); // Needed here?
 
-    /* DFT potential */
-    cgrid_constant(potential_store, -mu0);
-    dft_ot_potential(otf, potential_store, gwf);
-
-    /* Propagate */
-    grid_wf_propagate(gwf, potential_store, tstep);
+    /* Kinetic delta t/2 */
+    cgrid_fft(gwf->grid);
+    grid_wf_propagate_kinetic_fft(gwf, half_tstep);
+    cgrid_inverse_fft_norm(gwf->grid);
 
     /* Normalize since imaginary time present (and mu is not exact) */
     grid_wf_normalize(gwf);
