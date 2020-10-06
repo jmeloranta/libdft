@@ -84,9 +84,9 @@ EXPORT dft_ot_functional *dft_ot_alloc(INT model, wf *gwf, INT min_substeps, INT
     return NULL;
   }
  
-  fprintf(stderr, "libdft: GIT version ID %s\n", VERSION);
+  fprintf(stderr, "libdft: GIT version ID: %s\n", VERSION);
   fprintf(stderr, "libdft: Grid " FMT_I " x " FMT_I " x " FMT_I " with step " FMT_R " Bohr.\n", nx, ny, nz, step);
-  fprintf(stderr, "libdft: Functional = " FMT_I ".\n", model);
+  fprintf(stderr, "libdft: Functional: " FMT_I ".\n", model);
 
   dft_ot_init_params(otf, model);
 
@@ -1128,7 +1128,7 @@ EXPORT inline void dft_ot_init_params(dft_ot_functional *otf, INT model) {
   otf->xi = 1E4 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
   otf->rhobf = 0.033 * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
 
-  fprintf(stderr,"libdft: Temperature = " FMT_R " K.\n", otf->temp); 
+  fprintf(stderr,"libdft: Temperature: " FMT_R " K.\n", otf->temp); 
 
   otf->b /= GRID_AUTOK * (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG);
   otf->c2 /= GRID_AUTOK * POW(GRID_AUTOANG, 3.0 * otf->c2_exp);
