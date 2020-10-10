@@ -24,21 +24,28 @@
 #define PROPERTIES 0
 
 /* Time step for real and imaginary time */
-#define TS (0.001 / GRID_AUTOFS)
+#define TS (10.0 / GRID_AUTOFS)
+
+/* Real time step after reaching thermal equilibrium */
+#define RTS (TS / 10.0)
+/* Iteration when to switch to real time propagation */
+#define SWITCH 10000000
 
 /* Grid */
-#define NX 64
-#define NY 64
-#define NZ 64
-#define STEP 0.5
+#define NX 256
+#define NY 256
+#define NZ 256
+#define STEP 1.0
 
 /* Random noise scale */
-#define GAMMA 8.0E-3
-#define SCALE (GAMMA * TS)
+#define GAMMA 7.5E-4
+#define SCALE (GAMMA * SQRT(TS / (STEP * STEP * STEP)))
 
-/* Roton energy */
-#define ROTON_E (10.05 / GRID_AUTOK)
-#define ROTON_K (1.9 * GRID_AUTOANG)
+/* Average roton energy with the bin corresponding to ROTON_K */
+//#define ROTON_E (10.05 / GRID_AUTOK)
+//#define ROTON_K (1.9 * GRID_AUTOANG)
+#define ROTON_E (9.8 / GRID_AUTOK)
+#define ROTON_K (1.855234 * GRID_AUTOANG)
 
 /* E(k) */
 #define KSPECTRUM /**/
@@ -61,13 +68,13 @@
 #define RITER 200000000L
 
 /* Output every NTH iteration (was 1000) */
-#define NTH 1000L
+#define NTH 100L
 
 /* Write grid files? */
-//#define WRITE_GRD 4000L
+#define WRITE_GRD 400L
 
 /* Rolling energy iteration interval (in units of NTH) */
-#define ROLLING 100
+#define ROLLING 10
 
 /* How many CPU cores to use (0 = all available) */
 #define THREADS 0
@@ -244,7 +251,7 @@ int main(int argc, char **argv) {
   cgrid *potential_store;
   rgrid *rworkspace;
   wf *gwf;
-  INT iter, i;
+  INT iter, i, kala = 0;
   grid_timer timer;
   REAL cons;
 
@@ -260,6 +267,8 @@ int main(int argc, char **argv) {
 
   cuda_enable(1, ngpus, gpus);
 #endif
+
+  printf("Gamma = " FMT_R "\n", GAMMA);
 
   /* Initialize threads & use wisdom */
   grid_set_fftw_flags(0);    // FFTW_ESTIMATE
@@ -316,6 +325,13 @@ int main(int argc, char **argv) {
 //  cudaProfilerStart();
   for (iter = 0; iter < RITER; iter++) {
 
+    if(iter > SWITCH && !kala) {
+      printf("Switched to real time propagation.\n");
+      tstep = RTS;
+      half_tstep = 0.5 * tstep;
+      kala = 1;
+    }
+
     if(iter == 100) grid_fft_write_wisdom(NULL);
 
     if(!(iter % NTH)) {
@@ -334,13 +350,15 @@ int main(int argc, char **argv) {
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate_potential(gwf, tstep, potential_store, cons);
 
-    /* Random term x delta t (add here to improve the accuracy) */
-    cgrid_zero(potential_store);
-    cgrid_random_normal(potential_store, SCALE * (1.0 + I));
-    cgrid_fft(potential_store); // Filter high wavenumber components out
-    cgrid_dealias2(potential_store, DEALIAS_VAL);
-    cgrid_inverse_fft_norm(potential_store);
-    cgrid_sum(gwf->grid, gwf->grid, potential_store);
+    if(!kala) {
+      /* Random term x delta t (add here to improve the accuracy) */
+      cgrid_zero(potential_store);
+      cgrid_random_normal(potential_store, SCALE * (1.0 + I));
+      cgrid_fft(potential_store); // Filter high wavenumber components out
+      cgrid_dealias2(potential_store, DEALIAS_VAL);
+      cgrid_inverse_fft_norm(potential_store);
+      cgrid_sum(gwf->grid, gwf->grid, potential_store);
+    }
 
     /* Kinetic delta t/2 */
     cgrid_fft(gwf->grid);
@@ -348,7 +366,14 @@ int main(int argc, char **argv) {
     cgrid_inverse_fft_norm(gwf->grid);
 
     /* Normalize since imaginary time present (and mu is not exact) */
-    grid_wf_normalize(gwf);
+    if(!kala) grid_wf_normalize(gwf);
+
+    /* Dealias if real time propagation */
+    if(kala) {
+      cgrid_fft(gwf->grid); // Filter high wavenumber components out
+      cgrid_dealias2(gwf->grid, DEALIAS_VAL);
+      cgrid_inverse_fft_norm(gwf->grid);
+    }
 
 #ifdef WRITE_GRD
     if(!(iter % WRITE_GRD)) {

@@ -220,3 +220,27 @@ EXPORT REAL dft_exp_bulk_entropy_inverse(REAL entropy, REAL acc) {
   }
   return temp;
 }
+
+// TODO
+#if 0
+/*
+ * @FUNC{dft_exp_bulk_density, "Experimental density of liquid helium"}
+ * @DESC{"Return density at saturated vapor pressure and a given temperature"}
+ * @ARG1{REAL temperature, "Temperature at which the density is requested"}
+ * @RVAL{REAL, "Returns density (g / cm3) at the requested temperature"}
+ *
+ */
+
+EXPORT REAL dft_exp_bulk_density(REAL temperature) {
+
+  if(temperature < 1.344) {
+
+    return;
+  } 
+  if(temperature < 2.1768) {
+
+    return;
+  }
+  /* T_\lambda to 4.9 K */
+}
+#endif
