@@ -29,22 +29,26 @@
 /* Real time step after reaching thermal equilibrium */
 #define RTS (TS / 10.0)
 /* Iteration when to switch to real time propagation */
-#define SWITCH 10000000
+#define SWITCH 10000000L
 
 /* Grid */
 #define NX 256
 #define NY 256
 #define NZ 256
-#define STEP 1.0
+#define STEP 0.25
 
 /* Random noise scale */
-#define GAMMA 7.5E-4
-#define SCALE (GAMMA * SQRT(TS / (STEP * STEP * STEP)))
+#define TXI 4.0E-1
+// TXI = T * XI
+#define SCALE (SQRT(2.0 * TXI * GRID_AUKB * TS / (STEP * STEP * STEP)))
+
+/* Constant (0 K) or random (infinite T) initial guess */
+//#define RANDOM
 
 /* Average roton energy with the bin corresponding to ROTON_K */
-//#define ROTON_E (10.05 / GRID_AUTOK)
+//#define ROTON_E (10.0 / GRID_AUTOK)
 //#define ROTON_K (1.9 * GRID_AUTOANG)
-#define ROTON_E (9.8 / GRID_AUTOK)
+#define ROTON_E (9.6 / GRID_AUTOK)
 #define ROTON_K (1.855234 * GRID_AUTOANG)
 
 /* E(k) */
@@ -54,12 +58,11 @@
 #define DENS_EPS 1E-3
 
 /* Use dealiasing during real time propagation? (must use WF_XND_ORDER_CFFT propagator) */
-#define DEALIAS_VAL (2.5 * GRID_AUTOANG)
+#define DEALIAS_VAL (2.25 * GRID_AUTOANG)
 
 /* Functional to use */
-/* Coarse functional to get to TEMP_SWITCH - numerically more stable */
-#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-//#define FUNCTIONAL (DFT_OT_PLAIN)
+//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+#define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
@@ -68,10 +71,10 @@
 #define RITER 200000000L
 
 /* Output every NTH iteration (was 1000) */
-#define NTH 100L
+#define NTH 10L
 
 /* Write grid files? */
-#define WRITE_GRD 400L
+//#define WRITE_GRD 400L
 
 /* Rolling energy iteration interval (in units of NTH) */
 #define ROLLING 10
@@ -99,7 +102,7 @@ REAL rho0, mu0;
 REAL complex tstep, half_tstep;
 FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 
-double rolling_e = 0.0, rolling_tent = 0.0, rolling_trot = 0.0;
+double rolling_e[ROLLING], rolling_tent[ROLLING], rolling_trot[ROLLING];
 INT rolling_ct = 0;
 
 REAL temperature(REAL occ) {
@@ -107,15 +110,41 @@ REAL temperature(REAL occ) {
   return -ROTON_E / (LOG(occ + 1E-32) * GRID_AUKB);
 }
 
+/* Random initial guess with <P> = 0 */
+void initial_guess(cgrid *grid) {
+
+  INT i, j, k, nx = grid->nx, ny = grid->ny, nz = grid->nz, nx2 = nx / 2, ny2 = ny / 2, nz2 = nz / 2;
+  REAL complex tval;
+  
+#ifdef USE_CUDA
+  if(cuda_status()) cuda_remove_block(grid->value, 0);
+#endif
+  cgrid_zero(grid);
+  for(i = 0; i <= nx2; i++)
+    for(j = 0; j <= ny2; j++)
+      for(k = 0; k <= nz2; k++) {
+        if(i == 0 && j == 0 && k == 0) cgrid_value_to_index(grid, i, j, k, SQRT(rho0));
+        else {
+
+          tval = SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
+          cgrid_value_to_index(grid, i, j, k, tval);
+// comment for same phases for +- k
+          tval = SQRT(rho0) * CEXP(I * 2.0 * (drand48() - 0.5) * M_PI);
+          cgrid_value_to_index(grid, nx - i - 1, ny - j - 1, nz - k - 1, tval);
+        }
+      }
+}
+
 REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
 
-  REAL tot, tot_gnd, n;
+  REAL tot, tot_gnd, n, rho0p;
 
   n = grid_wf_norm(gwf);
   dft_ot_energy_density(otf, rworkspace, gwf);
   tot = (grid_wf_energy(gwf, NULL) + rgrid_integral(rworkspace)) / n;
+  rho0p = n / (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
 
-  tot_gnd = (dft_ot_bulk_energy(otf, rho0) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ))) / n;
+  tot_gnd = dft_ot_bulk_energy(otf, rho0p) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ)) / n;
 
   return (tot - tot_gnd) * GRID_AUTOJ * GRID_AVOGADRO; // J / mol
 }
@@ -159,14 +188,33 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   printf("Temperature = " FMT_R " K, Energy = " FMT_R " J/mol\n", (temp2 = temperature(bins[(INT) (0.5 + ROTON_K / BINSTEP)])), energy);
 
-  rolling_e += energy;
-  rolling_tent += temp;
-  rolling_trot += temp2;
+  /* Rolling averages and std dev */
+  rolling_e[rolling_ct] = energy;
+  rolling_tent[rolling_ct] = temp;
+  rolling_trot[rolling_ct] = temp2;
   rolling_ct++;
-  if(rolling_ct > ROLLING) {
-    printf("*** Rolling values (H, Tent, Trot): " FMT_R " " FMT_R " " FMT_R "\n", rolling_e / (REAL) rolling_ct, rolling_tent / (REAL) rolling_ct, rolling_trot / (REAL) rolling_ct);
+  if(rolling_ct == ROLLING) {
+    REAL re = 0.0, rtent = 0.0, rtrot = 0.0;
+    REAL re_std = 0.0, rtent_std = 0.0, rtrot_std = 0.0;
+    for (i = 0; i < rolling_ct; i++) {
+      re += rolling_e[i];
+      rtent += rolling_tent[i];
+      rtrot += rolling_trot[i];
+    }
+    re /= (REAL) rolling_ct;
+    rtent /= (REAL) rolling_ct;
+    rtrot /= (REAL) rolling_ct;
+    for (i = 0; i < rolling_ct; i++) {
+      re_std += (rolling_e[i] - re) * (rolling_e[i] - re);
+      rtent_std += (rolling_tent[i] - rtent) * (rolling_tent[i] - rtent);
+      rtrot_std += (rolling_trot[i] - rtrot) * (rolling_trot[i] - rtrot);
+    }
+    re_std = SQRT(re_std / (REAL) (rolling_ct - 1));
+    rtent_std = SQRT(rtent_std / (REAL) (rolling_ct - 1));
+    rtrot_std = SQRT(rtrot_std / (REAL) (rolling_ct - 1));
+    printf("*** Rolling values (H, Tent, Trot): " FMT_R " +- " FMT_R ", " FMT_R " +- " FMT_R ", " FMT_R " +- " FMT_R "\n", re, re_std, rtent, rtent_std, rtrot, rtrot_std);
+    printf("*** Rolling Xi = " FMT_R "\n", TXI / rtrot);
     rolling_ct = 0;
-    rolling_e = rolling_tent = rolling_trot = 0.0;
   }
 
   grid_wf_total_occupation(gwf, bins, BINSTEP, NBINS, potential_store);
@@ -255,6 +303,8 @@ int main(int argc, char **argv) {
   grid_timer timer;
   REAL cons;
 
+  printf("Gamma equivalent = " FMT_R "\n", SQRT(2.0 * TXI * GRID_AUKB));
+
   if(argc < 2) {
     fprintf(stderr, "Usage: thermal <gpu1> <gpu2> ...\n");
     exit(1);
@@ -267,8 +317,6 @@ int main(int argc, char **argv) {
 
   cuda_enable(1, ngpus, gpus);
 #endif
-
-  printf("Gamma = " FMT_R "\n", GAMMA);
 
   /* Initialize threads & use wisdom */
   grid_set_fftw_flags(0);    // FFTW_ESTIMATE
@@ -313,7 +361,12 @@ int main(int argc, char **argv) {
   gwf->norm = rho0 * (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
 
   /* 2. Start with ground state + random perturbation */
+#ifndef RANDOM
   cgrid_constant(gwf->grid, SQRT(rho0));
+#else
+  initial_guess(gwf->grid);
+  grid_wf_normalize(gwf);
+#endif
 
   /* 3. Real time simulation */
   printf("Dynamics...\n");
@@ -353,7 +406,7 @@ int main(int argc, char **argv) {
     if(!kala) {
       /* Random term x delta t (add here to improve the accuracy) */
       cgrid_zero(potential_store);
-      cgrid_random_normal(potential_store, SCALE * (1.0 + I));
+      cgrid_random_normal(potential_store, SCALE * (1.0 + I) / 2.0);  // both components have one -> / 2
       cgrid_fft(potential_store); // Filter high wavenumber components out
       cgrid_dealias2(potential_store, DEALIAS_VAL);
       cgrid_inverse_fft_norm(potential_store);
