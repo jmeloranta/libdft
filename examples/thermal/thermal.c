@@ -35,10 +35,10 @@
 #define NX 256
 #define NY 256
 #define NZ 256
-#define STEP 0.25
+#define STEP 0.1
 
 /* Random noise scale */
-#define TXI 4.0E-1
+#define TXI 5E-1
 // TXI = T * XI
 #define SCALE (SQRT(2.0 * TXI * GRID_AUKB * TS / (STEP * STEP * STEP)))
 
@@ -71,10 +71,10 @@
 #define RITER 200000000L
 
 /* Output every NTH iteration (was 1000) */
-#define NTH 10L
+#define NTH 200L
 
 /* Write grid files? */
-//#define WRITE_GRD 400L
+#define WRITE_GRD 200L
 
 /* Rolling energy iteration interval (in units of NTH) */
 #define ROLLING 10
@@ -368,8 +368,8 @@ int main(int argc, char **argv) {
   grid_wf_normalize(gwf);
 #endif
 
-  /* 3. Real time simulation */
-  printf("Dynamics...\n");
+  printf("Propagation...\n");
+  gwf->kmax = DEALIAS_VAL;
   tstep = -I * TS;
   half_tstep = 0.5 * tstep;
   cons = -(HBAR * HBAR / (2.0 * gwf->mass));
