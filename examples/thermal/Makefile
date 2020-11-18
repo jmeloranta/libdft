@@ -4,7 +4,7 @@ else
   include /usr/include/dft/make.conf
 endif
 
-all: thermal
+all: thermal quench
 
 thermal: thermal.o
 	$(CC) $(CFLAGS) -o thermal thermal.o $(LDFLAGS)
@@ -12,5 +12,11 @@ thermal: thermal.o
 thermal.o: thermal.c
 	$(CC) $(CFLAGS) -c thermal.c
 
+quench: quench.o
+	$(CC) $(CFLAGS) -o quench quench.o $(LDFLAGS)
+
+quench.o: quench.c
+	$(CC) $(CFLAGS) -c quench.c
+
 clean:
-	-rm -f *.o thermal thermal.o output* *~ thermal-*.grd *.x *.y *.z *.dat
+	-rm -f *.o thermal thermal.o quench quench.o output* *~ thermal-*.grd *.x *.y *.z *.dat

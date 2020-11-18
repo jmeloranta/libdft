@@ -15,14 +15,14 @@
 
 #define TS 1.0 /* fs */
 #define ITS (0.0 * TS)
-#define NX 64
-#define NY 64
-#define NZ 1024
+#define NX 128
+#define NY 128
+#define NZ 128
 #define STEP 0.5
 #define NTH 1000
 #define THREADS 0
 
-#define RING_RADIUS 5.0
+#define RING_RADIUS 20.0
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 

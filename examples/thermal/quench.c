@@ -1,8 +1,8 @@
 /*
- * Bulk helium at a given temperature (explicit thermal excitations using the stochastic approach).
+ * Quench random initial quess to specified temperature.
  *
- * 1. Start from constant initial order parameter.
- * 2. Propagate in imaginary time using the stochastic approach.
+ * 1. Start from random initial order parameter.
+ * 2. Cooling phase with a mixture of real and imaginary time (the ratio defines the cooling rate).
  *
  * All input in a.u. except the time step, which is fs.
  *
@@ -18,39 +18,25 @@
 #include <dft/ot.h>
 
 /* Time integration method */
-#define TIMEINT WF_2ND_ORDER_CFFT
+#define TIMEINT WF_2ND_ORDER_FFT
 
 /* FD(0) or FFT(1) properties */
 #define PROPERTIES 0
 
 /* Time step for real and imaginary time */
-#define TS (10.0 / GRID_AUTOFS)
+#define TS (1.0 / GRID_AUTOFS)
 
 /* Real time step after reaching thermal equilibrium */
 #define RTS (TS / 10.0)
 
 /* Iteration when to switch to real time propagation */
-#define SWITCH 1000000000L
+#define SWITCH 10000000000L
 
 /* Grid */
-#define NX 128
-#define NY 128
-#define NZ 128
+#define NX 256
+#define NY 256
+#define NZ 256
 #define STEP 0.5
-
-/* Use dealiasing during real time propagation? (must use WF_XND_ORDER_CFFT propagator) */
-#define DEALIAS_VAL (2.25 * GRID_AUTOANG)
-
-/* Functional to use */
-//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
-//#define FUNCTIONAL (DFT_OT_PLAIN)
-
-/* Fix mu0 or adjust dynamically? */
-#define FIXMU0 /**/
-
-/* Pressure */
-#define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Bulk density at T (Angs^-3) */
 #define RHO0 (0.0218360 * (145.2 / 145.2))
@@ -73,21 +59,33 @@
 //#define ROTON_K (1.115 * GRID_AUTOANG)
 
 /* E(k) */
+#define KSPECTRUM /**/
 #define NBINS 512
 #define BINSTEP (2.0 * M_PI / (NX * STEP))   // Assumes NX = NY = NZ
 #define DENS_EPS 1E-3
+
+/* Use dealiasing during real time propagation? (must use WF_XND_ORDER_CFFT propagator) */
+#define DEALIAS_VAL (2.25 * GRID_AUTOANG)
+
+/* Functional to use */
+#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+//#define FUNCTIONAL (DFT_OT_PLAIN)
+
+/* Pressure */
+#define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Number of real time iterations */
 #define RITER 200000000L
 
 /* Output every NTH iteration (was 1000) */
-#define NTH 100L
+#define NTH 2000L
 
 /* Write grid files? */
 #define WRITE_GRD 2000L
 
 /* Rolling energy iteration interval (in units of NTH) */
-#define ROLLING 10
+#define ROLLING 100
 
 /* How many CPU cores to use (0 = all available) */
 #define THREADS 0
@@ -101,6 +99,8 @@
 /* Temperature search accuracy (K) */
 #define SEARCH_ACC 1E-4
 
+#define MIN(x,y) (((x) < (y))?x:y)
+
 /* GPU allocation */
 #ifdef USE_CUDA
 int gpus[MAX_GPU];
@@ -113,7 +113,7 @@ REAL complex tstep, half_tstep;
 FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 
 double rolling_e[ROLLING], rolling_tent[ROLLING], rolling_trot[ROLLING];
-INT rolling_ct = 0;
+INT rolling_ct = 0, kludge = 0;
 
 REAL *bins = NULL;
 
@@ -160,7 +160,9 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   char buf[512];
   FILE *fp;
+#ifdef KSPECTRUM
   static REAL *bins = NULL;
+#endif
   REAL energy, ke_tot, pe_tot, ke_qp, ke_cl, natoms, tmp, tmp2, temp, temp2;
   INT i;
 
@@ -178,6 +180,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   energy = get_energy(gwf, otf, rworkspace);
   temp = dft_exp_bulk_enthalpy_inverse(energy, SEARCH_ACC);
   printf("Thermal energy = " FMT_R " J/mol Tenth = " FMT_R " K ", energy, temp);
+  if(temp < 2.0) kludge = 1;
 
   grid_wf_average_occupation(gwf, bins, BINSTEP, NBINS, potential_store);
   sprintf(buf, "occ-" FMT_I ".dat", iter);
@@ -376,19 +379,19 @@ int main(int argc, char **argv) {
   grid_wf_normalize(gwf);
 #endif
 
-  printf("Imaginary time propagation...\n");
+  printf("Propagation...\n");
   gwf->kmax = DEALIAS_VAL;
-  tstep = -I * TS;
+  tstep = TS - I * (TS / 10.0);
   half_tstep = 0.5 * tstep;
   cons = -(HBAR * HBAR / (2.0 * gwf->mass));
   grid_timer_start(&timer);
 
   for (iter = 0; iter < RITER; iter++) {
 
-    if(iter > SWITCH && !kala) {
+    if(kludge && !kala) {
       printf("Switched to real time propagation.\n");
       tstep = RTS;
-      half_tstep = 0.5 * tstep;
+      half_tstep = 0.5 * tstep;      
       kala = 1;
     }
 
@@ -411,31 +414,13 @@ int main(int argc, char **argv) {
     dft_ot_potential(otf, potential_store, gwf);
     grid_wf_propagate_potential(gwf, tstep, potential_store, cons);
 
-    if(!kala) {
-      /* Random term x delta t (add here to improve the accuracy) */
-      cgrid_zero(potential_store);
-      cgrid_random_normal(potential_store, SCALE * (1.0 + I) / 2.0);  // both components have one -> / 2
-      cgrid_fft(potential_store); // Filter high wavenumber components out
-      cgrid_dealias2(potential_store, DEALIAS_VAL);
-      cgrid_inverse_fft_norm(potential_store);
-      cgrid_sum(gwf->grid, gwf->grid, potential_store);
-    }
-
     /* Kinetic delta t/2 */
     cgrid_fft(gwf->grid);
     grid_wf_propagate_kinetic_fft(gwf, half_tstep);
     cgrid_inverse_fft_norm(gwf->grid);
 
     /* Normalize since imaginary time present (and mu is not exact) */
-#ifdef FIXMU0
     if(!kala) grid_wf_normalize(gwf);
-#else
-    if(!kala) {
-      REAL nor = grid_wf_norm(gwf);
-      mu0 += -(1.0E-8 / GRID_AUTOK) * (nor - gwf->norm) * TS;
-      rho0 = nor / (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
-    }
-#endif 
 
     /* Dealias if real time propagation */
     if(kala) {
