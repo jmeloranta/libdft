@@ -32,20 +32,17 @@
 /* Iteration when to switch to real time propagation */
 #define SWITCH 10000000000L
 
+/* Temperature after which to switch to real time propagation */
+#define RT_TEMP 2.0
+
 /* Grid */
-#define NX 256
-#define NY 256
-#define NZ 256
+#define NX 128
+#define NY 128
+#define NZ 128
 #define STEP 0.5
 
 /* Bulk density at T (Angs^-3) */
 #define RHO0 (0.0218360 * (145.2 / 145.2))
-
-/* Random noise scale */
-#define TXI 2E-1
-// TXI = T * XI
-#define SCALE (SQRT(2.0 * TXI * GRID_AUKB * TS / (STEP * STEP * STEP)))
-#define TARGET_T 1.5 // for thermal_dist()
 
 /* Constant (0 K) or random (infinite T) initial guess */
 #define RANDOM
@@ -180,7 +177,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   energy = get_energy(gwf, otf, rworkspace);
   temp = dft_exp_bulk_enthalpy_inverse(energy, SEARCH_ACC);
   printf("Thermal energy = " FMT_R " J/mol Tenth = " FMT_R " K ", energy, temp);
-  if(temp < 2.0) kludge = 1;
+  if(temp < RT_TEMP) kludge = 1;
 
   grid_wf_average_occupation(gwf, bins, BINSTEP, NBINS, potential_store);
   sprintf(buf, "occ-" FMT_I ".dat", iter);
@@ -223,7 +220,6 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
     rtent_std = SQRT(rtent_std / (REAL) (rolling_ct - 1));
     rtrot_std = SQRT(rtrot_std / (REAL) (rolling_ct - 1));
     printf("*** Rolling values (H, Tent, Trot): " FMT_R " +- " FMT_R ", " FMT_R " +- " FMT_R ", " FMT_R " +- " FMT_R "\n", re, re_std, rtent, rtent_std, rtrot, rtrot_std);
-    printf("*** Rolling Xi = " FMT_R "\n", TXI / rtrot);
     rolling_ct = 0;
   }
 
@@ -313,8 +309,6 @@ int main(int argc, char **argv) {
   INT iter, i, kala = 0;
   grid_timer timer;
   REAL cons;
-
-  printf("Gamma equivalent = " FMT_R "\n", SQRT(2.0 * TXI * GRID_AUKB));
 
   if(argc < 2) {
     fprintf(stderr, "Usage: thermal <gpu1> <gpu2> ...\n");
