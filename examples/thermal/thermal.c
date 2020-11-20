@@ -42,8 +42,8 @@
 #define DEALIAS_VAL (2.25 * GRID_AUTOANG)
 
 /* Functional to use */
-//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
-#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
+//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
 //#define FUNCTIONAL (DFT_OT_PLAIN)
 
 /* Fix mu0 or adjust dynamically? */
@@ -59,7 +59,6 @@
 #define TXI 2E-1
 // TXI = T * XI
 #define SCALE (SQRT(2.0 * TXI * GRID_AUKB * TS / (STEP * STEP * STEP)))
-#define TARGET_T 1.5 // for thermal_dist()
 
 /* Constant (0 K) or random (infinite T) initial guess */
 #define RANDOM
@@ -193,7 +192,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   printf("Temperature = " FMT_R " K, Energy = " FMT_R " J/mol\n", (temp2 = temperature(bins[(INT) (0.5 + ROTON_K / BINSTEP)])), energy);
 
-  printf("Entropy = " FMT_R " J / (g K)\n", grid_wf_entropy(gwf, potential_store) * GRID_AUTOJ / (DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0));
+  printf("Entropy = " FMT_R " J / (g K)\n", grid_wf_entropy(gwf, potential_store) * GRID_AUTOJ / (natoms * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0));
 
   /* Rolling averages and std dev */
   rolling_e[rolling_ct] = energy;
