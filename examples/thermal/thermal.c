@@ -111,7 +111,7 @@ REAL rho0, mu0;
 REAL complex tstep, half_tstep;
 FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 
-double rolling_e[ROLLING], rolling_tent[ROLLING], rolling_trot[ROLLING];
+double rolling_e[ROLLING], rolling_tent[ROLLING], rolling_trot[ROLLING], rolling_entropy[ROLLING];
 INT rolling_ct = 0;
 
 REAL *bins = NULL;
@@ -160,7 +160,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   char buf[512];
   FILE *fp;
   static REAL *bins = NULL;
-  REAL energy, ke_tot, pe_tot, ke_qp, ke_cl, natoms, tmp, tmp2, temp, temp2;
+  REAL energy, ke_tot, pe_tot, ke_qp, ke_cl, natoms, tmp, tmp2, temp, temp2, temp3;
   INT i;
 
   if(!bins) {
@@ -192,33 +192,42 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   printf("Temperature = " FMT_R " K, Energy = " FMT_R " J/mol\n", (temp2 = temperature(bins[(INT) (0.5 + ROTON_K / BINSTEP)])), energy);
 
-  printf("Entropy = " FMT_R " J / (g K)\n", grid_wf_entropy(gwf, potential_store) * GRID_AUTOJ / (natoms * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0));
+  printf("Entropy = " FMT_R " J / (g K)\n", (temp3 = grid_wf_entropy(gwf, potential_store) * GRID_AUTOJ / (natoms * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0)));
 
   /* Rolling averages and std dev */
   rolling_e[rolling_ct] = energy;
   rolling_tent[rolling_ct] = temp;
   rolling_trot[rolling_ct] = temp2;
+  rolling_entropy[rolling_ct] = temp3;
   rolling_ct++;
   if(rolling_ct == ROLLING) {
-    REAL re = 0.0, rtent = 0.0, rtrot = 0.0;
-    REAL re_std = 0.0, rtent_std = 0.0, rtrot_std = 0.0;
+    REAL re = 0.0, rtent = 0.0, rtrot = 0.0, rentropy = 0.0;
+    REAL re_std = 0.0, rtent_std = 0.0, rtrot_std = 0.0, rentropy_std = 0.0;
     for (i = 0; i < rolling_ct; i++) {
       re += rolling_e[i];
       rtent += rolling_tent[i];
       rtrot += rolling_trot[i];
+      rentropy += rolling_entropy[i];
     }
     re /= (REAL) rolling_ct;
     rtent /= (REAL) rolling_ct;
     rtrot /= (REAL) rolling_ct;
+    rentropy /= (REAL) rolling_ct;
     for (i = 0; i < rolling_ct; i++) {
       re_std += (rolling_e[i] - re) * (rolling_e[i] - re);
       rtent_std += (rolling_tent[i] - rtent) * (rolling_tent[i] - rtent);
       rtrot_std += (rolling_trot[i] - rtrot) * (rolling_trot[i] - rtrot);
+      rentropy_std += (rolling_entropy[i] - rentropy) * (rolling_entropy[i] - rentropy);
     }
     re_std = SQRT(re_std / (REAL) (rolling_ct - 1));
     rtent_std = SQRT(rtent_std / (REAL) (rolling_ct - 1));
     rtrot_std = SQRT(rtrot_std / (REAL) (rolling_ct - 1));
-    printf("*** Rolling values (H, Tent, Trot): " FMT_R " +- " FMT_R ", " FMT_R " +- " FMT_R ", " FMT_R " +- " FMT_R "\n", re, re_std, rtent, rtent_std, rtrot, rtrot_std);
+    rentropy_std = SQRT(rentropy_std / (REAL) (rolling_ct - 1));
+    printf("*** Rolling values (H, S, Tent, Trot): " FMT_R " +- " FMT_R ", "
+                                                     FMT_R " +- " FMT_R ", "
+                                                     FMT_R " +- " FMT_R ", "
+                                                     FMT_R " +- " FMT_R "\n",
+                  re, re_std, rentropy, rentropy_std, rtent, rtent_std, rtrot, rtrot_std);
     printf("*** Rolling Xi = " FMT_R "\n", TXI / rtrot);
     rolling_ct = 0;
   }
