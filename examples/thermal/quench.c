@@ -150,7 +150,7 @@ REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
 #endif
   tot_gnd = dft_ot_bulk_energy(otf, rho0K) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ)) / n;
 
-  return (tot - tot_gnd) * GRID_AUTOJ * GRID_AVOGADRO; // J / mol
+  return (tot - tot_gnd) * GRID_AUTOJ / (DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0); // J / g
 }
 
 void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
