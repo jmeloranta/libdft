@@ -100,6 +100,9 @@
 /* Temperature search accuracy (K) */
 #define SEARCH_ACC 1E-4
 
+/* Molar mass for 4He */
+#define MMASS 4.0026
+
 /* GPU allocation */
 #ifdef USE_CUDA
 int gpus[MAX_GPU];
@@ -152,7 +155,7 @@ REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
 #endif
   tot_gnd = dft_ot_bulk_energy(otf, rho0K) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ)) / n;
 
-  return (tot - tot_gnd) * GRID_AUTOJ / (DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0); // J / g
+  return (tot - tot_gnd) * GRID_AUTOJ * GRID_AVOGADRO; // J / mol
 }
 
 void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
@@ -176,7 +179,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   energy = get_energy(gwf, otf, rworkspace);
   temp = dft_exp_bulk_enthalpy_inverse(energy, SEARCH_ACC);
-  printf("Thermal energy = " FMT_R " J/mol Tenth = " FMT_R " K ", energy, temp);
+  printf("Internal energy = " FMT_R " J/g Tenth = " FMT_R " K ", energy / MMASS, temp);
 
   grid_wf_average_occupation(gwf, bins, BINSTEP, NBINS, potential_store);
   sprintf(buf, "occ-" FMT_I ".dat", iter);
@@ -190,7 +193,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   printf("Roton  occ = " FMT_R " ", bins[(INT) (0.5 + ROTON_K / BINSTEP)]);
   printf("Ground occ = " FMT_R "\n", bins[0] / natoms);
 
-  printf("Temperature = " FMT_R " K, Energy = " FMT_R " J/mol\n", (temp2 = temperature(bins[(INT) (0.5 + ROTON_K / BINSTEP)])), energy);
+  printf("Temperature = " FMT_R " K, Internal energy = " FMT_R " J/g\n", (temp2 = temperature(bins[(INT) (0.5 + ROTON_K / BINSTEP)])), energy / MMASS);
 
   printf("Entropy = " FMT_R " J / (g K)\n", (temp3 = grid_wf_entropy(gwf, potential_store) * GRID_AUTOJ / (natoms * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0)));
 
@@ -227,7 +230,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
                                                      FMT_R " +- " FMT_R ", "
                                                      FMT_R " +- " FMT_R ", "
                                                      FMT_R " +- " FMT_R "\n",
-                  re, re_std, rentropy, rentropy_std, rtent, rtent_std, rtrot, rtrot_std);
+                  re / MMASS, re_std / MMASS, rentropy, rentropy_std, rtent, rtent_std, rtrot, rtrot_std); // per gram
     printf("*** Rolling Xi = " FMT_R "\n", TXI / rtrot);
     rolling_ct = 0;
   }
