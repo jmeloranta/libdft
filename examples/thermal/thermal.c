@@ -24,7 +24,7 @@
 #define PROPERTIES 0
 
 /* Time step for real and imaginary time */
-#define TS (10.0 / GRID_AUTOFS)
+#define TS (1.0 / GRID_AUTOFS)
 
 /* Real time step after reaching thermal equilibrium */
 #define RTS (TS / 10.0)
@@ -33,10 +33,10 @@
 #define SWITCH 1000000000L
 
 /* Grid */
-#define NX 128
-#define NY 128
-#define NZ 128
-#define STEP 0.5
+#define NX 256
+#define NY 256
+#define NZ 256
+#define STEP 0.25
 
 /* Use dealiasing during real time propagation? (must use WF_XND_ORDER_CFFT propagator) */
 #define DEALIAS_VAL (2.25 * GRID_AUTOANG)
@@ -53,15 +53,15 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Bulk density at T (Angs^-3) */
-#define RHO0 (0.0218360 * (145.2 / 145.2))
+#define RHO0 (0.0218360 * (146.0 / 145.2))
 
 /* Random noise scale */
-#define TXI 2E-1
+#define TXI 3.5E-1
 // TXI = T * XI
 #define SCALE (SQRT(2.0 * TXI * GRID_AUKB * TS / (STEP * STEP * STEP)))
 
 /* Constant (0 K) or random (infinite T) initial guess */
-#define RANDOM
+// #define RANDOM
 
 /* Average roton energy with the bin corresponding to ROTON_K */
 //#define ROTON_E (10.0 / GRID_AUTOK)
@@ -86,7 +86,7 @@
 #define WRITE_GRD 2000L
 
 /* Rolling energy iteration interval (in units of NTH) */
-#define ROLLING 10
+#define ROLLING 50
 
 /* How many CPU cores to use (0 = all available) */
 #define THREADS 0
@@ -163,7 +163,8 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   char buf[512];
   FILE *fp;
   static REAL *bins = NULL;
-  REAL energy, ke_tot, pe_tot, ke_qp, ke_cl, natoms, tmp, tmp2, temp, temp2, temp3;
+  REAL energy, ke_tot, pe_tot, ke_qp, ke_cl, natoms, tmp, tmp2, tmp3, temp, temp2;
+  static REAL prev_int_ct = -1.0, prev_ent_ct = -1.0;
   INT i;
 
   if(!bins) {
@@ -195,13 +196,13 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   printf("Temperature = " FMT_R " K, Internal energy = " FMT_R " J/g\n", (temp2 = temperature(bins[(INT) (0.5 + ROTON_K / BINSTEP)])), energy / MMASS);
 
-  printf("Entropy = " FMT_R " J / (g K)\n", (temp3 = grid_wf_entropy(gwf, potential_store) * GRID_AUTOJ / (natoms * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0)));
+  printf("Entropy = " FMT_R " J / (g K)\n", (tmp3 = grid_wf_entropy(gwf, potential_store) * GRID_AUTOJ / (natoms * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0)));
 
   /* Rolling averages and std dev */
   rolling_e[rolling_ct] = energy;
   rolling_tent[rolling_ct] = temp;
   rolling_trot[rolling_ct] = temp2;
-  rolling_entropy[rolling_ct] = temp3;
+  rolling_entropy[rolling_ct] = tmp3;
   rolling_ct++;
   if(rolling_ct == ROLLING) {
     REAL re = 0.0, rtent = 0.0, rtrot = 0.0, rentropy = 0.0;
@@ -226,12 +227,18 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
     rtent_std = SQRT(rtent_std / (REAL) (rolling_ct - 1));
     rtrot_std = SQRT(rtrot_std / (REAL) (rolling_ct - 1));
     rentropy_std = SQRT(rentropy_std / (REAL) (rolling_ct - 1));
+    re /= MMASS;  // per gram
+    re_std /= MMASS; 
     printf("*** Rolling values (H, S, Tent, Trot): " FMT_R " +- " FMT_R ", "
                                                      FMT_R " +- " FMT_R ", "
                                                      FMT_R " +- " FMT_R ", "
                                                      FMT_R " +- " FMT_R "\n",
-                  re / MMASS, re_std / MMASS, rentropy, rentropy_std, rtent, rtent_std, rtrot, rtrot_std); // per gram
+                  re, re_std, rentropy, rentropy_std, rtent, rtent_std, rtrot, rtrot_std);
     printf("*** Rolling Xi = " FMT_R "\n", TXI / rtrot);
+    if(prev_int_ct != -1.0)
+      printf("*** Rolling T = " FMT_R "\n", (re - prev_int_ct) / (rentropy - prev_ent_ct)); // approx. dU/dS
+    prev_int_ct = re;
+    prev_ent_ct = rentropy;
     rolling_ct = 0;
   }
 
