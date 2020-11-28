@@ -18,13 +18,13 @@
 #include <dft/ot.h>
 
 /* Time integration method */
-#define TIMEINT WF_2ND_ORDER_CFFT
+#define TIMEINT WF_2ND_ORDER_FFT
 
 /* FD(0) or FFT(1) properties */
 #define PROPERTIES 0
 
 /* Time step for real and imaginary time */
-#define TS (1.0 / GRID_AUTOFS)
+#define TS (10.0 / GRID_AUTOFS)
 
 /* Real time step after reaching thermal equilibrium */
 #define RTS (TS / 10.0)
@@ -36,7 +36,7 @@
 #define NX 256
 #define NY 256
 #define NZ 256
-#define STEP 0.25
+#define STEP 0.5
 
 /* Use dealiasing during real time propagation? (must use WF_XND_ORDER_CFFT propagator) */
 #define DEALIAS_VAL (2.25 * GRID_AUTOANG)
@@ -53,10 +53,10 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Bulk density at T (Angs^-3) */
-#define RHO0 (0.0218360 * (146.0 / 145.2))
+#define RHO0 (0.0218360 * (145.2 / 145.2))
 
 /* Random noise scale */
-#define TXI 3.5E-1
+#define TXI 0.025
 // TXI = T * XI
 #define SCALE (SQRT(2.0 * TXI * GRID_AUKB * TS / (STEP * STEP * STEP)))
 
@@ -86,7 +86,7 @@
 #define WRITE_GRD 2000L
 
 /* Rolling energy iteration interval (in units of NTH) */
-#define ROLLING 50
+#define ROLLING 400
 
 /* How many CPU cores to use (0 = all available) */
 #define THREADS 0
