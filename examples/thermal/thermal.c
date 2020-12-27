@@ -27,36 +27,41 @@
 #define TS (10.0 / GRID_AUTOFS)
 
 /* Real time step after reaching thermal equilibrium */
-#define RTS (TS / 10.0)
+#define RTS (TS / 100.0)
 
 /* Iteration when to switch to real time propagation */
-#define SWITCH 1000000000L
+#define SWITCH 20000000L
 
 /* Grid */
-#define NX 256
-#define NY 256
-#define NZ 256
-#define STEP 0.5
+#define NX 128
+#define NY 128
+#define NZ 128
+#define STEP 0.25
+
+/* UV cutoff for random noise (in Fourier space) */
+#define UV_CUTOFF (2.25 * GRID_AUTOANG)
 
 /* Use dealiasing during real time propagation? (must use WF_XND_ORDER_CFFT propagator) */
-#define DEALIAS_VAL (2.25 * GRID_AUTOANG)
+#define DEALIAS_VAL (2.4 * GRID_AUTOANG)
 
 /* Functional to use */
 #define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
 //#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
 //#define FUNCTIONAL (DFT_OT_PLAIN)
+//#define FUNCTIONAL DFT_GP2
 
-/* Fix mu0 or adjust dynamically? */
+/* Fix mu0 or adjust dynamically? (if yes then MU0STEP = adjustment penalty amplitude) */
 #define FIXMU0 /**/
+#define MU0STEP 1.0E-8
 
 /* Pressure */
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Bulk density at T (Angs^-3) */
-#define RHO0 (0.0218360 * (145.2 / 145.2))
+#define RHO0 (0.0218360 * (145.5 / 145.2))
 
 /* Random noise scale */
-#define TXI 0.025
+#define TXI 1.5
 // TXI = T * XI
 #define SCALE (SQRT(2.0 * TXI * GRID_AUKB * TS / (STEP * STEP * STEP)))
 
@@ -110,7 +115,7 @@ int ngpus;
 #endif
 
 dft_ot_functional *otf;
-REAL rho0, mu0;
+REAL rho0, mu0, P0, S0;
 REAL complex tstep, half_tstep;
 FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 
@@ -164,7 +169,6 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   FILE *fp;
   static REAL *bins = NULL;
   REAL energy, ke_tot, pe_tot, ke_qp, ke_cl, natoms, tmp, tmp2, tmp3, temp, temp2;
-  static REAL prev_int_ct = -1.0, prev_ent_ct = -1.0;
   INT i;
 
   if(!bins) {
@@ -196,7 +200,7 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   printf("Temperature = " FMT_R " K, Internal energy = " FMT_R " J/g\n", (temp2 = temperature(bins[(INT) (0.5 + ROTON_K / BINSTEP)])), energy / MMASS);
 
-  printf("Entropy = " FMT_R " J / (g K)\n", (tmp3 = grid_wf_entropy(gwf, potential_store) * GRID_AUTOJ / (natoms * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0)));
+  printf("Entropy = " FMT_R " J / (g K)\n", (tmp3 = (grid_wf_entropy(gwf, potential_store) - S0) * GRID_AUTOJ / (natoms * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0)));
 
   /* Rolling averages and std dev */
   rolling_e[rolling_ct] = energy;
@@ -229,16 +233,12 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
     rentropy_std = SQRT(rentropy_std / (REAL) (rolling_ct - 1));
     re /= MMASS;  // per gram
     re_std /= MMASS; 
-    printf("*** Rolling values (H, S, Tent, Trot): " FMT_R " +- " FMT_R ", "
+    printf("*** Rolling values (U, S, Tent, Trot): " FMT_R " +- " FMT_R ", "
                                                      FMT_R " +- " FMT_R ", "
                                                      FMT_R " +- " FMT_R ", "
                                                      FMT_R " +- " FMT_R "\n",
                   re, re_std, rentropy, rentropy_std, rtent, rtent_std, rtrot, rtrot_std);
     printf("*** Rolling Xi = " FMT_R "\n", TXI / rtrot);
-    if(prev_int_ct != -1.0)
-      printf("*** Rolling T = " FMT_R "\n", (re - prev_int_ct) / (rentropy - prev_ent_ct)); // approx. dU/dS
-    prev_int_ct = re;
-    prev_ent_ct = rentropy;
     rolling_ct = 0;
   }
 
@@ -327,7 +327,6 @@ int main(int argc, char **argv) {
   wf *gwf;
   INT iter, i, kala = 0;
   grid_timer timer;
-  REAL cons;
 
   printf("Gamma equivalent = " FMT_R "\n", SQRT(2.0 * TXI * GRID_AUKB));
 
@@ -371,7 +370,7 @@ int main(int argc, char **argv) {
   // Backflow limits
 //  otf->max_bfpot = 10.0 / GRID_AUTOK; // was 0.5
   rho0 = RHO0 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG;
-  mu0 = (-28.0 / GRID_AUTOK);
+  mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
   gwf->norm = rho0 * (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
 
   printf("Bulk mu0 = " FMT_R " K/atom, Bulk rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
@@ -386,9 +385,10 @@ int main(int argc, char **argv) {
   printf("Fourier space range +-: " FMT_R " Angs^-1 with step " FMT_R " Angs^-1.\n", 2.0 * M_PI / (STEP * GRID_AUTOANG), 2.0 * M_PI / (STEP * GRID_AUTOANG * (REAL) NX));
 
   /* 2. Start with ground state or random */
-#ifndef RANDOM
   cgrid_constant(gwf->grid, SQRT(rho0));
-#else
+  P0 = GRID_AUTOPA * dft_ot_pressure(otf, rworkspace, gwf, 0.0);
+  S0 = grid_wf_entropy(gwf, potential_store); // residual (or finite grid) entropy
+#ifdef RANDOM
   initial_guess(gwf->grid);
   cgrid_inverse_fft(gwf->grid);
   grid_wf_normalize(gwf);
@@ -398,7 +398,6 @@ int main(int argc, char **argv) {
   gwf->kmax = DEALIAS_VAL;
   tstep = -I * TS;
   half_tstep = 0.5 * tstep;
-  cons = -(HBAR * HBAR / (2.0 * gwf->mass));
   grid_timer_start(&timer);
 
   for (iter = 0; iter < RITER; iter++) {
@@ -427,14 +426,14 @@ int main(int argc, char **argv) {
     /* Potential delta t */
     cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
-    grid_wf_propagate_potential(gwf, tstep, potential_store, cons);
+    grid_wf_propagate_potential(gwf, tstep, potential_store, 0.0); // no moving bkg (0.0)
 
     if(!kala) {
       /* Random term x delta t (add here to improve the accuracy) */
       cgrid_zero(potential_store);
-      cgrid_random_normal(potential_store, SCALE * (1.0 + I) / 2.0);  // both components have one -> / 2
+      cgrid_random_normal(potential_store, SCALE * (1.0 + I) / 2.0);  // both components have one -> / 2 
       cgrid_fft(potential_store); // Filter high wavenumber components out
-      cgrid_dealias2(potential_store, DEALIAS_VAL);
+      cgrid_dealias2(potential_store, UV_CUTOFF);
       cgrid_inverse_fft_norm(potential_store);
       cgrid_sum(gwf->grid, gwf->grid, potential_store);
     }
@@ -450,7 +449,7 @@ int main(int argc, char **argv) {
 #else
     if(!kala) {
       REAL nor = grid_wf_norm(gwf);
-      mu0 += -(1.0E-8 / GRID_AUTOK) * (nor - gwf->norm) * TS;
+      mu0 += -(MU0STEP / GRID_AUTOK) * (nor - gwf->norm) * TS;
       rho0 = nor / (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
     }
 #endif 
@@ -469,7 +468,6 @@ int main(int argc, char **argv) {
       cgrid_write_grid(buf, gwf->grid);
     }
 #endif
-
   }
 
   return 0;

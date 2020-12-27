@@ -108,6 +108,8 @@ EXPORT void dft_ot_energy_density(dft_ot_functional *otf, rgrid *energy_density,
   if(otf->model & DFT_OT_BACKFLOW) dft_ot_energy_density_bf(otf, energy_density, wf, density);
 }
 
+/* TODO: add calculation of pressure using P = dU/dV (analytic) */
+
 /*
  * @FUNC{dft_ot_energy_density_kc, "Orsay-Trento (helium): Evaluate non-local (KC) energy density"}
  * @DESC{"Evaluate non-local (KC) energy density. This is usually not called directly"}
