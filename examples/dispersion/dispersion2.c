@@ -18,7 +18,7 @@
 #define NX 128
 #define NY 128
 #define NZ 128
-#define STEP 0.5 /* Bohr */
+#define STEP 0.25 /* Bohr */
 #define TS 10.0 /* fs */
 #define AMP 1e-3 /* wave amplitude (of total rho0) */
 #define PRED 0

@@ -24,7 +24,7 @@
 #define PROPERTIES 0
 
 /* Time step for real and imaginary time */
-#define TS (10.0 / GRID_AUTOFS)
+#define TS (0.01 / GRID_AUTOFS)
 
 /* Real time step after reaching thermal equilibrium */
 #define RTS (TS / 100.0)
@@ -61,7 +61,7 @@
 #define RHO0 (0.0218360 * (145.5 / 145.2))
 
 /* Random noise scale */
-#define TXI 1.5
+#define TXI 0.5
 // TXI = T * XI
 #define SCALE (SQRT(2.0 * TXI * GRID_AUKB * TS / (STEP * STEP * STEP)))
 
@@ -115,7 +115,7 @@ int ngpus;
 #endif
 
 dft_ot_functional *otf;
-REAL rho0, mu0, P0, S0;
+REAL rho0, mu0, S0;
 REAL complex tstep, half_tstep;
 FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 
@@ -369,6 +369,7 @@ int main(int argc, char **argv) {
 
   // Backflow limits
 //  otf->max_bfpot = 10.0 / GRID_AUTOK; // was 0.5
+
   rho0 = RHO0 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG;
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
   gwf->norm = rho0 * (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
@@ -386,7 +387,6 @@ int main(int argc, char **argv) {
 
   /* 2. Start with ground state or random */
   cgrid_constant(gwf->grid, SQRT(rho0));
-  P0 = GRID_AUTOPA * dft_ot_pressure(otf, rworkspace, gwf, 0.0);
   S0 = grid_wf_entropy(gwf, potential_store); // residual (or finite grid) entropy
 #ifdef RANDOM
   initial_guess(gwf->grid);
