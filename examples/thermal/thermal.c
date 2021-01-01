@@ -17,6 +17,9 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
+/* Stochastic Langevin or stochastic potential ? */
+#define LANGEVIN
+
 /* Time integration method */
 #define TIMEINT WF_2ND_ORDER_FFT
 
@@ -24,13 +27,13 @@
 #define PROPERTIES 0
 
 /* Time step for real and imaginary time */
-#define TS (0.01 / GRID_AUTOFS)
+#define TS (0.001 / GRID_AUTOFS)
 
 /* Real time step after reaching thermal equilibrium */
-#define RTS (TS / 100.0)
+#define RTS (TS / 10.0)
 
 /* Iteration when to switch to real time propagation */
-#define SWITCH 20000000L
+#define SWITCH 2000000L
 
 /* Grid */
 #define NX 128
@@ -39,10 +42,10 @@
 #define STEP 0.25
 
 /* UV cutoff for random noise (in Fourier space) */
-#define UV_CUTOFF (2.25 * GRID_AUTOANG)
+#define UV_CUTOFF (2.25 * GRID_AUTOANG)  // 2.25
 
 /* Use dealiasing during real time propagation? (must use WF_XND_ORDER_CFFT propagator) */
-#define DEALIAS_VAL (2.4 * GRID_AUTOANG)
+#define DEALIAS_VAL (2.4 * GRID_AUTOANG) // 2.4
 
 /* Functional to use */
 #define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD)
@@ -58,7 +61,7 @@
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
 /* Bulk density at T (Angs^-3) */
-#define RHO0 (0.0218360 * (145.5 / 145.2))
+#define RHO0 (0.0218360 * (145.4 / 145.2))
 
 /* Random noise scale */
 #define TXI 0.5
@@ -88,7 +91,7 @@
 #define NTH 100L
 
 /* Write grid files? */
-#define WRITE_GRD 2000L
+// #define WRITE_GRD 2000L
 
 /* Rolling energy iteration interval (in units of NTH) */
 #define ROLLING 400
@@ -115,7 +118,7 @@ int ngpus;
 #endif
 
 dft_ot_functional *otf;
-REAL rho0, mu0, S0;
+REAL rho0, mu0, S0, E0;
 REAL complex tstep, half_tstep;
 FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 
@@ -149,7 +152,7 @@ void initial_guess(cgrid *grid) {
 
 REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
 
-  REAL tot, tot_gnd, n, rho0K = 0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG;
+  REAL tot, n;
 
   n = grid_wf_norm(gwf);
   dft_ot_energy_density(otf, rworkspace, gwf);
@@ -158,9 +161,8 @@ REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
 #else
   tot = (grid_wf_energy_fft(gwf, NULL) + rgrid_integral(rworkspace)) / n;
 #endif
-  tot_gnd = dft_ot_bulk_energy(otf, rho0K) * (STEP * STEP * STEP * (REAL) (NX * NY * NZ)) / n;
 
-  return (tot - tot_gnd) * GRID_AUTOJ * GRID_AVOGADRO; // J / mol
+  return tot * GRID_AUTOJ * GRID_AVOGADRO - E0; // J / mol
 }
 
 void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
@@ -325,7 +327,8 @@ int main(int argc, char **argv) {
   cgrid *potential_store;
   rgrid *rworkspace;
   wf *gwf;
-  INT iter, i, kala = 0;
+  INT iter, kala = 0;
+  REAL n;
   grid_timer timer;
 
   printf("Gamma equivalent = " FMT_R "\n", SQRT(2.0 * TXI * GRID_AUKB));
@@ -336,6 +339,7 @@ int main(int argc, char **argv) {
   }
 
 #ifdef USE_CUDA
+  INT i;
   ngpus = argc-1;
   for(i = 0; i < ngpus; i++) 
     gpus[i] = atoi(argv[i+1]);
@@ -388,6 +392,15 @@ int main(int argc, char **argv) {
   /* 2. Start with ground state or random */
   cgrid_constant(gwf->grid, SQRT(rho0));
   S0 = grid_wf_entropy(gwf, potential_store); // residual (or finite grid) entropy
+  /* Uniform bulk energy */
+  n = grid_wf_norm(gwf);
+  dft_ot_energy_density(otf, rworkspace, gwf);
+#if PROPERTIES == 0
+  E0 = GRID_AUTOJ * GRID_AVOGADRO * (grid_wf_energy_cn(gwf, NULL) + rgrid_integral(rworkspace)) / n;
+#else
+  E0 = GRID_AUTOJ * GRID_AVOGADRO * (grid_wf_energy_fft(gwf, NULL) + rgrid_integral(rworkspace)) / n;
+#endif
+
 #ifdef RANDOM
   initial_guess(gwf->grid);
   cgrid_inverse_fft(gwf->grid);
@@ -426,17 +439,26 @@ int main(int argc, char **argv) {
     /* Potential delta t */
     cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
+#ifndef LANGEVIN
+    cgrid_random_normal(potential_store, SCALE);
+    cgrid_fft(potential_store); // Filter high wavenumber components out
+    cgrid_dealias2(potential_store, UV_CUTOFF);
+    cgrid_inverse_fft_norm(potential_store);
+#endif
     grid_wf_propagate_potential(gwf, tstep, potential_store, 0.0); // no moving bkg (0.0)
 
+#ifdef LANGEVIN
     if(!kala) {
       /* Random term x delta t (add here to improve the accuracy) */
       cgrid_zero(potential_store);
       cgrid_random_normal(potential_store, SCALE * (1.0 + I) / 2.0);  // both components have one -> / 2 
+//      cgrid_random_normal_sp(potential_store, SCALE);  // evenly distribute uniformly along the complex angle
       cgrid_fft(potential_store); // Filter high wavenumber components out
       cgrid_dealias2(potential_store, UV_CUTOFF);
       cgrid_inverse_fft_norm(potential_store);
       cgrid_sum(gwf->grid, gwf->grid, potential_store);
     }
+#endif
 
     /* Kinetic delta t/2 */
     cgrid_fft(gwf->grid);
@@ -454,7 +476,7 @@ int main(int argc, char **argv) {
     }
 #endif 
 
-    /* Dealias if real time propagation */
+    /* Dealias if real time propagation then dealias */
     if(kala) {
       cgrid_fft(gwf->grid); // Filter high wavenumber components out
       cgrid_dealias2(gwf->grid, DEALIAS_VAL);
