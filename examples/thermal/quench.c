@@ -431,7 +431,7 @@ int main(int argc, char **argv) {
     /* Dealias if real time propagation */
     if(kala) {
       cgrid_fft(gwf->grid); // Filter high wavenumber components out
-      cgrid_dealias2(gwf->grid, DEALIAS_VAL);
+      cgrid_dealias2(gwf->grid, 0.0, DEALIAS_VAL);
       cgrid_inverse_fft_norm(gwf->grid);
     }
 

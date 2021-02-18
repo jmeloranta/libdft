@@ -173,7 +173,7 @@ EXPORT REAL dft_ot_bulk_dPdRho(dft_ot_functional *otf, REAL rho) {
 
 /*
  * @FUNC{dft_ot_bulk_density_pressurized, "Equilibrium density of pressurized uniform bulk superfluid helium"}
- * @DESC{"Calculate equilibri;5Cum density for pressurized uniform bulk superfluid helium.
+ * @DESC{"Calculate equilibrium density for pressurized uniform bulk superfluid helium.
           The density is obtained by solving:
           $$P = dE/d\rho(\rho_0)*\rho_0 - bulk_energy(\rho_0)$$"}
  * @ARG1{dft_ot_functional *otf, "OT functional structure"}

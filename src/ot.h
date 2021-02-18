@@ -118,7 +118,8 @@ typedef struct dft_ot_functional_struct {   /* All values in atomic units */
   REAL rhobf;               /* High density correction parameter for backflow \rho_{bf} */
   REAL div_epsilon;         /* Epsilon to use when dividing by density (affects, e.g., backflow) */
   REAL max_veloc;           /* Maximum velocity value allowed for BF */
-  REAL max_bfpot;             /* Maximum allowed potential value for BF */
+  REAL max_bfpot;           /* Maximum allowed potential value for BF */
+  REAL c_bfpot;             /* Backflow potential weight (1 = normal OT) */
   rgrid *workspace1;        /* Workspace 1 (these may be NULL if not allocated) */
   rgrid *workspace2;        /* Workspace 2 */
   rgrid *workspace3;        /* Workspace 3 */

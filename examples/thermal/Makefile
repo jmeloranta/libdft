@@ -4,7 +4,13 @@ else
   include /usr/include/dft/make.conf
 endif
 
-all: thermal quench
+all: thermal quench two-fluid
+
+two-fluid: two-fluid.o
+	$(CC) $(CFLAGS) -o two-fluid two-fluid.o $(LDFLAGS)
+
+two-fluid.o: two-fluid.c
+	$(CC) $(CFLAGS) -c two-fluid.c
 
 thermal: thermal.o
 	$(CC) $(CFLAGS) -o thermal thermal.o $(LDFLAGS)

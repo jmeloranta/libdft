@@ -408,6 +408,108 @@ EXPORT void dft_ot_potential(dft_ot_functional *otf, cgrid *potential, wf *wf) {
 }
 
 /*
+ * @FUNC{dft_ot_potential2, "Calculate non-linear Orsay-Trento potential (helium) with density and velocity input"}
+ * @DESC{"Calculate the non-linear OT potential grid for superfluid helium"}
+ * @ARG1{dft_ot_functional *otf, "OT functional structure"}
+ * @ARG2{cgrid *potential, "Potential grid where the result will be stored. Note that the potential will be added to this (may want to zero it first)"}
+ * @ARG3{rgrid *density, "Liquid density"}
+ * @ARG4{rgrid *veloc_x, "Velocity field x component"}
+ * @ARG5{rgrid *veloc_y, "Velocity field y component"}
+ * @ARG6{rgrid *veloc_z, "Velocity field z component"}
+ * @RVAL{void, "No return value"}
+ *
+ * Grid usage in otf structure:
+ * workspace1 = Workspace grid. GP access up to this point.
+ * workspace2 = Workspace grid.
+ * workspace3 = Workspace grid. Basic OT access up to this point.
+ * workspace4 = Workspace grid.
+ * workspace5 = Workspace grid.
+ * workspace6 = Workspace grid. BF & KC access up to this point.
+ *
+ */
+
+EXPORT void dft_ot_potential2(dft_ot_functional *otf, cgrid *potential, rgrid *density, rgrid *veloc_x, rgrid *veloc_y, rgrid *veloc_z) {
+
+  rgrid *workspace1, *workspace2, *workspace3, *workspace4, *workspace5, *workspace6;
+
+  workspace1 = otf->workspace1;
+  workspace2 = otf->workspace2;
+  workspace3 = otf->workspace3;
+  workspace4 = otf->workspace4;
+  workspace5 = otf->workspace5;
+  workspace6 = otf->workspace6;
+
+  if(otf->model & DFT_ZERO) {
+    fprintf(stderr, "libdft: Warning - zero potential used.\n");
+    cgrid_zero(potential);
+    return;
+  }
+
+  if((otf->model & DFT_GP) || (otf->model & DFT_GP2)) {
+    rgrid_claim(workspace1);
+    rgrid_copy(workspace1, density);
+    rgrid_multiply(workspace1, otf->mu0 / otf->rho0); // positive value
+    grid_add_real_to_complex_re(potential, workspace1);
+    rgrid_release(workspace1);
+    return;
+  }
+
+  /* Lennard-Jones */  
+  /* int rho(r') Vlj(r-r') dr' */
+  /* workspace1 = FFT of density */
+  rgrid_claim(workspace1);
+  rgrid_claim(workspace2);
+  dft_ot_add_lennard_jones_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2);
+  rgrid_release(workspace2);
+
+  /* Non-linear local correlation */
+  /* note workspace1 = fft of \rho */
+  rgrid_claim(workspace2);
+  rgrid_claim(workspace3);
+  dft_ot_add_local_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3);
+  rgrid_release(workspace2);
+  rgrid_release(workspace3);
+
+  /* Non-local correlation for kinetic energy (workspace1 = FFT(rho)) */
+  if(otf->model & DFT_OT_KC) {
+    rgrid_claim(workspace2); rgrid_claim(workspace3); rgrid_claim(workspace4);
+    rgrid_claim(workspace5); rgrid_claim(workspace6);
+    dft_ot_add_nonlocal_correlation_potential(otf, potential, density, workspace1 /* rho_tf */, workspace2, workspace3, workspace4, workspace5, workspace6);
+    rgrid_release(workspace2); rgrid_release(workspace3); rgrid_release(workspace4);
+    rgrid_release(workspace5); rgrid_release(workspace6);
+  }
+  /* workspace1(rho_tf) no longer needed */
+  rgrid_release(workspace1);
+
+  /* Barranco's penalty term */
+  if((otf->model & DFT_OT_HD) || (otf->model & DFT_OT_HD2)) {
+    rgrid_claim(workspace1);
+    dft_ot_add_barranco(otf, potential, density, workspace1);
+    rgrid_release(workspace1);
+  }
+
+  if(otf->model & DFT_OT_BACKFLOW) {
+    rgrid_claim(workspace1); rgrid_claim(workspace2); rgrid_claim(workspace3);
+    rgrid_claim(workspace4); rgrid_claim(workspace5); rgrid_claim(workspace6);
+    if(otf->max_veloc < (999.0 / GRID_AUTOMPS)) {
+      rgrid_threshold_clear(veloc_x, veloc_x, otf->max_veloc, -otf->max_veloc, otf->max_veloc, -otf->max_veloc);
+      rgrid_threshold_clear(veloc_y, veloc_y, otf->max_veloc, -otf->max_veloc, otf->max_veloc, -otf->max_veloc);
+      rgrid_threshold_clear(veloc_z, veloc_z, otf->max_veloc, -otf->max_veloc, otf->max_veloc, -otf->max_veloc);
+    }
+    dft_ot_backflow_potential(otf, potential, density, veloc_x, veloc_y, veloc_z, workspace1, workspace2, workspace3, workspace4, workspace5, workspace6);
+    rgrid_release(workspace1); rgrid_release(workspace2); rgrid_release(workspace3);
+    rgrid_release(workspace4); rgrid_release(workspace5); rgrid_release(workspace6);
+  }
+
+  if(otf->model >= DFT_OT_T400MK && !(otf->model & DFT_DR)) {
+    /* include the ideal gas contribution */
+    rgrid_claim(workspace1);
+    dft_ot_add_ancilotto(otf, potential, density, workspace1);
+    rgrid_release(workspace1);
+  }
+}
+
+/*
  * @FUNC{dft_ot_add_lennard_jones_potential, "Orsay-Trento (helium): Add Lennard-Jones potential"}
  * @DESC{"OT Lennard-Jones potential function. Usually not called directly"}
  * @ARG1{dft_ot_functional *otf, "OT functional"}
@@ -808,6 +910,8 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
 
   if(otf->max_bfpot < 10000.0 / GRID_AUTOK)
     rgrid_threshold_clear(workspace6, workspace6, otf->max_bfpot, -otf->max_bfpot, otf->max_bfpot, -otf->max_bfpot);
+
+  if(otf->c_bfpot != 1.0) rgrid_multiply(workspace6, otf->c_bfpot);
   grid_add_real_to_complex_re(potential, workspace6);
 
   /* workspace2 (C) */
@@ -880,6 +984,9 @@ EXPORT void dft_ot_backflow_potential(dft_ot_functional *otf, cgrid *potential, 
 
   if(otf->max_bfpot < 10000.0 / GRID_AUTOK)
     rgrid_threshold_clear(workspace6, workspace6, otf->max_bfpot, -otf->max_bfpot, otf->max_bfpot, -otf->max_bfpot);
+
+  if(otf->c_bfpot != 1.0) rgrid_multiply(workspace6, otf->c_bfpot);
+
   grid_add_real_to_complex_im(potential, workspace6);
 }
 
@@ -1160,4 +1267,5 @@ EXPORT inline void dft_ot_init_params(dft_ot_functional *otf, INT model) {
   otf->div_epsilon = DFT_EPS;
   otf->max_veloc = (999.0 / GRID_AUTOMPS); // Default to no limit
   otf->max_bfpot = 10000.0 / GRID_AUTOK;  // Default to no limit
+  otf->c_bfpot = 1.0; // backflow weight
 }

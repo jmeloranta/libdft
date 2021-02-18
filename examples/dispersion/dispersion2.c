@@ -15,16 +15,18 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define NX 128
-#define NY 128
-#define NZ 128
+#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC)
+//#define FUNCTIONAL (DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW)
+#define NX 256
+#define NY 256
+#define NZ 256
 #define STEP 0.25 /* Bohr */
-#define TS 10.0 /* fs */
+#define TS 5.0 /* fs */
 #define AMP 1e-3 /* wave amplitude (of total rho0) */
 #define PRED 0
 #define DIRECTION 2     /* Plane wave direction: X = 0, Y = 1, Z = 2 */
 
-#define PRESSURE 0.0
+#define PRESSURE (0.0 / GRID_AUTOPA)
 
 #define THREADS 0
 
@@ -35,7 +37,7 @@
 int main(int argc, char **argv) {
 
   dft_ot_functional *otf;
-  REAL k, kk, e, rho0, mu0;
+  REAL k, kk, e, mu0;
   wf *gwf;
   
   /* parameters */
@@ -62,19 +64,21 @@ int gpus[] = {0};
   }
 
   /* Allocate OT functional */
-  if(!(otf = dft_ot_alloc(DFT_OT_PLAIN | DFT_OT_KC | DFT_OT_BACKFLOW | DFT_OT_HD, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
+  if(!(otf = dft_ot_alloc(FUNCTIONAL, gwf, DFT_MIN_SUBSTEPS, DFT_MAX_SUBSTEPS))) {
     fprintf(stderr, "Cannot allocate otf.\n");
     exit(1);
   }
 
-  // Backflow limits
-//  otf->max_bfpot = 0.3 / GRID_AUTOK;
-
-  rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
+  // Backflow limit
+//  otf->max_bfpot = 1.4 / GRID_AUTOK;
+  // Increase backflow to reduce roton gap
+//  otf->c_bfpot = 1.0;
+  if(otf->c_bfpot != 1.0) fprintf(stderr, "WARNING: Backflow coefficient not one!\n");
+  otf->rho0 = dft_ot_bulk_density_pressurized(otf, PRESSURE);
   mu0 = dft_ot_bulk_chempot_pressurized(otf, PRESSURE);
-  fprintf(stderr, "mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
+  fprintf(stderr, "mu0 = " FMT_R " K/atom, rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, otf->rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
 
-  fprintf(stderr, "Applied P = " FMT_R " MPa.\n", dft_ot_bulk_pressure(otf, rho0) * GRID_AUTOPA / 1E6);
+  fprintf(stderr, "Applied P = " FMT_R " MPa.\n", PRESSURE * GRID_AUTOPA / 1E6);
 
   printf("# Dispersion relation for functional " FMT_I ".\n", otf->model);
   printf("0 0\n");
