@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* Read pair potential from file and do FFT */
-  dft_common_potential_map(4, "../electron/jortner.dat", "../electron/jortner.dat", "../electron/jortner.dat", pair_pot);
+  dft_common_potential_map(4, "../electron/jortner.dat", "../electron/jortner.dat", "../electron/jortner.dat", pair_pot, 0.0, 0.0, 0.0, 0.0, 0.0);
   rgrid_fft(pair_pot);
 
   for(iter = 0; iter < MAXITER; iter++) { /* start from 1 to avoid automatic wf initialization to a constant value */

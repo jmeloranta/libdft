@@ -17,9 +17,6 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-/* Stochastic Langevin or stochastic potential ? */
-#define LANGEVIN
-
 /* FD(0) or FFT(1) properties */
 #define PROPERTIES 0
 
@@ -33,10 +30,18 @@
 #define SWITCH 50000000L
 
 /* Grid */
-#define NX 128
-#define NY 128
-#define NZ 128
+#define NX 256
+#define NY 256
+#define NZ 256
 #define STEP 0.25
+
+/* Moving background velocity (vz) */
+// #define INIVZ (25.0 / GRID_AUTOMPS)
+// #define INIVY (0.0 / GRID_AUTOMPS)
+// #define INIVX (0.0 / GRID_AUTOMPS)
+
+/* Normalization: bulk (not defined), droplet (size of NDROPLET) */
+// #define NDROPLET 64
 
 /* UV cutoff for random noise (in Fourier space) */
 #define UV_CUTOFF (2.25 * GRID_AUTOANG)  // 2.25
@@ -55,11 +60,11 @@
 #define MU0STEP 1.0E-10 // 1E-8
 
 /* Bulk density at 0 K and zero pressure (Angs^-3) */
-#define RHO0 ((145.9 / 145.2) * 0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
+#define RHO0 ((145.2 / 145.2) * 0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
 
 /* Random noise scale */
 // TXI = T * XI
-#define TXI 0.15
+#define TXI 1.0
 
 /* Constant (0 K) or random (infinite T) initial guess */
 // #define RANDOM
@@ -72,6 +77,9 @@
 //#define ROTON_E (9.2 / GRID_AUTOK)
 //#define ROTON_K (1.115 * GRID_AUTOANG)
 
+/* Boltzmann constant in SI units */
+#define KB 1.380649E-23
+
 /* E(k) */
 #define NBINS 512
 #define BINSTEP (2.0 * M_PI / (NX * STEP))   // Assumes NX = NY = NZ
@@ -81,13 +89,13 @@
 #define RITER 200000000L
 
 /* Output every NTH iteration - 100 */
-#define NTH 1000L
+#define NTH 100L
 
 /* Write grid files? */
-#define WRITE_GRD 1000L
+//#define WRITE_GRD 1000L
 
 /* Rolling energy iteration interval (in units of NTH) - 400 */
-#define ROLLING 400
+#define ROLLING 100
 
 /* How many CPU cores to use (0 = all available) */
 #define THREADS 0
@@ -113,10 +121,27 @@ REAL complex tstep, half_tstep;
 REAL scale;
 FILE *fpm = NULL, *fpp = NULL, *fp1 = NULL, *fp2 = NULL;
 
-double rolling_e[ROLLING], rolling_tent[ROLLING], rolling_trot[ROLLING], rolling_entropy[ROLLING], rolling_gocc[ROLLING];
+REAL rolling_e[ROLLING], rolling_tent[ROLLING], rolling_trot[ROLLING], rolling_entropy[ROLLING], rolling_gocc[ROLLING];
+REAL rolling_m[ROLLING];
 INT rolling_ct = 0;
+REAL *bins = NULL, vz, kz;
 
-REAL *bins = NULL;
+REAL round_veloc(REAL veloc) {   // Round to fit the simulation box
+
+  INT n;
+  REAL v;
+
+  n = (INT) (0.5 + (NZ * STEP * DFT_HELIUM_MASS * veloc) / (HBAR * 2.0 * M_PI));
+  v = ((REAL) n) * 2.0 * HBAR * M_PI / (NZ * STEP * DFT_HELIUM_MASS);
+  printf("Requested velocity = %le m/s.\n", veloc * GRID_AUTOMPS);
+  printf("Nearest velocity compatible with PBC = %le m/s.\n", v * GRID_AUTOMPS);
+  return v;
+}
+
+REAL momentum(REAL vz) {
+
+  return DFT_HELIUM_MASS * vz / HBAR;
+}
 
 void set_scale(REAL txi) {
 
@@ -155,10 +180,17 @@ REAL get_energy(wf *gwf, dft_ot_functional *otf, rgrid *rworkspace) {
 #if PROPERTIES == 0
   tot = GRID_AUTOJ * (grid_wf_energy_cn(gwf, NULL) + rgrid_integral(rworkspace)) / (n * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0);
 #else
-  tot = GRID_AUTOJ * (grid_wf_energy_fft(gwf, NULL) + rgrid_integral(rworkspace)) / (n * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0)
+  tot = GRID_AUTOJ * (grid_wf_energy_fft(gwf, NULL) + rgrid_integral(rworkspace)) / (n * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0);
 #endif
 
-  return tot - E0; // J / mol
+  return tot - E0; // J / g
+}
+
+REAL get_m(wf *gwf) {
+
+  REAL step = gwf->grid->step;
+
+  return CABS(cgrid_integral(gwf->grid) / (step * step * step * step * step * step * NX * NY * NZ));
 }
 
 void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_store, rgrid *rworkspace) {
@@ -205,22 +237,25 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
 
   /* Rolling averages and std dev */
   rolling_e[rolling_ct] = energy;
+  rolling_m[rolling_ct] = get_m(gwf);
   rolling_tent[rolling_ct] = temp;
   rolling_trot[rolling_ct] = temp2;
   rolling_entropy[rolling_ct] = tmp3;
   rolling_gocc[rolling_ct] = tmp4;
   rolling_ct++;
   if(rolling_ct == ROLLING) {
-    REAL re = 0.0, rtent = 0.0, rtrot = 0.0, rentropy = 0.0, gocc = 0.0;
+    REAL re = 0.0, rm = 0.0, rtent = 0.0, rtrot = 0.0, rentropy = 0.0, gocc = 0.0;
     REAL re_std = 0.0, rtent_std = 0.0, rtrot_std = 0.0, rentropy_std = 0.0, gocc_std = 0.0;
     for (i = 0; i < rolling_ct; i++) {
       re += rolling_e[i];
+      rm += rolling_m[i];
       rtent += rolling_tent[i];
       rtrot += rolling_trot[i];
       rentropy += rolling_entropy[i];
       gocc += rolling_gocc[i];
     }
     re /= (REAL) rolling_ct;
+    rm /= (REAL) rolling_ct;
     rtent /= (REAL) rolling_ct;
     rtrot /= (REAL) rolling_ct;
     rentropy /= (REAL) rolling_ct;
@@ -244,6 +279,9 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
                   re, re_std, rentropy, rentropy_std, rtent, rtent_std, rtrot, rtrot_std);
     printf("*** Rolling Ground occ = " FMT_R "+-" FMT_R "\n", gocc, gocc_std);
     printf("*** Rolling Xi = " FMT_R "\n", TXI / rtrot);    
+    printf("*** Rolling Heat capacity = " FMT_R " J/(g K).\n",
+           re_std * re_std * (natoms * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0) / (rtrot * rtrot * KB));
+    printf("*** Rolling m = " FMT_R "\n", rm);
     rolling_ct = 0;
   }
 
@@ -323,6 +361,12 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
   printf("Helium potential E  = " FMT_R " K\n", pe_tot * GRID_AUTOK);
   printf("Helium energy       = " FMT_R " K\n", (ke_tot + pe_tot) * GRID_AUTOK);
   fflush(stdout);
+
+#ifdef INIVZ
+  grid_wf_probability_flux_z(gwf, rworkspace);
+  rgrid_multiply(rworkspace, 1.0 / vz);
+  printf("Normal fraction = " FMT_R "\n", rgrid_integral(rworkspace) / natoms);
+#endif
 }
 
 int main(int argc, char **argv) {
@@ -333,6 +377,15 @@ int main(int argc, char **argv) {
   INT iter, kala = 0;
   REAL n;
   grid_timer timer;
+  REAL cons;
+#ifdef INIVZ
+  REAL vy, vx, kx, ky;
+#endif
+
+#if 0
+  printf(FMT_R "\n", round_veloc(INIVZ) * GRID_AUTOMPS);
+  exit(0);
+#endif
 
   printf("Gamma equivalent = " FMT_R "\n", SQRT(2.0 * TXI * GRID_AUKB));
 
@@ -376,7 +429,11 @@ int main(int argc, char **argv) {
 
   otf->rho0 = rho0 = RHO0;
   mu0 = dft_ot_bulk_chempot_pressurized(otf, 0.0);
+#ifdef NDROPLET
+  gwf->norm = NDROPLET;
+#else
   gwf->norm = rho0 * (STEP * STEP * STEP * (REAL) (NX * NY * NZ));
+#endif
 //  otf->c_bfpot = 1.4;
 
   printf("Bulk mu0 = " FMT_R " K/atom, Bulk rho0 = " FMT_R " Angs^-3.\n", mu0 * GRID_AUTOK, rho0 / (GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG));
@@ -410,6 +467,17 @@ int main(int argc, char **argv) {
   cgrid_constant(gwf->grid, SQRT(rho0));
 #endif
 
+#ifdef NDROPLET
+  {
+    REAL rad;
+    INT ix;
+    rad = POW(3.0 * NDROPLET / (4.0 * M_PI * RHO0), 1.0 / 3.0);
+    ix = (INT) (rad / STEP);
+    cgrid_zero_index(gwf->grid, NX/2 - ix, NX/2 + ix, NY/2 - ix, NY/2 + ix, NZ/2 - ix, NZ/2 + ix);
+    cgrid_add(gwf->grid, -SQRT(RHO0));
+  }
+#endif
+
   printf("Imaginary time propagation...\n");
   gwf->kmax = DEALIAS_VAL;
   tstep = -I * TS;
@@ -417,6 +485,23 @@ int main(int argc, char **argv) {
   set_scale(TXI);
 
   grid_timer_start(&timer);
+
+#ifdef INIVZ
+  vz = round_veloc(INIVZ);
+  printf("Current velocity(z) = " FMT_R " m/s.\n", vz * GRID_AUTOMPS);
+  kz = momentum(vz);
+  vy = round_veloc(INIVY);
+  printf("Current velocity(y) = " FMT_R " m/s.\n", vy * GRID_AUTOMPS);
+  ky = momentum(vy);
+  vx = round_veloc(INIVX);
+  printf("Current velocity(x) = " FMT_R " m/s.\n", vx * GRID_AUTOMPS);
+  kx = momentum(vx);
+
+  cgrid_set_momentum(gwf->grid, kx, ky, kz);
+  cons = -(HBAR * HBAR / (2.0 * gwf->mass)) * kz * kz;
+#else
+  cons = 0.0;
+#endif
 
   for (iter = 0; iter < RITER; iter++) {
 
@@ -444,15 +529,8 @@ int main(int argc, char **argv) {
     /* Potential delta t */
     cgrid_constant(potential_store, -mu0);
     dft_ot_potential(otf, potential_store, gwf);
-#ifndef LANGEVIN
-    cgrid_random_normal(potential_store, scale * (1.0 + I));
-    cgrid_fft(potential_store); // Filter high wavenumber components out
-    cgrid_dealias2(potential_store, 0.0, UV_CUTOFF);
-    cgrid_inverse_fft_norm(potential_store);
-#endif
-    grid_wf_propagate_potential(gwf, tstep, potential_store, 0.0); // no moving bkg (0.0)
+    grid_wf_propagate_potential(gwf, tstep, potential_store, cons); // no moving bkg (0.0)
 
-#ifdef LANGEVIN
     if(!kala) {
       /* Random term x delta t (add here to improve the accuracy) */
       cgrid_zero(potential_store);
@@ -462,7 +540,6 @@ int main(int argc, char **argv) {
       cgrid_inverse_fft_norm(potential_store);
       cgrid_sum(gwf->grid, gwf->grid, potential_store);
     }
-#endif
 
     /* Kinetic delta t/2 */
     cgrid_fft(gwf->grid);
