@@ -29,7 +29,7 @@
 #define UY 15.0
 #define UZ 15.0
 
-#define USE_FULL_VOLUME
+//#define USE_FULL_VOLUME
 
 //#undef USE_CUDA
 
