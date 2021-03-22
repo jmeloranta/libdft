@@ -13,16 +13,27 @@
 #include <dft/dft.h>
 #include <dft/ot.h>
 
-#define TS 1.0 /* fs */
-#define ITS (0.0 * TS)
-#define NX 128
-#define NY 128
-#define NZ 128
-#define STEP 0.5
-#define NTH 1000
+#define TS 0.0 /* fs */
+#define ITS 1.0
+#define NX 256
+#define NY 256
+#define NZ 256
+#define STEP 0.25
+#define ITERS 200
 #define THREADS 0
 
-#define RING_RADIUS 20.0
+#define LX (-15.0)
+#define LY (-15.0)
+#define LZ (-15.0)
+#define UX 15.0
+#define UY 15.0
+#define UZ 15.0
+
+#define USE_FULL_VOLUME
+
+//#undef USE_CUDA
+
+#define RING_RADIUS 8.0
 
 #define PRESSURE (0.0 / GRID_AUTOBAR)
 
@@ -31,11 +42,34 @@ REAL rho0;
 /* vortex ring initial guess */
 REAL complex vring(void *asd, REAL x, REAL y, REAL z) {
 
+#ifdef RING_RADIUS
   REAL xs = SQRT(x * x + y * y) - RING_RADIUS;
   REAL ys = z;
   REAL angle = ATAN2(ys,xs), r = SQRT(xs*xs + ys*ys);
  
   return (1.0 - EXP(-r)) * SQRT(rho0) * CEXP(I * angle);
+#else
+  return SQRT(rho0) * dft_initial_vortex_z_n1(NULL, x, y, z);
+#endif
+}
+
+REAL mod_grid_wf_kinetic_energy_cn(wf *gwf) {
+
+  cgrid *grid = gwf->grid;
+
+  if(!gwf->cworkspace) gwf->cworkspace = cgrid_alloc(grid->nx, grid->ny, grid->nz, grid->step, grid->value_outside, grid->outside_params_ptr, "WF cworkspace");
+
+  /* (-2m/hbar^2) T psi */
+  cgrid_fd_laplace(gwf->grid, gwf->cworkspace);
+  cgrid_multiply(gwf->cworkspace, -HBAR * HBAR / (2.0 * gwf->mass));
+
+  /* int psi^* (T + V) psi d^3r */
+#ifdef USE_FULL_VOLUME
+  return CREAL(cgrid_integral_of_conjugate_product(gwf->grid, gwf->cworkspace));
+#else
+  cgrid_conjugate_product(gwf->cworkspace, gwf->grid, gwf->cworkspace);
+  return CREAL(cgrid_integral_region(gwf->cworkspace, LX, UX, LY, UY, LZ, UZ));
+#endif
 }
 
 int main(int argc, char **argv) {
@@ -45,7 +79,7 @@ int main(int argc, char **argv) {
   rgrid *rworkspace;
   wf *gwf, *gwfp;
   INT iter;
-  REAL mu0, kin, pot, n;
+  REAL mu0, kin, pot, n, e0;
   char buf[512];
   grid_timer timer;
 
@@ -79,24 +113,17 @@ int gpus[] = {0};
   /* Allocate space for external potential */
   potential_store = cgrid_clone(gwf->grid, "potential_store"); /* temporary storage */
   rworkspace = rgrid_clone(otf->density, "rworkspace"); /* temporary storage */
+
+  /* Get background energy */
+  cgrid_constant(gwf->grid, SQRT(rho0));
+  dft_ot_energy_density(otf, rworkspace, gwf);
+  e0 = rgrid_integral_region(rworkspace, LX, UX, LY, UY, LZ, UZ);
+  printf("e0 = " FMT_R " K\n", e0 * GRID_AUTOK);
  
   /* setup initial guess for vortex ring */
   grid_wf_map(gwf, vring, NULL);
 
-  for (iter = 1; iter < 800000; iter++) {
-    if(iter == 1 || !(iter % NTH)) {
-      sprintf(buf, "vring-" FMT_I, iter);
-      cgrid_write_grid(buf, gwf->grid);
-      kin = grid_wf_energy(gwf, NULL);            /* Kinetic energy for gwf */
-      dft_ot_energy_density(otf, rworkspace, gwf);
-      pot = rgrid_integral(rworkspace);
-      n = grid_wf_norm(gwf);
-      printf("Iteration " FMT_I " helium natoms    = " FMT_R " particles.\n", iter, n);   /* Energy / particle in K */
-      printf("Iteration " FMT_I " helium kinetic   = " FMT_R "\n", iter, kin * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration " FMT_I " helium potential = " FMT_R "\n", iter, pot * GRID_AUTOK);  /* Print result in K */
-      printf("Iteration " FMT_I " helium energy    = " FMT_R "\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
-      fflush(stdout);
-    }
+  for (iter = 1; iter < ITERS; iter++) {
 
     if(iter == 5) grid_fft_write_wisdom(NULL);
 
@@ -116,5 +143,26 @@ int gpus[] = {0};
     printf("Iteration " FMT_I " - Wall clock time = " FMT_R " seconds.\n", iter, grid_timer_wall_clock_time(&timer));
     fflush(stdout);
   }
+  sprintf(buf, "vring-" FMT_I, iter);
+  grid_wf_density(gwf, rworkspace);
+  rgrid_write_grid(buf, rworkspace);
+  cgrid_abs_power(gwf->grid, gwf->grid, 1.0); // Kill the phase to get just the core energy
+  kin = mod_grid_wf_kinetic_energy_cn(gwf);
+  grid_wf_density(gwf, rworkspace);
+  dft_ot_energy_density(otf, rworkspace, gwf);
+  pot = rgrid_integral_region(rworkspace, LX, UX, LY, UY, LZ, UZ);
+  printf("pot = " FMT_R " K\n", pot * GRID_AUTOK);
+  pot = pot - e0;  // remove uniform bulk energy
+  n = grid_wf_norm(gwf);
+  printf("Iteration " FMT_I " natoms          = " FMT_R " particles.\n", iter, n);   /* Energy / particle in K */
+  printf("Iteration " FMT_I " kinetic         = " FMT_R " K\n", iter, kin * GRID_AUTOK);  /* Print result in K */
+  printf("Iteration " FMT_I " potential       = " FMT_R " K\n", iter, pot * GRID_AUTOK);  /* Print result in K */
+  printf("Iteration " FMT_I " total energy    = " FMT_R " K\n", iter, (kin + pot) * GRID_AUTOK);  /* Print result in K */
+#ifdef RING_RADIUS
+  printf("Iteration " FMT_I " core energy     = " FMT_R " K/Ang\n", iter, (kin + pot) * GRID_AUTOK / (GRID_AUTOANG * 2.0 * M_PI * RING_RADIUS));  /* Print result in K */
+#else
+  printf("Iteration " FMT_I " core energy     = " FMT_R " K/Ang\n", iter, (kin + pot) * GRID_AUTOK / (GRID_AUTOANG * (UZ - LZ)));  /* Print result in K */
+#endif
+
   return 0;
 }

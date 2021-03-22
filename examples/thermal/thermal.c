@@ -18,9 +18,9 @@
 #include <dft/ot.h>
 
 /* FD(0) or FFT(1) properties */
-#define PROPERTIES 0
+#define PROPERTIES 1
 
-/* Time step for imaginary time */
+/* Time step for imaginary time (10.0) */
 #define TS (10.0 / GRID_AUTOFS)
 
 /* Real time step after reaching thermal equilibrium */
@@ -64,7 +64,7 @@
 
 /* Random noise scale */
 // TXI = T * XI
-#define TXI 1.0
+#define TXI 0.1
 
 /* Constant (0 K) or random (infinite T) initial guess */
 // #define RANDOM
@@ -92,10 +92,10 @@
 #define NTH 100L
 
 /* Write grid files? */
-//#define WRITE_GRD 1000L
+#define WRITE_GRD 1000L
 
 /* Rolling energy iteration interval (in units of NTH) - 400 */
-#define ROLLING 100
+#define ROLLING 400
 
 /* How many CPU cores to use (0 = all available) */
 #define THREADS 0
@@ -267,11 +267,11 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
       rentropy_std += (rolling_entropy[i] - rentropy) * (rolling_entropy[i] - rentropy);
       gocc_std += (rolling_gocc[i] - gocc) * (rolling_gocc[i] - gocc);
     }
-    re_std = SQRT(re_std / (REAL) (rolling_ct - 1));
-    rtent_std = SQRT(rtent_std / (REAL) (rolling_ct - 1));
-    rtrot_std = SQRT(rtrot_std / (REAL) (rolling_ct - 1));
-    rentropy_std = SQRT(rentropy_std / (REAL) (rolling_ct - 1));
-    gocc_std = SQRT(gocc_std / (REAL) (rolling_ct - 1));
+    re_std = SQRT(re_std / (REAL) rolling_ct);
+    rtent_std = SQRT(rtent_std / (REAL) rolling_ct);
+    rtrot_std = SQRT(rtrot_std / (REAL) rolling_ct);
+    rentropy_std = SQRT(rentropy_std / (REAL) rolling_ct);
+    gocc_std = SQRT(gocc_std / (REAL) rolling_ct);
     printf("*** Rolling values (U, S, Tent, Trot): " FMT_R " +- " FMT_R ", "
                                                      FMT_R " +- " FMT_R ", "
                                                      FMT_R " +- " FMT_R ", "
@@ -281,6 +281,8 @@ void print_stats(INT iter, wf *gwf, dft_ot_functional *otf, cgrid *potential_sto
     printf("*** Rolling Xi = " FMT_R "\n", TXI / rtrot);    
     printf("*** Rolling Heat capacity = " FMT_R " J/(g K).\n",
            re_std * re_std * (natoms * DFT_HELIUM_MASS * GRID_AUTOKG * 1000.0) / (rtrot * rtrot * KB));
+//           re_std / rtrot_std);
+    printf("*** Rolling temperature = " FMT_R " K.\n", re_std / rentropy_std);
     printf("*** Rolling m = " FMT_R "\n", rm);
     rolling_ct = 0;
   }
