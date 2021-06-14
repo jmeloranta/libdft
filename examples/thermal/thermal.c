@@ -27,7 +27,7 @@
 #define RTS (0.1 / GRID_AUTOFS)
 
 /* Iteration when to switch to real time propagation */
-#define SWITCH 50000000L
+#define SWITCH 5000L
 
 /* Grid */
 #define NX 256
@@ -60,11 +60,11 @@
 #define MU0STEP 1.0E-10 // 1E-8
 
 /* Bulk density at 0 K and zero pressure (Angs^-3) */
-#define RHO0 ((145.2 / 145.2) * 0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
+#define RHO0 ((144.7 / 145.2) * 0.0218360 * GRID_AUTOANG * GRID_AUTOANG * GRID_AUTOANG)
 
 /* Random noise scale */
 // TXI = T * XI
-#define TXI 0.1
+#define TXI 1.8
 
 /* Constant (0 K) or random (infinite T) initial guess */
 // #define RANDOM
