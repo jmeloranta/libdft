@@ -789,9 +789,9 @@ static rgrid *dft_common_pot_interpolate_read(INT n, char **files) {
     for (i = k = 0; i < nr; i++) {
       r = pot_step * (REAL) i;
       if (r < pot_begin)
-	cyl->value[i * nphi + j] = pot.points[0];
+        rgrid_value_to_index(cyl, i, j, 0, pot.points[0]);
       else
-	cyl->value[i * nphi + j] = pot.points[k++];
+        rgrid_value_to_index(cyl, i, j, 0, pot.points[k++]);
     }
   }
 
@@ -819,7 +819,8 @@ static inline REAL eval_value_at_index_cyl(rgrid *grid, INT i, INT j, INT k) {
     k %= nz;
     if (k < 0) k = nz + k;
   }
-  return grid->value[(i*nphi + j)*nz + k];
+  return rgrid_value_at_index(grid, i, j, k);
+//  return grid->value[(i*nphi + j)*nz + k];
 }
 
 /*
@@ -889,7 +890,7 @@ static inline REAL dft_common_interpolate_value(rgrid *grid, REAL r, REAL phi, R
   r = r / step;
   i = (INT) r;
   r = r - (REAL) i;
-  
+
   /*
    * Polynomial along phi
    *
@@ -987,7 +988,7 @@ static inline REAL dft_common_spline_value(rgrid *grid, REAL r, REAL phi, REAL *
 EXPORT void dft_common_pot_interpolate(INT n, char **files, rgrid *out) {
 
   REAL x, y, z, r, phi, step = out->step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
-  INT nx = out->nx, ny = out->ny, nz = out->nz, nynz = ny * nz, i, j, k;
+  INT nx = out->nx, ny = out->ny, nz = out->nz, i, j, k;
   REAL *tmp1, *tmp2;
   rgrid *cyl;
 
@@ -1010,7 +1011,7 @@ EXPORT void dft_common_pot_interpolate(INT n, char **files, rgrid *out) {
 	z = ((REAL) (k - nz/2)) * step - z0;
 	r = SQRT(x2 + y2 + z * z);
 	phi = M_PI - ATAN2(SQRT(x2 + y2), -z);
-	out->value[i * nynz + j * nz + k] = dft_common_interpolate_value(cyl, r, phi, tmp1, tmp2);
+	rgrid_value_to_index(out, i, j, k, dft_common_interpolate_value(cyl, r, phi, tmp1, tmp2));
       }
     }
   }
@@ -1035,7 +1036,7 @@ EXPORT void dft_common_pot_interpolate(INT n, char **files, rgrid *out) {
 EXPORT void dft_common_pot_spline(INT n, char **files, rgrid *out) {
 
   REAL x, y, z, r, phi, step = out->step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
-  INT nx = out->nx, ny = out->ny, nz = out->nz, nynz = ny * nz, i, j, k;
+  INT nx = out->nx, ny = out->ny, nz = out->nz, i, j, k;
   REAL *tmp1, *tmp2 , *tmp3;
   rgrid *cyl;
 
@@ -1058,7 +1059,7 @@ EXPORT void dft_common_pot_spline(INT n, char **files, rgrid *out) {
 	z = ((REAL) (k - nz/2)) * step - z0;
 	r = SQRT(x2 + y2 + z * z);
 	phi = M_PI - ATAN2(SQRT(x2 + y2), -z);
-	out->value[i * nynz + j * nz + k] = dft_common_spline_value(cyl, r, phi, tmp1, tmp2, tmp3) ;
+	rgrid_value_to_index(out, i, j, k, dft_common_spline_value(cyl, r, phi, tmp1, tmp2, tmp3));
       }
     }
   }
@@ -1086,8 +1087,7 @@ EXPORT void dft_common_pot_spline(INT n, char **files, rgrid *out) {
 EXPORT void dft_common_pot_angularderiv(INT n, char **files, rgrid *out) {
 
   REAL x, y, z, r, phi, step_cyl, step = out->step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
-  INT nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nynz = ny * nz;
-  INT nphi , nr;
+  INT nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nphi , nr;
   rgrid *cyl_pot, *cyl_k;
 
   cyl_pot = dft_common_pot_interpolate_read(n, files);    /* cyl_pot allocated */
@@ -1101,10 +1101,11 @@ EXPORT void dft_common_pot_angularderiv(INT n, char **files, rgrid *out) {
   REAL inv_step2 = ((REAL) (nphi * nphi)) / (2.0 * 2.0 * M_PI * M_PI);
   for (i = 0; i < nr; i++) {
     for (j = 0; j < nphi ; j++) {
-	      cyl_k->value[i * nphi + j ] = inv_step2 * (
+              rgrid_value_to_index(cyl_k, i, j, 0, 
+                          inv_step2 * (
 			         rgrid_value_at_index(cyl_pot, i, j-1, 0)
 			  -2.0 * rgrid_value_at_index(cyl_pot, i, j  , 0)
-			  +      rgrid_value_at_index(cyl_pot, i, j+1, 0));
+			  +      rgrid_value_at_index(cyl_pot, i, j+1, 0)));
     }
   }
 
@@ -1121,7 +1122,7 @@ EXPORT void dft_common_pot_angularderiv(INT n, char **files, rgrid *out) {
 	z = ((REAL) (k - nz/2)) * step - z0;
 	r = SQRT(x2 + y2 + z * z);
 	phi = M_PI - ATAN2(SQRT(x2 + y2), -z);
-	out->value[i * nynz + j * nz + k] = eval_value_cyl(cyl_k, r, phi, 0.0);
+	rgrid_value_to_index(out, i, j, k, eval_value_cyl(cyl_k, r, phi, 0.0));
       }
     }
   }
@@ -1146,7 +1147,7 @@ EXPORT void dft_common_pot_angularderiv(INT n, char **files, rgrid *out) {
 EXPORT void dft_common_pot_average(INT n, char **files, rgrid *out) {
   
   REAL x, y, z, r, step = out->step, pot_begin, pot_step, x0 = out->x0, y0 = out->y0, z0 = out->z0;
-  INT nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nr, pot_length, nynz = ny * nz;
+  INT nx = out->nx, ny = out->ny, nz = out->nz, i, j, k, nr, pot_length;
   dft_extpot pot;
   dft_extpot pot_ave;
   REAL angular_weight;
@@ -1186,13 +1187,13 @@ EXPORT void dft_common_pot_average(INT n, char **files, rgrid *out) {
 	z = ((REAL) (k - nz/2)) * step - z0;
 	r = SQRT(x * x + y * y + z * z);
         if (r < pot_begin)
-	  out->value[i * nynz + j * nz + k] = pot_ave.points[0];
+	  rgrid_value_to_index(out, i, j, k, pot_ave.points[0]);
 	else {
 	  nr = (INT) ((r - pot_begin) / pot_step);
 	  if(nr < pot_ave.length)
-	    out->value[i * nynz + j * nz + k] = pot_ave.points[nr];
+	    rgrid_value_to_index(out, i, j, k, pot_ave.points[nr]);
 	  else
-	    out->value[i * nynz + j * nz + k] = 0.0;
+	    rgrid_value_to_index(out, i, j, k, 0.0);
 	}
       }
     }

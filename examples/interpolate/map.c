@@ -11,8 +11,7 @@
 #include <stdlib.h>
 #include <grid/grid.h>
 #include <dft/dft.h>
-
-void dft_common_pot_interpolate(INT n, char **files, rgrid *out) ;
+#include <dft/ot.h>
 
 #define NX 128
 #define NY 128
@@ -25,6 +24,8 @@ int main(int argc, char **argv) {
 
   cart = rgrid_alloc(NX, NY, NZ, STEP, RGRID_PERIODIC_BOUNDARY, NULL, "cart");
   dft_common_pot_interpolate(argc-1, &argv[1], cart);
+  // TODO: spline gives NaNs at present...
+//  dft_common_pot_spline(argc-1, &argv[1], cart);
   rgrid_write_grid("out", cart);
   return 0;
 }
